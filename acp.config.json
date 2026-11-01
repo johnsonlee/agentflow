@@ -1,0 +1,7 @@
+{
+  "acp": {
+    "command": "npx",
+    "args": ["-y", "@agentclientprotocol/codex-acp"],
+    "env": {}
+  }
+}
