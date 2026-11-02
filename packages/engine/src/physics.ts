@@ -130,9 +130,26 @@ function isWaterAt(getBlock: BlockGetter, p: Vec3): boolean {
   return getBlock(Math.floor(p.x), Math.floor(p.y + 0.4), Math.floor(p.z)) === WATER;
 }
 
-/** Advances the player by dt seconds. */
+/** Longest physics substep: movement is integrated at >= 60 Hz whatever the frame rate. */
+export const MAX_SUBSTEP = 1 / 60;
+
+/** Splits a frame's dt (clamped to 0.1 s) into equal substeps of at most MAX_SUBSTEP. */
+export function substeps(dt: number): { n: number; h: number } {
+  const t = Math.min(Math.max(dt, 0), 0.1);
+  const n = Math.max(1, Math.ceil(t / MAX_SUBSTEP - 1e-9));
+  return { n, h: t / n };
+}
+
+/**
+ * Advances the player by dt seconds, in fixed-size substeps so jumps, collisions and step-ups
+ * behave the same at 20 fps and 144 fps.
+ */
 export function stepPlayer(getBlock: BlockGetter, body: PlayerBody, input: MoveInput, dt: number): void {
-  dt = Math.min(dt, 0.1);
+  const { n, h } = substeps(dt);
+  for (let i = 0; i < n; i++) stepPlayerOnce(getBlock, body, input, h);
+}
+
+function stepPlayerOnce(getBlock: BlockGetter, body: PlayerBody, input: MoveInput, dt: number): void {
   const p = body.position;
   const v = body.velocity;
   body.inWater = !body.flying && isWaterAt(getBlock, p);
@@ -169,9 +186,15 @@ export function stepPlayer(getBlock: BlockGetter, body: PlayerBody, input: MoveI
     v.y -= GRAVITY * 0.25 * dt;
     if (input.jump) v.y = Math.min(v.y + 30 * dt, 3.5);
     v.y = Math.max(v.y, -4);
-  } else {
+  }
+  // Vertical displacement uses the average of the old and new velocity: exact for constant gravity,
+  // so jump height does not depend on the step size.
+  let vyMove = v.y;
+  if (!body.flying && !body.inWater) {
     if (input.jump && body.onGround) v.y = JUMP_VELOCITY;
+    const v0 = v.y;
     v.y = Math.max(v.y - GRAVITY * dt, -TERMINAL_VELOCITY);
+    vyMove = (v0 + v.y) / 2;
   }
 
   const wasOnGround = body.onGround;
@@ -186,8 +209,8 @@ export function stepPlayer(getBlock: BlockGetter, body: PlayerBody, input: MoveI
   if (blockedZ) v.z = 0;
   if (sneakEdgeGuard && !hasGroundBelow(getBlock, p)) p.z = prevZ;
 
-  const vy = v.y;
-  const blockedY = moveAxis(getBlock, p, "y", v.y * dt);
+  const vy = vyMove;
+  const blockedY = moveAxis(getBlock, p, "y", vyMove * dt);
   body.onGround = blockedY && vy < 0;
   if (blockedY) v.y = 0;
   if (body.onGround && body.flying) body.flying = false;

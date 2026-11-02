@@ -1,7 +1,7 @@
 import { expect, test } from "@playwright/test";
 import {
   blockAt, blockLight, buildDarkRoom, command, countStack, craftTorches, createWorld, health, look, mobExists, newestMob, parkMouse,
-  player, pressMouse, settle, snap, target, trackMob,
+  buildWallAhead, player, pressMouse, settle, snap, target, trackMob,
 } from "./helpers";
 
 test.describe("PC browser: light and hostile mobs", () => {
@@ -73,8 +73,10 @@ test.describe("PC browser: light and hostile mobs", () => {
     expect(await countStack(page, "rotten_flesh")).toBe(1);
 
     // A zombie can kill the player; respawning restores health.
-    // Back to the open spot and facing the same way, so the next zombie lands on open ground too
-    // (zombies chase in a straight line; one summoned onto a tree may never reach the player).
+    // Back to the open spot, facing the same way, to keep this death check deterministic. Zombies
+    // path-find around obstacles (see the wall test below), but /summon places a mob 3 blocks ahead
+    // at terrain height; inside a tree it is pushed up onto the canopy, which can be higher than the
+    // 3-block drop the path-finder allows.
     await command(page, `/tp ${start.x} ${start.y} ${start.z}`);
     await look(page, 0, 0);
     await settle(page);
@@ -87,5 +89,25 @@ test.describe("PC browser: light and hostile mobs", () => {
     await page.getByRole("button", { name: "Respawn" }).click();
     await expect(page.getByRole("heading", { name: "You died!" })).toBeHidden();
     expect(await health(page)).toBe(20);
+  });
+
+  test("survival: a zombie behind a wall walks around it and reaches the player (path-finding)", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    await createWorld(page, { mode: "survival" });
+    await settle(page);
+    await command(page, "/time set night");
+    await look(page, 0, 0);
+    const wall = await buildWallAhead(page);
+    await command(page, "/summon zombie");
+    const id = (await newestMob(page, "zombie"))!;
+    // Summoned 3 blocks ahead: behind the 2-high wall.
+    const z0 = await page.evaluate((mid) => window.__craft.game!.mobs.mobs.find((m) => m.id === mid)!.position.z, id);
+    expect(z0).toBeLessThan(wall.z);
+    await page.waitForTimeout(500);
+    await snap(page, testInfo, "21-zombie-behind-wall");
+    await expect.poll(() => health(page), { timeout: 60_000 }).toBeLessThan(20);
+    await expect(page.locator(".chat-line", { hasText: "Zombie hit you" }).first()).toBeVisible();
+    // It came around the wall, not through it.
+    expect(await blockAt(page, wall.x0, wall.y0, wall.z)).toBe(await page.evaluate(() => window.__craft.blockId("stone")));
   });
 });

@@ -436,3 +436,20 @@ export async function craftTorches(page: Page, press: (l: Locator) => Promise<vo
 export function health(page: Page) {
   return page.evaluate(() => window.__craft.game!.health);
 }
+
+/**
+ * Test setup: a 2-high, 5-wide stone wall across the -Z direction, `distance` blocks in front of
+ * the player (who faces -Z at yaw 0), so a zombie summoned 3 blocks ahead lands behind it.
+ */
+export function buildWallAhead(page: Page, distance = 2) {
+  return page.evaluate((d) => {
+    const g = window.__craft.game!;
+    const p = g.body.position;
+    const stone = window.__craft.blockId("stone");
+    const x0 = Math.floor(p.x);
+    const z = Math.floor(p.z) - d;
+    const y0 = Math.floor(p.y);
+    for (let x = x0 - 2; x <= x0 + 2; x++) for (let y = y0; y <= y0 + 1; y++) g.world.setBlock(x, y, z, stone);
+    return { x0, z, y0 };
+  }, distance);
+}

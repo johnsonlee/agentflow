@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  blockAt, blockLight, buildDarkRoom, command, countStack, craftTorches, createWorld, health, look, mobExists, newestMob, player, settle,
+  blockAt, blockLight, buildDarkRoom, buildWallAhead, command, countStack, craftTorches, createWorld, health, look, mobExists, newestMob, player, settle,
   snap, target, trackMob,
 } from "./helpers";
 
@@ -73,5 +73,19 @@ test.describe("Mobile browser (touch): light and hostile mobs", () => {
     await stop();
     await expect(page.locator(".chat-line", { hasText: "Zombie was defeated" })).toHaveCount(1);
     expect(await countStack(page, "rotten_flesh")).toBe(1);
+  });
+
+  test("survival: a zombie behind a wall walks around it and reaches the player", async ({ page }, testInfo) => {
+    test.setTimeout(180_000);
+    await createWorld(page, { mode: "survival" });
+    await settle(page);
+    await command(page, "/time set night");
+    await look(page, 0, 0);
+    const wall = await buildWallAhead(page);
+    await command(page, "/summon zombie");
+    const id = (await newestMob(page, "zombie"))!;
+    expect(await page.evaluate((mid) => window.__craft.game!.mobs.mobs.find((m) => m.id === mid)!.position.z, id)).toBeLessThan(wall.z);
+    await expect.poll(() => health(page), { timeout: 60_000 }).toBeLessThan(20);
+    await snap(page, testInfo, "14-touch-zombie-around-wall");
   });
 });

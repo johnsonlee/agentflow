@@ -1,7 +1,8 @@
 import { blockId, isOpaque, isSolid } from "./blocks";
 import { MAX_LIGHT, blockLightOf, skyOf } from "./light";
 import type { Vec3 } from "./math";
-import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, type BlockGetter } from "./physics";
+import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
+import { findPath, type PathNode } from "./pathfind";
 
 export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie";
 
@@ -68,6 +69,14 @@ export interface Mob {
   /** Burning in daylight (seconds accumulated towards the next fire damage). */
   burnTimer?: number;
   burning?: boolean;
+  /** Chase path (cell centres) and when to re-plan it. */
+  path?: PathNode[];
+  pathTimer?: number;
+  pathGoal?: Vec3;
+  /** Steer-around fallback when no path helps: seconds left and direction (+1 / -1). */
+  detourTimer?: number;
+  detourSign?: number;
+  stuckTimer?: number;
   /** NPC display name and dialogue (Education Edition NPC). */
   name?: string;
   dialogue?: string;
@@ -92,12 +101,70 @@ export function createMob(id: number, kind: MobKind, position: Vec3, extra: Part
 
 const WATER = blockId("water");
 
+/** Seconds between chase path re-plans (or sooner if the target moves). */
+const REPLAN_SECONDS = 0.5;
+
 /**
- * Advances a mob by dt seconds: simple wander AI (idle / walk in a random direction),
- * panic-running after being hurt, hopping up one-block steps, gravity and collisions.
+ * Advances a mob by dt seconds: wander AI (idle / walk in a random direction), panic-running after
+ * being hurt, or (hostile mobs) chasing `target` along a path-found route; then physics in fixed
+ * substeps (<= 1/60 s) so stepping up blocks works at any frame rate.
  */
 export function stepMob(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => number, target: Vec3 | null = null): void {
-  dt = Math.min(dt, 0.1);
+  const { n, h } = substeps(dt);
+  const chasing = planChase(getBlock, mob, n * h, target);
+  for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing);
+}
+
+/**
+ * Hostile chase planning: follows a bounded A* path to the target (re-planned every 0.5 s or when
+ * the target moves), and falls back to steering around an obstacle when it makes no progress.
+ * Returns true while chasing.
+ */
+function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | null): boolean {
+  const spec = MOB_SPECS[mob.kind];
+  const p = mob.position;
+  if (!spec.hostile || !target || Math.hypot(target.x - p.x, target.z - p.z) > ZOMBIE.followRange) {
+    mob.path = undefined;
+    return false;
+  }
+  mob.pathTimer = (mob.pathTimer ?? 0) - dt;
+  const moved = mob.pathGoal ? Math.hypot(target.x - mob.pathGoal.x, target.y - mob.pathGoal.y, target.z - mob.pathGoal.z) : Infinity;
+  if (mob.onGround && (mob.pathTimer <= 0 || moved > 1.5 || !mob.path)) {
+    mob.path = findPath(getBlock, p, target, { height: 2, radius: ZOMBIE.followRange }) ?? [];
+    mob.pathTimer = REPLAN_SECONDS;
+    mob.pathGoal = { ...target };
+  }
+  const path = mob.path ?? [];
+  while (path.length > 0 && Math.hypot(path[0].x + 0.5 - p.x, path[0].z + 0.5 - p.z) < 0.35 && Math.abs(path[0].y - p.y) < 1.2) path.shift();
+
+  const toTarget = Math.hypot(target.x - p.x, target.z - p.z);
+  let aimX = target.x;
+  let aimZ = target.z;
+  if (path.length > 0 && !(toTarget < 1.5 && Math.abs(target.y - p.y) < 1)) {
+    aimX = path[0].x + 0.5;
+    aimZ = path[0].z + 0.5;
+  }
+  let yaw = Math.atan2(-(aimX - p.x), -(aimZ - p.z));
+
+  // Fallback steer-around: if it hasn't got closer for a second, sidestep for a moment.
+  const stuck = Math.hypot(mob.velocity.x, mob.velocity.z) < 0.2 && toTarget > ZOMBIE.reach;
+  mob.stuckTimer = stuck ? (mob.stuckTimer ?? 0) + dt : 0;
+  if (mob.stuckTimer > 1) {
+    mob.stuckTimer = 0;
+    mob.detourTimer = 1;
+    mob.detourSign = -(mob.detourSign ?? -1);
+  }
+  if ((mob.detourTimer ?? 0) > 0) {
+    mob.detourTimer! -= dt;
+    yaw += (Math.PI / 2) * (mob.detourSign ?? 1);
+  }
+  mob.yaw = yaw;
+  mob.walking = toTarget > ZOMBIE.reach * 0.6;
+  mob.thinkTimer = 0.5;
+  return true;
+}
+
+function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => number, chasing: boolean): void {
   const spec = MOB_SPECS[mob.kind];
   const p = mob.position;
   const v = mob.velocity;
@@ -107,13 +174,7 @@ export function stepMob(getBlock: BlockGetter, mob: Mob, dt: number, rand: () =>
 
   mob.hurtTimer = Math.max(0, mob.hurtTimer - dt);
   mob.thinkTimer -= dt;
-  const chasing = spec.hostile === true && target !== null && Math.hypot(target.x - p.x, target.z - p.z) <= ZOMBIE.followRange;
-  if (chasing) {
-    // Hostile mobs head straight for the player (no path-finding), stopping when close enough to hit.
-    mob.yaw = Math.atan2(-(target.x - p.x), -(target.z - p.z));
-    mob.walking = Math.hypot(target.x - p.x, target.z - p.z) > ZOMBIE.reach * 0.6;
-    mob.thinkTimer = 0.5;
-  } else if (spec.speed > 0 && mob.thinkTimer <= 0) {
+  if (!chasing && spec.speed > 0 && mob.thinkTimer <= 0) {
     mob.walking = mob.hurtTimer > 0 || rand() < 0.55;
     if (mob.walking) mob.yaw = rand() * Math.PI * 2;
     mob.thinkTimer = mob.hurtTimer > 0 ? 0.6 : 1.5 + rand() * 3;
@@ -128,26 +189,28 @@ export function stepMob(getBlock: BlockGetter, mob: Mob, dt: number, rand: () =>
   v.z += (wishZ - v.z) * blend;
 
   const inWater = getBlock(Math.floor(p.x), Math.floor(p.y + spec.height * 0.4), Math.floor(p.z)) === WATER;
+  // Vertical displacement uses the average of old and new velocity (exact under constant gravity).
+  const v0 = v.y;
   if (inWater) {
     // Bob on the surface like Minecraft animals.
     v.y = Math.min(v.y + 20 * dt, 2);
   } else {
     v.y = Math.max(v.y - GRAVITY * dt, mob.kind === "chicken" ? -3 : -TERMINAL_VELOCITY);
   }
+  const vyMove = (v0 + v.y) / 2;
 
   const blockedX = moveAxis(getBlock, p, "x", v.x * dt, spec.width, spec.height);
   if (blockedX) v.x = 0;
   const blockedZ = moveAxis(getBlock, p, "z", v.z * dt, spec.width, spec.height);
   if (blockedZ) v.z = 0;
-  const vy = v.y;
-  const blockedY = moveAxis(getBlock, p, "y", v.y * dt, spec.width, spec.height);
-  mob.onGround = blockedY && vy < 0;
+  const blockedY = moveAxis(getBlock, p, "y", vyMove * dt, spec.width, spec.height);
+  mob.onGround = blockedY && vyMove < 0;
   if (blockedY) v.y = 0;
 
   if ((blockedX || blockedZ) && mob.onGround && mob.walking) {
     const ahead = { x: p.x - Math.sin(mob.yaw) * 0.5, y: p.y + 1.05, z: p.z - Math.cos(mob.yaw) * 0.5 };
     if (!boxCollides(getBlock, bodyBox(ahead, spec.width, spec.height))) v.y = JUMP_VELOCITY * 0.95;
-    else mob.thinkTimer = 0;
+    else if (!chasing) mob.thinkTimer = 0;
   }
 }
 

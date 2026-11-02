@@ -19,3 +19,4 @@ export * from "./items";
 export * from "./smelting";
 export * from "./hunger";
 export * from "./light";
+export * from "./pathfind";
