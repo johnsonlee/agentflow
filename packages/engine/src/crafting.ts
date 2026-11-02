@@ -45,6 +45,11 @@ export const RECIPES: readonly Recipe[] = [
   { id: "snow_block", pattern: ["##", "##"], key: { "#": "snow" }, result: ["snow", 1], note: "Minecraft uses snowballs" },
   { id: "yellow_wool", ingredients: ["dandelion", "white_wool"], result: ["yellow_wool", 1], note: "dandelion stands in for yellow dye" },
   { id: "red_wool", ingredients: ["poppy", "white_wool"], result: ["red_wool", 1], note: "poppy stands in for red dye" },
+  // Education Edition glow stick: polyethylene, hydrogen peroxide and a luminescent chemical.
+  {
+    id: "glow_stick", pattern: ["PLP", "PHP", " P "], key: { P: "polyethylene", L: "luminol", H: "hydrogen_peroxide" }, result: ["glow_stick", 1],
+    note: "Education Edition also takes a dye for the colour; dyes aren't modelled, so luminol stands in",
+  },
   { id: "glowstone", pattern: ["##", "##"], key: { "#": "gold_ore" }, result: ["glowstone", 1], note: "Minecraft uses glowstone dust" },
 ];
 

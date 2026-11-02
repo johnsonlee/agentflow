@@ -70,14 +70,14 @@ describe("heat block", () => {
     expect(meltAround(world, 0, 51, 0)).toBe(0);
   });
 
-  it("breaks back into the Heat Block item and glows", () => {
+  it("breaks back into the Heat Block item and gives off no light, as in Education Edition", () => {
     const world = flat();
     placeBlock(world, holding("heat_block"), "creative", 0, 51, 0, far);
     expect(dropOf(world.getBlock(0, 51, 0))).toBe(stackId("heat_block"));
     const inv = new Inventory();
     expect(breakBlock(world, inv, "survival", 0, 51, 0)).toBe(true);
     expect(inv.slots[0]).toEqual({ id: stackId("heat_block"), count: 1 });
-    expect(emission(B("placed_heat_block"))).toBeGreaterThan(0);
+    expect(emission(B("placed_heat_block"))).toBe(0);
   });
 });
 

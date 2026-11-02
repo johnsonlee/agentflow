@@ -4,7 +4,7 @@
  * arrays keep holding block ids only.
  */
 import { BLOCKS, blockById, blockId } from "./blocks";
-import { COMPOUNDS, ELEMENTS, LAB_REACTIONS, elementItemName, isotopeItemName } from "./chemistry-data";
+import { COMPOUNDS, ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
 
 export const ITEM_ID_BASE = 256;
 export const MAX_STACK = 64;
@@ -74,6 +74,10 @@ function material(name: string, displayName: string, food?: ItemDef["food"]): Om
 const TOOL_KINDS = ["pickaxe", "axe", "shovel", "sword"] as const;
 
 // Append only: item ids are positional and stored in saves.
+function compoundItem(c: CompoundData): Omit<ItemDef, "id"> {
+  return { name: c.name, displayName: c.displayName, maxStack: MAX_STACK, icon: `item_compound_${c.name}`, chem: { kind: "compound", formula: c.formula } };
+}
+
 /** Lab Table products that are placed as blocks (`placed_<name>`). */
 const PLACED_PRODUCTS = new Set(["heat_block", "underwater_torch", "glow_stick"]);
 
@@ -108,13 +112,13 @@ const specs: Omit<ItemDef, "id">[] = [
     name: isotopeItemName(e, m), displayName: `${e.name}-${m}`, maxStack: MAX_STACK, icon: `item_isotope_${e.z}_${e.symbol}_${m}`,
     chem: { kind: "isotope" as const, z: e.z, symbol: e.symbol, mass: m },
   }))),
-  ...COMPOUNDS.map((c) => ({
-    name: c.name, displayName: c.displayName, maxStack: MAX_STACK, icon: `item_compound_${c.name}`, chem: { kind: "compound" as const, formula: c.formula },
-  })),
-  ...LAB_REACTIONS.map((r) => ({
+  ...COMPOUNDS.filter((c) => !c.appended).map(compoundItem),
+  ...LAB_PRODUCTS.map((r) => ({
     name: r.product, displayName: r.displayName, maxStack: MAX_STACK, icon: `item_product_${r.product}`, chem: { kind: "product" as const },
     places: PLACED_PRODUCTS.has(r.product) ? `placed_${r.product}` : undefined,
   })),
+  // Increment 6b.
+  ...COMPOUNDS.filter((c) => c.appended).map(compoundItem),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));

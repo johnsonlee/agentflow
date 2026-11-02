@@ -8,6 +8,9 @@ import { ITEMS, isKnownId, itemById, isItem, nameOf, stackId } from "./items";
 
 export const MAX_PARTICLES = 140;
 
+/** A stack count the stations accept: a whole number from 1 to 64 (never 0, negative or NaN). */
+const validCount = (n: number) => Number.isInteger(n) && n >= 1 && n <= 64;
+
 const elementsByZ = new Map(ELEMENTS.map((e) => [e.z, e]));
 const elementsBySymbol = new Map(ELEMENTS.map((e) => [e.symbol, e]));
 
@@ -49,6 +52,7 @@ export function createCompound(slots: readonly (ItemStack | null)[]): { id: numb
   const counts = new Map<string, number>();
   for (const s of slots) {
     if (!s) continue;
+    if (!validCount(s.count)) return { error: "Invalid stack" };
     const symbol = elementSymbolById.get(s.id);
     if (!symbol) return { error: "Only elements can go into the Compound Creator" };
     counts.set(symbol, (counts.get(symbol) ?? 0) + s.count);
@@ -86,6 +90,7 @@ export function labReaction(slots: readonly (ItemStack | null)[]): { id: number 
   for (const s of slots) {
     if (!s) continue;
     if (!isKnownId(s.id)) return { error: "Unknown ingredient" };
+    if (!validCount(s.count)) return { error: "Invalid stack" };
     const name = nameOf(s.id);
     counts.set(name, (counts.get(name) ?? 0) + s.count);
   }

@@ -108,7 +108,7 @@ const specs: BlockSpec[] = [
   { name: "lab_table", displayName: "Lab Table", faces: faces("chem_station_top", "lab_table_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
   // Lab Table products once placed (the items place these; breaking one gives the item back), and ice.
   { name: "ice", displayName: "Ice", faces: faces("ice"), hardness: 0.75, tool: "pickaxe" },
-  { name: "placed_heat_block", displayName: "Heat Block", faces: faces("heat_block"), hardness: 1.5, creative: false, emissive: true, light: 7 },
+  { name: "placed_heat_block", displayName: "Heat Block", faces: faces("heat_block"), hardness: 1.5, creative: false },
   { name: "placed_underwater_torch", displayName: "Underwater Torch", faces: faces("underwater_torch_block"), solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 14, waterproof: true, creative: false },
   { name: "placed_glow_stick", displayName: "Glow Stick", faces: faces("glow_stick_block"), solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 10, waterproof: true, creative: false },
 ];

@@ -68,6 +68,8 @@ export interface CompoundData {
   formula: string;
   /** Element symbol -> count (exactly these, in a Compound Creator). */
   recipe: ReadonlyArray<readonly [string, number]>;
+  /** Added after the Lab Table products: its item is registered after them, so existing ids don't move. */
+  appended?: boolean;
 }
 
 /** Education Edition compounds (item names avoid block names, e.g. the water block) whose elements are all within 1-36, with their correct formulas. */
@@ -98,6 +100,8 @@ export const COMPOUNDS: readonly CompoundData[] = [
   { name: "sodium_hydroxide", displayName: "Sodium Hydroxide", formula: "NaOH", recipe: [["Na", 1], ["O", 1], ["H", 1]] },
   { name: "sodium_oxide", displayName: "Sodium Oxide", formula: "Na₂O", recipe: [["Na", 2], ["O", 1]] },
   { name: "charcoal_compound", displayName: "Charcoal (C₇H₄O)", formula: "C₇H₄O", recipe: [["C", 7], ["H", 4], ["O", 1]] },
+  // Increment 6b: the glow stick's crafting ingredient (Education Edition's polyethylene, (C₂H₄)₅).
+  { name: "polyethylene", displayName: "Polyethylene", formula: "(C₂H₄)₅", recipe: [["C", 10], ["H", 20]], appended: true },
 ];
 
 /** Material Reducer: block/item name -> elements it breaks down into (curated, simplified formulas). */
@@ -120,17 +124,26 @@ export const REDUCTIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonly 
   ["coal_ore", [["C", 1], ["Si", 1], ["O", 2]]],
 ];
 
+/** Products of the chemistry stations (items, in registry order). */
+export const LAB_PRODUCTS: ReadonlyArray<{ product: string; displayName: string }> = [
+  { product: "heat_block", displayName: "Heat Block" },
+  { product: "super_fertilizer", displayName: "Super Fertilizer" },
+  { product: "ice_bomb", displayName: "Ice Bomb" },
+  { product: "underwater_torch", displayName: "Underwater Torch" },
+  // Crafted at the crafting table (see crafting.ts), as in Education Edition.
+  { product: "glow_stick", displayName: "Glow Stick" },
+];
+
 /** Lab Table: exact ingredient multisets (item names and counts) -> a product. */
 export interface LabReaction {
   product: string;
-  displayName: string;
   ingredients: ReadonlyArray<readonly [string, number]>;
 }
 
+/** Education Edition Lab Table recipes. */
 export const LAB_REACTIONS: readonly LabReaction[] = [
-  { product: "heat_block", displayName: "Heat Block", ingredients: [["iron", 1], ["water_compound", 1], ["salt", 1], ["calcium_chloride", 1]] },
-  { product: "super_fertilizer", displayName: "Super Fertilizer", ingredients: [["ammonia", 1], ["phosphorus", 1]] },
-  { product: "ice_bomb", displayName: "Ice Bomb", ingredients: [["sodium_acetate", 1], ["snow", 1]] },
-  { product: "underwater_torch", displayName: "Underwater Torch", ingredients: [["magnesium", 1], ["torch", 1]] },
-  { product: "glow_stick", displayName: "Glow Stick", ingredients: [["hydrogen_peroxide", 1], ["luminol", 1], ["latex", 1]] },
+  { product: "heat_block", ingredients: [["iron", 1], ["water_compound", 1], ["salt", 1], ["charcoal", 1]] },
+  { product: "super_fertilizer", ingredients: [["ammonia", 1], ["phosphorus", 1]] },
+  { product: "ice_bomb", ingredients: [["sodium_acetate", 1], ["snow", 1]] },
+  { product: "underwater_torch", ingredients: [["magnesium", 1], ["torch", 1]] },
 ];

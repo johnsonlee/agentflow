@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  matchRecipe,
   BLOCKS, COMPOUNDS, ELEMENTS, Inventory, ITEMS, LAB_REACTIONS, REDUCTIONS, addExhaustion, constructElement, createCompound,
   displayNameOf, elementByZ, isKnownId, itemById, labReaction, nameOf, createHunger, reduceMaterial, sanitizeStack, stackId,
 } from "../src";
@@ -93,6 +94,11 @@ describe("Compound Creator", () => {
     expect(ok(createCompound(stacks(["hydrogen", 2], ["oxygen", 2])))).toBe("hydrogen_peroxide");
     expect(ok(createCompound(stacks(["hydrogen", 3], ["oxygen", 1])))).toMatch(/don't make a known compound/);
     expect(ok(createCompound([]))).toMatch(/Add some elements/);
+    // Zero, negative, fractional or NaN counts are refused, not ignored (review 0ee9512d).
+    for (const bad of [0, -1, 1.5, NaN, 65]) {
+      expect(ok(createCompound([...stacks(["hydrogen", 2], ["oxygen", 1]), { id: id("carbon"), count: bad }]))).toMatch(/Invalid stack/);
+      expect(ok(labReaction([...stacks(["ammonia", 1], ["phosphorus", 1]), { id: id("salt"), count: bad }]))).toMatch(/Invalid stack/);
+    }
     // Isotopes and non-elements are refused.
     expect(ok(createCompound(stacks(["hydrogen_2", 2], ["oxygen", 1])))).toMatch(/Only elements/);
     expect(ok(createCompound(stacks(["dirt", 1])))).toMatch(/Only elements/);
@@ -122,9 +128,13 @@ describe("Lab Table", () => {
   });
 
   it("makes a heat block and refuses wrong mixtures", () => {
-    expect(ok(labReaction(stacks(["calcium_chloride", 1], ["iron", 1], ["salt", 1], ["water_compound", 1])))).toBe("heat_block");
+    // Education Edition: iron, water, salt and charcoal (review 0ee9512d).
+    expect(ok(labReaction(stacks(["charcoal", 1], ["iron", 1], ["salt", 1], ["water_compound", 1])))).toBe("heat_block");
+    expect(ok(labReaction(stacks(["calcium_chloride", 1], ["iron", 1], ["salt", 1], ["water_compound", 1])))).toMatch(/Nothing happens/);
+    // The glow stick isn't a Lab Table product (it's crafted).
+    expect(ok(labReaction(stacks(["hydrogen_peroxide", 1], ["luminol", 1], ["latex", 1])))).toMatch(/Nothing happens/);
     expect(ok(labReaction(stacks(["iron", 1], ["water_compound", 1], ["salt", 1])))).toMatch(/Nothing happens/);
-    expect(ok(labReaction(stacks(["iron", 2], ["water_compound", 1], ["salt", 1], ["calcium_chloride", 1])))).toMatch(/Nothing happens/);
+    expect(ok(labReaction(stacks(["iron", 2], ["water_compound", 1], ["salt", 1], ["charcoal", 1])))).toMatch(/Nothing happens/);
     expect(ok(labReaction([]))).toMatch(/Add some/);
     expect(ok(labReaction([{ id: 1.5, count: 1 }]))).toMatch(/Unknown/);
   });
@@ -150,5 +160,21 @@ describe("addExhaustion (review 95edfbc8 hardening)", () => {
     expect(h.exhaustion).toBe(0);
     addExhaustion(h, 1.5);
     expect(h.exhaustion).toBe(1.5);
+  });
+});
+
+describe("glow stick crafting (review 0ee9512d)", () => {
+  it("is crafted at the crafting table from polyethylene, luminol and hydrogen peroxide", () => {
+    expect(itemById(id("polyethylene")).chem).toEqual({ kind: "compound", formula: "(C₂H₄)₅" });
+    expect(ok(createCompound(stacks(["carbon", 10], ["hydrogen", 20])))).toBe("polyethylene");
+    const P = { id: id("polyethylene"), count: 1 };
+    const grid = [P, { id: id("luminol"), count: 1 }, P, P, { id: id("hydrogen_peroxide"), count: 1 }, P, null, P, null];
+    expect(matchRecipe(grid, 3)?.result).toEqual({ id: id("glow_stick"), count: 1 });
+    expect(matchRecipe([P, null, P, P, { id: id("hydrogen_peroxide"), count: 1 }, P, null, P, null], 3)).toBeNull();
+  });
+
+  it("new items keep the 6a item ids (polyethylene is appended after the products)", () => {
+    expect(id("polyethylene")).toBeGreaterThan(id("glow_stick"));
+    expect(id("glow_stick")).toBe(id("underwater_torch") + 1);
   });
 });
