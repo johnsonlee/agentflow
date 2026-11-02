@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  MOB_SPECS, PASSIVE_MOBS, SEA_LEVEL, blockId, createMob, damageMob, raycastMob, stepMob,
+  MOB_SPECS, PASSIVE_MOBS, SEA_LEVEL, blockId, bodyBox, boxCollides, createMob, damageMob, raycastMob, stepMob,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
 
@@ -163,6 +163,8 @@ export class MobManager {
   readonly mobs: Mob[] = [];
   private readonly models = new Map<number, THREE.Group>();
   private nextId = 1;
+  /** Minecraft's doMobSpawning game rule: natural animal spawning (summoning always works). */
+  spawning = true;
   private spawnTimer = 0;
   private seed = 12345;
   private readonly rand = () => ((this.seed = (this.seed * 16807) % 2147483647) / 2147483647);
@@ -208,7 +210,7 @@ export class MobManager {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = 2;
-      this.spawnNear(player);
+      if (this.spawning) this.spawnNear(player);
     }
     for (const mob of [...this.mobs]) {
       const dist = Math.hypot(mob.position.x - player.x, mob.position.z - player.z);
@@ -277,8 +279,13 @@ export class MobManager {
     if (this.world.getBlock(x, h + 1, z) !== 0 && this.world.getBlock(x, h + 1, z) !== blockId("tall_grass")) return;
     const kind = PASSIVE_MOBS[Math.floor(this.rand() * PASSIVE_MOBS.length)];
     const herd = 2 + Math.floor(this.rand() * 2);
+    const spec = MOB_SPECS[kind];
+    const get = (bx: number, by: number, bz: number) => this.world.getBlock(bx, by, bz);
     for (let i = 0; i < herd && this.animalCount() < MAX_ANIMALS; i++) {
-      this.spawn(kind, { x: x + 0.5 + i * 0.7, y: h + 1.2, z: z + 0.5 }, { yaw: this.rand() * Math.PI * 2 });
+      const at = { x: x + 0.5 + i * 0.7, y: h + 1.05, z: z + 0.5 };
+      // Only spawn where the whole body fits (wide animals can overlap neighbouring columns).
+      if (boxCollides(get, bodyBox(at, spec.width, spec.height))) continue;
+      this.spawn(kind, at, { yaw: this.rand() * Math.PI * 2 });
     }
   }
 }

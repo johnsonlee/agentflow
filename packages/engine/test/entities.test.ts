@@ -46,6 +46,15 @@ describe("mobs", () => {
     expect(npc.position.z).toBe(0.5);
   });
 
+  it("are pushed out when embedded in blocks", () => {
+    const pig = createMob(7, "pig", { x: 0.5, y: 8.2, z: 0.5 });
+    stepMob(flat, pig, 1 / 60, mulberry32(3));
+    expect(pig.position.y).toBeGreaterThanOrEqual(10);
+    for (let i = 0; i < 120; i++) stepMob(flat, pig, 1 / 60, mulberry32(3));
+    expect(pig.onGround).toBe(true);
+    expect(pig.position.y).toBeCloseTo(10, 2);
+  });
+
   it("can be targeted by a ray", () => {
     const pig = createMob(6, "pig", { x: 0.5, y: 10, z: -3 });
     expect(raycastMob({ x: 0.5, y: 10.5, z: 0 }, { x: 0, y: 0, z: -1 }, pig, 5)).toBeCloseTo(2.55, 2);

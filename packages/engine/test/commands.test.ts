@@ -34,6 +34,13 @@ describe("chat commands", () => {
     expect(parseCommand("/summon creeper").type).toBe("error");
   });
 
+  it("parses /gamerule", () => {
+    expect(parseCommand("/gamerule doMobSpawning false")).toEqual({ type: "gamerule", rule: "doMobSpawning", value: false });
+    expect(parseCommand("/gamerule doDaylightCycle true")).toEqual({ type: "gamerule", rule: "doDaylightCycle", value: true });
+    expect(parseCommand("/gamerule keepInventory true").type).toBe("error");
+    expect(parseCommand("/gamerule doMobSpawning maybe").type).toBe("error");
+  });
+
   it("handles help, seed and unknown commands", () => {
     expect(parseCommand("/help").type).toBe("help");
     expect(parseCommand("seed").type).toBe("seed");

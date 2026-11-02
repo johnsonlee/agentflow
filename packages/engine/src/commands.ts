@@ -8,6 +8,7 @@ export type Command =
   | { type: "tp"; x: number; y: number; z: number; relative: [boolean, boolean, boolean] }
   | { type: "give"; id: number; count: number }
   | { type: "summon"; kind: MobKind; name?: string }
+  | { type: "gamerule"; rule: "doMobSpawning" | "doDaylightCycle"; value: boolean }
   | { type: "seed" }
   | { type: "help" }
   | { type: "error"; message: string };
@@ -22,6 +23,7 @@ export const COMMAND_HELP = [
   "/tp <x> <y> <z>  (~ for relative)",
   "/give <block> [count]",
   "/summon <pig|sheep|chicken|npc> [name]",
+  "/gamerule <doMobSpawning|doDaylightCycle> <true|false>",
   "/seed",
 ];
 
@@ -66,6 +68,12 @@ export function parseCommand(input: string): Command {
       }
       const name = args.slice(1).join(" ").trim();
       return name ? { type: "summon", kind, name } : { type: "summon", kind };
+    }
+    case "gamerule": {
+      const rule = args[0] === "doMobSpawning" || args[0] === "doDaylightCycle" ? args[0] : null;
+      const value = args[1] === "true" ? true : args[1] === "false" ? false : null;
+      if (!rule || value === null) return { type: "error", message: "Usage: /gamerule <doMobSpawning|doDaylightCycle> <true|false>" };
+      return { type: "gamerule", rule, value };
     }
     case "seed":
       return { type: "seed" };

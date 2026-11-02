@@ -22,6 +22,8 @@ export interface GameOptions {
   seed: number;
   mode: GameMode;
   touch: boolean;
+  /** doMobSpawning game rule for new worlds (default true). */
+  spawnAnimals?: boolean;
   save?: SaveData;
 }
 
@@ -56,6 +58,7 @@ export class Game {
   private mobTarget: Mob | null = null;
   private attackCooldown = 0;
   private clock = 0;
+  private daylightCycle = true;
   private readonly spawn: { x: number; y: number; z: number };
   private target: RaycastHit | null = null;
   private breakProgress = 0;
@@ -93,6 +96,8 @@ export class Game {
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.mobs = new MobManager(this.world, this.renderer.scene);
     for (const npc of save?.npcs ?? []) this.mobs.spawn("npc", npc, npc);
+    this.mobs.spawning = save?.gamerules?.doMobSpawning ?? options.spawnAnimals ?? true;
+    this.daylightCycle = save?.gamerules?.doDaylightCycle ?? true;
 
     this.spawn = this.findSpawn();
     this.body = createPlayerBody(save?.player.position ?? this.spawn);
@@ -197,6 +202,7 @@ export class Game {
         inventory: this.inventory.toJSON(),
         edits: this.world.exportEdits(),
         npcs: this.mobs.exportNpcs(),
+        gamerules: { doMobSpawning: this.mobs.spawning, doDaylightCycle: this.daylightCycle },
       }));
     } catch {
       // Storage may be full or disabled (private mode); the game keeps running.
@@ -250,7 +256,7 @@ export class Game {
       }, dt);
       this.updateFall(wasOnGround);
       if (this.body.position.y < -20) this.hurt(MAX_HEALTH);
-      this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
+      if (this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
       this.mobs.update(dt, this.body.position, skyAt(this.timeOfDay).light, this.clock);
       this.interact(input.breaking, input.place, input.pick, dt);
     } else {
@@ -395,7 +401,9 @@ export class Game {
     else if (e.code === "Escape" && this.inventoryScreen.open) this.toggleInventory();
     else if (e.code === "KeyC" && !this.paused && !this.dead && !this.inventoryScreen.open) this.takePhoto();
     else if (e.code === "KeyP" && !this.paused && !this.dead && !this.inventoryScreen.open) this.togglePortfolio();
-    else if (e.code === "Escape" && !this.paused && !this.dead && !this.keyboard.pointerLocked) this.pause();
+    // Browsers usually consume Escape to release pointer lock (handled in pointerlockchange); if it
+    // reaches us, pause directly so the menu always opens.
+    else if (e.code === "Escape" && !this.paused && !this.dead) this.pause();
     else if ((e.code === "Slash" || e.code === "KeyT") && !this.paused && !this.dead && !this.inventoryScreen.open) {
       e.preventDefault();
       this.openChat(e.code === "Slash" ? "/" : "");
@@ -519,6 +527,11 @@ export class Game {
         reply = `Summoned new ${mob.kind === "npc" ? (mob.name ?? "NPC") : MOB_SPECS[mob.kind].displayName}`;
         break;
       }
+      case "gamerule":
+        if (cmd.rule === "doMobSpawning") this.mobs.spawning = cmd.value;
+        else this.daylightCycle = cmd.value;
+        reply = `Game rule ${cmd.rule} is now set to: ${cmd.value}`;
+        break;
       case "seed":
         reply = `Seed: [${this.world.seed}]`;
         break;

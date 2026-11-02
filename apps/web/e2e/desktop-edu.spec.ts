@@ -43,7 +43,43 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     await snap(page, testInfo, "08-crafting-table");
   });
 
-  test("animals can be summoned, wander, and are defeated by attacks; sheep drop wool", async ({ page }, testInfo) => {
+  test("animals spawn naturally on grassland and wander (doMobSpawning on by default)", async ({ page }, testInfo) => {
+    await createWorld(page, { animals: true });
+    await expect.poll(() => page.evaluate(() => window.__craft.game!.mobs.animalCount()), { timeout: 30_000 }).toBeGreaterThan(0);
+    // Wander AI alternates idling and walking at random, so allow some time for a walk to start.
+    const before = await page.evaluate(() => window.__craft.game!.mobs.mobs.map((m) => ({ id: m.id, x: m.position.x, z: m.position.z })));
+    await expect
+      .poll(
+        () =>
+          page.evaluate((list) => {
+            const mobs = window.__craft.game!.mobs.mobs;
+            return list.some((b) => {
+              const m = mobs.find((x) => x.id === b.id);
+              return m !== undefined && Math.hypot(m.position.x - b.x, m.position.z - b.z) > 0.3;
+            });
+          }, before),
+        { timeout: 20_000 },
+      )
+      .toBe(true);
+    await command(page, "/gamerule doMobSpawning false");
+    await expect(page.locator(".chat-line", { hasText: "doMobSpawning is now set to: false" })).toHaveCount(1);
+  });
+
+  test("combat: a summoned chicken is targeted and defeated by a real click (no repositioning)", async ({ page }) => {
+    await createWorld(page);
+    await settle(page);
+    await command(page, "/summon chicken");
+    const id = (await newestMob(page, "chicken"))!;
+    // Let it land, then aim at it once and attack: creative hand damage (4) defeats a chicken (4 HP).
+    await page.waitForTimeout(400);
+    await lookAtMob(page, id);
+    await expect.poll(() => page.evaluate(() => window.__craft.game!.targetMob?.kind ?? null)).toBe("chicken");
+    await page.locator(".game-canvas").click({ button: "left" });
+    await expect.poll(() => mobExists(page, id)).toBe(false);
+    await expect(page.locator(".chat-line", { hasText: "Chicken was defeated" })).toHaveCount(1);
+  });
+
+  test("survival drops: a sheep defeated over several hits drops wool", async ({ page }, testInfo) => {
     await createWorld(page, { mode: "survival" });
     await settle(page);
     await command(page, "/summon sheep");
@@ -54,7 +90,8 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     await page.waitForTimeout(200);
     await snap(page, testInfo, "09-sheep");
     for (let i = 0; i < 20 && (await mobExists(page, id)); i++) {
-      // A hurt sheep panics and runs, as in Minecraft; keep it within reach for the test.
+      // A hurt sheep panics and runs out of reach, as in Minecraft. This test covers the multi-hit
+      // damage and drop path, so it keeps the sheep in reach; real targeting is covered by the chicken test.
       await bringMob(page, id);
       await lookAtMob(page, id);
       await page.waitForTimeout(80);

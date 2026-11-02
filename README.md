@@ -31,7 +31,7 @@ npm run build      # production build in apps/web/dist
 - **Education Edition:** Camera & Portfolio (capture, caption, save, delete photos); NPCs with editable names and dialogue (`/summon npc`); Allow/Deny/Border
 - Hotbar, inventory screen, middle-click pick block, sneaking (won't walk off edges), sprinting, swimming
 - A 20-minute day/night cycle with sun, moon and clouds; underwater fog
-- Commands: `/gamemode`, `/time set`, `/tp`, `/give`, `/summon`, `/seed`, `/help`
+- Commands: `/gamemode`, `/time set`, `/tp`, `/give`, `/summon`, `/gamerule doMobSpawning|doDaylightCycle`, `/seed`, `/help`
 - Autosaves to `localStorage` (blocks, inventory, NPCs); use **Continue** on the title screen to resume
 - Touch controls: a floating joystick, camera drag, tap to place or talk, hold to break, jump/fly/descend buttons, auto-jump, tappable hotbar, and inventory, camera and portfolio buttons
 

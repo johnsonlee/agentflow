@@ -13,7 +13,11 @@ export interface PlayerState {
 }
 
 /** Creates a new world through the real title-screen UI and waits until nearby terrain is meshed. */
-export async function createWorld(page: Page, options: { seed?: string; mode?: "creative" | "survival"; url?: string } = {}) {
+/**
+ * Natural animal spawning is off by default so wandering animals can't intercept clicks and taps
+ * aimed at blocks; tests about natural spawning pass `animals: true`.
+ */
+export async function createWorld(page: Page, options: { seed?: string; mode?: "creative" | "survival"; url?: string; animals?: boolean } = {}) {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(e.message));
   page.on("console", (m) => {
@@ -26,6 +30,7 @@ export async function createWorld(page: Page, options: { seed?: string; mode?: "
   await page.getByRole("button", { name: "Create New World" }).click();
   await page.getByLabel("Seed").fill(options.seed ?? "12345");
   if (options.mode === "survival") await page.getByRole("button", { name: /Game Mode/ }).click();
+  if (!options.animals) await page.getByRole("button", { name: "Spawn Animals: On" }).click();
   await page.getByRole("button", { name: "Create", exact: true }).click();
   await waitForTerrain(page);
   return errors;

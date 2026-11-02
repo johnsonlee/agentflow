@@ -74,6 +74,9 @@ export function stepMob(getBlock: BlockGetter, mob: Mob, dt: number, rand: () =>
   const p = mob.position;
   const v = mob.velocity;
 
+  // Like Minecraft, push a mob that is stuck inside blocks (e.g. after terrain edits) up and out.
+  for (let i = 0; i < 3 && boxCollides(getBlock, bodyBox(p, spec.width, spec.height)); i++) p.y = Math.floor(p.y) + 1;
+
   mob.hurtTimer = Math.max(0, mob.hurtTimer - dt);
   mob.thinkTimer -= dt;
   if (spec.speed > 0 && mob.thinkTimer <= 0) {

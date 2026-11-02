@@ -78,6 +78,11 @@ function showCreate(): void {
     modeButton.textContent = `Game Mode: ${mode === "creative" ? "Creative" : "Survival"}`;
   });
   modeButton.dataset.testid = "mode";
+  let animals = true;
+  const animalsButton = button("Spawn Animals: On", () => {
+    animals = !animals;
+    animalsButton.textContent = `Spawn Animals: ${animals ? "On" : "Off"}`;
+  });
   const field = (label: string, input: HTMLElement) => {
     const l = el("label", "field");
     l.append(el("span", "", label), input);
@@ -87,10 +92,10 @@ function showCreate(): void {
     const text = seed.value.trim();
     const numericSeed = text ? seedFromString(text) : Math.floor(Math.random() * 2 ** 31);
     localStorage.removeItem(SAVE_KEY);
-    startGame({ name: name.value.trim() || "My World", seed: numericSeed, mode });
+    startGame({ name: name.value.trim() || "My World", seed: numericSeed, mode, spawnAnimals: animals });
   }, "mc-button primary");
   create.dataset.testid = "create";
-  app.replaceChildren(screen("create-screen", el("h2", "", "Create New World"), field("World Name", name), field("Seed", seed), modeButton, create, button("Cancel", showTitle)));
+  app.replaceChildren(screen("create-screen", el("h2", "", "Create New World"), field("World Name", name), field("Seed", seed), modeButton, animalsButton, create, button("Cancel", showTitle)));
 }
 
 function showHelp(): void {
@@ -110,11 +115,11 @@ function showHelp(): void {
     <h3>Crafting &amp; mobs</h3>
     <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep and chickens roam grassland; left click to attack (sheep drop wool).</p>
     <h3>Commands</h3>
-    <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /summon pig|sheep|chicken|npc · /seed</p>`;
+    <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /summon pig|sheep|chicken|npc · /gamerule doMobSpawning false · /seed</p>`;
   app.replaceChildren(screen("help-screen", el("h2", "", "How to Play"), list, button("Back", showTitle)));
 }
 
-function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?: GameMode }): void {
+function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?: GameMode; spawnAnimals?: boolean }): void {
   app.replaceChildren();
   const loading = screen("loading-screen", el("h2", "", "Generating world…"));
   app.appendChild(loading);
@@ -124,6 +129,7 @@ function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?:
       seed: opts.save?.seed ?? opts.seed ?? 0,
       mode: opts.save?.mode ?? opts.mode ?? "creative",
       touch,
+      spawnAnimals: opts.spawnAnimals,
       save: opts.save,
     }, { onPause: showPause, onDeath: showDeath });
     loading.remove();
