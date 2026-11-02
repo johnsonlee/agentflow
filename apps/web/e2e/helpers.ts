@@ -399,3 +399,40 @@ export function setFood(page: Page, food: number) {
     window.__craft.game!.hunger.food = f;
   }, food);
 }
+
+/** Block light (0-15) at a cell, read from the game's light engine. */
+export function blockLight(page: Page, x: number, y: number, z: number) {
+  return page.evaluate(([bx, by, bz]) => window.__craft.game!.world.getLight(bx, by, bz) & 15, [x, y, z] as const);
+}
+
+/**
+ * Test setup: carves a sealed 5x3x5 stone room deep underground around (x, z) and returns the
+ * floor-level centre. The player is then moved in with a real /tp command.
+ */
+export function buildDarkRoom(page: Page, cx: number, cz: number, floorY = 20) {
+  return page.evaluate(([x0, z0, fy]) => {
+    const w = window.__craft.game!.world;
+    const stone = window.__craft.blockId("stone");
+    for (let x = x0 - 4; x <= x0 + 4; x++) for (let z = z0 - 4; z <= z0 + 4; z++) for (let y = fy - 2; y <= fy + 5; y++) w.setBlock(x, y, z, stone);
+    for (let x = x0 - 2; x <= x0 + 2; x++) for (let z = z0 - 2; z <= z0 + 2; z++) for (let y = fy; y <= fy + 2; y++) w.setBlock(x, y, z, 0);
+    return { x: x0, y: fy, z: z0 };
+  }, [cx, cz, floorY] as const);
+}
+
+/** Crafts 4 torches in the open survival inventory from coal (slot 0) and a stick (slot 1); puts them in slot 0. */
+export async function craftTorches(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen");
+  await press(inv.locator('[data-slot="0"]'));
+  await press(inv.locator('[data-craft="0"]'));
+  await press(inv.locator('[data-slot="1"]'));
+  await press(inv.locator('[data-craft="2"]'));
+  await expect(inv.locator("[data-craft-result] img")).toHaveAttribute("alt", "Torch");
+  await press(inv.locator("[data-craft-result]"));
+  await expect(inv.locator('[data-testid="cursor"]')).toContainText("Torch ×4");
+  await press(inv.locator('[data-slot="0"]'));
+  await expect(inv.locator('[data-testid="cursor"]')).toBeEmpty();
+}
+
+export function health(page: Page) {
+  return page.evaluate(() => window.__craft.game!.health);
+}
