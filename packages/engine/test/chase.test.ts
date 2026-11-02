@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, JUMP_VELOCITY, World, blockId, createMob, createPlayerBody, findPath, mobAttack, stepMob, stepPlayer, type Mob, type MobKind } from "../src";
+import { AIR, JUMP_VELOCITY, World, blockId, createMob, createPlayerBody, findPath, findSummonSpot, mobAttack, stepMob, stepPlayer, type Mob, type MobKind } from "../src";
 
 // Reproduces review bd1e2360: obstacles pinned the straight-line chase, and below ~30 fps mobs
 // could not jump a 1-block step. Both must work at 20-144 fps.
@@ -117,4 +117,46 @@ describe("frame-rate independent physics", () => {
       expect(peak - 51).toBeCloseTo((JUMP_VELOCITY * JUMP_VELOCITY) / (2 * 32), 1);
     });
   }
+});
+
+describe("/summon placement", () => {
+  /** A tree at (3, 51..55, 0) with a 5x5 leaf canopy at y 54..56, on flat stone. */
+  function withTree(): World {
+    const w = flat();
+    const leaves = blockId("oak_leaves");
+    for (let x = 1; x <= 5; x++) for (let z = -2; z <= 2; z++) for (let y = 54; y <= 56; y++) w.setBlock(x, y, z, leaves);
+    for (let y = 51; y <= 55; y++) w.setBlock(3, y, 0, LOG);
+    return w;
+  }
+
+  it("never lands inside or on top of a tree: picks ground beside it at the summoner's level", () => {
+    const w = withTree();
+    const get = (x: number, y: number, z: number) => w.getBlock(x, y, z);
+    const spot = findSummonSpot(get, 3.5, 0.5, 51, 2)!;
+    expect(spot.y).toBe(51);
+    expect(Math.hypot(spot.x - 3.5, spot.z - 0.5)).toBeLessThanOrEqual(1.5);
+    expect(w.getBlock(Math.floor(spot.x), 50, Math.floor(spot.z))).toBe(STONE);
+    // And a zombie summoned there reaches the player.
+    const mob = createMob(1, "zombie", { ...spot, y: spot.y + 0.01 });
+    const player = { x: 0.5, y: 51, z: 0.5 };
+    let damage = 0;
+    for (let i = 0; i < 30 * 30; i++) {
+      stepMob(get, mob, 1 / 30, () => 0.5, player);
+      damage += mobAttack(mob, player, 1 / 30);
+    }
+    expect(damage).toBeGreaterThan(0);
+  });
+
+  it("keeps the exact column when it is open ground", () => {
+    const w = flat();
+    const get = (x: number, y: number, z: number) => w.getBlock(x, y, z);
+    expect(findSummonSpot(get, 3.5, 0.5, 51, 2)).toEqual({ x: 3.5, y: 51, z: 0.5 });
+  });
+
+  it("returns null when nothing nearby fits (e.g. solid rock)", () => {
+    const w = flat();
+    for (let x = -6; x <= 10; x++) for (let z = -6; z <= 6; z++) for (let y = 51; y <= 58; y++) w.setBlock(x, y, z, STONE);
+    const get = (x: number, y: number, z: number) => w.getBlock(x, y, z);
+    expect(findSummonSpot(get, 3.5, 0.5, 51, 2, 2)).toBeNull();
+  });
 });

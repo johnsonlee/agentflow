@@ -54,8 +54,6 @@ test.describe("Mobile browser (touch): light and hostile mobs", () => {
     await settle(page);
     await command(page, "/give iron_sword");
     await command(page, "/time set night");
-    // Face the open beach so the zombie is summoned onto open ground.
-    await look(page, 0, 0);
     await command(page, "/summon zombie");
     const id = (await newestMob(page, "zombie"))!;
     await expect.poll(() => health(page), { timeout: 30_000 }).toBeLessThan(20);

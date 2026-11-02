@@ -47,8 +47,6 @@ test.describe("PC browser: light and hostile mobs", () => {
     await command(page, "/give iron_sword");
     // Night, so the zombie doesn't burn in the sun.
     await command(page, "/time set night");
-    const start = await player(page);
-    await look(page, 0, 0);
     await command(page, "/summon zombie");
     const id = (await newestMob(page, "zombie"))!;
     expect(id).not.toBeNull();
@@ -73,13 +71,7 @@ test.describe("PC browser: light and hostile mobs", () => {
     expect(await countStack(page, "rotten_flesh")).toBe(1);
 
     // A zombie can kill the player; respawning restores health.
-    // Back to the open spot, facing the same way, to keep this death check deterministic. Zombies
-    // path-find around obstacles (see the wall test below), but /summon places a mob 3 blocks ahead
-    // at terrain height; inside a tree it is pushed up onto the canopy, which can be higher than the
-    // 3-block drop the path-finder allows.
-    await command(page, `/tp ${start.x} ${start.y} ${start.z}`);
-    await look(page, 0, 0);
-    await settle(page);
+    // Wherever the fight left the player facing: /summon picks reachable ground and zombies path-find.
     await page.evaluate(() => {
       window.__craft.game!.health = 3; // test setup: one hit from death
     });

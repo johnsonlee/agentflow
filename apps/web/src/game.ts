@@ -3,7 +3,7 @@ import {
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
-  tickHunger, knockbackFrom, mobAttack, type FurnaceState, type HungerState,
+  tickHunger, knockbackFrom, mobAttack, findSummonSpot, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -632,10 +632,16 @@ export class Game {
         const dir = lookDirection(this.body.yaw, 0);
         const x = this.body.position.x + dir.x * 3;
         const z = this.body.position.z + dir.z * 3;
-        const y = this.world.generator.heightAt(Math.floor(x), Math.floor(z)) + 1;
-        const surface = Math.max(y, Math.floor(this.body.position.y));
+        // A ground spot near that point at about the player's level, never inside or on top of a tree.
+        const get = (bx: number, by: number, bz: number) => this.world.getBlock(bx, by, bz);
+        const height = Math.ceil(MOB_SPECS[cmd.kind].height);
+        const spot = findSummonSpot(get, x, z, this.body.position.y, height) ?? {
+          x,
+          y: Math.max(this.world.generator.heightAt(Math.floor(x), Math.floor(z)) + 1, Math.floor(this.body.position.y)) + 0.5,
+          z,
+        };
         // NPCs face the player.
-        const mob = this.mobs.spawn(cmd.kind, { x, y: surface + 0.5, z }, { name: cmd.name, yaw: this.body.yaw + Math.PI });
+        const mob = this.mobs.spawn(cmd.kind, { x: spot.x, y: spot.y + 0.01, z: spot.z }, { name: cmd.name, yaw: this.body.yaw + Math.PI });
         reply = `Summoned new ${mob.kind === "npc" ? (mob.name ?? "NPC") : MOB_SPECS[mob.kind].displayName}`;
         break;
       }

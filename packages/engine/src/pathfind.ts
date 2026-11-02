@@ -6,7 +6,9 @@
  * within `radius` of the start and expands at most `maxNodes` nodes, so it is cheap and always
  * terminates; if the goal is unreachable it returns a path to the closest node found.
  */
-import { isSolid } from "./blocks";
+import { BLOCKS, isOpaque, isSolid } from "./blocks";
+
+const TREE = new Set(BLOCKS.filter((b) => b.name.endsWith("_log") || b.name.endsWith("_leaves")).map((b) => b.id));
 import type { BlockGetter } from "./physics";
 import type { Vec3 } from "./math";
 
@@ -140,4 +142,37 @@ export function findPath(get: BlockGetter, from: Vec3, to: Vec3, opts: PathOptio
     path.push(n);
   }
   return path.reverse();
+}
+
+/**
+ * Picks where to put a summoned mob near (x, z): the nearest column (rings out to `radius`)
+ * with a standable cell within a few blocks of `nearY` (the summoner's feet), on an opaque floor
+ * that isn't part of a tree (logs or leaves). So /summon in front of a tree lands on the ground
+ * beside it, reachable on foot, instead of inside the trunk or on top of the canopy.
+ * Returns the feet position (cell centre), or null if nothing fits.
+ */
+export function findSummonSpot(get: BlockGetter, x: number, z: number, nearY: number, height = 2, radius = 4): Vec3 | null {
+  const cx = Math.floor(x);
+  const cz = Math.floor(z);
+  const y0 = Math.floor(nearY);
+  for (let r = 0; r <= radius; r++) {
+    let best: { x: number; y: number; z: number; score: number } | null = null;
+    for (let dx = -r; dx <= r; dx++) {
+      for (let dz = -r; dz <= r; dz++) {
+        if (Math.max(Math.abs(dx), Math.abs(dz)) !== r) continue;
+        for (let dy = 0; dy <= 6; dy++) {
+          for (const y of dy === 0 ? [y0] : [y0 + dy, y0 - dy]) {
+            if (dy > 3 && y > y0) continue; // at most 3 above the summoner
+            const floor = get(cx + dx, y - 1, cz + dz);
+            if (!isOpaque(floor) || TREE.has(floor)) continue;
+            if (!standable(get, cx + dx, y, cz + dz, height)) continue;
+            const score = Math.hypot(dx, dz) + Math.abs(y - y0) * 0.5;
+            if (!best || score < best.score) best = { x: cx + dx, y, z: cz + dz, score };
+          }
+        }
+      }
+    }
+    if (best) return { x: best.x + 0.5, y: best.y, z: best.z + 0.5 };
+  }
+  return null;
 }
