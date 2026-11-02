@@ -1,6 +1,6 @@
 import { AIR, BLOCKS, blockById, blockId, isOpaque } from "./blocks";
 import type { Inventory } from "./inventory";
-import { dropOf, isItem, toolOf, type ToolSpec } from "./items";
+import { dropCount, dropOf, isItem, toolOf, type ToolSpec } from "./items";
 import { bodyOverlapsBlock } from "./physics";
 import type { Vec3 } from "./math";
 import type { World } from "./world";
@@ -62,7 +62,7 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   const tool = toolOf(inventory.selectedStack()?.id);
   world.setBlock(x, y, z, AIR);
   if (mode === "survival") {
-    if (canHarvest(id, tool)) inventory.add(dropOf(id), 1);
+    if (canHarvest(id, tool)) inventory.add(dropOf(id), dropCount(id));
     // Minecraft: instantly broken blocks (hardness 0) do not wear tools.
     if (tool && blockById(id).hardness > 0) inventory.damageSelected(1);
   }

@@ -20,3 +20,5 @@ export * from "./smelting";
 export * from "./hunger";
 export * from "./light";
 export * from "./pathfind";
+export * from "./chalkboard";
+export * from "./books";

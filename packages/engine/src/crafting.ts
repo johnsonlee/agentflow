@@ -35,6 +35,8 @@ export const RECIPES: readonly Recipe[] = [
   ...toolRecipes("iron", "iron_ingot"),
   { id: "torch", pattern: ["C", "|"], key: { C: "coal", "|": "stick" }, result: ["torch", 4] },
   { id: "torch_from_charcoal", pattern: ["C", "|"], key: { C: "charcoal", "|": "stick" }, result: ["torch", 4] },
+  { id: "ink_sac", ingredients: ["coal"], result: ["ink_sac", 1], note: "Minecraft gets ink sacs from squids (not modelled)" },
+  { id: "book_and_quill", ingredients: ["book", "ink_sac", "feather"], result: ["book_and_quill", 1] },
   { id: "furnace", pattern: ["###", "# #", "###"], key: { "#": "cobblestone" }, result: ["furnace", 1] },
   { id: "oak_planks", ingredients: ["oak_log"], result: ["oak_planks", 4] },
   { id: "oak_planks_from_birch", ingredients: ["birch_log"], result: ["oak_planks", 4], note: "Minecraft yields birch planks" },

@@ -77,6 +77,19 @@ const INGOT: Mask = (x, y) => y >= 6 && y <= 10 && x >= 2 + (10 - y) * 0.5 && x 
 const CHOP: Mask = (x, y) => Math.hypot((x - 7) / 1.25, y - 8) <= 4.6 || (x >= 11 && x <= 14 && y >= 7 && y <= 9);
 const DRUMSTICK: Mask = (x, y) => Math.hypot(x - 6, y - 6) <= 4.3 || (Math.abs(x - y) <= 1 && x >= 8 && x <= 13);
 
+function book(t: Tile, cover: string, quill: boolean, gilded = false): Tile {
+  t.fill(() => null);
+  const body: Mask = (x, y) => x >= 2 && x <= 12 && y >= 3 && y <= 13;
+  paint(t, body, [hex(cover), shade(hex(cover), 0.9), shade(hex(cover), 1.1)]);
+  for (let y = 4; y <= 12; y++) t.set(12, y, hex("#efe6cf"));
+  if (gilded) for (let x = 4; x <= 10; x++) t.set(x, 6, hex("#e9c24a"));
+  if (quill) {
+    for (let i = 0; i < 7; i++) t.set(8 + i, 9 - i, hex(i < 2 ? "#3a3a3a" : "#f4f4f4"));
+    for (let i = 2; i < 7; i++) t.set(9 + i, 9 - i, hex("#dcdcdc"));
+  }
+  return t;
+}
+
 export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   item_stick: stick,
   item_coal: lump(["#2b2b2b", "#1c1c1c", "#3c3c3c"].map(hex), ROUND),
@@ -88,6 +101,19 @@ export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   item_cooked_porkchop: lump(["#a8683a", "#8c522a", "#c4874f"].map(hex), CHOP),
   item_raw_chicken: lump(["#f2c7b8", "#e2ab98", "#f8dccf"].map(hex), DRUMSTICK),
   item_cooked_chicken: lump(["#c8894a", "#a86c33", "#dca36a"].map(hex), DRUMSTICK),
+  // A white quill feather along the diagonal.
+  item_feather: (t) => {
+    t.fill(() => null);
+    paint(t, (x, y) => Math.abs(x + y - 15) <= 2 - (x < 6 ? 1 : 0) && x >= 3 && x <= 13 && !(x + y === 15 && x < 5), ["#f2f2f2", "#dcdcdc", "#ffffff"].map(hex));
+    paint(t, handle(2, 13, 4), ["#9a9a9a"].map(hex));
+    return t;
+  },
+  // A dark blob of ink.
+  item_ink_sac: lump(["#2a2238", "#1b1626", "#3c3350"].map(hex), (x, y) => Math.hypot(x - 7.5, (y - 8.5) * 1.15) <= 5.2 || (x >= 6 && x <= 9 && y >= 2 && y <= 4)),
+  // A closed book: brown cover with pale page edges.
+  item_book: (t) => book(t, "#8b4f2a", false),
+  item_book_and_quill: (t) => book(t, "#8b4f2a", true),
+  item_written_book: (t) => book(t, "#5a2f6e", false, true),
   // Ragged greenish-brown strip.
   item_rotten_flesh: lump(["#8a6a3c", "#6f8a3a", "#9c4e3a", "#5d4a2a"].map(hex), (x, y) => Math.abs(x - y) <= 3 - ((x * 7 + y * 3) % 3 === 0 ? 1 : 0) && x >= 2 && x <= 13),
 };

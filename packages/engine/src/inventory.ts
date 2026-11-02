@@ -9,6 +9,8 @@ export interface ItemStack {
   count: number;
   /** Uses spent on a tool (absent or 0 = new). */
   damage?: number;
+  /** Book & Quill / Written Book contents. */
+  book?: { pages: string[]; title?: string; author?: string };
 }
 
 /** Player inventory: slots 0-8 are the hotbar. */
@@ -53,7 +55,10 @@ export class Inventory {
     for (let i = 0; i < this.slots.length && left > 0; i++) {
       if (!this.slots[i]) {
         const n = Math.min(max, left);
-        this.slots[i] = stack.damage ? { id: stack.id, count: n, damage: stack.damage } : { id: stack.id, count: n };
+        const s: ItemStack = { id: stack.id, count: n };
+        if (stack.damage) s.damage = stack.damage;
+        if (stack.book) s.book = { ...stack.book, pages: [...stack.book.pages] };
+        this.slots[i] = s;
         left -= n;
       }
     }
@@ -121,8 +126,10 @@ export class Inventory {
     data.slots.slice(0, INVENTORY_SIZE).forEach((s, i) => {
       if (!s || !isKnownId(s.id) || !(s.count > 0)) return;
       const max = maxStackOf(s.id);
-      const damage = toolOf(s.id) && s.damage ? s.damage : undefined;
-      inv.setSlot(i, damage ? { id: s.id, count: Math.min(s.count, max), damage } : { id: s.id, count: Math.min(s.count, max) });
+      const stack: ItemStack = { id: s.id, count: Math.min(s.count, max) };
+      if (toolOf(s.id) && s.damage) stack.damage = s.damage;
+      if (s.book && Array.isArray(s.book.pages)) stack.book = { ...s.book, pages: s.book.pages.map(String) };
+      inv.setSlot(i, stack);
     });
     inv.select(data.selected);
     return inv;

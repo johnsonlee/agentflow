@@ -85,6 +85,12 @@ const specs: Omit<ItemDef, "id">[] = [
   ...TOOL_KINDS.map((k) => tool("iron", k)),
   // Increment 3: zombie drop. Minecraft: 80% chance of Hunger (30 s), about 3 exhaustion in total.
   material("rotten_flesh", "Rotten Flesh", { hunger: 4, saturation: 0.8, risk: { chance: 0.8, exhaustion: 3 } }),
+  // Increment 4: Book & Quill.
+  material("feather", "Feather"),
+  material("ink_sac", "Ink Sac"),
+  material("book", "Book"),
+  { name: "book_and_quill", displayName: "Book and Quill", maxStack: 1, icon: "item_book_and_quill" },
+  { name: "written_book", displayName: "Written Book", maxStack: 1, icon: "item_written_book" },
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));
@@ -136,8 +142,14 @@ export function foodOf(id: number | undefined | null): ItemDef["food"] | null {
   return itemById(id).food ?? null;
 }
 
-/** Minecraft drops that differ from the block itself (coal ore -> coal, diamond ore -> diamond). */
-const BLOCK_ITEM_DROPS: Record<string, string> = { coal_ore: "coal", diamond_ore: "diamond" };
+/** Minecraft drops that differ from the block itself (coal ore -> coal, diamond ore -> diamond, bookshelf -> 3 books). */
+const BLOCK_ITEM_DROPS: Record<string, string> = { coal_ore: "coal", diamond_ore: "diamond", bookshelf: "book" };
+const BLOCK_DROP_COUNTS: Record<string, number> = { bookshelf: 3 };
+
+/** How many of `dropOf(block)` a harvested block gives. */
+export function dropCount(blockIdValue: number): number {
+  return BLOCK_DROP_COUNTS[blockById(blockIdValue).name] ?? 1;
+}
 
 /** Stack id a block drops when harvested. */
 export function dropOf(blockIdValue: number): number {
