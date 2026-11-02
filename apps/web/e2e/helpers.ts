@@ -345,3 +345,57 @@ export function countStack(page: Page, name: string) {
     return window.__craft.game!.inventory.slots.reduce((sum, s) => sum + (s && s.id === id ? s.count : 0), 0);
   }, name);
 }
+
+/**
+ * Increment 2 starting kit, given in survival through real chat commands. Resulting slots:
+ * 0 furnace, 1 iron ore, 2 coal, 3 sticks (2), 4 cooked porkchop, 5 gold ore, 6 crafting table,
+ * 7 iron ingots (2; with the smelted one that makes the 3 a pickaxe needs).
+ */
+export async function giveSmeltingKit(page: Page) {
+  for (const c of ["furnace", "iron_ore", "coal", "stick 2", "cooked_porkchop", "gold_ore", "crafting_table", "iron_ingot 2"]) {
+    await command(page, `/give ${c}`);
+  }
+  expect(await countStack(page, "iron_ingot")).toBe(2);
+}
+
+/**
+ * In an open furnace: iron ore in, coal as fuel, wait for the ingot (10 s of game time; slow runners
+ * clamp frame time, so allow a minute), then put it on the two given ingots (slot 7).
+ */
+export async function smeltIronIngot(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen");
+  await expect(page.getByRole("heading", { name: "Furnace" })).toBeVisible();
+  await expect(inv.locator("[data-craft]")).toHaveCount(0);
+  await press(inv.locator('[data-slot="1"]'));
+  await press(inv.locator('[data-furnace="input"]'));
+  await press(inv.locator('[data-slot="2"]'));
+  await press(inv.locator('[data-furnace="fuel"]'));
+  await expect(inv.locator(".furnace-flame")).toHaveAttribute("data-burning", "true");
+  await expect(inv.locator('[data-furnace="output"] img')).toHaveAttribute("alt", "Iron Ingot", { timeout: 60_000 });
+  await expect(inv.locator('[data-furnace="input"] img')).toHaveCount(0);
+  await press(inv.locator('[data-furnace="output"]'));
+  await press(inv.locator('[data-slot="7"]'));
+  await expect(inv.locator('[data-testid="cursor"]')).toBeEmpty();
+  expect(await countStack(page, "iron_ingot")).toBe(3);
+}
+
+/** In an open crafting table: 3 ingots (slot 7) over 2 sticks (slot 3) -> Iron Pickaxe into slot 8. */
+export async function craftIronPickaxe(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen");
+  await expect(page.getByRole("heading", { name: "Crafting Table" })).toBeVisible();
+  await press(inv.locator('[data-slot="7"]'));
+  for (const i of [0, 1, 2]) await press(inv.locator(`[data-craft="${i}"]`));
+  await press(inv.locator('[data-slot="3"]'));
+  for (const i of [4, 7]) await press(inv.locator(`[data-craft="${i}"]`));
+  await expect(inv.locator("[data-craft-result] img")).toHaveAttribute("alt", "Iron Pickaxe");
+  await press(inv.locator("[data-craft-result]"));
+  await press(inv.locator('[data-slot="8"]'));
+  await expect(inv.locator('[data-testid="cursor"]')).toBeEmpty();
+}
+
+/** Sets the survival food level (test setup: a fresh world starts full, and full players can't eat). */
+export function setFood(page: Page, food: number) {
+  return page.evaluate((f) => {
+    window.__craft.game!.hunger.food = f;
+  }, food);
+}

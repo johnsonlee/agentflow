@@ -226,7 +226,8 @@ export class InventoryScreen {
     this.mode = mode;
     this.kind = kind;
     this.furnace = kind === "furnace" ? furnace : null;
-    this.width = kind === "crafting_table" ? 3 : mode === "survival" ? 2 : 0;
+    // The furnace screen has no crafting grid (as in Minecraft).
+    this.width = kind === "crafting_table" ? 3 : kind === "furnace" ? 0 : mode === "survival" ? 2 : 0;
     this.grid = new Array(this.width * this.width).fill(null);
     this.cursor = null;
     this.render();
