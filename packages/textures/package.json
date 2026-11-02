@@ -1,0 +1,12 @@
+{
+  "name": "@craft/textures",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Procedural 16x16 pixel-art block textures and texture atlas packing",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts",
+  "devDependencies": {
+    "@craft/engine": "0.1.0"
+  }
+}
