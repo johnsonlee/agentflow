@@ -68,11 +68,15 @@ export function canEat(h: HungerState, id: number | null | undefined): boolean {
   return foodOf(id) !== null && h.food < MAX_FOOD;
 }
 
-/** Applies a finished meal. Returns false if `id` is not food or the player is full. */
-export function eat(h: HungerState, id: number): boolean {
+/**
+ * Applies a finished meal. Returns false if `id` is not food or the player is full. Risky food
+ * (rotten flesh) may add exhaustion, standing in for Minecraft's Hunger effect.
+ */
+export function eat(h: HungerState, id: number, rand: () => number = Math.random): boolean {
   const food = foodOf(id);
   if (!food || h.food >= MAX_FOOD) return false;
   h.food = Math.min(MAX_FOOD, h.food + food.hunger);
   h.saturation = Math.min(h.food, h.saturation + food.saturation);
+  if (food.risk && rand() < food.risk.chance) addExhaustion(h, food.risk.exhaustion);
   return true;
 }

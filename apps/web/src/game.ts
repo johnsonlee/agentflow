@@ -3,7 +3,7 @@ import {
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
-  tickHunger, type FurnaceState, type HungerState,
+  tickHunger, knockbackFrom, mobAttack, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -280,7 +280,11 @@ export class Game {
       if (this.mode === "survival") this.updateHunger(input.sprint, wasOnGround, dt);
       if (this.body.position.y < -20) this.hurt(MAX_HEALTH);
       if (this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
-      this.mobs.update(dt, this.body.position, skyAt(this.timeOfDay).light, this.clock);
+      const light = skyAt(this.timeOfDay).light;
+      // Hostile mobs ignore creative players (as in Minecraft).
+      const target = this.mode === "survival" ? this.body.position : null;
+      this.mobs.update(dt, this.body.position, light, this.clock, target, (light - 0.2) / 0.8);
+      if (target) this.takeMobHits(dt);
       this.interact(input.breaking, input.place, input.using, input.pick, dt);
     } else {
       this.target = null;
@@ -431,6 +435,18 @@ export class Game {
     const furnace = this.furnaces.get(key);
     if (furnace) for (const stack of furnaceContents(furnace)) this.inventory.addStack(stack);
     this.furnaces.delete(key);
+  }
+
+  /** Zombies in reach hit the player (3 damage, 1 s cooldown) and knock them back. */
+  private takeMobHits(dt: number): void {
+    for (const mob of this.mobs.mobs) {
+      const damage = mobAttack(mob, this.body.position, dt);
+      if (damage === 0 || this.dead) continue;
+      const kb = knockbackFrom(mob, this.body.position);
+      this.body.velocity = { x: this.body.velocity.x + kb.x, y: Math.max(this.body.velocity.y, kb.y), z: this.body.velocity.z + kb.z };
+      this.hurt(damage);
+      this.hud.message(`${MOB_SPECS[mob.kind].displayName} hit you`);
+    }
   }
 
   /** Minecraft exhaustion from sprinting, swimming and jumping, then regen or starvation. */

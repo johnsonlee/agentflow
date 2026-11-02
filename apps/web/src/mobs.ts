@@ -1,6 +1,7 @@
 import * as THREE from "three";
 import {
-  MOB_SPECS, PASSIVE_MOBS, SEA_LEVEL, blockId, bodyBox, boxCollides, createMob, damageMob, raycastMob, stackId, stepMob,
+  MOB_SPECS, PASSIVE_MOBS, SEA_LEVEL, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
+  raycastMob, skyDarken, skyOf, stackId, stepMob,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
 
@@ -11,7 +12,7 @@ interface Part {
   color: string;
   /** Leg index for walk animation (pivot at the top of the part). */
   leg?: number;
-  face?: "pig" | "sheep" | "chicken" | "npc";
+  face?: "pig" | "sheep" | "chicken" | "npc" | "zombie";
 }
 
 const MODELS: Record<MobKind, Part[]> = {
@@ -40,6 +41,15 @@ const MODELS: Record<MobKind, Part[]> = {
     { size: [0.58, 0.18, 0.2], at: [0, 1.2, -0.2], color: "#3f6630" },
     { size: [0.22, 0.72, 0.24], at: [-0.12, 0.36, 0], color: "#3b3b6b", leg: 0 },
     { size: [0.22, 0.72, 0.24], at: [0.12, 0.36, 0], color: "#3b3b6b", leg: 1 },
+  ],
+  // Original design in the classic zombie colours: green skin, teal shirt, blue trousers, arms forward.
+  zombie: [
+    { size: [0.5, 0.72, 0.28], at: [0, 1.08, 0], color: "#2b8c8a" },
+    { size: [0.5, 0.5, 0.5], at: [0, 1.7, 0], color: "#5d9447", face: "zombie" },
+    { size: [0.2, 0.2, 0.72], at: [-0.35, 1.34, -0.3], color: "#5d9447" },
+    { size: [0.2, 0.2, 0.72], at: [0.35, 1.34, -0.3], color: "#5d9447" },
+    { size: [0.23, 0.72, 0.25], at: [-0.12, 0.36, 0], color: "#3a3f9a", leg: 0 },
+    { size: [0.23, 0.72, 0.25], at: [0.12, 0.36, 0], color: "#3a3f9a", leg: 1 },
   ],
 };
 
@@ -89,6 +99,13 @@ function faceTexture(color: string, face: NonNullable<Part["face"]>): THREE.Text
     ctx.fillStyle = "#a8775a";
     ctx.fillRect(3, 4, 2, 2);
     ctx.fillStyle = "#7a4a33";
+    ctx.fillRect(2, 6, 4, 1);
+  } else if (face === "zombie") {
+    ctx.fillStyle = "#1d2e17";
+    ctx.fillRect(1, 3, 2, 1);
+    ctx.fillRect(5, 3, 2, 1);
+    ctx.fillStyle = "#3f6a30";
+    ctx.fillRect(3, 5, 2, 1);
     ctx.fillRect(2, 6, 4, 1);
   } else {
     px(1, 3, "#1b1b1b"); px(6, 3, "#1b1b1b");
@@ -156,6 +173,7 @@ export interface SavedNpc {
 }
 
 const MAX_ANIMALS = 12;
+const MAX_HOSTILES = 8;
 const DESPAWN_DISTANCE = 96;
 
 /** Simulates and renders animals and NPCs. */
@@ -205,12 +223,20 @@ export class MobManager {
     this.scene.add(model);
   }
 
-  update(dt: number, player: Vec3, light: number, time: number): void {
+  /**
+   * Simulates mobs. `target` is the player hostile mobs chase (null in creative, where they ignore
+   * the player). `daylight` is 0 (night) .. 1 (day).
+   */
+  update(dt: number, player: Vec3, light: number, time: number, target: Vec3 | null = player, daylight = light): void {
     const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
+    const darken = skyDarken(daylight);
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = 2;
-      if (this.spawning) this.spawnNear(player);
+      if (this.spawning) {
+        this.spawnNear(player);
+        this.spawnHostileNear(player, darken);
+      }
     }
     for (const mob of [...this.mobs]) {
       const dist = Math.hypot(mob.position.x - player.x, mob.position.z - player.z);
@@ -223,13 +249,24 @@ export class MobManager {
         continue;
       }
       // Only simulate mobs in loaded terrain near the player.
-      if (dist < 64) stepMob(get, mob, dt, this.rand);
+      if (dist < 64) stepMob(get, mob, dt, this.rand, target);
+      // Zombies burn under open sky by day.
+      const head = this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
+      if (burnInDaylight(mob, skyOf(head), darken, dt)) {
+        this.remove(mob);
+        continue;
+      }
       const model = this.models.get(mob.id)!;
       model.position.set(mob.position.x, mob.position.y, mob.position.z);
       model.rotation.y = mob.yaw;
       const speed = Math.hypot(mob.velocity.x, mob.velocity.z);
       const swing = Math.sin(time * 10 + mob.id) * Math.min(1, speed) * 0.7;
-      const tint = mob.hurtTimer > 2.6 ? new THREE.Color(1, 0.4, 0.4) : new THREE.Color(light, light, light);
+      const tint =
+        mob.hurtTimer > 2.6
+          ? new THREE.Color(1, 0.4, 0.4)
+          : mob.burning
+            ? new THREE.Color(1, 0.55 + 0.2 * Math.sin(time * 20), 0.2)
+            : new THREE.Color(light, light, light);
       model.traverse((o) => {
         if (o instanceof THREE.Mesh) {
           if (o.userData.leg !== undefined) o.rotation.x = o.userData.leg === 0 ? swing : -swing;
@@ -258,7 +295,32 @@ export class MobManager {
   }
 
   animalCount(): number {
-    return this.mobs.filter((m) => m.kind !== "npc").length;
+    return this.mobs.filter((m) => m.kind !== "npc" && !MOB_SPECS[m.kind].hostile).length;
+  }
+
+  hostileCount(): number {
+    return this.mobs.filter((m) => MOB_SPECS[m.kind].hostile).length;
+  }
+
+  /** Natural hostile spawning: a few tries per tick on the surface and in caves (see canHostileSpawn). */
+  private spawnHostileNear(player: Vec3, darken: number): void {
+    const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
+    const light = (x: number, y: number, z: number) => this.world.getLight(x, y, z);
+    for (let attempt = 0; attempt < 4 && this.hostileCount() < MAX_HOSTILES; attempt++) {
+      const angle = this.rand() * Math.PI * 2;
+      // Minecraft: no closer than 24 blocks to the player.
+      const r = 24 + this.rand() * 20;
+      const x = Math.floor(player.x + Math.cos(angle) * r);
+      const z = Math.floor(player.z + Math.sin(angle) * r);
+      if (!this.world.hasChunk(Math.floor(x / 16), Math.floor(z / 16))) continue;
+      // Surface, or a random height below it (caves).
+      const top = this.world.generator.heightAt(x, z) + 1;
+      const y = this.rand() < 0.5 ? top : 2 + Math.floor(this.rand() * Math.max(1, Math.min(top, WORLD_HEIGHT - 3) - 2));
+      if (!canHostileSpawn(get, light, x, y, z, darken, this.rand())) continue;
+      const at = { x: x + 0.5, y: y + 0.01, z: z + 0.5 };
+      if (boxCollides(get, bodyBox(at, MOB_SPECS.zombie.width, MOB_SPECS.zombie.height))) continue;
+      this.spawn("zombie", at, { yaw: this.rand() * Math.PI * 2 });
+    }
   }
 
   exportNpcs(): SavedNpc[] {

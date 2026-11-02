@@ -23,7 +23,7 @@ export const COMMAND_HELP = [
   "/time set <day|noon|night|midnight|ticks>",
   "/tp <x> <y> <z>  (~ for relative)",
   "/give <block|item> [count]",
-  "/summon <pig|sheep|chicken|npc> [name]",
+  "/summon <pig|sheep|chicken|zombie|npc> [name]",
   "/gamerule <doMobSpawning|doDaylightCycle> <true|false>",
   "/seed",
 ];
@@ -64,8 +64,8 @@ export function parseCommand(input: string): Command {
     }
     case "summon": {
       const kind = (args[0] ?? "").toLowerCase().replace(/^minecraft:/, "");
-      if (kind !== "pig" && kind !== "sheep" && kind !== "chicken" && kind !== "npc") {
-        return { type: "error", message: "Usage: /summon <pig|sheep|chicken|npc> [name]" };
+      if (kind !== "pig" && kind !== "sheep" && kind !== "chicken" && kind !== "npc" && kind !== "zombie") {
+        return { type: "error", message: "Usage: /summon <pig|sheep|chicken|zombie|npc> [name]" };
       }
       const name = args.slice(1).join(" ").trim();
       return name ? { type: "summon", kind, name } : { type: "summon", kind };

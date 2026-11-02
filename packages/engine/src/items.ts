@@ -32,8 +32,11 @@ export interface ItemDef {
   /** Texture tile drawn as the item's icon. */
   icon: string;
   tool?: ToolSpec;
-  /** Food: hunger points restored and saturation gained (Minecraft values). */
-  food?: { hunger: number; saturation: number };
+  /**
+   * Food: hunger points restored and saturation gained (Minecraft values). `risk` is a chance of
+   * extra exhaustion (a simplified Hunger effect).
+   */
+  food?: { hunger: number; saturation: number; risk?: { chance: number; exhaustion: number } };
 }
 
 /** Minecraft values: wood speed 2 / 59 uses, stone 4 / 131, iron 6 / 250; Bedrock attack damage. */
@@ -80,6 +83,8 @@ const specs: Omit<ItemDef, "id">[] = [
   material("raw_chicken", "Raw Chicken", { hunger: 2, saturation: 1.2 }),
   material("cooked_chicken", "Cooked Chicken", { hunger: 6, saturation: 7.2 }),
   ...TOOL_KINDS.map((k) => tool("iron", k)),
+  // Increment 3: zombie drop. Minecraft: 80% chance of Hunger (30 s), about 3 exhaustion in total.
+  material("rotten_flesh", "Rotten Flesh", { hunger: 4, saturation: 0.8, risk: { chance: 0.8, exhaustion: 3 } }),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));

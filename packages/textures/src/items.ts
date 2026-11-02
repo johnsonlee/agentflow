@@ -88,6 +88,8 @@ export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   item_cooked_porkchop: lump(["#a8683a", "#8c522a", "#c4874f"].map(hex), CHOP),
   item_raw_chicken: lump(["#f2c7b8", "#e2ab98", "#f8dccf"].map(hex), DRUMSTICK),
   item_cooked_chicken: lump(["#c8894a", "#a86c33", "#dca36a"].map(hex), DRUMSTICK),
+  // Ragged greenish-brown strip.
+  item_rotten_flesh: lump(["#8a6a3c", "#6f8a3a", "#9c4e3a", "#5d4a2a"].map(hex), (x, y) => Math.abs(x - y) <= 3 - ((x * 7 + y * 3) % 3 === 0 ? 1 : 0) && x >= 2 && x <= 13),
 };
 for (const material of ["wooden", "stone", "iron"]) {
   for (const kind of ["pickaxe", "axe", "shovel", "sword"]) {
