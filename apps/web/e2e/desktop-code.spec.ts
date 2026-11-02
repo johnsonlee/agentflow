@@ -158,11 +158,13 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     test.setTimeout(120_000);
     await createWorld(page);
     await settle(page);
+    // Check each reply right away: chat lines fade after 7 s, and slow CI runners take seconds per command.
     for (const bad of ["__proto__", "constructor", "toString"]) {
       await command(page, `/gamemode ${bad}`);
+      // The newest chat line is the reply (identical older lines may already have faded).
+      await expect(page.locator(".chat-line").last()).toContainText("Usage: /gamemode <creative|survival>");
+      expect(await page.evaluate(() => window.__craft.game!.mode)).toBe("creative");
     }
-    await expect(page.locator(".chat-line", { hasText: "Usage: /gamemode <creative|survival>" })).toHaveCount(3);
-    expect(await page.evaluate(() => window.__craft.game!.mode)).toBe("creative");
     await page.keyboard.press("Escape");
     await page.getByRole("button", { name: "Save & Quit to Title" }).click();
     await page.reload();
