@@ -473,3 +473,107 @@ export function firstBoard(page: Page) {
     return { x: b.x, y: b.y, z: b.z };
   });
 }
+
+/** Survival kit for the chemistry route. Slots: 0-3 the four stations, 4 sand, 5 ammonia, 6 phosphorus. */
+export async function giveChemistryKit(page: Page) {
+  for (const c of ["element_constructor", "compound_creator", "material_reducer", "lab_table", "sand", "ammonia", "phosphorus"]) {
+    await command(page, `/give ${c}`);
+  }
+  expect(await countStack(page, "lab_table")).toBe(1);
+}
+
+const slotHolding = (page: Page, name: string) =>
+  page.evaluate((n) => window.__craft.game!.inventory.slots.findIndex((s) => s?.id === window.__craft.stackId(n)), name);
+const emptySlot = (page: Page) => page.evaluate(() => window.__craft.game!.inventory.slots.findIndex((s) => s === null));
+
+/**
+ * In an open Element Constructor: takes two hydrogen (the default 1p 0n 1e), is refused for an
+ * ion, previews oxygen-18, then builds oxygen-16. `typed` enters numbers in the fields (desktop);
+ * otherwise every change is a tap on − / +.
+ */
+export async function buildHydrogenAndOxygen(page: Page, press: (l: Locator) => Promise<void>, typed: boolean) {
+  const inv = page.locator(".inventory-screen");
+  await expect(page.getByRole("heading", { name: "Element Constructor" })).toBeVisible();
+  const status = inv.locator("[data-chem-status]");
+  const result = inv.locator("[data-chem-result]");
+  await expect(status).toHaveText("Hydrogen (H): atomic number 1, mass 1");
+  await press(result);
+  await press(result);
+  await press(inv.locator(`[data-slot="${await emptySlot(page)}"]`));
+  expect(await countStack(page, "hydrogen")).toBe(2);
+
+  const set = async (key: "protons" | "neutrons" | "electrons", from: number, to: number) => {
+    const row = inv.locator(`[data-particle="${key}"]`);
+    if (typed) {
+      await row.locator("input").fill(String(to));
+      await row.locator("input").blur();
+    } else {
+      for (let i = from; i !== to; i += Math.sign(to - from)) await press(row.locator(`[data-step="${Math.sign(to - from)}"]`));
+    }
+    await expect(row.locator("input")).toHaveValue(String(to));
+  };
+  await set("protons", 1, 8);
+  await expect(status).toHaveAttribute("data-chem-status", "error");
+  await expect(status).toHaveText("A neutral Oxygen atom needs 8 electrons");
+  await expect(result.locator("img")).toHaveCount(0);
+  await set("electrons", 1, 8);
+  await set("neutrons", 0, 10);
+  await expect(status).toHaveText("Oxygen-18 (O-18): atomic number 8, 10 neutrons");
+  await set("neutrons", 10, 8);
+  await expect(status).toHaveText("Oxygen (O): atomic number 8, mass 16");
+  await expect(result.locator("img")).toHaveAttribute("alt", "Oxygen");
+  await press(result);
+  await press(inv.locator(`[data-slot="${await emptySlot(page)}"]`));
+  expect(await countStack(page, "oxygen")).toBe(1);
+}
+
+/** In an open Compound Creator: 2 hydrogen + 1 oxygen -> Water. */
+export async function createWater(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen");
+  await expect(page.getByRole("heading", { name: "Compound Creator" })).toBeVisible();
+  await press(inv.locator(`[data-slot="${await slotHolding(page, "hydrogen")}"]`));
+  await press(inv.locator('[data-chem-input="0"]'));
+  await press(inv.locator('[data-chem-input="0"]'));
+  await expect(inv.locator("[data-chem-status]")).toHaveAttribute("data-chem-status", "error");
+  await press(inv.locator(`[data-slot="${await slotHolding(page, "oxygen")}"]`));
+  await press(inv.locator('[data-chem-input="4"]'));
+  await expect(inv.locator("[data-chem-status]")).toHaveText("Water (H₂O)");
+  await expect(inv.locator("[data-chem-result] img")).toHaveAttribute("alt", "Water");
+  await press(inv.locator("[data-chem-result]"));
+  await expect(inv.locator("[data-chem-input] img")).toHaveCount(0);
+  await press(inv.locator(`[data-slot="${await emptySlot(page)}"]`));
+  expect(await countStack(page, "water_compound")).toBe(1);
+  expect(await countStack(page, "hydrogen")).toBe(0);
+  expect(await countStack(page, "oxygen")).toBe(0);
+}
+
+/** In an open Material Reducer: sand -> 1 silicon + 2 oxygen. */
+export async function reduceSand(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen");
+  await expect(page.getByRole("heading", { name: "Material Reducer" })).toBeVisible();
+  await press(inv.locator(`[data-slot="${await slotHolding(page, "sand")}"]`));
+  await press(inv.locator('[data-chem-input="0"]'));
+  await expect(inv.locator("[data-chem-status]")).toHaveText("Sand reduces to:");
+  await expect(inv.locator(".reducer-output img")).toHaveCount(2);
+  await press(inv.locator('[data-chem-action="reduce"]'));
+  await expect(inv.locator('[data-chem-input="0"] img')).toHaveCount(0);
+  expect(await countStack(page, "sand")).toBe(0);
+  expect(await countStack(page, "silicon")).toBe(1);
+  expect(await countStack(page, "oxygen")).toBe(2);
+}
+
+/** In an open Lab Table: ammonia + phosphorus -> Super Fertilizer. */
+export async function mixSuperFertilizer(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen");
+  await expect(page.getByRole("heading", { name: "Lab Table" })).toBeVisible();
+  await press(inv.locator(`[data-slot="${await slotHolding(page, "ammonia")}"]`));
+  await press(inv.locator('[data-chem-input="0"]'));
+  await press(inv.locator(`[data-slot="${await slotHolding(page, "phosphorus")}"]`));
+  await press(inv.locator('[data-chem-input="1"]'));
+  await expect(inv.locator("[data-chem-result] img")).toHaveAttribute("alt", "Super Fertilizer");
+  await press(inv.locator("[data-chem-result]"));
+  await press(inv.locator(`[data-slot="${await emptySlot(page)}"]`));
+  expect(await countStack(page, "super_fertilizer")).toBe(1);
+  expect(await countStack(page, "ammonia")).toBe(0);
+  expect(await countStack(page, "phosphorus")).toBe(0);
+}

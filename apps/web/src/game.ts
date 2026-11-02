@@ -10,7 +10,7 @@ import {
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
-import { ChatInput, Hud, InventoryScreen, type InventoryKind } from "./hud";
+import { ChatInput, Hud, InventoryScreen, type ChemistryKind, type InventoryKind } from "./hud";
 import { MobManager } from "./mobs";
 import { BookScreen, ChalkboardDialog, NpcDialog, Portfolio, PortfolioScreen } from "./screens";
 import { ChalkboardViews } from "./chalkboards";
@@ -25,6 +25,10 @@ const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const CREATIVE_REPEAT = 0.25;
 const CRAFTING_TABLE = blockId("crafting_table");
 const FURNACE = blockId("furnace");
+/** Chemistry station blocks and the screen each opens. */
+const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
+  (["element_constructor", "compound_creator", "material_reducer", "lab_table"] as const).map((k) => [blockId(k), k]),
+);
 
 const furnaceKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
 /** Seconds per Agent action (Education Edition animates each step). */
@@ -483,6 +487,11 @@ export class Game {
 
     if (place && t && this.placeCooldown === 0 && t.id === CRAFTING_TABLE) {
       this.openInventory("crafting_table");
+      return;
+    }
+    const station = t ? CHEMISTRY_STATIONS.get(t.id) : undefined;
+    if (place && t && this.placeCooldown === 0 && station) {
+      this.openInventory(station);
       return;
     }
     if (place && t && this.placeCooldown === 0 && t.id === FURNACE) {
