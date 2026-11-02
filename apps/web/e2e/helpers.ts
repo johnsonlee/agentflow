@@ -749,11 +749,22 @@ export async function redstoneRoute(page: Page, use: (slot: number | null, aim: 
   await place(5, -2, 2, /^door_iron_lower_\d_0$/);
   expect(await nameAt(px - 2, gy + 2, pz + 2)).toMatch(/^door_iron_upper_\d_0$/);
   await place(4, -2, 1, /^stone_button$/);
+  // Record every change of the door's lower half: the button holds for 1 s of game time, which can
+  // pass before a slow runner's next poll, so the open-then-closed sequence is checked from the log.
+  await page.evaluate(([x, y, z]) => {
+    const w = window as unknown as { __doorLog: string[] };
+    w.__doorLog = [];
+    window.__craft.game!.world.onBlockChanged((bx, by, bz, bid) => {
+      if (bx === x && by === y && bz === z) w.__doorLog.push(window.__craft.blockName(bid));
+    });
+  }, [px - 2, gy + 1, pz + 2] as const);
+  const doorLog = () => page.evaluate(() => (window as unknown as { __doorLog: string[] }).__doorLog);
   await useOn(-2, 2, 2); // by hand: an iron door doesn't open
   expect(await nameAt(px - 2, gy + 1, pz + 2)).toMatch(/_0$/);
+  expect(await doorLog()).toEqual([]);
   await useOn(-2, 1, 1);
-  await expect.poll(() => nameAt(px - 2, gy + 1, pz + 2)).toMatch(/^door_iron_lower_\d_1$/);
-  await expect.poll(() => nameAt(px - 2, gy + 1, pz + 2), { timeout: 15_000 }).toMatch(/^door_iron_lower_\d_0$/);
+  await expect.poll(async () => (await doorLog()).map((n) => n.slice(-1)).join(""), { timeout: 15_000 }).toBe("10");
+  expect(await doorLog()).toEqual([expect.stringMatching(/^door_iron_lower_\d_1$/), expect.stringMatching(/^door_iron_lower_\d_0$/)]);
 
   // Wooden door: opened and closed by hand.
   await place(3, -3, -1, /^door_wooden_lower_\d_0$/);
