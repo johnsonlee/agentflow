@@ -3,7 +3,8 @@ import { createWorld, giveRedstoneKit, parkMouse, pressMouse, redstoneRoute, set
 
 test.describe("PC browser: redstone basics", () => {
   test("survival: lever -> dust -> lamp, iron door with a button, wooden door by hand, torch -> lamp; saved", async ({ page }, testInfo) => {
-    test.setTimeout(240_000);
+    // Slow CI runners (software GL, about 4 fps) need time for the many aimed uses.
+    test.setTimeout(420_000);
     await createWorld(page, { mode: "survival", animals: false });
     await settle(page);
     await giveRedstoneKit(page);

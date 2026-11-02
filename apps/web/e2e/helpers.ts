@@ -695,10 +695,15 @@ export async function redstoneRoute(page: Page, use: (slot: number | null, aim: 
     const p = g.body.position;
     return { px: Math.floor(p.x), gy: Math.floor(p.y + 0.01) - 1, pz: Math.floor(p.z) };
   });
-  for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) {
-    await setBlock(page, px + x, gy, pz + z, "stone");
-    for (let y = 1; y <= 3; y++) await setBlock(page, px + x, gy + y, pz + z, "air");
-  }
+  // One evaluate for the whole pad: hundreds of round trips are slow on software-rendered CI runners.
+  await page.evaluate(([x0, y0, z0]) => {
+    const g = window.__craft.game!;
+    const stone = window.__craft.blockId("stone");
+    for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) {
+      g.world.setBlock(x0 + x, y0, z0 + z, stone);
+      for (let y = 1; y <= 3; y++) g.world.setBlock(x0 + x, y0 + y, z0 + z, 0);
+    }
+  }, [px, gy, pz] as const);
   const id = (n: string) => page.evaluate((name) => window.__craft.blockId(name), n);
   const at = (x: number, y: number, z: number) => page.evaluate(([a, b, c]) => window.__craft.game!.world.getBlock(a, b, c), [x, y, z] as const);
   const nameAt = (x: number, y: number, z: number) => page.evaluate(([a, b, c]) => {

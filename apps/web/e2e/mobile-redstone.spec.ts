@@ -17,7 +17,8 @@ async function finger(page: Page) {
 
 test.describe("Mobile browser (touch): redstone basics", () => {
   test("survival: lever -> dust -> lamp, iron door with a button, wooden door by hand, torch -> lamp, all with taps", async ({ page }, testInfo) => {
-    test.setTimeout(240_000);
+    // Slow CI runners (software GL, about 4 fps) need time for the many aimed uses.
+    test.setTimeout(420_000);
     await createWorld(page, { mode: "survival", animals: false });
     await settle(page);
     await giveRedstoneKit(page);
