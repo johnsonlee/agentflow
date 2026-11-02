@@ -2,6 +2,7 @@ import { AIR, BLOCKS, blockById, blockId, isOpaque } from "./blocks";
 import type { Inventory } from "./inventory";
 import { dropCount, dropOf, placedBlockOf, toolOf, type ToolSpec } from "./items";
 import { meltAround } from "./labeffects";
+import { doorPartner, orientedPlacement } from "./redstone";
 import { bodyOverlapsBlock } from "./physics";
 import type { Vec3 } from "./math";
 import type { World } from "./world";
@@ -62,7 +63,10 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   if (!canBreak(world, mode, x, y, z)) return false;
   const id = world.getBlock(x, y, z);
   const tool = toolOf(inventory.selectedStack()?.id);
+  // A door's other half goes with it (one door is dropped).
+  const partner = doorPartner(world, x, y, z);
   world.setBlock(x, y, z, AIR);
+  if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
   if (mode === "survival") {
     if (canHarvest(id, tool)) inventory.add(dropOf(id), dropCount(id));
     // Minecraft: instantly broken blocks (hardness 0) do not wear tools.
@@ -88,6 +92,8 @@ export function placeBlock(
   y: number,
   z: number,
   playerFeet: Vec3,
+  /** Direction the player looks (0-3, as FACING_VECTORS): orients repeaters and doors. */
+  look = 0,
 ): boolean {
   const stack = inventory.selectedStack();
   // Items place nothing, except Lab Table products that place a block (heat block, glow stick, ...).
@@ -109,6 +115,17 @@ export function placeBlock(
     if (!sides.some(([dx, dy, dz]) => isOpaque(world.getBlock(x + dx, y + dy, z + dz)))) return false;
   }
   if (!canBuildAt(world, mode, x, y, z)) return false;
+  // Repeaters point where the player looks; doors face the player and need the cell above free.
+  const cells = orientedPlacement(placed, x, y, z, look);
+  if (cells) {
+    for (const [cx, cy, cz] of cells.slice(1)) {
+      if (world.getBlock(cx, cy, cz) !== AIR || !canBuildAt(world, mode, cx, cy, cz)) return false;
+      if (blockById(cells[0][3]).solid && bodyOverlapsBlock(playerFeet, cx, cy, cz)) return false;
+    }
+    for (const [cx, cy, cz, id] of cells) world.setBlock(cx, cy, cz, id);
+    if (mode === "survival") inventory.takeSelected();
+    return true;
+  }
   world.setBlock(x, y, z, placed);
   if (placed === HEAT_BLOCK) meltAround(world, x, y, z);
   if (mode === "survival") inventory.takeSelected();

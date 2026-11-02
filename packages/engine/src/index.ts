@@ -28,3 +28,4 @@ export * from "./savecheck";
 export * from "./chemistry-data";
 export * from "./chemistry";
 export * from "./labeffects";
+export * from "./redstone";

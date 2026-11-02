@@ -3,7 +3,7 @@
  * textures are referenced by tile name and resolved by the renderer.
  */
 
-export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "none";
+export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "none";
 
 export interface BlockFaces {
   top: string;
@@ -45,11 +45,16 @@ export interface BlockDef {
   needsSupport?: boolean;
   /** Torch-shaped light that can be placed in water (the underwater torch, glow sticks). */
   waterproof?: boolean;
+  /** Bounds of a "box" shape within the cell: [x0, y0, z0, x1, y1, z1], each 0-1. */
+  box?: readonly [number, number, number, number, number, number];
 }
 
 function faces(top: string, side = top, bottom = top): BlockFaces {
   return { top, side, bottom };
 }
+
+/** Horizontal facings, as for chalkboards and the Agent: 0 +z, 1 -x, 2 -z, 3 +x. */
+export const FACING_VECTORS: readonly (readonly [number, number])[] = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 
 type BlockSpec = Omit<BlockDef, "id" | "solid" | "transparent" | "shape" | "creative" | "hardness" | "drop"> &
   Partial<Pick<BlockDef, "solid" | "transparent" | "shape" | "creative" | "hardness">> & { drop?: string };
@@ -111,7 +116,61 @@ const specs: BlockSpec[] = [
   { name: "placed_heat_block", displayName: "Heat Block", faces: faces("heat_block"), hardness: 1.5, creative: false },
   { name: "placed_underwater_torch", displayName: "Underwater Torch", faces: faces("underwater_torch_block"), solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 14, waterproof: true, creative: false },
   { name: "placed_glow_stick", displayName: "Glow Stick", faces: faces("glow_stick_block"), solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 10, waterproof: true, creative: false },
+  ...redstoneBlocks(),
 ];
+
+/** A thin panel against side `facing` of the cell (doors). */
+function panel(facing: number): BlockDef["box"] {
+  const [dx, dz] = FACING_VECTORS[facing];
+  const t = 3 / 16;
+  return [dx === 1 ? 1 - t : 0, 0, dz === 1 ? 1 - t : 0, dx === -1 ? t : 1, 1, dz === -1 ? t : 1];
+}
+
+/**
+ * Increment 6b: redstone. Each component state is its own block id (so states are saved with the
+ * world's block edits): dust power 0-15, on/off switches, torches and lamps, repeater facing x delay
+ * x powered, and door material x half x facing x open. Append only.
+ */
+function redstoneBlocks(): BlockSpec[] {
+  const out: BlockSpec[] = [
+    { name: "redstone_ore", displayName: "Redstone Ore", faces: faces("redstone_ore"), hardness: 4.5, tool: "pickaxe", harvestTier: 3 },
+  ];
+  for (let p = 0; p <= 15; p++) {
+    out.push({
+      name: `redstone_wire_${p}`, displayName: "Redstone Dust", faces: faces(`redstone_dust_${p}`), solid: false, transparent: true, shape: "box",
+      box: [0, 0, 0, 1, 1 / 32, 1], hardness: 0, needsSupport: true, creative: false,
+    });
+  }
+  const off = { solid: false, transparent: true, hardness: 0 } as const;
+  out.push(
+    { name: "lever", displayName: "Lever", faces: faces("lever_off"), shape: "torch", ...off },
+    { name: "lever_on", displayName: "Lever", faces: faces("lever_on"), shape: "torch", ...off, creative: false, drop: "lever" },
+    { name: "stone_button", displayName: "Stone Button", faces: faces("stone_button"), shape: "box", box: [5 / 16, 0, 6 / 16, 11 / 16, 2 / 16, 10 / 16], needsSupport: true, ...off, hardness: 0.75 },
+    { name: "stone_button_on", displayName: "Stone Button", faces: faces("stone_button"), shape: "box", box: [5 / 16, 0, 6 / 16, 11 / 16, 1 / 16, 10 / 16], needsSupport: true, ...off, hardness: 0.75, creative: false, drop: "stone_button" },
+    { name: "stone_pressure_plate", displayName: "Stone Pressure Plate", faces: faces("pressure_plate"), shape: "box", box: [1 / 16, 0, 1 / 16, 15 / 16, 1 / 16, 15 / 16], needsSupport: true, ...off, hardness: 0.75, tool: "pickaxe" },
+    { name: "stone_pressure_plate_on", displayName: "Stone Pressure Plate", faces: faces("pressure_plate"), shape: "box", box: [1 / 16, 0, 1 / 16, 15 / 16, 1 / 32, 15 / 16], needsSupport: true, ...off, hardness: 0.75, tool: "pickaxe", creative: false, drop: "stone_pressure_plate" },
+    { name: "redstone_torch", displayName: "Redstone Torch", faces: faces("redstone_torch_on"), shape: "torch", ...off, emissive: true, light: 7 },
+    { name: "redstone_torch_off", displayName: "Redstone Torch", faces: faces("redstone_torch_off"), shape: "torch", ...off, creative: false, drop: "redstone_torch" },
+    { name: "redstone_lamp", displayName: "Redstone Lamp", faces: faces("redstone_lamp_off"), hardness: 0.45 },
+    { name: "redstone_lamp_on", displayName: "Redstone Lamp", faces: faces("redstone_lamp_on"), hardness: 0.45, emissive: true, light: 15, creative: false, drop: "redstone_lamp" },
+    { name: "repeater", displayName: "Redstone Repeater", faces: faces("repeater_0_1_0", "repeater_side"), shape: "box", box: [0, 0, 0, 1, 2 / 16, 1], needsSupport: true, ...off },
+  );
+  for (let f = 0; f < 4; f++) for (let d = 1; d <= 4; d++) for (const on of [0, 1]) {
+    out.push({
+      name: `repeater_${f}_${d}_${on}`, displayName: "Redstone Repeater", faces: faces(`repeater_${f}_${d}_${on}`, "repeater_side"), shape: "box",
+      box: [0, 0, 0, 1, 2 / 16, 1], needsSupport: true, ...off, creative: false, drop: "repeater",
+    });
+  }
+  for (const m of ["wooden", "iron"] as const) for (const half of ["lower", "upper"] as const) for (let f = 0; f < 4; f++) for (const open of [0, 1]) {
+    out.push({
+      name: `door_${m}_${half}_${f}_${open}`, displayName: m === "wooden" ? "Wooden Door" : "Iron Door", faces: faces(`door_${m}_${half}`), shape: "box",
+      // Open doors swing to the next side; closed doors block movement (as a full cell).
+      box: panel(open ? (f + 1) % 4 : f), solid: !open, transparent: true, creative: false,
+      hardness: m === "wooden" ? 4.5 : 7.5, tool: m === "wooden" ? "axe" : "pickaxe", harvestTier: m === "iron" ? 1 : undefined,
+    });
+  }
+  return out;
+}
 
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, ...s }, id) => ({
   solid: true,

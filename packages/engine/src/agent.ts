@@ -7,7 +7,8 @@
 import { AIR, BLOCKS, blockById, isSolid } from "./blocks";
 import { FACING_DIRS } from "./chalkboard";
 import type { ItemStack } from "./inventory";
-import { dropCount, dropOf, isItem } from "./items";
+import { dropCount, dropOf, placedBlockOf } from "./items";
+import { doorPartner, orientedPlacement } from "./redstone";
 import { WORLD_HEIGHT } from "./chunk";
 import { WORLD_BORDER } from "./math";
 import { canBreak, canBuildAt } from "./rules";
@@ -114,10 +115,15 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const here = world.getBlock(t.x, t.y, t.z);
       if (here !== AIR && !BLOCKS[here].needsSupport && BLOCKS[here].shape !== "liquid") return { ok: false, message: "Something is in the way" };
       const stack = agent.slots[agent.selected];
-      if (!stack || isItem(stack.id)) return { ok: false, message: "No block in the selected slot" };
+      // Blocks, and items that place a block (redstone dust, doors, lab products).
+      const placed = stack ? placedBlockOf(stack.id) : null;
+      if (!stack || placed === null) return { ok: false, message: "No block in the selected slot" };
       // Education Edition: the Agent obeys Allow/Deny like a survival player.
       if (!canBuildAt(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Building isn't allowed here (Deny)" };
-      world.setBlock(t.x, t.y, t.z, stack.id);
+      // Repeaters point the way the Agent faces; doors face it and need the cell above.
+      const cells = orientedPlacement(placed, t.x, t.y, t.z, agent.facing) ?? [[t.x, t.y, t.z, placed]];
+      for (const [cx, cy, cz] of cells.slice(1)) if (world.getBlock(cx, cy, cz) !== AIR) return { ok: false, message: "Something is in the way" };
+      for (const [cx, cy, cz, id] of cells) world.setBlock(cx, cy, cz, id);
       stack.count--;
       if (stack.count <= 0) agent.slots[agent.selected] = null;
       return { ok: true };
@@ -127,7 +133,9 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const id = world.getBlock(t.x, t.y, t.z);
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
+      const partner = doorPartner(world, t.x, t.y, t.z);
       world.setBlock(t.x, t.y, t.z, AIR);
+      if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
       // The Agent collects what it destroys (Education Edition).
       addToAgent(agent, dropOf(id), dropCount(id));
       return { ok: true };

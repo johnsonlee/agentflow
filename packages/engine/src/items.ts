@@ -119,6 +119,9 @@ const specs: Omit<ItemDef, "id">[] = [
   })),
   // Increment 6b.
   ...COMPOUNDS.filter((c) => c.appended).map(compoundItem),
+  { name: "redstone", displayName: "Redstone Dust", maxStack: MAX_STACK, icon: "item_redstone", places: "redstone_wire_0" },
+  { name: "wooden_door", displayName: "Wooden Door", maxStack: MAX_STACK, icon: "item_wooden_door", places: "door_wooden_lower_0_0" },
+  { name: "iron_door", displayName: "Iron Door", maxStack: MAX_STACK, icon: "item_iron_door", places: "door_iron_lower_0_0" },
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));
@@ -172,21 +175,24 @@ export function foodOf(id: number | undefined | null): ItemDef["food"] | null {
 }
 
 /** Minecraft drops that differ from the block itself (coal ore -> coal, diamond ore -> diamond, bookshelf -> 3 books). */
-const BLOCK_ITEM_DROPS: Record<string, string> = {
-  coal_ore: "coal", diamond_ore: "diamond", bookshelf: "book",
-  placed_heat_block: "heat_block", placed_underwater_torch: "underwater_torch", placed_glow_stick: "glow_stick",
-};
-const BLOCK_DROP_COUNTS: Record<string, number> = { bookshelf: 3 };
+const BLOCK_ITEM_DROPS = new Map<string, string>([
+  ["coal_ore", "coal"], ["diamond_ore", "diamond"], ["bookshelf", "book"],
+  ["placed_heat_block", "heat_block"], ["placed_underwater_torch", "underwater_torch"], ["placed_glow_stick", "glow_stick"],
+  ["redstone_ore", "redstone"],
+  ...BLOCKS.filter((b) => b.name.startsWith("redstone_wire_")).map((b) => [b.name, "redstone"] as [string, string]),
+  ...BLOCKS.filter((b) => b.name.startsWith("door_")).map((b) => [b.name, b.name.startsWith("door_wooden") ? "wooden_door" : "iron_door"] as [string, string]),
+]);
+const BLOCK_DROP_COUNTS = new Map<string, number>([["bookshelf", 3], ["redstone_ore", 4]]);
 
 /** How many of `dropOf(block)` a harvested block gives. */
 export function dropCount(blockIdValue: number): number {
-  return BLOCK_DROP_COUNTS[blockById(blockIdValue).name] ?? 1;
+  return BLOCK_DROP_COUNTS.get(blockById(blockIdValue).name) ?? 1;
 }
 
 /** Stack id a block drops when harvested. */
 export function dropOf(blockIdValue: number): number {
   const def = blockById(blockIdValue);
-  const item = BLOCK_ITEM_DROPS[def.name];
+  const item = BLOCK_ITEM_DROPS.get(def.name);
   if (item) return itemId(item);
   return def.drop ?? def.id;
 }

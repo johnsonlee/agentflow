@@ -114,6 +114,10 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
           addCross(solid, x, y, z, uv(def.faces.side), def.shape === "torch" ? 0.0 : 0.15, def.emissive ? 0xff : lightAt(x, y, z));
           continue;
         }
+        if (def.shape === "box" && def.box) {
+          addBox(solid, x, y, z, def.box, def.faces, uv, def.emissive ? 0xff : lightAt(x, y, z));
+          continue;
+        }
         const isLiquid = def.shape === "liquid";
         const builder = isLiquid ? liquid : solid;
         const bright = def.emissive === true;
@@ -135,6 +139,39 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
     }
   }
   return { solid: solid.build(), liquid: liquid.build() };
+}
+
+/**
+ * A box inside the cell (redstone dust, plates, buttons, repeaters, doors): six faces, each showing
+ * the face texture, lit by the block's own cell.
+ */
+function addBox(
+  b: MeshBuilder,
+  x: number,
+  y: number,
+  z: number,
+  box: readonly [number, number, number, number, number, number],
+  faces: { top: string; side: string; bottom: string },
+  uv: (name: string) => UvRect,
+  light: number,
+): void {
+  const sky = (light >> 4) / 15;
+  const block = (light & 15) / 15;
+  const lo = [box[0], box[1], box[2]];
+  const hi = [box[3], box[4], box[5]];
+  for (const face of FACES) {
+    const [u0, v0, u1, v1] = uv(faces[face.key]);
+    const uvCorners = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+    const base = b.vertexCount();
+    for (let i = 0; i < 4; i++) {
+      const c = face.corners[i];
+      b.positions.push(x + (c[0] ? hi[0] : lo[0]), y + (c[1] ? hi[1] : lo[1]), z + (c[2] ? hi[2] : lo[2]));
+      b.normals.push(face.dir[0], face.dir[1], face.dir[2]);
+      b.uvs.push(uvCorners[i][0], uvCorners[i][1]);
+      b.colors.push(face.shade, sky, block);
+    }
+    b.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);
+  }
 }
 
 function addFace(
