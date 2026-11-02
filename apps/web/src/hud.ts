@@ -307,8 +307,9 @@ export class InventoryScreen {
       cursor.append(el("span", "", "Holding:"), img, el("span", "", `${displayNameOf(this.cursor.id)} ×${this.cursor.count}`));
     }
     parts.push(cursor);
-    const hint =
-      mode === "creative" && this.width === 0
+    const hint = this.furnace
+      ? "Tap a slot to pick items up, then tap the furnace's top slot (to smelt) or bottom slot (fuel). Tap the result to collect it."
+      : mode === "creative" && this.width === 0
         ? "Pick a block to put it in the selected hotbar slot. Tap a hotbar slot to select it."
         : "Tap a slot to pick items up, tap another slot to put them down. Crafting cells take one item per tap.";
     parts.push(el("p", "hint", hint));

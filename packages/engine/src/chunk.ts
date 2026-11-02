@@ -6,6 +6,8 @@ export const WORLD_HEIGHT = 96;
 /** A vertical column of CHUNK_SIZE x WORLD_HEIGHT x CHUNK_SIZE blocks. */
 export class Chunk {
   readonly blocks = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
+  /** Packed light per block: sky light in the high nibble, block light in the low nibble. */
+  readonly light = new Uint8Array(CHUNK_SIZE * WORLD_HEIGHT * CHUNK_SIZE);
 
   constructor(
     readonly cx: number,

@@ -28,7 +28,7 @@ describe("procedural textures", () => {
       return false;
     });
     expect(alphaTiles.sort()).toEqual(
-      ["birch_leaves", "dandelion", "glass", "oak_leaves", "poppy", "tall_grass", "water"].sort(),
+      ["birch_leaves", "dandelion", "glass", "oak_leaves", "poppy", "tall_grass", "torch", "water"].sort(),
     );
   });
 

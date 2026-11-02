@@ -33,6 +33,8 @@ export const RECIPES: readonly Recipe[] = [
   ...toolRecipes("wooden", "oak_planks"),
   ...toolRecipes("stone", "cobblestone"),
   ...toolRecipes("iron", "iron_ingot"),
+  { id: "torch", pattern: ["C", "|"], key: { C: "coal", "|": "stick" }, result: ["torch", 4] },
+  { id: "torch_from_charcoal", pattern: ["C", "|"], key: { C: "charcoal", "|": "stick" }, result: ["torch", 4] },
   { id: "furnace", pattern: ["###", "# #", "###"], key: { "#": "cobblestone" }, result: ["furnace", 1] },
   { id: "oak_planks", ingredients: ["oak_log"], result: ["oak_planks", 4] },
   { id: "oak_planks_from_birch", ingredients: ["birch_log"], result: ["oak_planks", 4], note: "Minecraft yields birch planks" },

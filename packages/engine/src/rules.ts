@@ -1,4 +1,4 @@
-import { AIR, BLOCKS, blockById, blockId } from "./blocks";
+import { AIR, BLOCKS, blockById, blockId, isOpaque } from "./blocks";
 import type { Inventory } from "./inventory";
 import { dropOf, isItem, toolOf, type ToolSpec } from "./items";
 import { bodyOverlapsBlock } from "./physics";
@@ -96,6 +96,11 @@ export function placeBlock(
   if (def.needsSupport) {
     const below = blockById(world.getBlock(x, y - 1, z));
     if (!below.solid || below.transparent) return false;
+  }
+  // Torches stand on a block top or hang on a block side (never on a ceiling), as in Minecraft.
+  if (def.shape === "torch") {
+    const sides = [[0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
+    if (!sides.some(([dx, dy, dz]) => isOpaque(world.getBlock(x + dx, y + dy, z + dz)))) return false;
   }
   if (!canBuildAt(world, mode, x, y, z)) return false;
   world.setBlock(x, y, z, stack.id);

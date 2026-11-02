@@ -20,6 +20,8 @@ export class WorldRenderer {
   private readonly liquidMaterial: THREE.MeshBasicMaterial;
   private readonly chunks = new Map<string, ChunkEntry>();
   private readonly dirty = new Set<string>();
+  /** Sky-light multiplier for the chunk shader (1 at noon, 0.2 at night). */
+  private readonly daylight = { value: 1 };
   private readonly uv: UvLookup;
   private readonly selection: THREE.LineSegments;
   private readonly crack: THREE.Mesh;
@@ -56,6 +58,22 @@ export class WorldRenderer {
       depthWrite: false,
       side: THREE.DoubleSide,
     });
+
+    // Vertex colours carry (shade x AO, sky light, block light); combine them with the time of day.
+    for (const m of [this.solidMaterial, this.liquidMaterial]) {
+      m.onBeforeCompile = (shader) => {
+        shader.uniforms.uDaylight = this.daylight;
+        shader.fragmentShader = `uniform float uDaylight;\n${shader.fragmentShader}`.replace(
+          "#include <color_fragment>",
+          `#ifdef USE_COLOR
+            float lightLevel = max(vColor.g * uDaylight, vColor.b);
+            float dark = 1.0 - lightLevel;
+            // Minecraft-like brightness curve, with a little ambient light so caves aren't pitch black.
+            diffuseColor.rgb *= vColor.r * mix(0.05, 1.0, (1.0 - dark) / (dark * 3.0 + 1.0));
+          #endif`,
+        );
+      };
+    }
 
     this.fog = new THREE.Fog(0x88aaff, 20, 100);
     this.scene.fog = this.fog;
@@ -188,8 +206,7 @@ export class WorldRenderer {
     this.camera.far = far * 3;
     this.camera.updateProjectionMatrix();
 
-    this.solidMaterial.color.setScalar(sky.light);
-    this.liquidMaterial.color.setScalar(sky.light);
+    this.daylight.value = sky.light;
 
     const cam = this.camera.position;
     const dist = 400;

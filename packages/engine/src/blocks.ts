@@ -3,7 +3,7 @@
  * textures are referenced by tile name and resolved by the renderer.
  */
 
-export type RenderShape = "cube" | "cross" | "liquid" | "none";
+export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "none";
 
 export interface BlockFaces {
   top: string;
@@ -39,6 +39,8 @@ export interface BlockDef {
   creative: boolean;
   /** Emits light (rendered at full brightness). */
   emissive?: boolean;
+  /** Block light emitted, 0-15 (Minecraft: torch 14, glowstone 15). */
+  light?: number;
   /** Needs a solid block underneath (plants). */
   needsSupport?: boolean;
 }
@@ -81,7 +83,7 @@ const specs: BlockSpec[] = [
   { name: "blue_wool", displayName: "Blue Wool", faces: faces("blue_wool"), hardness: 1.2 },
   { name: "purple_wool", displayName: "Purple Wool", faces: faces("purple_wool"), hardness: 1.2 },
   { name: "black_wool", displayName: "Black Wool", faces: faces("black_wool"), hardness: 1.2 },
-  { name: "glowstone", displayName: "Glowstone", faces: faces("glowstone"), hardness: 0.45, emissive: true },
+  { name: "glowstone", displayName: "Glowstone", faces: faces("glowstone"), hardness: 0.45, emissive: true, light: 15 },
   { name: "bookshelf", displayName: "Bookshelf", faces: faces("oak_planks", "bookshelf"), hardness: 2.25, tool: "axe" },
   { name: "crafting_table", displayName: "Crafting Table", faces: faces("crafting_table_top", "crafting_table_side", "oak_planks"), hardness: 3.75, tool: "axe" },
   { name: "dandelion", displayName: "Dandelion", faces: faces("dandelion"), solid: false, transparent: true, shape: "cross", hardness: 0, needsSupport: true },
@@ -93,6 +95,7 @@ const specs: BlockSpec[] = [
   { name: "border", displayName: "Border", faces: faces("border"), hardness: Infinity },
   // Append only: block ids are positional and stored in chunks and saves.
   { name: "furnace", displayName: "Furnace", faces: faces("furnace_top", "furnace_front", "furnace_top"), hardness: 5.25, tool: "pickaxe", harvestTier: 1 },
+  { name: "torch", displayName: "Torch", faces: faces("torch"), solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 14 },
 ];
 
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, ...s }, id) => ({

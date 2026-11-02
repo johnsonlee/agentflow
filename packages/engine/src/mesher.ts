@@ -74,6 +74,7 @@ const PAD = CHUNK_SIZE + 2;
 export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): ChunkMesh {
   // Copy the chunk plus a one-block border from its neighbours into a padded array for fast lookups.
   const padded = new Uint8Array(PAD * PAD * WORLD_HEIGHT);
+  const paddedLight = new Uint8Array(PAD * PAD * WORLD_HEIGHT);
   const pidx = (x: number, y: number, z: number) => (y * PAD + (z + 1)) * PAD + (x + 1);
   for (let dz = -1; dz <= 1; dz++) {
     for (let dx = -1; dx <= 1; dx++) {
@@ -85,13 +86,17 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
       for (let y = 0; y < WORLD_HEIGHT; y++) {
         for (let lz = zs; lz < ze; lz++) {
           for (let lx = xs; lx < xe; lx++) {
-            padded[pidx(lx + dx * CHUNK_SIZE, y, lz + dz * CHUNK_SIZE)] = chunk.get(lx, y, lz);
+            const i = pidx(lx + dx * CHUNK_SIZE, y, lz + dz * CHUNK_SIZE);
+            padded[i] = chunk.get(lx, y, lz);
+            paddedLight[i] = chunk.light[(y * CHUNK_SIZE + lz) * CHUNK_SIZE + lx];
           }
         }
       }
     }
   }
   const get = (x: number, y: number, z: number) => (y < 0 || y >= WORLD_HEIGHT ? AIR : padded[pidx(x, y, z)]);
+  // Packed light (sky << 4 | block) with the same padding; above the world is full sky light.
+  const lightAt = (x: number, y: number, z: number) => (y >= WORLD_HEIGHT ? 0xf0 : y < 0 ? 0 : paddedLight[pidx(x, y, z)]);
   const opaque = (x: number, y: number, z: number) => isOpaque(get(x, y, z));
 
   const solid = new MeshBuilder();
@@ -103,8 +108,8 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
         const id = get(x, y, z);
         if (id === AIR) continue;
         const def = BLOCKS[id];
-        if (def.shape === "cross") {
-          addCross(solid, x, y, z, uv(def.faces.side));
+        if (def.shape === "cross" || def.shape === "torch") {
+          addCross(solid, x, y, z, uv(def.faces.side), def.shape === "torch" ? 0.0 : 0.15, def.emissive ? 0xff : lightAt(x, y, z));
           continue;
         }
         const isLiquid = def.shape === "liquid";
@@ -120,7 +125,9 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
           if (isLiquid && n === WATER) continue;
           if (ny < 0) continue;
           const lowerTop = isLiquid && get(x, y + 1, z) !== WATER;
-          addFace(builder, face, x, y, z, uv(def.faces[face.key]), bright ? null : opaque, lowerTop);
+          // A face is lit by the cell it faces (Minecraft's flat lighting); emissive blocks are always bright.
+          const light = bright ? 0xff : lightAt(nx, ny, nz);
+          addFace(builder, face, x, y, z, uv(def.faces[face.key]), bright ? null : opaque, lowerTop, light);
         }
       }
     }
@@ -137,7 +144,10 @@ function addFace(
   rect: UvRect,
   opaque: ((x: number, y: number, z: number) => boolean) | null,
   lowerTop: boolean,
+  light: number,
 ): void {
+  const sky = (light >> 4) / 15;
+  const block = (light & 15) / 15;
   const [u0, v0, u1, v1] = rect;
   const uvCorners = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
   const [dx, dy, dz] = face.dir;
@@ -155,7 +165,9 @@ function addFace(
     const level = opaque ? vertexAo(opaque, face, x, y, z, c) : 0;
     ao.push(level);
     const shade = (opaque ? face.shade : 1) * AO_LEVELS[level];
-    b.colors.push(shade, shade, shade);
+    // Colour channels: r = shade x AO, g = sky light, b = block light (the renderer's shader combines
+    // them with the time of day).
+    b.colors.push(shade, sky, block);
   }
   // Flip the quad diagonal so AO gradients interpolate without artefacts.
   if (ao[0] + ao[2] > ao[1] + ao[3]) {
@@ -188,9 +200,10 @@ function vertexAo(
   return (side1 ? 1 : 0) + (side2 ? 1 : 0) + (cornerBlock ? 1 : 0);
 }
 
-function addCross(b: MeshBuilder, x: number, y: number, z: number, rect: UvRect): void {
+function addCross(b: MeshBuilder, x: number, y: number, z: number, rect: UvRect, inset: number, light: number): void {
   const [u0, v0, u1, v1] = rect;
-  const inset = 0.15;
+  const sky = (light >> 4) / 15;
+  const block = (light & 15) / 15;
   const quads: Array<[number, number, number, number]> = [
     [inset, inset, 1 - inset, 1 - inset],
     [1 - inset, inset, inset, 1 - inset],
@@ -211,7 +224,7 @@ function addCross(b: MeshBuilder, x: number, y: number, z: number, rect: UvRect)
         b.positions.push(x + px, y + py, z + pz);
         b.normals.push(nx, 0, nz);
         b.uvs.push(u, v);
-        b.colors.push(0.9, 0.9, 0.9);
+        b.colors.push(0.9, sky, block);
       }
       if (flip) b.indices.push(base, base + 2, base + 1, base, base + 3, base + 2);
       else b.indices.push(base, base + 1, base + 2, base, base + 2, base + 3);

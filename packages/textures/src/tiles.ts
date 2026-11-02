@@ -243,6 +243,14 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
     }
     return t;
   },
+  torch: (t) => {
+    // A stick with a glowing head, centred on a transparent tile (drawn crosswise like plants).
+    t.fill(() => null);
+    for (let y = 7; y < S; y++) for (let x = 7; x <= 8; x++) t.set(x, y, hex(x === 7 ? "#8a6236" : "#6b4a28"));
+    for (let y = 4; y <= 6; y++) for (let x = 7; x <= 8; x++) t.set(x, y, hex(y === 4 ? "#fff6c2" : y === 5 ? "#ffd23f" : "#ff9d1c"));
+    t.set(7, 3, hex("#ffe98a"));
+    return t;
+  },
   furnace_top: (t) => {
     // Smooth dressed stone with a darker border.
     t.noise(STONE, 2.2);
