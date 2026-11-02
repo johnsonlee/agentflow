@@ -14,6 +14,8 @@ export interface SaveData {
   player: { position: Vec3; yaw: number; pitch: number; flying: boolean };
   inventory: { slots: (ItemStack | null)[]; selected: number };
   edits: BlockEdit[];
+  /** Education Edition NPCs placed in the world (optional for older saves). */
+  npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {

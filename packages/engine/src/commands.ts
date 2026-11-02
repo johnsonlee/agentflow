@@ -1,4 +1,5 @@
 import { BLOCKS } from "./blocks";
+import type { MobKind } from "./entities";
 import type { GameMode } from "./rules";
 
 export type Command =
@@ -6,6 +7,7 @@ export type Command =
   | { type: "time"; timeOfDay: number }
   | { type: "tp"; x: number; y: number; z: number; relative: [boolean, boolean, boolean] }
   | { type: "give"; id: number; count: number }
+  | { type: "summon"; kind: MobKind; name?: string }
   | { type: "seed" }
   | { type: "help" }
   | { type: "error"; message: string };
@@ -19,6 +21,7 @@ export const COMMAND_HELP = [
   "/time set <day|noon|night|midnight|ticks>",
   "/tp <x> <y> <z>  (~ for relative)",
   "/give <block> [count]",
+  "/summon <pig|sheep|chicken|npc> [name]",
   "/seed",
 ];
 
@@ -55,6 +58,14 @@ export function parseCommand(input: string): Command {
       const count = args[1] === undefined ? 1 : Number(args[1]);
       if (!Number.isInteger(count) || count < 1 || count > 2304) return { type: "error", message: "Count must be 1-2304" };
       return { type: "give", id: def.id, count };
+    }
+    case "summon": {
+      const kind = (args[0] ?? "").toLowerCase().replace(/^minecraft:/, "");
+      if (kind !== "pig" && kind !== "sheep" && kind !== "chicken" && kind !== "npc") {
+        return { type: "error", message: "Usage: /summon <pig|sheep|chicken|npc> [name]" };
+      }
+      const name = args.slice(1).join(" ").trim();
+      return name ? { type: "summon", kind, name } : { type: "summon", kind };
     }
     case "seed":
       return { type: "seed" };

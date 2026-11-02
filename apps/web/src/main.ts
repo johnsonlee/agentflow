@@ -99,14 +99,18 @@ function showHelp(): void {
     <h3>Computer</h3>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump (double-tap to fly in Creative) · <b>Shift</b> sneak / fly down · <b>Ctrl</b> sprint</p>
     <p><b>Left click</b> break · <b>Right click</b> place · <b>Middle click</b> pick block · <b>1–9 / wheel</b> hotbar</p>
-    <p><b>E</b> inventory · <b>/</b> or <b>T</b> commands · <b>F3</b> debug · <b>Esc</b> pause</p>
+    <p><b>E</b> inventory · <b>C</b> camera · <b>P</b> portfolio · <b>/</b> or <b>T</b> commands · <b>F3</b> debug · <b>Esc</b> pause</p>
     <h3>Touch</h3>
     <p><b>Left joystick</b> move · <b>Drag</b> right side to look · <b>Tap</b> place · <b>Hold</b> break</p>
-    <p><b>⤒</b> jump · <b>✈</b> fly (Creative) · <b>⤓</b> sneak / fly down · <b>•••</b> inventory</p>
-    <h3>Education Edition blocks</h3>
+    <p><b>⤒</b> jump · <b>✈</b> fly (Creative) · <b>⤓</b> sneak / fly down · <b>•••</b> inventory · <b>📷</b> camera · <b>🖼</b> portfolio</p>
+    <h3>Education Edition features</h3>
     <p><b>Allow</b> / <b>Deny</b>: in Survival you can only build above Allow blocks, never above Deny blocks. <b>Border</b> blocks are unbreakable.</p>
+    <p><b>Camera &amp; Portfolio</b>: <b>C</b> (📷) takes a photo, <b>P</b> (🖼) opens the portfolio, where you can caption, save or delete photos.</p>
+    <p><b>NPCs</b>: <code>/summon npc Name</code>; right click (tap) an NPC to talk. In Creative you can edit its name and dialogue.</p>
+    <h3>Crafting &amp; mobs</h3>
+    <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep and chickens roam grassland; left click to attack (sheep drop wool).</p>
     <h3>Commands</h3>
-    <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /seed</p>`;
+    <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /summon pig|sheep|chicken|npc · /seed</p>`;
   app.replaceChildren(screen("help-screen", el("h2", "", "How to Play"), list, button("Back", showTitle)));
 }
 

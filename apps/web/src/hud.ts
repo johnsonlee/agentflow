@@ -1,4 +1,7 @@
-import { HOTBAR_SIZE, INVENTORY_SIZE, blockById, creativeBlocks, type GameMode, type Inventory } from "@craft/engine";
+import {
+  HOTBAR_SIZE, INVENTORY_SIZE, MAX_STACK, blockById, craftOnce, creativeBlocks, matchRecipe,
+  type CraftingGrid, type GameMode, type Inventory, type ItemStack,
+} from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
 
@@ -14,6 +17,8 @@ export interface HudCallbacks {
   onOpenInventory(): void;
   onPause(): void;
   onChat(): void;
+  onCamera(): void;
+  onPortfolio(): void;
 }
 
 /** In-game overlay: crosshair, hotbar, hearts, item name, debug info and chat log. */
@@ -27,6 +32,7 @@ export class Hud {
   private readonly log = el("div", "chat-log");
   private readonly damage = el("div", "damage-flash");
   private readonly water = el("div", "underwater");
+  private readonly cameraFlash = el("div", "camera-flash");
   private itemNameTimer = 0;
   private lastSignature = "";
 
@@ -36,7 +42,7 @@ export class Hud {
     callbacks: HudCallbacks,
     touch: boolean,
   ) {
-    this.root.append(this.water, this.damage, el("div", "crosshair"), this.log, this.debug);
+    this.root.append(this.water, this.damage, this.cameraFlash, el("div", "crosshair"), this.log, this.debug);
     for (let i = 0; i < HOTBAR_SIZE; i++) {
       const slot = el("button", "slot");
       slot.dataset.slot = String(i);
@@ -70,7 +76,19 @@ export class Hud {
         e.stopPropagation();
         callbacks.onChat();
       });
-      top.append(chat, pause);
+      const camera = el("button", "touch-top-button", "📷");
+      camera.setAttribute("aria-label", "Take photo");
+      camera.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        callbacks.onCamera();
+      });
+      const portfolio = el("button", "touch-top-button", "🖼");
+      portfolio.setAttribute("aria-label", "Portfolio");
+      portfolio.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        callbacks.onPortfolio();
+      });
+      top.append(camera, portfolio, chat, pause);
       this.root.appendChild(top);
     }
     this.root.appendChild(bottom);
@@ -123,6 +141,12 @@ export class Hud {
     this.damage.classList.add("on");
   }
 
+  flashCamera(): void {
+    this.cameraFlash.classList.remove("on");
+    void this.cameraFlash.offsetWidth;
+    this.cameraFlash.classList.add("on");
+  }
+
   setUnderwater(on: boolean): void {
     this.water.classList.toggle("on", on);
   }
@@ -144,11 +168,22 @@ export class Hud {
   }
 }
 
-/** Full-screen inventory: creative block palette or survival backpack, plus the hotbar. */
+export type InventoryKind = "inventory" | "crafting_table";
+
+/**
+ * Full-screen inventory. Survival shows the backpack with a 2x2 crafting grid; creative shows the
+ * block palette; the crafting table shows a 3x3 grid in both modes. Items move through a cursor
+ * stack: tap a slot to pick it up, tap another slot to drop it (one item into a crafting cell).
+ */
 export class InventoryScreen {
   readonly root = el("div", "screen inventory-screen");
   private readonly panel = el("div", "panel inventory-panel");
-  private held: number | null = null;
+  private cursor: ItemStack | null = null;
+  private grid: CraftingGrid = [];
+  private width = 0;
+  private kind: InventoryKind = "inventory";
+  private inventory: Inventory | null = null;
+  private mode: GameMode = "creative";
 
   constructor(
     container: HTMLElement,
@@ -167,70 +202,149 @@ export class InventoryScreen {
     return !this.root.hidden;
   }
 
-  show(inventory: Inventory, mode: GameMode): void {
-    this.held = null;
-    this.render(inventory, mode);
+  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory"): void {
+    this.inventory = inventory;
+    this.mode = mode;
+    this.kind = kind;
+    this.width = kind === "crafting_table" ? 3 : mode === "survival" ? 2 : 0;
+    this.grid = new Array(this.width * this.width).fill(null);
+    this.cursor = null;
+    this.render();
     this.root.hidden = false;
   }
 
+  /** Closes the screen, returning crafting-grid and cursor items to the inventory. */
   hide(): void {
+    if (this.inventory) {
+      for (const stack of [...this.grid, this.cursor]) if (stack) this.inventory.add(stack.id, stack.count);
+    }
+    this.grid = [];
+    this.cursor = null;
     this.root.hidden = true;
   }
 
-  private render(inventory: Inventory, mode: GameMode): void {
+  private render(): void {
+    const inventory = this.inventory!;
+    const mode = this.mode;
     const header = el("div", "panel-header");
-    header.append(el("h2", "", mode === "creative" ? "Creative Inventory" : "Inventory"));
+    const title = this.kind === "crafting_table" ? "Crafting Table" : mode === "creative" ? "Creative Inventory" : "Inventory";
+    header.append(el("h2", "", title));
     const close = el("button", "close-button", "✕");
     close.setAttribute("aria-label", "Close inventory");
     close.addEventListener("click", () => this.onClose());
     header.append(close);
+    const parts: HTMLElement[] = [header];
 
-    const grid = el("div", "item-grid");
+    if (this.width > 0) parts.push(this.craftingSection());
+
     if (mode === "creative") {
+      const grid = el("div", "item-grid");
       for (const def of creativeBlocks()) {
         const cell = this.cell(def.id, 0, def.displayName);
         cell.dataset.block = def.name;
         cell.addEventListener("click", () => {
-          inventory.pick(def.id);
-          this.render(inventory, mode);
+          if (this.width > 0) this.cursor = { id: def.id, count: MAX_STACK };
+          else inventory.pick(def.id);
+          this.render();
         });
         grid.appendChild(cell);
       }
-    } else {
-      for (let i = HOTBAR_SIZE; i < INVENTORY_SIZE; i++) grid.appendChild(this.slotCell(inventory, mode, i));
+      parts.push(grid);
+    }
+    if (mode === "survival" || this.width > 0) {
+      const backpack = el("div", "item-grid");
+      for (let i = HOTBAR_SIZE; i < INVENTORY_SIZE; i++) backpack.appendChild(this.slotCell(i));
+      parts.push(backpack);
     }
 
     const hotbar = el("div", "item-grid hotbar-grid");
     for (let i = 0; i < HOTBAR_SIZE; i++) {
-      const cell = this.slotCell(inventory, mode, i);
+      const cell = this.slotCell(i);
       cell.classList.toggle("selected", i === inventory.selected);
       hotbar.appendChild(cell);
     }
-    const hint = el(
-      "p",
-      "hint",
-      mode === "creative"
+    parts.push(el("div", "divider"), hotbar);
+
+    const cursor = el("div", "cursor-stack");
+    cursor.dataset.testid = "cursor";
+    if (this.cursor) {
+      const img = el("img");
+      img.src = blockIcon(this.atlas, this.cursor.id);
+      img.alt = "";
+      cursor.append(el("span", "", "Holding:"), img, el("span", "", `${blockById(this.cursor.id).displayName} ×${this.cursor.count}`));
+    }
+    parts.push(cursor);
+    const hint =
+      mode === "creative" && this.width === 0
         ? "Pick a block to put it in the selected hotbar slot. Tap a hotbar slot to select it."
-        : "Tap two slots to swap them.",
-    );
-    this.panel.replaceChildren(header, grid, el("div", "divider"), hotbar, hint);
+        : "Tap a slot to pick items up, tap another slot to put them down. Crafting cells take one item per tap.";
+    parts.push(el("p", "hint", hint));
+    this.panel.replaceChildren(...parts);
   }
 
-  private slotCell(inventory: Inventory, mode: GameMode, index: number): HTMLElement {
+  private craftingSection(): HTMLElement {
+    const section = el("div", "crafting");
+    const grid = el("div", `item-grid craft-grid craft-${this.width}`);
+    this.grid.forEach((stack, i) => {
+      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? blockById(stack.id).displayName : "Empty");
+      cell.dataset.craft = String(i);
+      cell.addEventListener("click", () => {
+        const current = this.grid[i];
+        if (this.cursor && (!current || current.id === this.cursor.id) && (current?.count ?? 0) < MAX_STACK) {
+          this.grid[i] = { id: this.cursor.id, count: (current?.count ?? 0) + 1 };
+          this.cursor.count--;
+          if (this.cursor.count <= 0) this.cursor = null;
+        } else if (!this.cursor && current) {
+          this.cursor = current;
+          this.grid[i] = null;
+        }
+        this.render();
+      });
+      grid.appendChild(cell);
+    });
+    const match = matchRecipe(this.grid, this.width);
+    const result = this.cell(match?.result.id ?? null, match?.result.count ?? 0, match ? blockById(match.result.id).displayName : "No recipe");
+    result.classList.add("craft-result");
+    result.dataset.craftResult = "";
+    result.addEventListener("click", () => {
+      const preview = matchRecipe(this.grid, this.width);
+      if (!preview) return;
+      if (this.cursor && (this.cursor.id !== preview.result.id || this.cursor.count + preview.result.count > MAX_STACK)) return;
+      const crafted = craftOnce(this.grid, this.width)!;
+      this.cursor = this.cursor ? { id: crafted.id, count: this.cursor.count + crafted.count } : crafted;
+      this.render();
+    });
+    section.append(grid, el("span", "craft-arrow", "➜"), result);
+    return section;
+  }
+
+  private slotCell(index: number): HTMLElement {
+    const inventory = this.inventory!;
     const stack = inventory.slots[index];
-    const cell = this.cell(stack?.id ?? null, mode === "survival" ? (stack?.count ?? 0) : 0, stack ? blockById(stack.id).displayName : "Empty");
+    const showCount = this.mode === "survival" || this.width > 0;
+    const cell = this.cell(stack?.id ?? null, showCount ? (stack?.count ?? 0) : 0, stack ? blockById(stack.id).displayName : "Empty");
     cell.dataset.slot = String(index);
-    if (this.held === index) cell.classList.add("held");
     cell.addEventListener("click", () => {
-      if (mode === "creative" || this.held === null) {
-        if (index < HOTBAR_SIZE && mode === "creative") inventory.select(index);
-        else this.held = index;
-      } else {
-        inventory.swap(this.held, index);
-        this.held = null;
+      if (this.mode === "creative" && this.width === 0) {
+        if (index < HOTBAR_SIZE) inventory.select(index);
+      } else if (this.cursor) {
+        const current = inventory.slots[index];
+        if (current && current.id === this.cursor.id) {
+          const n = Math.min(MAX_STACK - current.count, this.cursor.count);
+          current.count += n;
+          this.cursor.count -= n;
+          if (this.cursor.count <= 0) this.cursor = null;
+        } else {
+          inventory.setSlot(index, this.cursor);
+          this.cursor = current ? { ...current } : null;
+        }
+      } else if (stack) {
+        this.cursor = { ...stack };
+        inventory.setSlot(index, null);
+      } else if (index < HOTBAR_SIZE) {
+        inventory.select(index);
       }
-      if (index < HOTBAR_SIZE && mode === "survival" && this.held === null) inventory.select(index);
-      this.render(inventory, mode);
+      this.render();
     });
     return cell;
   }

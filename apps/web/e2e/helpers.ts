@@ -140,3 +140,65 @@ export async function doubleTapSpace(page: Page) {
     key("keyup");
   });
 }
+
+/** Runs a chat command through the real chat input. */
+export async function command(page: Page, text: string) {
+  await page.evaluate(() => {
+    // Open chat the same way the "/" key does, independent of keyboard focus.
+    window.dispatchEvent(new KeyboardEvent("keydown", { code: "Slash", key: "/", bubbles: true }));
+  });
+  const input = page.getByRole("textbox", { name: "Chat" });
+  await expect(input).toBeVisible();
+  await input.fill(text);
+  await input.press("Enter");
+  await expect(input).toBeHidden();
+}
+
+/** Id of the newest mob of a kind. */
+export function newestMob(page: Page, kind: string) {
+  return page.evaluate((k) => {
+    const mobs = window.__craft.game!.mobs.mobs.filter((m) => m.kind === k);
+    return mobs.length ? mobs[mobs.length - 1].id : null;
+  }, kind);
+}
+
+/** Points the camera at the centre of a mob. Returns false if it no longer exists. */
+export function lookAtMob(page: Page, id: number) {
+  return page.evaluate((mobId) => {
+    const g = window.__craft.game!;
+    const mob = g.mobs.mobs.find((m) => m.id === mobId);
+    if (!mob) return false;
+    const heights: Record<string, number> = { pig: 0.9, sheep: 1.3, chicken: 0.7, npc: 1.9 };
+    const dx = mob.position.x - g.body.position.x;
+    const dz = mob.position.z - g.body.position.z;
+    const dy = mob.position.y + heights[mob.kind] * 0.5 - (g.body.position.y + 1.62);
+    g.body.yaw = Math.atan2(-dx, -dz);
+    g.body.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    return true;
+  }, id);
+}
+
+export function mobExists(page: Page, id: number) {
+  return page.evaluate((mobId) => window.__craft.game!.mobs.mobs.some((m) => m.id === mobId), id);
+}
+
+/** Counts items of a block in the inventory. */
+export function countItem(page: Page, name: string) {
+  return page.evaluate((n) => {
+    const id = window.__craft.blockId(n);
+    return window.__craft.game!.inventory.slots.reduce((sum, s) => sum + (s && s.id === id ? s.count : 0), 0);
+  }, name);
+}
+
+/** Keeps a (fleeing) mob within reach: moves it 2.5 blocks in front of the player at foot level. */
+export function bringMob(page: Page, id: number) {
+  return page.evaluate((mobId) => {
+    const g = window.__craft.game!;
+    const mob = g.mobs.mobs.find((m) => m.id === mobId);
+    if (!mob) return false;
+    const p = g.body.position;
+    mob.position = { x: p.x - Math.sin(g.body.yaw) * 2.5, y: p.y + 0.01, z: p.z - Math.cos(g.body.yaw) * 2.5 };
+    mob.velocity = { x: 0, y: 0, z: 0 };
+    return true;
+  }, id);
+}

@@ -59,9 +59,14 @@ interface Box {
   maxX: number; maxY: number; maxZ: number;
 }
 
+/** Axis-aligned box for a body of the given size standing at feet position p. */
+export function bodyBox(p: Vec3, width = PLAYER_WIDTH, height = PLAYER_HEIGHT): Box {
+  const h = width / 2;
+  return { minX: p.x - h, minY: p.y, minZ: p.z - h, maxX: p.x + h, maxY: p.y + height, maxZ: p.z + h };
+}
+
 export function playerBox(p: Vec3): Box {
-  const h = PLAYER_WIDTH / 2;
-  return { minX: p.x - h, minY: p.y, minZ: p.z - h, maxX: p.x + h, maxY: p.y + PLAYER_HEIGHT, maxZ: p.z + h };
+  return bodyBox(p);
 }
 
 /** True if any solid block intersects the box. */
@@ -83,8 +88,17 @@ export function bodyOverlapsBlock(p: Vec3, x: number, y: number, z: number): boo
   return b.maxX > x && b.minX < x + 1 && b.maxY > y && b.minY < y + 1 && b.maxZ > z && b.minZ < z + 1;
 }
 
-/** Moves along one axis, stopping at the first collision. Returns true if blocked. */
-function moveAxis(getBlock: BlockGetter, p: Vec3, axis: "x" | "y" | "z", delta: number): boolean {
+/**
+ * Moves a body along one axis, stopping flush at the first collision. Returns true if blocked.
+ */
+export function moveAxis(
+  getBlock: BlockGetter,
+  p: Vec3,
+  axis: "x" | "y" | "z",
+  delta: number,
+  width = PLAYER_WIDTH,
+  height = PLAYER_HEIGHT,
+): boolean {
   if (delta === 0) return false;
   // Sub-step so fast movement never tunnels through a block.
   const steps = Math.ceil(Math.abs(delta) / 0.45);
@@ -92,20 +106,20 @@ function moveAxis(getBlock: BlockGetter, p: Vec3, axis: "x" | "y" | "z", delta: 
   for (let i = 0; i < steps; i++) {
     const before = p[axis];
     p[axis] = before + step;
-    if (boxCollides(getBlock, playerBox(p))) {
+    if (boxCollides(getBlock, bodyBox(p, width, height))) {
       // Snap flush against the block face.
       if (step > 0) {
-        const extent = axis === "y" ? PLAYER_HEIGHT : PLAYER_WIDTH / 2;
+        const extent = axis === "y" ? height : width / 2;
         const edge = before + extent + step;
         p[axis] = Math.floor(edge) - extent - 1e-4;
         if (p[axis] < before) p[axis] = before;
       } else {
-        const extent = axis === "y" ? 0 : PLAYER_WIDTH / 2;
+        const extent = axis === "y" ? 0 : width / 2;
         const edge = before - extent + step;
         p[axis] = Math.floor(edge) + 1 + extent + 1e-4;
         if (p[axis] > before) p[axis] = before;
       }
-      if (boxCollides(getBlock, playerBox(p))) p[axis] = before;
+      if (boxCollides(getBlock, bodyBox(p, width, height))) p[axis] = before;
       return true;
     }
   }

@@ -1,11 +1,13 @@
 import {
-  AIR, BLOCKS, COMMAND_HELP, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock,
+  AIR, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
-  serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type PlayerBody, type RaycastHit, type SaveData,
+  serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
-import { ChatInput, Hud, InventoryScreen } from "./hud";
+import { ChatInput, Hud, InventoryScreen, type InventoryKind } from "./hud";
+import { MobManager } from "./mobs";
+import { NpcDialog, Portfolio, PortfolioScreen } from "./screens";
 import { WorldRenderer } from "./renderer";
 
 export const SAVE_KEY = "craft.save.v1";
@@ -13,6 +15,7 @@ const REACH = 5;
 const MAX_HEALTH = 20;
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const CREATIVE_REPEAT = 0.25;
+const CRAFTING_TABLE = blockId("crafting_table");
 
 export interface GameOptions {
   name: string;
@@ -33,6 +36,8 @@ export class Game {
   readonly body: PlayerBody;
   readonly renderer: WorldRenderer;
   readonly hud: Hud;
+  readonly mobs: MobManager;
+  readonly portfolio = new Portfolio();
   inventory: Inventory;
   mode: GameMode;
   timeOfDay: number;
@@ -46,6 +51,11 @@ export class Game {
   private readonly touch: TouchControls | null;
   private readonly inventoryScreen: InventoryScreen;
   private readonly chat: ChatInput;
+  private readonly portfolioScreen: PortfolioScreen;
+  private readonly npcDialog: NpcDialog;
+  private mobTarget: Mob | null = null;
+  private attackCooldown = 0;
+  private clock = 0;
   private readonly spawn: { x: number; y: number; z: number };
   private target: RaycastHit | null = null;
   private breakProgress = 0;
@@ -81,6 +91,8 @@ export class Game {
     this.mode = save?.mode ?? options.mode;
     this.timeOfDay = save?.timeOfDay ?? 0.05;
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
+    this.mobs = new MobManager(this.world, this.renderer.scene);
+    for (const npc of save?.npcs ?? []) this.mobs.spawn("npc", npc, npc);
 
     this.spawn = this.findSpawn();
     this.body = createPlayerBody(save?.player.position ?? this.spawn);
@@ -96,16 +108,20 @@ export class Game {
       onOpenInventory: () => this.toggleInventory(),
       onPause: () => this.pause(),
       onChat: () => this.openChat(),
+      onCamera: () => this.takePhoto(),
+      onPortfolio: () => this.togglePortfolio(),
     }, options.touch);
     this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory());
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
+    this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
+    this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob) => this.mobs.refresh(mob));
 
     canvas.addEventListener("click", () => {
       if (!this.touch && !this.paused && !this.dead) this.keyboard.requestPointerLock();
     });
     document.addEventListener("pointerlockchange", () => {
       if (this.keyboard.pointerLocked) this.hadPointerLock = true;
-      else if (this.hadPointerLock && this.running && !this.inventoryScreen.open && !this.chat.open && !this.dead) this.pause();
+      else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
     });
     window.addEventListener("keydown", (e) => this.onKey(e));
     window.addEventListener("resize", () => this.resize());
@@ -180,6 +196,7 @@ export class Game {
         player: { position: { ...this.body.position }, yaw: this.body.yaw, pitch: this.body.pitch, flying: this.body.flying },
         inventory: this.inventory.toJSON(),
         edits: this.world.exportEdits(),
+        npcs: this.mobs.exportNpcs(),
       }));
     } catch {
       // Storage may be full or disabled (private mode); the game keeps running.
@@ -191,6 +208,15 @@ export class Game {
     return this.target;
   }
 
+  /** The mob currently under the crosshair (closer than any block). */
+  get targetMob(): Mob | null {
+    return this.mobTarget;
+  }
+
+  private screenOpen(): boolean {
+    return this.inventoryScreen.open || this.chat.open || this.portfolioScreen.open || this.npcDialog.open;
+  }
+
   private tick(dt: number): void {
     this.frameCount++;
     this.fpsTimer += dt;
@@ -200,7 +226,8 @@ export class Game {
       this.fpsTimer = 0;
     }
 
-    const active = !this.paused && !this.dead && !this.inventoryScreen.open && !this.chat.open;
+    this.clock += dt;
+    const active = !this.paused && !this.dead && !this.screenOpen();
     const frames = [this.keyboard.poll()];
     if (this.touch) frames.push(this.touch.poll());
     const input = mergeFrames(frames);
@@ -224,9 +251,11 @@ export class Game {
       this.updateFall(wasOnGround);
       if (this.body.position.y < -20) this.hurt(MAX_HEALTH);
       this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
+      this.mobs.update(dt, this.body.position, skyAt(this.timeOfDay).light, this.clock);
       this.interact(input.breaking, input.place, input.pick, dt);
     } else {
       this.target = null;
+      this.mobTarget = null;
       this.breakProgress = 0;
     }
 
@@ -256,6 +285,26 @@ export class Game {
     this.target = raycast((x, y, z) => this.world.getBlock(x, y, z), eye, dir, REACH, targetable);
     this.creativeCooldown = Math.max(0, this.creativeCooldown - dt);
     this.placeCooldown = Math.max(0, this.placeCooldown - dt);
+    this.attackCooldown = Math.max(0, this.attackCooldown - dt);
+
+    // Mobs in front of the targeted block take priority, as in Minecraft.
+    const mobHit = this.mobs.raycast(eye, dir, REACH);
+    this.mobTarget = mobHit && (!this.target || mobHit.distance < this.target.distance) ? mobHit.mob : null;
+    if (this.mobTarget) {
+      this.target = null;
+      this.breakProgress = 0;
+      const mob = this.mobTarget;
+      if (breaking && this.attackCooldown === 0) {
+        this.attackCooldown = 0.4;
+        const drop = this.mobs.attack(mob, this.mode === "creative" ? 4 : 2, this.body.yaw);
+        if (drop !== undefined) {
+          this.hud.message(`${MOB_SPECS[mob.kind].displayName} was defeated`);
+          if (drop !== null && this.mode === "survival") this.inventory.add(drop, MOB_SPECS[mob.kind].drop![1]);
+        }
+      }
+      if (place && mob.kind === "npc") this.openNpcDialog(mob);
+      return;
+    }
     const t = this.target;
 
     if (breaking && t && canBreak(this.world, this.mode, t.x, t.y, t.z)) {
@@ -283,6 +332,11 @@ export class Game {
       this.breakProgress = 0;
       this.breakKey = "";
       if (!breaking) this.creativeCooldown = 0;
+    }
+
+    if (place && t && this.placeCooldown === 0 && t.id === CRAFTING_TABLE) {
+      this.openInventory("crafting_table");
+      return;
     }
 
     if (place && t && this.placeCooldown === 0) {
@@ -329,8 +383,18 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (!this.running || this.chat.open) return;
+    if (this.npcDialog.open) {
+      if (e.code === "Escape") this.closeNpcDialog();
+      return;
+    }
+    if (this.portfolioScreen.open) {
+      if (e.code === "Escape" || e.code === "KeyP") this.togglePortfolio();
+      return;
+    }
     if (e.code === "KeyE" && !this.paused && !this.dead) this.toggleInventory();
     else if (e.code === "Escape" && this.inventoryScreen.open) this.toggleInventory();
+    else if (e.code === "KeyC" && !this.paused && !this.dead && !this.inventoryScreen.open) this.takePhoto();
+    else if (e.code === "KeyP" && !this.paused && !this.dead && !this.inventoryScreen.open) this.togglePortfolio();
     else if (e.code === "Escape" && !this.paused && !this.dead && !this.keyboard.pointerLocked) this.pause();
     else if ((e.code === "Slash" || e.code === "KeyT") && !this.paused && !this.dead && !this.inventoryScreen.open) {
       e.preventDefault();
@@ -346,11 +410,55 @@ export class Game {
       this.inventoryScreen.hide();
       this.resumeInput();
     } else {
-      this.keyboard.reset();
-      this.keyboard.enabled = false;
-      if (document.pointerLockElement) document.exitPointerLock();
-      this.inventoryScreen.show(this.inventory, this.mode);
+      this.openInventory("inventory");
     }
+  }
+
+  private openInventory(kind: InventoryKind): void {
+    this.suspendInput();
+    this.inventoryScreen.show(this.inventory, this.mode, kind);
+  }
+
+  private suspendInput(): void {
+    this.keyboard.reset();
+    this.keyboard.enabled = false;
+    if (document.pointerLockElement) document.exitPointerLock();
+  }
+
+  private openNpcDialog(mob: Mob): void {
+    this.suspendInput();
+    this.npcDialog.show(mob, this.mode === "creative");
+  }
+
+  private closeNpcDialog(): void {
+    this.npcDialog.hide();
+    this.resumeInput();
+  }
+
+  private togglePortfolio(): void {
+    if (this.portfolioScreen.open) {
+      this.portfolioScreen.hide();
+      this.resumeInput();
+    } else {
+      this.suspendInput();
+      this.portfolioScreen.show();
+    }
+  }
+
+  /** Education Edition camera: captures the current view (without the HUD) into the portfolio. */
+  takePhoto(): void {
+    const r = this.renderer;
+    r.render(skyAt(this.timeOfDay), false, 0);
+    const src = r.canvas;
+    const width = 480;
+    const height = Math.round((src.height / Math.max(1, src.width)) * width);
+    const c = document.createElement("canvas");
+    c.width = width;
+    c.height = height;
+    c.getContext("2d")!.drawImage(src, 0, 0, width, height);
+    this.portfolio.add(c.toDataURL("image/jpeg", 0.8));
+    this.hud.flashCamera();
+    this.hud.message(`Photo saved to portfolio (${this.portfolio.photos.length}). Press P to view.`);
   }
 
   private openChat(prefix = ""): void {
@@ -398,6 +506,17 @@ export class Game {
       case "give": {
         const left = this.inventory.add(cmd.id, cmd.count);
         reply = `Gave ${cmd.count - left} [${blockById(cmd.id).displayName}]`;
+        break;
+      }
+      case "summon": {
+        const dir = lookDirection(this.body.yaw, 0);
+        const x = this.body.position.x + dir.x * 3;
+        const z = this.body.position.z + dir.z * 3;
+        const y = this.world.generator.heightAt(Math.floor(x), Math.floor(z)) + 1;
+        const surface = Math.max(y, Math.floor(this.body.position.y));
+        // NPCs face the player.
+        const mob = this.mobs.spawn(cmd.kind, { x, y: surface + 0.5, z }, { name: cmd.name, yaw: this.body.yaw + Math.PI });
+        reply = `Summoned new ${mob.kind === "npc" ? (mob.name ?? "NPC") : MOB_SPECS[mob.kind].displayName}`;
         break;
       }
       case "seed":

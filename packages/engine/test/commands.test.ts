@@ -28,6 +28,12 @@ describe("chat commands", () => {
     expect(parseCommand("/give glass 0").type).toBe("error");
   });
 
+  it("parses /summon for animals and Education Edition NPCs", () => {
+    expect(parseCommand("/summon pig")).toEqual({ type: "summon", kind: "pig" });
+    expect(parseCommand("/summon npc Professor Oak")).toEqual({ type: "summon", kind: "npc", name: "Professor Oak" });
+    expect(parseCommand("/summon creeper").type).toBe("error");
+  });
+
   it("handles help, seed and unknown commands", () => {
     expect(parseCommand("/help").type).toBe("help");
     expect(parseCommand("seed").type).toBe("seed");

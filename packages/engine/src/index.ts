@@ -13,3 +13,5 @@ export * from "./save";
 export * from "./time";
 export * from "./world";
 export * from "./commands";
+export * from "./crafting";
+export * from "./entities";
