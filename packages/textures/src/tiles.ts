@@ -1,3 +1,4 @@
+import { CHEMISTRY_TILE_GENERATORS, chemistryItemTile } from "./chemistry";
 import { ITEM_TILE_GENERATORS } from "./items";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 
@@ -267,6 +268,7 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   },
   allow: (t) => framed(t, hex("#4bab3f"), hex("#1f5e1a"), CHECK, hex("#ffffff")),
   deny: (t) => framed(t, hex("#c73a2e"), hex("#5e1612"), CROSS, hex("#ffffff")),
+  ...CHEMISTRY_TILE_GENERATORS,
   border: (t) => {
     const red = hex("#a3241c");
     const black = hex("#1c1c1c");
@@ -277,13 +279,18 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   },
 };
 
+/** True if `name` has an item sprite (fixed sprites, or a chemistry element/isotope/compound/product). */
+export function hasItemTile(name: string): boolean {
+  return Object.prototype.hasOwnProperty.call(ITEM_TILE_GENERATORS, name) || chemistryItemTile(name) !== undefined;
+}
+
 export const TILE_NAMES: readonly string[] = Object.keys(TILE_GENERATORS);
 
 /** Generates the RGBA pixels of a named 16x16 tile. Unknown names produce a magenta/black "missing texture". */
 export function generateTile(name: string): Uint8ClampedArray<ArrayBuffer> {
   const t = new Tile(name);
   const has = (o: object) => Object.prototype.hasOwnProperty.call(o, name);
-  const gen = has(TILE_GENERATORS) ? TILE_GENERATORS[name] : has(ITEM_TILE_GENERATORS) ? ITEM_TILE_GENERATORS[name] : undefined;
+  const gen = has(TILE_GENERATORS) ? TILE_GENERATORS[name] : has(ITEM_TILE_GENERATORS) ? ITEM_TILE_GENERATORS[name] : chemistryItemTile(name);
   if (gen) return gen(t).data;
   return t.fill((x, y) => ((x < 8) !== (y < 8) ? [248, 0, 248] : [0, 0, 0])).data;
 }

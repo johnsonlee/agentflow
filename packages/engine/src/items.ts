@@ -4,6 +4,7 @@
  * arrays keep holding block ids only.
  */
 import { BLOCKS, blockById } from "./blocks";
+import { COMPOUNDS, ELEMENTS, LAB_REACTIONS, elementItemName, isotopeItemName } from "./chemistry-data";
 
 export const ITEM_ID_BASE = 256;
 export const MAX_STACK = 64;
@@ -32,6 +33,8 @@ export interface ItemDef {
   /** Texture tile drawn as the item's icon. */
   icon: string;
   tool?: ToolSpec;
+  /** Chemistry: element (atomic number), isotope (plus mass number), compound (formula) or lab product. */
+  chem?: { kind: "element" | "isotope" | "compound" | "product"; z?: number; symbol?: string; mass?: number; formula?: string };
   /**
    * Food: hunger points restored and saturation gained (Minecraft values). `risk` is a chance of
    * extra exhaustion (a simplified Hunger effect).
@@ -91,6 +94,21 @@ const specs: Omit<ItemDef, "id">[] = [
   material("book", "Book"),
   { name: "book_and_quill", displayName: "Book and Quill", maxStack: 1, icon: "item_book_and_quill" },
   { name: "written_book", displayName: "Written Book", maxStack: 1, icon: "item_written_book" },
+  // Increment 6a: Education Edition chemistry (elements 1-36, isotopes, compounds, lab products).
+  ...ELEMENTS.map((e) => ({
+    name: elementItemName(e), displayName: e.name, maxStack: MAX_STACK, icon: `item_element_${e.z}_${e.symbol}`,
+    chem: { kind: "element" as const, z: e.z, symbol: e.symbol, mass: e.a },
+  })),
+  ...ELEMENTS.flatMap((e) => e.isotopes.map((m) => ({
+    name: isotopeItemName(e, m), displayName: `${e.name}-${m}`, maxStack: MAX_STACK, icon: `item_isotope_${e.z}_${e.symbol}_${m}`,
+    chem: { kind: "isotope" as const, z: e.z, symbol: e.symbol, mass: m },
+  }))),
+  ...COMPOUNDS.map((c) => ({
+    name: c.name, displayName: c.displayName, maxStack: MAX_STACK, icon: `item_compound_${c.name}`, chem: { kind: "compound" as const, formula: c.formula },
+  })),
+  ...LAB_REACTIONS.map((r) => ({
+    name: r.product, displayName: r.displayName, maxStack: MAX_STACK, icon: `item_product_${r.product}`, chem: { kind: "product" as const },
+  })),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));

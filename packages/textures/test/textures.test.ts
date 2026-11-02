@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { itemTextureNames, textureNames } from "@craft/engine";
-import { ITEM_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile } from "../src";
+import { TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
 
 describe("procedural textures", () => {
   it("provides a texture for every block face", () => {
@@ -70,7 +70,7 @@ describe("texture atlas", () => {
 
   it("draws an original sprite for every item: transparent background, distinct, deterministic", () => {
     const names = itemTextureNames();
-    expect(names.filter((n) => !(n in ITEM_TILE_GENERATORS))).toEqual([]);
+    expect(names.filter((n) => !hasItemTile(n))).toEqual([]);
     const hashes = new Set<string>();
     for (const n of names) {
       const d = generateTile(n);

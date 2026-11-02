@@ -35,6 +35,8 @@ export function createHunger(): HungerState {
 }
 
 export function addExhaustion(h: HungerState, amount: number): void {
+  // Only finite, positive amounts count (review 95edfbc8: NaN must never reach the hunger state).
+  if (!Number.isFinite(amount) || amount <= 0) return;
   h.exhaustion = Math.min(40, h.exhaustion + amount);
   while (h.exhaustion >= 4) {
     h.exhaustion -= 4;
