@@ -70,7 +70,7 @@ export function chalkboardCells(b: Pick<Chalkboard, "x" | "y" | "z" | "size" | "
 export function canPlaceChalkboard(get: BlockGetter, b: Pick<Chalkboard, "x" | "y" | "z" | "size" | "facing">): boolean {
   return chalkboardCells(b).every((c) => {
     const id = get(c.x, c.y, c.z);
-    return id === AIR || BLOCKS[id]?.needsSupport === true;
+    return id === AIR || BLOCKS[id]?.replaceable === true;
   });
 }
 

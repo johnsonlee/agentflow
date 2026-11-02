@@ -159,7 +159,7 @@ export class Redstone {
     this.tick++;
     const due = [...this.scheduled.values()].filter((s) => s.due <= this.tick).sort((a, b) => a.due - b.due).slice(0, MAX_SCHEDULED_PER_TICK);
     for (const s of due) {
-      this.scheduled.delete(key(s.x, s.y, s.z));
+      this.scheduled.delete(`${key(s.x, s.y, s.z)}|${s.kind}`);
       this.runScheduled(s);
     }
     this.processDirty();
@@ -170,8 +170,9 @@ export class Redstone {
     for (let i = 0; i < maxTicks && (this.dirty.size > 0 || this.scheduled.size > 0); i++) this.step();
   }
 
+  /** One pending update per cell and kind (a button's release doesn't hide a torch's re-check). */
   private schedule(c: Cell, delay: number, kind: ScheduledKind): void {
-    const k = key(...c);
+    const k = `${key(...c)}|${kind}`;
     if (!this.scheduled.has(k)) this.scheduled.set(k, { x: c[0], y: c[1], z: c[2], due: this.tick + delay, kind });
   }
 
@@ -354,9 +355,10 @@ export class Redstone {
       const upper: Cell = [lower[0], lower[1] + 1, lower[2]];
       const now = this.powered(lower) || this.powered(upper);
       const k = key(...lower);
-      // Doors react to changes of power (so a door opened by hand stays open); before the first
-      // change seen, its open state stands in for the previous power.
-      const before = this.doorPower.get(k) ?? info.open;
+      // Doors react to changes of power, so a door opened by hand stays open. A door seen for the
+      // first time (just placed, or after loading) only records its power: reloading a world never
+      // closes a hand-opened door (review 193df6be).
+      const before = this.doorPower.get(k) ?? now;
       this.doorPower.set(k, now);
       if (now !== before) this.setDoor(lower, now);
     }

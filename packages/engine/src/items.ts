@@ -197,6 +197,18 @@ export function dropOf(blockIdValue: number): number {
   return def.drop ?? def.id;
 }
 
+/**
+ * The stack id an inventory should hold for `id`: hidden state blocks (not in the creative palette,
+ * dropping something else, e.g. redstone_wire_15 -> redstone, lever_on -> lever) map to that drop.
+ */
+export function baseStackId(id: number): number {
+  if (isItem(id)) return id;
+  const def = BLOCKS[id];
+  if (!def || def.creative) return id;
+  const drop = dropOf(id);
+  return drop !== id ? drop : id;
+}
+
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
   if (!isItem(id)) return id;

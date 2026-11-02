@@ -41,8 +41,10 @@ export interface BlockDef {
   emissive?: boolean;
   /** Block light emitted, 0-15 (Minecraft: torch 14, glowstone 15). */
   light?: number;
-  /** Needs a solid block underneath (plants). */
+  /** Needs a solid block underneath (plants, dust, buttons, plates, repeaters). */
   needsSupport?: boolean;
+  /** Placing a block here replaces it (plants only; dust and plates are not replaceable, as in Minecraft). */
+  replaceable?: boolean;
   /** Torch-shaped light that can be placed in water (the underwater torch, glow sticks). */
   waterproof?: boolean;
   /** Bounds of a "box" shape within the cell: [x0, y0, z0, x1, y1, z1], each 0-1. */
@@ -93,9 +95,9 @@ const specs: BlockSpec[] = [
   { name: "glowstone", displayName: "Glowstone", faces: faces("glowstone"), hardness: 0.45, emissive: true, light: 15 },
   { name: "bookshelf", displayName: "Bookshelf", faces: faces("oak_planks", "bookshelf"), hardness: 2.25, tool: "axe" },
   { name: "crafting_table", displayName: "Crafting Table", faces: faces("crafting_table_top", "crafting_table_side", "oak_planks"), hardness: 3.75, tool: "axe" },
-  { name: "dandelion", displayName: "Dandelion", faces: faces("dandelion"), solid: false, transparent: true, shape: "cross", hardness: 0, needsSupport: true },
-  { name: "poppy", displayName: "Poppy", faces: faces("poppy"), solid: false, transparent: true, shape: "cross", hardness: 0, needsSupport: true },
-  { name: "tall_grass", displayName: "Tall Grass", faces: faces("tall_grass"), solid: false, transparent: true, shape: "cross", hardness: 0, needsSupport: true },
+  { name: "dandelion", displayName: "Dandelion", faces: faces("dandelion"), solid: false, transparent: true, shape: "cross", hardness: 0, needsSupport: true, replaceable: true },
+  { name: "poppy", displayName: "Poppy", faces: faces("poppy"), solid: false, transparent: true, shape: "cross", hardness: 0, needsSupport: true, replaceable: true },
+  { name: "tall_grass", displayName: "Tall Grass", faces: faces("tall_grass"), solid: false, transparent: true, shape: "cross", hardness: 0, needsSupport: true, replaceable: true },
   // Minecraft: Education Edition world-builder blocks.
   { name: "allow", displayName: "Allow", faces: faces("allow"), hardness: Infinity },
   { name: "deny", displayName: "Deny", faces: faces("deny"), hardness: Infinity },

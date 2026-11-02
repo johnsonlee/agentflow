@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AIR, Inventory, MAX_DIRTY_PER_TICK, Redstone, World, blockId, breakBlock, dustLevel, nameOf, placeBlock, redstoneInfo, runAgentCommand,
-  createAgent, sanitizeScheduled, stackId, matchRecipe, smeltResult, dropOf, dropCount,
+  createAgent, sanitizeScheduled, stackId, matchRecipe, smeltResult, dropOf, dropCount, sanitizeStack,
 } from "../src";
 
 const B = blockId;
@@ -269,5 +269,112 @@ describe("recipes, smelting and ore", () => {
     let found = 0;
     for (let x = 0; x < 48 && found === 0; x++) for (let z = 0; z < 48; z++) for (let y = 1; y < 16; y++) if (world.getBlock(x, y, z) === B("redstone_ore")) found++;
     expect(found).toBeGreaterThan(0);
+  });
+});
+
+describe("review 193df6be regressions", () => {
+  it("breaking the block under powered dust or a pressed button drops the base item, never a state block", () => {
+    const { world, rs } = setup();
+    world.setBlock(0, Y, 0, B("lever_on"));
+    world.setBlock(1, Y, 0, B("redstone_wire_0"));
+    world.setBlock(3, Y, 0, B("stone_button"));
+    rs.settle();
+    expect(name(world, 1, Y, 0)).toBe("redstone_wire_15");
+    rs.interact(3, Y, 0);
+    expect(name(world, 3, Y, 0)).toBe("stone_button_on");
+    const inv = new Inventory();
+    expect(breakBlock(world, inv, "survival", 1, Y - 1, 0)).toBe(true);
+    expect(breakBlock(world, inv, "survival", 3, Y - 1, 0)).toBe(true);
+    const held = inv.slots.filter(Boolean).map((s) => `${nameOf(s!.id)}x${s!.count}`);
+    expect(held).toContain("redstonex1");
+    expect(held).toContain("stone_buttonx1");
+    expect(held.some((n) => /_on|wire_/.test(n))).toBe(false);
+  });
+
+  it("saved state-block stacks load as their base items", () => {
+    expect(sanitizeStack({ id: B("redstone_wire_15"), count: 3 })).toEqual({ id: stackId("redstone"), count: 3 });
+    expect(sanitizeStack({ id: B("stone_button_on"), count: 1 })).toEqual({ id: B("stone_button"), count: 1 });
+    expect(sanitizeStack({ id: B("lever_on"), count: 2 })).toEqual({ id: B("lever"), count: 2 });
+    expect(sanitizeStack({ id: B("door_wooden_upper_2_1"), count: 1 })).toEqual({ id: stackId("wooden_door"), count: 1 });
+    expect(sanitizeStack({ id: B("repeater_3_4_1"), count: 1 })).toEqual({ id: B("repeater"), count: 1 });
+    expect(sanitizeStack({ id: B("grass"), count: 1 })).toEqual({ id: B("grass"), count: 1 });
+  });
+
+  it("a wooden door opened by hand stays open after reloading, and still reacts to later power changes", () => {
+    const { world, rs } = setup();
+    const inv = new Inventory();
+    inv.add(stackId("wooden_door"), 1);
+    placeBlock(world, inv, "survival", 0, Y, 0, far, 2);
+    rs.settle();
+    rs.interact(0, Y, 0);
+    rs.settle();
+    expect(name(world, 0, Y, 0)).toBe("door_wooden_lower_2_1");
+    // Reload: a fresh world with the saved edits and a fresh Redstone.
+    const loaded = new World(1);
+    loaded.importEdits(world.exportEdits());
+    const rs2 = new Redstone(loaded);
+    rs2.restore(sanitizeScheduled(rs.exportScheduled()), loaded.exportEdits());
+    rs2.settle();
+    expect([name(loaded, 0, Y, 0), name(loaded, 0, Y + 1, 0)]).toEqual(["door_wooden_lower_2_1", "door_wooden_upper_2_1"]);
+    // Power on (stays open), then off: the change closes it.
+    loaded.setBlock(1, Y, 0, B("lever"));
+    rs2.settle();
+    rs2.interact(1, Y, 0);
+    rs2.settle();
+    expect(name(loaded, 0, Y, 0)).toBe("door_wooden_lower_2_1");
+    rs2.interact(1, Y, 0);
+    rs2.settle();
+    expect(name(loaded, 0, Y, 0)).toBe("door_wooden_lower_2_0");
+  });
+
+  it("dust and pressure plates aren't replaced by placing a block; plants still are", () => {
+    const { world } = setup();
+    world.setBlock(0, Y, 0, B("redstone_wire_0"));
+    world.setBlock(2, Y, 0, B("stone_pressure_plate"));
+    world.setBlock(4, Y, 0, B("tall_grass"));
+    for (const x of [0, 2]) {
+      const inv = new Inventory();
+      inv.add(B("dirt"), 1);
+      expect(placeBlock(world, inv, "survival", x, Y, 0, far)).toBe(false);
+      expect(inv.slots[0]).toEqual({ id: B("dirt"), count: 1 });
+    }
+    expect(name(world, 0, Y, 0)).toBe("redstone_wire_0");
+    expect(name(world, 2, Y, 0)).toBe("stone_pressure_plate");
+    const inv = new Inventory();
+    inv.add(B("dirt"), 1);
+    expect(placeBlock(world, inv, "survival", 4, Y, 0, far)).toBe(true);
+  });
+
+  it("a pending button release doesn't hide a torch's update in the same cell", () => {
+    const { world, rs } = setup();
+    world.setBlock(0, Y, 0, B("stone"));
+    world.setBlock(0, Y + 1, 0, B("stone_button"));
+    rs.settle();
+    rs.interact(0, Y + 1, 0); // schedules the release 10 ticks ahead
+    world.setBlock(0, Y + 1, 0, B("redstone_torch"));
+    world.setBlock(-1, Y, 0, B("lever_on")); // powers the torch's block
+    for (let i = 0; i < 3; i++) rs.step();
+    expect(name(world, 0, Y + 1, 0)).toBe("redstone_torch_off");
+  });
+
+  it("a door can't be placed in the top layer (its upper half would be outside the world)", () => {
+    const { world } = setup();
+    world.setBlock(0, 94, 0, B("stone"));
+    const inv = new Inventory();
+    inv.add(stackId("wooden_door"), 1);
+    expect(placeBlock(world, inv, "survival", 0, 95, 0, far)).toBe(false);
+    expect(world.getBlock(0, 95, 0)).toBe(AIR);
+    expect(inv.slots[0]!.count).toBe(1);
+  });
+
+  it("the Agent follows the same support rules (no dust, button or repeater in mid-air)", () => {
+    const { world } = setup();
+    const agent = createAgent(0, Y + 3, 0, 3);
+    for (const id of [stackId("redstone"), B("stone_button"), B("repeater"), B("stone_pressure_plate")]) {
+      agent.slots[0] = { id, count: 1 };
+      const r = runAgentCommand(world, agent, { op: "place", dir: "forward" });
+      expect(r.ok).toBe(false);
+      expect(world.getBlock(1, Y + 3, 0)).toBe(AIR);
+    }
   });
 });

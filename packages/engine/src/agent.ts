@@ -11,7 +11,7 @@ import { dropCount, dropOf, placedBlockOf } from "./items";
 import { doorPartner, orientedPlacement } from "./redstone";
 import { WORLD_HEIGHT } from "./chunk";
 import { WORLD_BORDER } from "./math";
-import { canBreak, canBuildAt } from "./rules";
+import { canBreak, canBuildAt, extraCellsFree, hasSupport } from "./rules";
 import type { World } from "./world";
 
 export const AGENT_SLOTS = 27;
@@ -113,16 +113,18 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
     case "place": {
       const t = target(cmd.dir);
       const here = world.getBlock(t.x, t.y, t.z);
-      if (here !== AIR && !BLOCKS[here].needsSupport && BLOCKS[here].shape !== "liquid") return { ok: false, message: "Something is in the way" };
+      if (here !== AIR && !BLOCKS[here].replaceable && BLOCKS[here].shape !== "liquid") return { ok: false, message: "Something is in the way" };
       const stack = agent.slots[agent.selected];
       // Blocks, and items that place a block (redstone dust, doors, lab products).
       const placed = stack ? placedBlockOf(stack.id) : null;
       if (!stack || placed === null) return { ok: false, message: "No block in the selected slot" };
       // Education Edition: the Agent obeys Allow/Deny like a survival player.
       if (!canBuildAt(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Building isn't allowed here (Deny)" };
-      // Repeaters point the way the Agent faces; doors face it and need the cell above.
+      // Same support rules as the player: dust, buttons, plates and repeaters need a solid block below.
+      if (!hasSupport(world, blockById(placed), t.x, t.y, t.z, here)) return { ok: false, message: "That needs a block to stand on" };
+      // Repeaters point the way the Agent faces; doors face it and need the cell above (inside the world).
       const cells = orientedPlacement(placed, t.x, t.y, t.z, agent.facing) ?? [[t.x, t.y, t.z, placed]];
-      for (const [cx, cy, cz] of cells.slice(1)) if (world.getBlock(cx, cy, cz) !== AIR) return { ok: false, message: "Something is in the way" };
+      if (!extraCellsFree(world, cells)) return { ok: false, message: "Something is in the way" };
       for (const [cx, cy, cz, id] of cells) world.setBlock(cx, cy, cz, id);
       stack.count--;
       if (stack.count <= 0) agent.slots[agent.selected] = null;

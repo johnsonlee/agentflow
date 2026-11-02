@@ -7,7 +7,7 @@ import { AGENT_SLOTS, type AgentState } from "./agent";
 import { CHALKBOARD_SIZES, type Chalkboard, type ChalkboardSize } from "./chalkboard";
 import type { HungerState } from "./hunger";
 import type { ItemStack } from "./inventory";
-import { isKnownId, maxStackOf, toolOf } from "./items";
+import { baseStackId, isKnownId, maxStackOf, toolOf } from "./items";
 import { MAX_FOOD } from "./hunger";
 import type { FurnaceState } from "./smelting";
 
@@ -23,8 +23,11 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   if (!isObj(raw)) return null;
   const id = own(raw, "id");
   const count = own(raw, "count");
-  if (!int(id, 0, 100000) || !isKnownId(id) || !int(count, 1, maxStackOf(id))) return null;
-  const s: ItemStack = { id, count };
+  if (!int(id, 0, 100000) || !isKnownId(id)) return null;
+  // Hidden state blocks (powered dust, a pressed button, an open door half...) become their base item.
+  const base = baseStackId(id);
+  if (!int(count, 1, maxStackOf(base))) return null;
+  const s: ItemStack = { id: base, count };
   // Tool wear: an integer below the tool's durability (anything else is dropped, i.e. a new tool).
   const damage = own(raw, "damage");
   const tool = toolOf(id);

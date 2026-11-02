@@ -1,4 +1,5 @@
-import { AIR, BLOCKS, blockById, blockId, isOpaque } from "./blocks";
+import { AIR, BLOCKS, blockById, blockId, isOpaque, type BlockDef } from "./blocks";
+import { WORLD_HEIGHT } from "./chunk";
 import type { Inventory } from "./inventory";
 import { dropCount, dropOf, placedBlockOf, toolOf, type ToolSpec } from "./items";
 import { meltAround } from "./labeffects";
@@ -75,9 +76,36 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   const above = world.getBlock(x, y + 1, z);
   if (BLOCKS[above]?.needsSupport) {
     world.setBlock(x, y + 1, z, AIR);
-    if (mode === "survival") inventory.add(above, 1);
+    // The supported block drops its item (powered dust gives redstone, a pressed button a button):
+    // internal state blocks never reach the inventory (review 193df6be).
+    if (mode === "survival") inventory.add(dropOf(above), dropCount(above));
   }
   return true;
+}
+
+/**
+ * Whether block `def` may go at (x, y, z), whose current block is `target`: plants and redstone
+ * parts need a solid opaque block below; torches need an opaque neighbour (not above), and only
+ * waterproof ones go in water. Shared by players and the Agent.
+ */
+export function hasSupport(world: World, def: BlockDef, x: number, y: number, z: number, target: number): boolean {
+  if (def.needsSupport) {
+    const below = blockById(world.getBlock(x, y - 1, z));
+    if (!below.solid || below.transparent) return false;
+  }
+  // Torches stand on a block top or hang on a block side (never on a ceiling), as in Minecraft.
+  if (def.shape === "torch") {
+    // Only the underwater torch and glow sticks work in water (Education Edition).
+    if (target === WATER && !def.waterproof) return false;
+    const sides = [[0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
+    if (!sides.some(([dx, dy, dz]) => isOpaque(world.getBlock(x + dx, y + dy, z + dz)))) return false;
+  }
+  return true;
+}
+
+/** Extra cells of a multi-cell placement (a door's upper half) must be free and inside the world. */
+export function extraCellsFree(world: World, cells: ReadonlyArray<readonly [number, number, number, number]>): boolean {
+  return cells.slice(1).every(([cx, cy, cz]) => cy >= 0 && cy < WORLD_HEIGHT && world.getBlock(cx, cy, cz) === AIR);
 }
 
 /**
@@ -100,26 +128,18 @@ export function placeBlock(
   const placed = stack ? placedBlockOf(stack.id) : null;
   if (!stack || placed === null) return false;
   const target = world.getBlock(x, y, z);
-  if (target !== AIR && target !== WATER && !BLOCKS[target].needsSupport) return false;
+  if (target !== AIR && target !== WATER && !BLOCKS[target].replaceable) return false;
   const def = blockById(placed);
   if (def.solid && bodyOverlapsBlock(playerFeet, x, y, z)) return false;
-  if (def.needsSupport) {
-    const below = blockById(world.getBlock(x, y - 1, z));
-    if (!below.solid || below.transparent) return false;
-  }
-  // Torches stand on a block top or hang on a block side (never on a ceiling), as in Minecraft.
-  if (def.shape === "torch") {
-    // Only the underwater torch and glow sticks work in water (Education Edition).
-    if (target === WATER && !def.waterproof) return false;
-    const sides = [[0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
-    if (!sides.some(([dx, dy, dz]) => isOpaque(world.getBlock(x + dx, y + dy, z + dz)))) return false;
-  }
+  if (!hasSupport(world, def, x, y, z, target)) return false;
   if (!canBuildAt(world, mode, x, y, z)) return false;
   // Repeaters point where the player looks; doors face the player and need the cell above free.
   const cells = orientedPlacement(placed, x, y, z, look);
   if (cells) {
+    // A door needs its upper cell free and inside the world (not at the top layer).
+    if (!extraCellsFree(world, cells)) return false;
     for (const [cx, cy, cz] of cells.slice(1)) {
-      if (world.getBlock(cx, cy, cz) !== AIR || !canBuildAt(world, mode, cx, cy, cz)) return false;
+      if (!canBuildAt(world, mode, cx, cy, cz)) return false;
       if (blockById(cells[0][3]).solid && bodyOverlapsBlock(playerFeet, cx, cy, cz)) return false;
     }
     for (const [cx, cy, cz, id] of cells) world.setBlock(cx, cy, cz, id);

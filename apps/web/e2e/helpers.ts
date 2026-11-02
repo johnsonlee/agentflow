@@ -779,5 +779,9 @@ export async function redstoneRoute(page: Page, use: (slot: number | null, aim: 
   await place(2, -1, -2, /^redstone_lamp/);
   await expect.poll(() => nameAt(px - 1, gy + 1, pz - 2)).toBe("redstone_lamp_on");
   expect(await at(px, gy, pz)).toBe(await id("stone"));
+
+  // Leave the wooden door open by hand (the desktop spec checks it is still open after reloading).
+  await useOn(-3, 1, -1);
+  await expect.poll(() => nameAt(px - 3, gy + 1, pz - 1)).toMatch(/^door_wooden_lower_\d_1$/);
   return { px, gy, pz };
 }

@@ -543,7 +543,7 @@ export class Game {
 
     if (place && t && this.placeCooldown === 0) {
       // Plants and other replaceable blocks are replaced in place; otherwise place against the hit face.
-      const replace = BLOCKS[t.id].needsSupport === true;
+      const replace = BLOCKS[t.id].replaceable === true;
       const px = replace ? t.x : t.x + t.normal.x;
       const py = replace ? t.y : t.y + t.normal.y;
       const pz = replace ? t.z : t.z + t.normal.z;
@@ -980,7 +980,7 @@ export class Game {
     const clear = (x: number, y0: number, y1: number, z: number) => {
       for (let y = y0; y < y1; y++) {
         const id = this.world.getBlock(x, y, z);
-        if (id !== AIR && !BLOCKS[id].needsSupport) return false;
+        if (id !== AIR && !BLOCKS[id].replaceable) return false;
       }
       return true;
     };
