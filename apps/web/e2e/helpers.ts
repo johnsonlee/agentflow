@@ -453,3 +453,23 @@ export function buildWallAhead(page: Page, distance = 2) {
     return { x0, z, y0 };
   }, distance);
 }
+
+/** Points the camera at the centre of a block cell. */
+export function lookAtCell(page: Page, x: number, y: number, z: number) {
+  return page.evaluate(([cx, cy, cz]) => {
+    const g = window.__craft.game!;
+    const dx = cx + 0.5 - g.body.position.x;
+    const dz = cz + 0.5 - g.body.position.z;
+    const dy = cy + 0.5 - (g.body.position.y + 1.62);
+    g.body.yaw = Math.atan2(-dx, -dz);
+    g.body.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+  }, [x, y, z] as const);
+}
+
+/** Anchor cell of the first chalkboard. */
+export function firstBoard(page: Page) {
+  return page.evaluate(() => {
+    const b = [...window.__craft.game!.chalkboards.values()][0];
+    return { x: b.x, y: b.y, z: b.z };
+  });
+}

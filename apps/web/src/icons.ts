@@ -42,7 +42,20 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingEnabled = false;
   const def = isItem(id) ? null : blockById(id);
-  if (!def) {
+  if (def?.name.startsWith("chalkboard_")) {
+    // Chalkboards: a framed dark slate, wider for posters and boards.
+    const wide = def.name.endsWith("slate") ? 0.6 : def.name.endsWith("poster") ? 0.8 : 0.9;
+    const w = size * wide;
+    const h = size * (def.name.endsWith("board") ? 0.6 : 0.5);
+    const x = (size - w) / 2;
+    const y = (size - h) / 2;
+    ctx.fillStyle = "#8a6236";
+    ctx.fillRect(x, y, w, h);
+    ctx.fillStyle = "#24382c";
+    ctx.fillRect(x + 3, y + 3, w - 6, h - 6);
+    ctx.fillStyle = "#f2f2ea";
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + 7, y + 8 + i * 6, (w - 14) * (1 - i * 0.25), 2);
+  } else if (!def) {
     ctx.drawImage(tileCanvas(atlas, itemById(id).icon), 0, 0, size, size);
   } else if (def.shape === "cross") {
     ctx.drawImage(tileCanvas(atlas, def.faces.side), size * 0.1, size * 0.1, size * 0.8, size * 0.8);

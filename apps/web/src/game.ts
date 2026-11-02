@@ -3,13 +3,15 @@ import {
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
-  tickHunger, knockbackFrom, mobAttack, findSummonSpot, type FurnaceState, type HungerState,
+  tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
+  facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
 import { ChatInput, Hud, InventoryScreen, type InventoryKind } from "./hud";
 import { MobManager } from "./mobs";
-import { NpcDialog, Portfolio, PortfolioScreen } from "./screens";
+import { BookScreen, ChalkboardDialog, NpcDialog, Portfolio, PortfolioScreen } from "./screens";
+import { ChalkboardViews } from "./chalkboards";
 import { WorldRenderer } from "./renderer";
 
 export const SAVE_KEY = "craft.save.v1";
@@ -68,6 +70,12 @@ export class Game {
   private readonly chat: ChatInput;
   private readonly portfolioScreen: PortfolioScreen;
   private readonly npcDialog: NpcDialog;
+  private readonly chalkDialog: ChalkboardDialog;
+  private readonly bookScreen: BookScreen;
+  /** Chalkboards by anchor key, and each occupied cell -> its board's anchor key. */
+  readonly chalkboards = new Map<string, Chalkboard>();
+  private readonly chalkCells = new Map<string, string>();
+  private readonly chalkViews: ChalkboardViews;
   private mobTarget: Mob | null = null;
   private attackCooldown = 0;
   private clock = 0;
@@ -136,6 +144,10 @@ export class Game {
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob) => this.mobs.refresh(mob));
+    this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
+    this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen));
+    this.chalkViews = new ChalkboardViews(this.renderer.scene);
+    for (const b of save?.chalkboards ?? []) this.addChalkboard({ ...b });
 
     canvas.addEventListener("click", () => {
       if (!this.touch && !this.paused && !this.dead) this.keyboard.requestPointerLock();
@@ -220,6 +232,7 @@ export class Game {
         edits: this.world.exportEdits(),
         npcs: this.mobs.exportNpcs(),
         hunger: { ...this.hunger },
+        chalkboards: [...this.chalkboards.values()].map((b) => ({ ...b })),
         furnaces: [...this.furnaces].map(([key, state]) => {
           const [x, y, z] = key.split(",").map(Number);
           return { x, y, z, state };
@@ -242,7 +255,9 @@ export class Game {
   }
 
   private screenOpen(): boolean {
-    return this.inventoryScreen.open || this.chat.open || this.portfolioScreen.open || this.npcDialog.open;
+    return (
+      this.inventoryScreen.open || this.chat.open || this.portfolioScreen.open || this.npcDialog.open || this.chalkDialog.open || this.bookScreen.open
+    );
   }
 
   private tick(dt: number): void {
@@ -334,6 +349,20 @@ export class Game {
     // Eating: hold use (right button, or a touch hold) with food in hand. Using a crafting table,
     // furnace or NPC still takes precedence over eating.
     const held = this.inventory.selectedStack();
+    // Using a chalkboard opens its editor; using a book opens it for writing or reading.
+    if (place && this.placeCooldown === 0 && this.target && !this.mobTarget && chalkboardSizeOf(this.target.id)) {
+      const board = this.chalkboardAt(this.target.x, this.target.y, this.target.z);
+      if (board) {
+        this.suspendInput();
+        this.chalkDialog.show(board, this.mode);
+        return;
+      }
+    }
+    if (place && held && (isWritableBook(held) || isWrittenBook(held)) && !(this.target && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE))) {
+      this.suspendInput();
+      this.bookScreen.show(held);
+      return;
+    }
     const usesBlock = this.target !== null && !this.mobTarget && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE);
     const usesNpc = this.mobTarget?.kind === "npc";
     if (using && !(place && (usesBlock || usesNpc)) && this.mode === "survival" && canEat(this.hunger, held?.id)) {
@@ -363,6 +392,8 @@ export class Game {
         if (drop !== undefined) {
           this.hud.message(`${MOB_SPECS[mob.kind].displayName} was defeated`);
           if (drop !== null && this.mode === "survival") this.inventory.add(drop, MOB_SPECS[mob.kind].drop![1]);
+          const extra = MOB_SPECS[mob.kind].extraDrop;
+          if (extra && this.mode === "survival") this.inventory.add(stackId(extra[0]), extra[1]);
         }
       }
       if (place && mob.kind === "npc") this.openNpcDialog(mob);
@@ -414,6 +445,11 @@ export class Game {
       return;
     }
 
+    if (place && t && this.placeCooldown === 0 && held && chalkboardSizeOf(held.id)) {
+      if (this.placeChalkboard(t, held.id)) this.placeCooldown = 0.15;
+      return;
+    }
+
     if (place && t && this.placeCooldown === 0) {
       // Plants and other replaceable blocks are replaced in place; otherwise place against the hit face.
       const replace = BLOCKS[t.id].needsSupport === true;
@@ -426,9 +462,55 @@ export class Game {
     if (pick && t && this.mode === "creative" && blockById(t.id).creative) this.inventory.pick(t.id);
   }
 
+  /**
+   * Places a chalkboard against the targeted face: on a wall it hangs facing out of the wall; on a
+   * block top it stands facing the player. It spans w x h cells to the viewer's right and up.
+   */
+  private placeChalkboard(t: RaycastHit, id: number): boolean {
+    const size = chalkboardSizeOf(id)!;
+    const standing = t.normal.y === 1;
+    if (!standing && t.normal.y !== 0) return false;
+    const facing = standing ? facingTowards(this.body.yaw) : [[0, 1], [-1, 0], [0, -1], [1, 0]].findIndex(([fx, fz]) => fx === t.normal.x && fz === t.normal.z);
+    const board: Chalkboard = { x: t.x + t.normal.x, y: t.y + t.normal.y, z: t.z + t.normal.z, size, facing, standing, text: "", locked: false };
+    const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
+    if (!canPlaceChalkboard(get, board)) return false;
+    for (const c of chalkboardCells(board)) this.world.setBlock(c.x, c.y, c.z, id);
+    this.addChalkboard(board);
+    if (this.mode === "survival") this.inventory.takeSelected();
+    return true;
+  }
+
+  private addChalkboard(board: Chalkboard): void {
+    const key = chalkboardKey(board.x, board.y, board.z);
+    this.chalkboards.set(key, board);
+    for (const c of chalkboardCells(board)) this.chalkCells.set(chalkboardKey(c.x, c.y, c.z), key);
+    this.chalkViews.update(board);
+  }
+
+  /** The chalkboard covering a cell, if any. */
+  chalkboardAt(x: number, y: number, z: number): Chalkboard | null {
+    const key = this.chalkCells.get(chalkboardKey(x, y, z));
+    return key ? (this.chalkboards.get(key) ?? null) : null;
+  }
+
+  private closeDialog(dialog: { hide(): void }): void {
+    dialog.hide();
+    this.resumeInput();
+  }
+
   /** Breaks the targeted block; a broken furnace gives back its contents (Minecraft drops them). */
   private breakAt(t: RaycastHit): void {
+    // Breaking any cell of a chalkboard removes the whole board (one item drops, from the broken cell).
+    const board = chalkboardSizeOf(t.id) ? this.chalkboardAt(t.x, t.y, t.z) : null;
     if (!breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z)) return;
+    if (board) {
+      for (const c of chalkboardCells(board)) {
+        this.chalkCells.delete(chalkboardKey(c.x, c.y, c.z));
+        if (c.x !== t.x || c.y !== t.y || c.z !== t.z) this.world.setBlock(c.x, c.y, c.z, AIR);
+      }
+      this.chalkboards.delete(chalkboardKey(board.x, board.y, board.z));
+      this.chalkViews.remove(board);
+    }
     if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.breakBlock);
     if (t.id !== FURNACE) return;
     const key = furnaceKey(t.x, t.y, t.z);
@@ -500,6 +582,10 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (!this.running || this.chat.open) return;
+    if (this.chalkDialog.open || this.bookScreen.open) {
+      if (e.code === "Escape") this.closeDialog(this.chalkDialog.open ? this.chalkDialog : this.bookScreen);
+      return;
+    }
     if (this.npcDialog.open) {
       if (e.code === "Escape") this.closeNpcDialog();
       return;

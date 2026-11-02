@@ -370,3 +370,13 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .furnace-flame-fill { position: absolute; left: 0; right: 0; bottom: 0; height: 0; background: linear-gradient(#ffd23f, #e8590c); }
 .furnace-progress { width: 56px; height: 14px; background: #8b8b8b; position: relative; clip-path: polygon(0 30%, 70% 30%, 70% 0, 100% 50%, 70% 100%, 70% 70%, 0 70%); }
 .furnace-progress-fill { height: 100%; width: 0; background: #fff; }
+
+/* ---------- Chalkboards and books ---------- */
+.chalk-edit { min-height: 140px; font-family: monospace; background: #24382c; color: #f2f2ea; }
+.field.checkbox { flex-direction: row; align-items: center; gap: 8px; }
+.book-panel { max-width: 520px; background: #f3e9cf; color: #3a2a18; }
+.book-page { min-height: 220px; background: #fbf5e4; color: #3a2a18; font-family: Georgia, serif; }
+.book-text { min-height: 220px; white-space: pre-wrap; font-family: Georgia, serif; text-align: left; }
+.book-title { margin-bottom: 0; }
+.book-author { margin-top: 0; font-style: italic; }
+.book-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
