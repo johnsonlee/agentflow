@@ -122,7 +122,11 @@ export class Redstone {
 
   constructor(private readonly world: World) {
     world.onBlockChanged((x, y, z) => {
-      if (!this.applying) this.markAround(x, y, z);
+      if (this.applying) return;
+      // A cell changed from outside (a door placed, broken or replaced) forgets any door power
+      // recorded there, so a new door always starts as "first seen" (review e9a58dc4).
+      this.doorPower.delete(key(x, y, z));
+      this.markAround(x, y, z);
     });
   }
 

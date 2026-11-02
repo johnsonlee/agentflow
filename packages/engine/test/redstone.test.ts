@@ -378,3 +378,37 @@ describe("review 193df6be regressions", () => {
     }
   });
 });
+
+describe("review e9a58dc4 regression", () => {
+  it("a door placed where an unpowered door was broken behaves like any new door (no stale power record)", () => {
+    const place = (world: World, x: number) => {
+      const inv = new Inventory();
+      inv.add(stackId("wooden_door"), 1);
+      expect(placeBlock(world, inv, "survival", x, Y, 0, far, 2)).toBe(true);
+    };
+    const { world, rs } = setup();
+    // A door that was there before (unpowered, so "unpowered" was recorded), then broken.
+    place(world, 0);
+    rs.settle();
+    breakBlock(world, new Inventory(), "survival", 0, Y, 0);
+    rs.settle();
+    // Power the cell, then place a new door: like a door in a fresh cell, it stays closed.
+    world.setBlock(1, Y, 0, B("lever_on"));
+    world.setBlock(5, Y, 0, B("lever_on"));
+    rs.settle();
+    place(world, 0);
+    place(world, 4);
+    rs.settle();
+    expect(name(world, 0, Y, 0)).toBe(name(world, 4, Y, 0));
+    expect(name(world, 0, Y, 0)).toBe("door_wooden_lower_2_0");
+    // Both react to the next change of power.
+    rs.interact(1, Y, 0);
+    rs.interact(5, Y, 0);
+    rs.settle();
+    rs.interact(1, Y, 0);
+    rs.interact(5, Y, 0);
+    rs.settle();
+    expect(name(world, 0, Y, 0)).toBe("door_wooden_lower_2_1");
+    expect(name(world, 4, Y, 0)).toBe("door_wooden_lower_2_1");
+  });
+});
