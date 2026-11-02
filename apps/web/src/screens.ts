@@ -1,4 +1,4 @@
-import { BOOK_MAX_PAGES, BOOK_PAGE_CHARS, BOOK_TITLE_CHARS, CHALKBOARD_SIZES, canEditChalkboard, clampChalkText, isWritableBook, signBook, writeBook, type Chalkboard, type ItemStack } from "@craft/engine";
+import { sanitizePhotos, BOOK_MAX_PAGES, BOOK_PAGE_CHARS, BOOK_TITLE_CHARS, CHALKBOARD_SIZES, canEditChalkboard, clampChalkText, isWritableBook, signBook, writeBook, type Chalkboard, type ItemStack } from "@craft/engine";
 import type { Mob } from "@craft/engine";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
@@ -22,12 +22,18 @@ export interface Photo {
 export class Portfolio {
   photos: Photo[] = [];
 
+  /** Malformed stored entries dropped on load. */
+  dropped = 0;
+
   constructor() {
     try {
-      const parsed = JSON.parse(localStorage.getItem(PORTFOLIO_KEY) ?? "[]") as Photo[];
-      if (Array.isArray(parsed)) this.photos = parsed;
+      // Stored separately from the world save; every entry is checked strictly (sanitizePhotos).
+      const result = sanitizePhotos(JSON.parse(localStorage.getItem(PORTFOLIO_KEY) ?? "[]"), MAX_PHOTOS);
+      this.photos = result.photos;
+      this.dropped = result.dropped;
     } catch {
       this.photos = [];
+      this.dropped = 1;
     }
   }
 

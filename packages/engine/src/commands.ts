@@ -39,10 +39,19 @@ export function parseCommand(input: string): Command {
   switch (name?.toLowerCase()) {
     case "gamemode":
     case "gm": {
-      const mode = ({ creative: "creative", c: "creative", "1": "creative", survival: "survival", s: "survival", "0": "survival" } as const)[
-        (args[0] ?? "").toLowerCase() as "creative"
-      ];
-      return mode ? { type: "gamemode", mode } : { type: "error", message: "Usage: /gamemode <creative|survival>" };
+      // An explicit allow-list (a switch, not an object lookup, so names like "constructor" never match).
+      switch ((args[0] ?? "").toLowerCase()) {
+        case "creative":
+        case "c":
+        case "1":
+          return { type: "gamemode", mode: "creative" };
+        case "survival":
+        case "s":
+        case "0":
+          return { type: "gamemode", mode: "survival" };
+        default:
+          return { type: "error", message: "Usage: /gamemode <creative|survival>" };
+      }
     }
     case "time": {
       if (args[0] !== "set" || args[1] === undefined) return { type: "error", message: "Usage: /time set <day|night|ticks>" };

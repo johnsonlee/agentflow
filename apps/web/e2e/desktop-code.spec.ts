@@ -153,4 +153,59 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     await page.getByRole("button", { name: "▶ Run" }).click();
     await expect(page.locator(".code-screen")).toBeHidden();
   });
+
+  test("/gamemode with a prototype name is rejected, and the world still saves and continues", async ({ page }) => {
+    test.setTimeout(120_000);
+    await createWorld(page);
+    await settle(page);
+    for (const bad of ["__proto__", "constructor", "toString"]) {
+      await command(page, `/gamemode ${bad}`);
+    }
+    await expect(page.locator(".chat-line", { hasText: "Usage: /gamemode <creative|survival>" })).toHaveCount(3);
+    expect(await page.evaluate(() => window.__craft.game!.mode)).toBe("creative");
+    await page.keyboard.press("Escape");
+    await page.getByRole("button", { name: "Save & Quit to Title" }).click();
+    await page.reload();
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await waitForTerrain(page);
+    expect(await page.evaluate(() => window.__craft.game!.mode)).toBe("creative");
+  });
+
+  test("a save with corrupt top-level fields and a corrupt portfolio still load, render and open", async ({ page }) => {
+    test.setTimeout(180_000);
+    await createWorld(page);
+    await settle(page);
+    await page.evaluate(() => window.__craft.game!.save());
+    await page.evaluate(() => {
+      window.__craft.game!.save = () => undefined; // keep the edited file through the reload
+      const save = JSON.parse(localStorage.getItem("craft.save.v1")!);
+      save.name = { evil: true };
+      save.mode = "constructor";
+      save.timeOfDay = "__proto__";
+      save.gamerules = "nope";
+      save.player.flying = "yes";
+      save.player.position = { x: "a", y: null, z: {} };
+      localStorage.setItem("craft.save.v1", JSON.stringify(save));
+      const ok = { id: "ok1", dataUrl: "data:image/jpeg;base64,AAAA", caption: "kept", takenAt: "2026-11-02T00:00:00.000Z" };
+      localStorage.setItem("craft.portfolio.v1", '[{"__proto__":{"id":"x"}},{"id":"js","dataUrl":"javascript:alert(1)"},' + JSON.stringify(ok) + "]");
+    });
+    await page.reload();
+    await expect(page.getByRole("button", { name: "Continue “Untitled World”" })).toBeVisible();
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await waitForTerrain(page);
+    const state = await page.evaluate(() => {
+      const g = window.__craft.game!;
+      return { mode: g.mode, time: g.timeOfDay, flying: g.body.flying, photos: g.portfolio.photos.map((p) => p.caption), errors: g.loadErrors };
+    });
+    expect(state.mode).toBe("creative");
+    expect(Number.isFinite(state.time)).toBe(true);
+    expect(state.flying).toBe(false);
+    expect(state.photos).toEqual(["kept"]);
+    expect(state.errors).toContain("2 damaged portfolio photos");
+    const frame = () => page.evaluate(() => window.__craft.game!.renderer.renderer.info.render.frame);
+    const f0 = await frame();
+    await expect.poll(frame).toBeGreaterThan(f0 + 5);
+    await page.keyboard.press("p");
+    await expect(page.getByRole("heading", { name: "Portfolio (1)" })).toBeVisible();
+  });
 });

@@ -141,3 +141,43 @@ export function sanitizeEdits(raw: unknown): Array<[number, number, number, numb
   }
   return out;
 }
+
+/** A Camera & Portfolio photo (stored separately from the world save). */
+export interface PhotoData {
+  id: string;
+  dataUrl: string;
+  caption: string;
+  takenAt: string;
+}
+
+/**
+ * Portfolio entries from storage: id and image data URL are required (an image data URL only);
+ * caption and timestamp are repaired. Malformed entries are dropped and counted.
+ */
+export function sanitizePhotos(raw: unknown, max = 50): { photos: PhotoData[]; dropped: number } {
+  const photos: PhotoData[] = [];
+  let dropped = 0;
+  try {
+    if (!Array.isArray(raw)) return { photos, dropped: raw === undefined || raw === null ? 0 : 1 };
+    for (const p of raw) {
+      const id = isObj(p) ? own(p, "id") : undefined;
+      const url = isObj(p) ? own(p, "dataUrl") : undefined;
+      if (!isObj(p) || typeof id !== "string" || id.length === 0 || id.length > 64 || typeof url !== "string" || !/^data:image\/(jpeg|png|webp);base64,/.test(url)) {
+        dropped++;
+        continue;
+      }
+      const caption = own(p, "caption");
+      const takenAt = own(p, "takenAt");
+      photos.push({
+        id,
+        dataUrl: url,
+        caption: typeof caption === "string" ? caption.slice(0, 200) : "",
+        takenAt: typeof takenAt === "string" && !Number.isNaN(Date.parse(takenAt)) ? takenAt : new Date(0).toISOString(),
+      });
+      if (photos.length >= max) break;
+    }
+  } catch {
+    dropped++;
+  }
+  return { photos, dropped };
+}

@@ -16,7 +16,8 @@ export interface SaveData {
   seed: number;
   mode: GameMode;
   timeOfDay: number;
-  player: { position: Vec3; yaw: number; pitch: number; flying: boolean };
+  /** `position` is null when a damaged save had none (the game then uses the spawn point). */
+  player: { position: Vec3 | null; yaw: number; pitch: number; flying: boolean };
   inventory: { slots: (ItemStack | null)[]; selected: number };
   edits: BlockEdit[];
   /** Game rules (optional for older saves; both default to true). */
@@ -38,18 +39,67 @@ export function serializeSave(data: Omit<SaveData, "version">): string {
   return JSON.stringify({ version: SAVE_VERSION, ...data });
 }
 
-/** Parses and validates a save; throws on malformed data. */
+type Obj = Record<string, unknown>;
+const isObj = (v: unknown): v is Obj =>
+  typeof v === "object" && v !== null && !Array.isArray(v) && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
+const own = (o: Obj, k: string): unknown => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
+const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+/**
+ * Parses a save and rebuilds it field by field with strict, own-property checks. A save is
+ * rejected (with a clear message) only if it isn't JSON, has an unsupported version or has no
+ * usable seed. Every other top-level field is repaired to a safe default instead (e.g. an invalid
+ * game mode becomes creative), so a damaged save stays reachable. Optional sections are passed on
+ * as-is and sanitized by their own loaders (savecheck.ts, loadPrograms).
+ */
 export function parseSave(text: string): SaveData {
-  const data = JSON.parse(text) as Partial<SaveData>;
-  if (data.version !== SAVE_VERSION) throw new Error(`Unsupported save version ${String(data.version)}`);
-  if (typeof data.seed !== "number" || !Array.isArray(data.edits) || !data.player || !data.inventory) {
-    throw new Error("Malformed save data");
+  let raw: unknown;
+  try {
+    raw = JSON.parse(text);
+  } catch {
+    throw new Error("Save is not valid JSON");
   }
-  if (data.mode !== "creative" && data.mode !== "survival") throw new Error("Malformed game mode");
-  const p = data.player as unknown as { position?: Record<string, unknown>; yaw?: unknown; pitch?: unknown };
-  const finite = (v: unknown) => typeof v === "number" && Number.isFinite(v);
-  if (!p.position || !finite(p.position.x) || !finite(p.position.y) || !finite(p.position.z) || !finite(p.yaw) || !finite(p.pitch)) {
-    throw new Error("Malformed player data");
+  if (!isObj(raw)) throw new Error("Malformed save data");
+  const version = own(raw, "version");
+  if (version !== SAVE_VERSION) throw new Error(`Unsupported save version ${String(version)}`);
+  const seed = own(raw, "seed");
+  if (!finite(seed)) throw new Error("Malformed save data: missing seed");
+
+  const name = own(raw, "name");
+  const mode = own(raw, "mode");
+  const time = own(raw, "timeOfDay");
+  const player = isObj(own(raw, "player")) ? (own(raw, "player") as Obj) : {};
+  const pos = isObj(own(player, "position")) ? (own(player, "position") as Obj) : {};
+  const position = finite(own(pos, "x")) && finite(own(pos, "y")) && finite(own(pos, "z"))
+    ? { x: own(pos, "x") as number, y: Math.max(-10, Math.min(500, own(pos, "y") as number)), z: own(pos, "z") as number }
+    : null;
+  const inventory = isObj(own(raw, "inventory")) ? (own(raw, "inventory") as Obj) : {};
+  const rules = isObj(own(raw, "gamerules")) ? (own(raw, "gamerules") as Obj) : {};
+  const bool = (v: unknown, fallback: boolean) => (typeof v === "boolean" ? v : fallback);
+
+  const save: SaveData = {
+    version: SAVE_VERSION,
+    name: typeof name === "string" && name.trim() !== "" ? name.slice(0, 64) : "Untitled World",
+    seed,
+    mode: mode === "survival" ? "survival" : "creative",
+    timeOfDay: finite(time) ? (time >= 0 && time < 1 ? time : ((time % 1) + 1) % 1) : 0.05,
+    player: {
+      position,
+      yaw: finite(own(player, "yaw")) ? (own(player, "yaw") as number) : 0,
+      pitch: finite(own(player, "pitch")) ? Math.max(-1.57, Math.min(1.57, own(player, "pitch") as number)) : 0,
+      flying: bool(own(player, "flying"), false),
+    },
+    inventory: {
+      slots: Array.isArray(own(inventory, "slots")) ? (own(inventory, "slots") as (ItemStack | null)[]) : [],
+      selected: Number.isInteger(own(inventory, "selected")) ? (own(inventory, "selected") as number) : 0,
+    },
+    edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
+    gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true) },
+  };
+  // Optional sections: passed through for their own sanitizers.
+  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces"] as const) {
+    const v = own(raw, key);
+    if (v !== undefined) (save as unknown as Obj)[key] = v;
   }
-  return data as SaveData;
+  return save;
 }

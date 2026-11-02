@@ -164,6 +164,7 @@ describe("save files", () => {
     expect(data.seed).toBe(9);
     expect(data.edits).toEqual([[1, 2, 3, 4]]);
     expect(() => parseSave("{}")).toThrow();
-    expect(() => parseSave(JSON.stringify({ ...data, mode: "hardcore" }))).toThrow();
+    // An invalid mode is repaired (to creative), so a damaged save stays loadable.
+    expect(parseSave(JSON.stringify({ ...data, mode: "hardcore" })).mode).toBe("creative");
   });
 });

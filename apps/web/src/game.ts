@@ -202,7 +202,8 @@ export class Game {
     window.addEventListener("pagehide", () => this.save());
     this.resize();
 
-    for (const err of this.loadErrors) this.hud.message(`Code Builder: dropped an invalid saved program (${err})`);
+    if (this.portfolio.dropped > 0) this.loadErrors.push(`${this.portfolio.dropped} damaged portfolio photos`);
+    for (const err of this.loadErrors) this.hud.message(`Dropped damaged saved data: ${err}`);
     this.hud.message(this.touch
       ? "Move with the left stick, drag to look, tap to place, hold to break."
       : "Click to play. WASD move, mouse look, left click break, right click place, E inventory, / commands.");
