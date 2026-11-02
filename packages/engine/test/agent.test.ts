@@ -144,4 +144,43 @@ describe("Code Builder interpreter", () => {
     expect(save.agent).toEqual(a);
     expect(save.programs).toEqual(programs);
   });
+
+  it("if <detect> then .. else .. checks the world when it is reached", () => {
+    const w = flat();
+    const a = createAgent(0, 51, 0, 2);
+    giveAgent(a, PLANKS, 10);
+    const detect = (dir: "forward" | "back" | "left" | "right" | "up" | "down") => runAgentCommand(w, a, { op: "detect", dir }).value === true;
+    // Walk forward 3 times; if there's a block ahead, turn right, else place a block below.
+    w.setBlock(0, 51, -2, STONE);
+    const r = new ProgramRunner(program([
+      { type: "repeat", times: 2, body: [
+        { type: "if", dir: "forward", then: [{ type: "command", cmd: { op: "turn", side: "right" } }], else: [{ type: "command", cmd: fwd }] },
+      ] },
+    ]), 500, detect);
+    const ops: string[] = [];
+    for (let c = r.next(); c; c = r.next()) {
+      ops.push(c.op);
+      runAgentCommand(w, a, c);
+    }
+    // First: nothing ahead at (0,51,-1) -> move; second: stone ahead at (0,51,-2) -> turn.
+    expect(ops).toEqual(["move", "turn"]);
+    expect(a.facing).toBe(3);
+  });
+
+  it("repeat until <detect> walks to a wall, and a never-true condition hits the step limit", () => {
+    const w = flat();
+    w.setBlock(0, 51, -4, STONE);
+    const a = createAgent(0, 51, 0, 2);
+    const detect = (dir: "forward" | "back" | "left" | "right" | "up" | "down") => runAgentCommand(w, a, { op: "detect", dir }).value === true;
+    const r = new ProgramRunner(program([{ type: "until", dir: "forward", body: [{ type: "command", cmd: fwd }] }]), 500, detect);
+    for (let c = r.next(); c; c = r.next()) runAgentCommand(w, a, c);
+    expect(r.error).toBeNull();
+    expect(a.z).toBe(-3);
+    const never = new ProgramRunner(program([{ type: "until", dir: "up", body: [{ type: "command", cmd: { op: "turn", side: "left" } }] }]), 40, () => false);
+    let n = 0;
+    while (never.next()) n++;
+    expect(never.error).toMatch(/more than 40 steps/);
+    expect(n).toBeLessThanOrEqual(40);
+    expect(validateProgram(program([{ type: "if", dir: "sideways" as "up", then: [], else: [] }]))).toEqual(["Unknown direction sideways"]);
+  });
 });

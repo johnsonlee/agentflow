@@ -19,6 +19,7 @@ export interface HudCallbacks {
   onChat(): void;
   onCamera(): void;
   onPortfolio(): void;
+  onCodeBuilder(): void;
 }
 
 /** In-game overlay: crosshair, hotbar, hearts, item name, debug info and chat log. */
@@ -92,7 +93,13 @@ export class Hud {
         e.stopPropagation();
         callbacks.onPortfolio();
       });
-      top.append(camera, portfolio, chat, pause);
+      const code = el("button", "touch-top-button", "</>");
+      code.setAttribute("aria-label", "Code Builder");
+      code.addEventListener("pointerdown", (e) => {
+        e.stopPropagation();
+        callbacks.onCodeBuilder();
+      });
+      top.append(code, camera, portfolio, chat, pause);
       this.root.appendChild(top);
     }
     this.root.appendChild(bottom);

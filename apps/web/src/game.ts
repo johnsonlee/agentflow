@@ -5,7 +5,7 @@ import {
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  type AgentState, type CodeProgram, type FurnaceState, type HungerState,
+  type AgentState, type CodeProgram, giveAgent, maxStackOf, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -14,6 +14,7 @@ import { MobManager } from "./mobs";
 import { BookScreen, ChalkboardDialog, NpcDialog, Portfolio, PortfolioScreen } from "./screens";
 import { ChalkboardViews } from "./chalkboards";
 import { AgentView } from "./agentView";
+import { CodeBuilderScreen } from "./codeBuilder";
 import { WorldRenderer } from "./renderer";
 
 export const SAVE_KEY = "craft.save.v1";
@@ -85,6 +86,7 @@ export class Game {
   agent: AgentState;
   programs: CodeProgram[];
   private readonly agentView: AgentView;
+  private readonly codeBuilder: CodeBuilderScreen;
   private runner: ProgramRunner | null = null;
   private runnerName = "";
   private stepTimer = 0;
@@ -152,6 +154,7 @@ export class Game {
       onChat: () => this.openChat(),
       onCamera: () => this.takePhoto(),
       onPortfolio: () => this.togglePortfolio(),
+      onCodeBuilder: () => this.openCodeBuilder(),
     }, options.touch);
     this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory());
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
@@ -164,6 +167,18 @@ export class Game {
     this.agent = save?.agent ? { ...save.agent, slots: save.agent.slots.map((s) => (s ? { ...s } : null)) } : this.agentNearPlayer();
     this.programs = save?.programs ?? [];
     this.agentView = new AgentView(this.renderer.scene, this.agent);
+    this.codeBuilder = new CodeBuilderScreen(
+      this.root,
+      {
+        programs: this.programs,
+        run: (p) => this.runProgram(p),
+        stop: () => this.stopProgram(),
+        running: () => this.programRunning,
+        giveHeldToAgent: () => this.giveHeldToAgent(),
+        save: () => this.save(),
+      },
+      () => this.closeDialog(this.codeBuilder),
+    );
 
     canvas.addEventListener("click", () => {
       if (!this.touch && !this.paused && !this.dead) this.keyboard.requestPointerLock();
@@ -274,7 +289,8 @@ export class Game {
 
   private screenOpen(): boolean {
     return (
-      this.inventoryScreen.open || this.chat.open || this.portfolioScreen.open || this.npcDialog.open || this.chalkDialog.open || this.bookScreen.open
+      this.inventoryScreen.open || this.chat.open || this.portfolioScreen.open || this.npcDialog.open || this.chalkDialog.open || this.bookScreen.open ||
+      this.codeBuilder.open
     );
   }
 
@@ -527,10 +543,31 @@ export class Game {
     this.agentView.snap(this.agent);
   }
 
+  openCodeBuilder(): void {
+    if (this.screenOpen()) return;
+    this.suspendInput();
+    this.codeBuilder.show();
+  }
+
+  /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
+  giveHeldToAgent(): string {
+    const held = this.inventory.selectedStack();
+    if (!held) return "Select a stack in your hotbar first";
+    // Creative has unlimited blocks: give a full stack without taking any.
+    const count = this.mode === "creative" ? maxStackOf(held.id) : held.count;
+    const left = giveAgent(this.agent, held.id, count);
+    const given = count - left;
+    if (this.mode === "survival") {
+      held.count = left;
+      if (left === 0) this.inventory.slots[this.inventory.selected] = null;
+    }
+    return `Gave the Agent ${given} ${displayNameOf(held.id)}`;
+  }
+
   /** Starts a Code Builder program (stopping any running one). */
   runProgram(program: CodeProgram): void {
     this.runner?.stop();
-    this.runner = new ProgramRunner(program);
+    this.runner = new ProgramRunner(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true);
     this.runnerName = program.name;
     this.stepTimer = 0;
     this.runnerStarted = this.clock;
@@ -669,8 +706,13 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (!this.running || this.chat.open) return;
-    if (this.chalkDialog.open || this.bookScreen.open) {
-      if (e.code === "Escape") this.closeDialog(this.chalkDialog.open ? this.chalkDialog : this.bookScreen);
+    if (this.chalkDialog.open || this.bookScreen.open || this.codeBuilder.open) {
+      if (e.code === "Escape") this.closeDialog(this.chalkDialog.open ? this.chalkDialog : this.bookScreen.open ? this.bookScreen : this.codeBuilder);
+      return;
+    }
+    // Education Edition opens Code Builder with C; C is the camera here, so K opens it.
+    if (e.code === "KeyK" && !this.paused && !this.dead && !this.inventoryScreen.open) {
+      this.openCodeBuilder();
       return;
     }
     if (this.npcDialog.open) {
