@@ -12,6 +12,8 @@ export interface InputFrame {
   breaking: boolean;
   /** Place / use was triggered this frame. */
   place: boolean;
+  /** Use is held down (continuous), e.g. to eat food. */
+  using: boolean;
   /** Pick-block (middle click) was triggered this frame. */
   pick: boolean;
   /** Toggle flying (double-tap jump or the fly button). */
@@ -33,6 +35,7 @@ export function emptyFrame(): InputFrame {
     lookPitch: 0,
     breaking: false,
     place: false,
+    using: false,
     pick: false,
     toggleFly: false,
     hotbarSlot: null,
@@ -53,6 +56,7 @@ export function mergeFrames(frames: readonly InputFrame[]): InputFrame {
     out.lookPitch += f.lookPitch;
     out.breaking ||= f.breaking;
     out.place ||= f.place;
+    out.using ||= f.using;
     out.pick ||= f.pick;
     out.toggleFly ||= f.toggleFly;
     out.hotbarSlot ??= f.hotbarSlot;

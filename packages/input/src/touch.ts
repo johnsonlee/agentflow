@@ -108,7 +108,9 @@ export class TouchControls {
       f.lookYaw = -this.lookX * this.sensitivity;
       f.lookPitch = -this.lookY * this.sensitivity;
       f.place = this.place;
+      // Press-and-hold breaks, or uses the held item (eats food); the game decides which.
       f.breaking = this.look?.breaking ?? false;
+      f.using = f.breaking;
       f.toggleFly = this.toggleFly;
     }
     this.lookX = 0;

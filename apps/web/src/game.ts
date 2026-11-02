@@ -2,6 +2,8 @@ import {
   AIR, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
+  EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
+  tickHunger, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -16,6 +18,9 @@ const MAX_HEALTH = 20;
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const CREATIVE_REPEAT = 0.25;
 const CRAFTING_TABLE = blockId("crafting_table");
+const FURNACE = blockId("furnace");
+
+const furnaceKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
 
 export interface GameOptions {
   name: string;
@@ -44,6 +49,14 @@ export class Game {
   mode: GameMode;
   timeOfDay: number;
   health = MAX_HEALTH;
+  /** Survival hunger (food bar, saturation, exhaustion). */
+  hunger: HungerState;
+  /** Furnace contents by block position ("x,y,z"); they keep smelting while the world runs. */
+  readonly furnaces = new Map<string, FurnaceState>();
+  private openFurnace: string | null = null;
+  /** Seconds the use button has been held on food. */
+  private eatTimer = 0;
+  private lastPos = { x: 0, z: 0 };
   paused = false;
   dead = false;
   fps = 0;
@@ -96,11 +109,14 @@ export class Game {
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.mobs = new MobManager(this.world, this.renderer.scene);
     for (const npc of save?.npcs ?? []) this.mobs.spawn("npc", npc, npc);
+    this.hunger = save?.hunger ? { ...save.hunger } : createHunger();
+    for (const f of save?.furnaces ?? []) this.furnaces.set(furnaceKey(f.x, f.y, f.z), f.state);
     this.mobs.spawning = save?.gamerules?.doMobSpawning ?? options.spawnAnimals ?? true;
     this.daylightCycle = save?.gamerules?.doDaylightCycle ?? true;
 
     this.spawn = this.findSpawn();
     this.body = createPlayerBody(save?.player.position ?? this.spawn);
+    this.lastPos = { x: this.body.position.x, z: this.body.position.z };
     this.body.yaw = save?.player.yaw ?? 0;
     this.body.pitch = save?.player.pitch ?? 0;
     this.body.flying = save?.player.flying ?? false;
@@ -184,6 +200,7 @@ export class Game {
   respawn(): void {
     this.dead = false;
     this.health = MAX_HEALTH;
+    this.hunger = createHunger();
     this.body.position = { ...this.spawn };
     this.body.velocity = { x: 0, y: 0, z: 0 };
     this.fallStart = null;
@@ -202,6 +219,11 @@ export class Game {
         inventory: this.inventory.toJSON(),
         edits: this.world.exportEdits(),
         npcs: this.mobs.exportNpcs(),
+        hunger: { ...this.hunger },
+        furnaces: [...this.furnaces].map(([key, state]) => {
+          const [x, y, z] = key.split(",").map(Number);
+          return { x, y, z, state };
+        }),
         gamerules: { doMobSpawning: this.mobs.spawning, doDaylightCycle: this.daylightCycle },
       }));
     } catch {
@@ -255,14 +277,22 @@ export class Game {
         autoJump: this.touch !== null,
       }, dt);
       this.updateFall(wasOnGround);
+      if (this.mode === "survival") this.updateHunger(input.sprint, wasOnGround, dt);
       if (this.body.position.y < -20) this.hurt(MAX_HEALTH);
       if (this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
       this.mobs.update(dt, this.body.position, skyAt(this.timeOfDay).light, this.clock);
-      this.interact(input.breaking, input.place, input.pick, dt);
+      this.interact(input.breaking, input.place, input.using, input.pick, dt);
     } else {
       this.target = null;
       this.mobTarget = null;
       this.breakProgress = 0;
+      this.eatTimer = 0;
+    }
+    this.lastPos = { x: this.body.position.x, z: this.body.position.z };
+    // Furnaces keep smelting while the world runs, even with their screen closed.
+    if (!this.paused) {
+      for (const f of this.furnaces.values()) tickFurnace(f, dt);
+      this.inventoryScreen.refresh();
     }
 
     const cam = this.renderer.camera;
@@ -272,7 +302,7 @@ export class Game {
 
     const underwater = blockAtEyes((x, y, z) => this.world.getBlock(x, y, z), this.body) === "water";
     this.hud.setUnderwater(underwater);
-    this.hud.update(this.inventory, this.mode, this.health, dt);
+    this.hud.update(this.inventory, this.mode, this.health, this.hunger.food, dt);
     this.renderer.setSelection(this.target, this.breakProgress);
     this.renderer.render(skyAt(this.timeOfDay), underwater, dt);
     this.hud.setDebug(this.debugText());
@@ -284,7 +314,7 @@ export class Game {
     }
   }
 
-  private interact(breaking: boolean, place: boolean, pick: boolean, dt: number): void {
+  private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
     const eye = { x: this.body.position.x, y: this.body.position.y + EYE_HEIGHT, z: this.body.position.z };
     const dir = lookDirection(this.body.yaw, this.body.pitch);
     const targetable = (id: number) => id !== AIR && BLOCKS[id].shape !== "liquid";
@@ -296,6 +326,23 @@ export class Game {
     // Mobs in front of the targeted block take priority, as in Minecraft.
     const mobHit = this.mobs.raycast(eye, dir, REACH);
     this.mobTarget = mobHit && (!this.target || mobHit.distance < this.target.distance) ? mobHit.mob : null;
+
+    // Eating: hold use (right button, or a touch hold) with food in hand. Using a crafting table,
+    // furnace or NPC still takes precedence over eating.
+    const held = this.inventory.selectedStack();
+    const usesBlock = this.target !== null && !this.mobTarget && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE);
+    const usesNpc = this.mobTarget?.kind === "npc";
+    if (using && !(place && (usesBlock || usesNpc)) && this.mode === "survival" && canEat(this.hunger, held?.id)) {
+      this.eatTimer += dt;
+      this.breakProgress = 0;
+      if (this.eatTimer >= EAT_SECONDS) {
+        eat(this.hunger, held!.id);
+        this.inventory.takeSelected();
+        this.eatTimer = 0;
+      }
+      return;
+    }
+    this.eatTimer = 0;
     if (this.mobTarget) {
       this.target = null;
       this.breakProgress = 0;
@@ -306,6 +353,7 @@ export class Game {
         const tool = toolOf(this.inventory.selectedStack()?.id);
         const damage = Math.max(this.mode === "creative" ? 4 : 2, tool?.attack ?? 0);
         const drop = this.mobs.attack(mob, damage, this.body.yaw);
+        if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.attack);
         // Minecraft: a hit wears a sword by one use and other tools by two.
         if (tool && this.mode === "survival") this.wearTool(tool.kind === "sword" ? 1 : 2);
         if (drop !== undefined) {
@@ -330,16 +378,16 @@ export class Game {
       const needed = breakTime(this.mode, t.id, tool);
       if (needed === 0) {
         if (this.creativeCooldown === 0) {
-          breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z);
+          this.breakAt(t);
           this.creativeCooldown = CREATIVE_REPEAT;
         }
         this.breakProgress = 0;
       } else {
         this.breakProgress += dt / needed;
         if (this.breakProgress >= 1) {
-          const held = this.inventory.selectedStack();
-          breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z);
-          if (held && tool && !this.inventory.selectedStack()) this.hud.message(`${displayNameOf(held.id)} broke`);
+          const before = this.inventory.selectedStack();
+          this.breakAt(t);
+          if (before && tool && !this.inventory.selectedStack()) this.hud.message(`${displayNameOf(before.id)} broke`);
           this.breakProgress = 0;
           this.breakKey = "";
         }
@@ -354,6 +402,13 @@ export class Game {
       this.openInventory("crafting_table");
       return;
     }
+    if (place && t && this.placeCooldown === 0 && t.id === FURNACE) {
+      const key = furnaceKey(t.x, t.y, t.z);
+      if (!this.furnaces.has(key)) this.furnaces.set(key, createFurnace());
+      this.openFurnace = key;
+      this.openInventory("furnace");
+      return;
+    }
 
     if (place && t && this.placeCooldown === 0) {
       // Plants and other replaceable blocks are replaced in place; otherwise place against the hit face.
@@ -365,6 +420,31 @@ export class Game {
     }
 
     if (pick && t && this.mode === "creative" && blockById(t.id).creative) this.inventory.pick(t.id);
+  }
+
+  /** Breaks the targeted block; a broken furnace gives back its contents (Minecraft drops them). */
+  private breakAt(t: RaycastHit): void {
+    if (!breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z)) return;
+    if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.breakBlock);
+    if (t.id !== FURNACE) return;
+    const key = furnaceKey(t.x, t.y, t.z);
+    const furnace = this.furnaces.get(key);
+    if (furnace) for (const stack of furnaceContents(furnace)) this.inventory.addStack(stack);
+    this.furnaces.delete(key);
+  }
+
+  /** Minecraft exhaustion from sprinting, swimming and jumping, then regen or starvation. */
+  private updateHunger(sprinting: boolean, wasOnGround: boolean, dt: number): void {
+    const p = this.body.position;
+    const moved = Math.hypot(p.x - this.lastPos.x, p.z - this.lastPos.z);
+    if (this.body.inWater) addExhaustion(this.hunger, EXHAUSTION.swimPerBlock * moved);
+    else if (sprinting) addExhaustion(this.hunger, EXHAUSTION.sprintPerBlock * moved);
+    if (wasOnGround && !this.body.onGround && this.body.velocity.y > 0) {
+      addExhaustion(this.hunger, sprinting ? EXHAUSTION.sprintJump : EXHAUSTION.jump);
+    }
+    const change = tickHunger(this.hunger, dt, this.health, MAX_HEALTH);
+    if (change > 0) this.health = Math.min(MAX_HEALTH, this.health + change);
+    else if (change < 0) this.hurt(-change);
   }
 
   private wearTool(uses: number): void {
@@ -439,7 +519,8 @@ export class Game {
 
   private openInventory(kind: InventoryKind): void {
     this.suspendInput();
-    this.inventoryScreen.show(this.inventory, this.mode, kind);
+    const furnace = kind === "furnace" && this.openFurnace ? (this.furnaces.get(this.openFurnace) ?? null) : null;
+    this.inventoryScreen.show(this.inventory, this.mode, kind, furnace);
   }
 
   private suspendInput(): void {

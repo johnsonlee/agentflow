@@ -1,6 +1,6 @@
 import {
-  HOTBAR_SIZE, INVENTORY_SIZE, ITEMS, craftOnce, creativeBlocks, displayNameOf, matchRecipe, maxStackOf, toolOf,
-  type CraftingGrid, type GameMode, type Inventory, type ItemStack,
+  HOTBAR_SIZE, INVENTORY_SIZE, ITEMS, craftOnce, creativeBlocks, displayNameOf, fuelSeconds, matchRecipe, maxStackOf, toolOf,
+  type CraftingGrid, type FurnaceState, type GameMode, type Inventory, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
@@ -27,6 +27,7 @@ export class Hud {
   private readonly hotbar = el("div", "hotbar");
   private readonly slots: HTMLElement[] = [];
   private readonly hearts = el("div", "hearts");
+  private readonly hunger = el("div", "hunger");
   private readonly itemName = el("div", "item-name");
   private readonly debug = el("pre", "debug");
   private readonly log = el("div", "chat-log");
@@ -54,7 +55,10 @@ export class Hud {
       this.hotbar.appendChild(slot);
     }
     const bottom = el("div", "hud-bottom");
-    bottom.append(this.itemName, this.hearts, this.hotbar);
+    const stats = el("div", "stats");
+    this.hunger.setAttribute("aria-label", "Hunger");
+    stats.append(this.hearts, this.hunger);
+    bottom.append(this.itemName, stats, this.hotbar);
     if (touch) {
       const more = el("button", "slot slot-more", "•••");
       more.setAttribute("aria-label", "Open inventory");
@@ -96,8 +100,8 @@ export class Hud {
     container.appendChild(this.root);
   }
 
-  update(inventory: Inventory, mode: GameMode, health: number, dt: number): void {
-    const signature = JSON.stringify([inventory.slots.slice(0, HOTBAR_SIZE), inventory.selected, mode, health]);
+  update(inventory: Inventory, mode: GameMode, health: number, food: number, dt: number): void {
+    const signature = JSON.stringify([inventory.slots.slice(0, HOTBAR_SIZE), inventory.selected, mode, health, food]);
     if (signature !== this.lastSignature) {
       const selectedChanged = this.lastSignature === "" || JSON.parse(this.lastSignature)[1] !== inventory.selected;
       this.lastSignature = signature;
@@ -117,6 +121,15 @@ export class Hud {
         }
       });
       this.hearts.hidden = mode !== "survival";
+      // Minecraft's hunger bar: 10 drumsticks, right-aligned, emptying from the left.
+      this.hunger.hidden = mode !== "survival";
+      this.hunger.dataset.food = String(food);
+      this.hunger.replaceChildren(
+        ...Array.from({ length: 10 }, (_, i) => {
+          const f = food - (9 - i) * 2;
+          return el("span", `food ${f >= 2 ? "full" : f === 1 ? "half" : "empty"}`);
+        }),
+      );
       this.hearts.replaceChildren(
         ...Array.from({ length: 10 }, (_, i) => {
           const hp = health - i * 2;
@@ -170,7 +183,7 @@ export class Hud {
   }
 }
 
-export type InventoryKind = "inventory" | "crafting_table";
+export type InventoryKind = "inventory" | "crafting_table" | "furnace";
 
 /**
  * Full-screen inventory. Survival shows the backpack with a 2x2 crafting grid; creative shows the
@@ -186,6 +199,10 @@ export class InventoryScreen {
   private kind: InventoryKind = "inventory";
   private inventory: Inventory | null = null;
   private mode: GameMode = "creative";
+  private furnace: FurnaceState | null = null;
+  private furnaceSignature = "";
+  private progressFill: HTMLElement | null = null;
+  private flameFill: HTMLElement | null = null;
 
   constructor(
     container: HTMLElement,
@@ -204,10 +221,11 @@ export class InventoryScreen {
     return !this.root.hidden;
   }
 
-  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory"): void {
+  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null): void {
     this.inventory = inventory;
     this.mode = mode;
     this.kind = kind;
+    this.furnace = kind === "furnace" ? furnace : null;
     this.width = kind === "crafting_table" ? 3 : mode === "survival" ? 2 : 0;
     this.grid = new Array(this.width * this.width).fill(null);
     this.cursor = null;
@@ -222,14 +240,25 @@ export class InventoryScreen {
     }
     this.grid = [];
     this.cursor = null;
+    this.furnace = null;
     this.root.hidden = true;
+  }
+
+  /** Called every frame while open: a furnace keeps smelting, so redraw its slots and gauges. */
+  refresh(): void {
+    if (this.root.hidden || !this.furnace) return;
+    const f = this.furnace;
+    const signature = JSON.stringify([f.input, f.fuel, f.output]);
+    if (signature !== this.furnaceSignature) this.render();
+    else this.updateGauges();
   }
 
   private render(): void {
     const inventory = this.inventory!;
     const mode = this.mode;
     const header = el("div", "panel-header");
-    const title = this.kind === "crafting_table" ? "Crafting Table" : mode === "creative" ? "Creative Inventory" : "Inventory";
+    const title =
+      this.kind === "crafting_table" ? "Crafting Table" : this.kind === "furnace" ? "Furnace" : mode === "creative" ? "Creative Inventory" : "Inventory";
     header.append(el("h2", "", title));
     const close = el("button", "close-button", "✕");
     close.setAttribute("aria-label", "Close inventory");
@@ -238,8 +267,9 @@ export class InventoryScreen {
     const parts: HTMLElement[] = [header];
 
     if (this.width > 0) parts.push(this.craftingSection());
+    if (this.furnace) parts.push(this.furnaceSection());
 
-    if (mode === "creative") {
+    if (mode === "creative" && !this.furnace) {
       const grid = el("div", "item-grid");
       for (const def of [...creativeBlocks(), ...ITEMS]) {
         const cell = this.cell(def.id, 0, def.displayName);
@@ -253,7 +283,7 @@ export class InventoryScreen {
       }
       parts.push(grid);
     }
-    if (mode === "survival" || this.width > 0) {
+    if (mode === "survival" || this.width > 0 || this.furnace) {
       const backpack = el("div", "item-grid");
       for (let i = HOTBAR_SIZE; i < INVENTORY_SIZE; i++) backpack.appendChild(this.slotCell(i));
       parts.push(backpack);
@@ -320,6 +350,69 @@ export class InventoryScreen {
     return section;
   }
 
+  /** Minecraft furnace layout: input over a flame gauge over fuel, an arrow, then the result. */
+  private furnaceSection(): HTMLElement {
+    const f = this.furnace!;
+    this.furnaceSignature = JSON.stringify([f.input, f.fuel, f.output]);
+    const slot = (key: "input" | "fuel" | "output", empty: string) => {
+      const stack = f[key];
+      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : empty);
+      cell.dataset.furnace = key;
+      cell.addEventListener("click", () => {
+        const current = f[key];
+        const cursor = this.cursor;
+        if (key === "output") {
+          if (current && !cursor) {
+            this.cursor = current;
+            f.output = null;
+          } else if (current && cursor && cursor.id === current.id && cursor.count + current.count <= maxStackOf(current.id)) {
+            cursor.count += current.count;
+            f.output = null;
+          }
+        } else if (cursor) {
+          // Only fuels go in the fuel slot.
+          if (key === "fuel" && fuelSeconds(cursor.id) === 0) return;
+          if (current && current.id === cursor.id && maxStackOf(current.id) > 1) {
+            const n = Math.min(maxStackOf(current.id) - current.count, cursor.count);
+            current.count += n;
+            cursor.count -= n;
+            if (cursor.count <= 0) this.cursor = null;
+          } else {
+            f[key] = cursor;
+            this.cursor = current;
+          }
+        } else if (current) {
+          this.cursor = current;
+          f[key] = null;
+        }
+        this.render();
+      });
+      return cell;
+    };
+    const flame = el("div", "furnace-flame");
+    this.flameFill = el("div", "furnace-flame-fill");
+    flame.appendChild(this.flameFill);
+    const arrow = el("div", "furnace-progress");
+    this.progressFill = el("div", "furnace-progress-fill");
+    arrow.appendChild(this.progressFill);
+    const column = el("div", "furnace-column");
+    column.append(slot("input", "Smelt"), flame, slot("fuel", "Fuel"));
+    const section = el("div", "furnace");
+    section.append(column, arrow, slot("output", "Result"));
+    this.updateGauges();
+    return section;
+  }
+
+  private updateGauges(): void {
+    const f = this.furnace;
+    if (!f || !this.progressFill || !this.flameFill) return;
+    this.progressFill.style.width = `${Math.round(f.progress * 100)}%`;
+    this.progressFill.parentElement!.dataset.progress = f.progress.toFixed(2);
+    const flame = f.burnTotal > 0 ? f.burnLeft / f.burnTotal : 0;
+    this.flameFill.style.height = `${Math.round(flame * 100)}%`;
+    this.flameFill.parentElement!.dataset.burning = String(f.burnLeft > 0);
+  }
+
   private slotCell(index: number): HTMLElement {
     const inventory = this.inventory!;
     const stack = inventory.slots[index];
@@ -329,7 +422,7 @@ export class InventoryScreen {
     const bar = stack ? durabilityBar(stack) : null;
     if (bar) cell.appendChild(bar);
     cell.addEventListener("click", () => {
-      if (this.mode === "creative" && this.width === 0) {
+      if (this.mode === "creative" && this.width === 0 && !this.furnace) {
         if (index < HOTBAR_SIZE) inventory.select(index);
       } else if (this.cursor) {
         const current = inventory.slots[index];

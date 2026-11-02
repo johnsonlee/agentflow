@@ -23,6 +23,8 @@ export class KeyboardMouseInput {
   private lookX = 0;
   private lookY = 0;
   private breaking = false;
+  /** Right button held (use / eat). */
+  private using = false;
   /** Latches a click so a press shorter than one frame still breaks a block. */
   private breakClicked = false;
   private place = false;
@@ -52,6 +54,7 @@ export class KeyboardMouseInput {
     if (options.mouseButtons ?? true) this.listen(target, "mousedown", (e) => this.onMouseDown(e as MouseEvent));
     this.listen(window, "mouseup", (e) => {
       if ((e as MouseEvent).button === 0) this.breaking = false;
+      if ((e as MouseEvent).button === 2) this.using = false;
     });
     this.listen(target, "wheel", (e) => {
       this.scroll += Math.sign((e as WheelEvent).deltaY);
@@ -93,6 +96,7 @@ export class KeyboardMouseInput {
     f.lookPitch = -this.lookY * this.sensitivity;
     f.breaking = this.breaking || this.breakClicked;
     f.place = this.place;
+    f.using = this.using;
     f.pick = this.pick;
     f.toggleFly = this.toggleFly;
     f.hotbarSlot = this.slot;
@@ -104,6 +108,7 @@ export class KeyboardMouseInput {
   reset(): void {
     this.keys.clear();
     this.breaking = false;
+    this.using = false;
     this.consume();
   }
 
@@ -156,7 +161,10 @@ export class KeyboardMouseInput {
       this.breaking = true;
       this.breakClicked = true;
     }
-    else if (e.button === 2) this.place = true;
+    else if (e.button === 2) {
+      this.place = true;
+      this.using = true;
+    }
     else if (e.button === 1) {
       this.pick = true;
       e.preventDefault();
