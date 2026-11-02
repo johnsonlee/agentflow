@@ -1,0 +1,9 @@
+{
+  "name": "@craft/input",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Keyboard/mouse and touch (virtual joystick) input for the voxel game",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}
