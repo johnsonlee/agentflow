@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  MOB_SPECS, PASSIVE_MOBS, PATHFINDING, SEA_LEVEL, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
+  MOB_SPECS, PASSIVE_MOBS, PATHFINDING, SEA_LEVEL, onBlockChangedNear, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
   raycastMob, skyDarken, skyOf, stackId, stepMob,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
@@ -185,14 +185,20 @@ export class MobManager {
   spawning = true;
   private spawnTimer = 0;
   /** Path-finding allowance shared by all mobs each frame (see PATHFINDING). */
-  private readonly pathBudget: { nodes: number; deadline?: number } = { nodes: 0 };
+  private readonly pathBudget: { nodes: number; ms?: number } = { nodes: 0 };
+  /** Rotates which mob updates (and searches) first each frame, so none is starved of the budget. */
+  private rotation = 0;
+  private lastPlayer: Vec3 | null = null;
   private seed = 12345;
   private readonly rand = () => ((this.seed = (this.seed * 16807) % 2147483647) / 2147483647);
 
   constructor(
     private readonly world: World,
     private readonly scene: THREE.Scene,
-  ) {}
+  ) {
+    // Opening (or closing) a shelter near the player or a zombie ends that zombie's path back-off.
+    world.onBlockChanged((x, y, z) => onBlockChangedNear(this.mobs, x, y, z, this.lastPlayer));
+  }
 
   spawn(kind: MobKind, position: Vec3, extra: { name?: string; dialogue?: string; yaw?: number } = {}): Mob {
     const mob = createMob(this.nextId++, kind, position, extra);
@@ -233,7 +239,8 @@ export class MobManager {
     const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
     const darken = skyDarken(daylight);
     this.pathBudget.nodes = PATHFINDING.budgetPerFrame;
-    this.pathBudget.deadline = performance.now() + PATHFINDING.budgetMs;
+    this.pathBudget.ms = PATHFINDING.budgetMs;
+    this.lastPlayer = target;
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = 2;
@@ -242,7 +249,9 @@ export class MobManager {
         this.spawnHostileNear(player, darken);
       }
     }
-    for (const mob of [...this.mobs]) {
+    const order = this.mobs.length > 0 ? [...this.mobs.slice(this.rotation % this.mobs.length), ...this.mobs.slice(0, this.rotation % this.mobs.length)] : [];
+    this.rotation++;
+    for (const mob of order) {
       const dist = Math.hypot(mob.position.x - player.x, mob.position.z - player.z);
       if (mob.kind !== "npc" && dist > DESPAWN_DISTANCE) {
         this.remove(mob);

@@ -115,7 +115,7 @@ const WATER = blockId("water");
 export const PATHFINDING = {
   maxNodes: 3000,
   budgetPerFrame: 400,
-  /** Wall-clock cap per frame for all path searching (the game sets budget.deadline from this). */
+  /** Milliseconds of path searching per frame, shared by all mobs (only search time is charged). */
   budgetMs: 3,
   replanSeconds: 0.5,
   maxBackoffSeconds: 8,
@@ -175,10 +175,14 @@ function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | n
   }
   if (mob.search) {
     const allowance = budget ? budget.nodes : Infinity;
-    const outOfTime = budget?.deadline !== undefined && performance.now() > budget.deadline;
+    const outOfTime = budget?.ms !== undefined && budget.ms <= 0;
     if (allowance > 0 && !outOfTime) {
-      const used = mob.search.step(allowance, budget?.deadline);
-      if (budget) budget.nodes -= used;
+      const t0 = budget?.ms !== undefined ? performance.now() : 0;
+      const used = mob.search.step(allowance, budget?.ms);
+      if (budget) {
+        budget.nodes -= used;
+        if (budget.ms !== undefined) budget.ms -= performance.now() - t0;
+      }
     }
     if (mob.search.done) {
       mob.path = mob.search.result();
@@ -379,4 +383,24 @@ export function burnInDaylight(mob: Mob, skyLight: number, darken: number, dt: n
     mob.health -= ZOMBIE.burnDamage;
   }
   return mob.health <= 0;
+}
+
+/**
+ * A block changed at (x, y, z): any hostile mob whose path search had failed (and is backing off)
+ * re-plans now if the change is within `radius` blocks of it or of the player, e.g. a shelter
+ * being opened on the far side. Returns how many mobs were reset.
+ */
+export function onBlockChangedNear(mobs: readonly Mob[], x: number, y: number, z: number, player: Vec3 | null, radius = 4): number {
+  const near = (p: Vec3) => Math.abs(p.x - (x + 0.5)) <= radius && Math.abs(p.y - y) <= radius && Math.abs(p.z - (z + 0.5)) <= radius;
+  const nearPlayer = player !== null && near(player);
+  let reset = 0;
+  for (const mob of mobs) {
+    if (!MOB_SPECS[mob.kind].hostile || !(mob.failCount ?? 0)) continue;
+    if (!nearPlayer && !near(mob.position)) continue;
+    mob.failCount = 0;
+    mob.pathTimer = 0;
+    mob.search = undefined;
+    reset++;
+  }
+  return reset;
 }

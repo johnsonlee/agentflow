@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, JUMP_VELOCITY, World, blockId, createMob, PATHFINDING, createPlayerBody, findPath, findSummonSpot, mobAttack, stepMob, stepPlayer, type Mob, type MobKind } from "../src";
+import { AIR, JUMP_VELOCITY, World, blockId, createMob, PATHFINDING, createPlayerBody, findPath, findSummonSpot, mobAttack, onBlockChangedNear, stepMob, stepPlayer, type Mob, type MobKind } from "../src";
 
 // Reproduces review bd1e2360: obstacles pinned the straight-line chase, and below ~30 fps mobs
 // could not jump a 1-block step. Both must work at 20-144 fps.
@@ -244,4 +244,52 @@ describe("path-finding cost is bounded (review 0dc818e8)", () => {
       }
     });
   }
+});
+
+describe("back-off reset and fair budget (review 6c484049)", () => {
+  it("opening a shelter on the far side wakes a backed-off zombie at once (not after up to ~10 s)", () => {
+    const w = flat();
+    for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) for (let y = 51; y <= 53; y++) {
+      if (x === 0 && z === 0 && y < 53) continue;
+      w.setBlock(x, y, z, STONE);
+    }
+    const get = (x: number, y: number, z: number) => w.getBlock(x, y, z);
+    const player = { x: 0.5, y: 51, z: 0.5 };
+    const zombie = createMob(1, "zombie", { x: 8.5, y: 51, z: 0.5 });
+    const mobs = [zombie];
+    // Same wiring as MobManager: block changes near the player or a zombie reset its back-off.
+    w.onBlockChanged((x, y, z) => onBlockChangedNear(mobs, x, y, z, player));
+    const budget = { nodes: 0 };
+    const run = (seconds: number) => {
+      let damage = 0;
+      for (let f = 0; f < seconds * 60; f++) {
+        budget.nodes = PATHFINDING.budgetPerFrame;
+        stepMob(get, zombie, 1 / 60, () => 0.5, player, budget);
+        damage += mobAttack(zombie, player, 1 / 60);
+      }
+      return damage;
+    };
+    expect(run(8)).toBe(0);
+    expect(zombie.failCount ?? 0).toBeGreaterThanOrEqual(2);
+    // Open the far (-X) side, away from the zombie (+X).
+    w.setBlock(-1, 51, 0, AIR);
+    w.setBlock(-1, 52, 0, AIR);
+    expect(zombie.failCount ?? 0).toBe(0);
+    // Walk round the shelter (about 12 blocks) and hit: well under the old back-off.
+    expect(run(7)).toBeGreaterThan(0);
+  });
+
+  it("only search time is charged to the time budget", () => {
+    const w = flat();
+    const get = (x: number, y: number, z: number) => w.getBlock(x, y, z);
+    const pig = createMob(1, "pig", { x: 0.5, y: 51, z: 0.5 });
+    const budget = { nodes: 400, ms: 3 };
+    for (let i = 0; i < 200; i++) stepMob(get, pig, 1 / 60, () => 0.5, { x: 5, y: 51, z: 5 }, budget);
+    expect(budget.ms).toBe(3);
+    expect(budget.nodes).toBe(400);
+    const zombie = createMob(2, "zombie", { x: 0.5, y: 51, z: 0.5 });
+    const none = { nodes: 400, ms: 0 };
+    for (let i = 0; i < 30; i++) stepMob(get, zombie, 1 / 60, () => 0.5, { x: 8.5, y: 51, z: 0.5 }, none);
+    expect(none.nodes).toBe(400);
+  });
 });

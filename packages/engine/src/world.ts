@@ -5,6 +5,7 @@ import { TerrainGenerator } from "./generator";
 
 export type BlockEdit = [x: number, y: number, z: number, id: number];
 export type ChunkListener = (cx: number, cz: number) => void;
+export type BlockListener = (x: number, y: number, z: number, id: number) => void;
 
 /**
  * Infinite world made of lazily generated chunks. Player edits are tracked separately
@@ -15,6 +16,7 @@ export class World {
   private readonly chunks = new Map<string, Chunk>();
   private readonly edits = new Map<string, Map<number, number>>();
   private readonly listeners = new Set<ChunkListener>();
+  private readonly blockListeners = new Set<BlockListener>();
   /** Chunks whose light changed during the current update (to re-mesh them). */
   private readonly lightTouched = new Set<string>();
   private lastPeek: Chunk | undefined;
@@ -185,12 +187,19 @@ export class World {
       this.emit(tx, tz);
     }
     this.lightTouched.clear();
+    for (const l of this.blockListeners) l(x, y, z, id);
 
     this.emit(cx, cz);
     if (lx === 0) this.emit(cx - 1, cz);
     if (lx === CHUNK_SIZE - 1) this.emit(cx + 1, cz);
     if (lz === 0) this.emit(cx, cz - 1);
     if (lz === CHUNK_SIZE - 1) this.emit(cx, cz + 1);
+  }
+
+  /** Subscribes to individual block changes (after light is updated). */
+  onBlockChanged(listener: BlockListener): () => void {
+    this.blockListeners.add(listener);
+    return () => this.blockListeners.delete(listener);
   }
 
   /** Subscribes to chunk changes (including neighbours whose faces may change). */

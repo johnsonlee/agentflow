@@ -47,8 +47,11 @@ const nkey = (x: number, y: number, z: number) => ((x + 32768) * 65536 + (z + 32
 /** Shared per-frame path-finding allowance (expanded nodes), so many mobs can't stall one frame. */
 export interface PathBudget {
   nodes: number;
-  /** Optional wall-clock cut-off (performance.now() ms) for this frame's searching. */
-  deadline?: number;
+  /**
+   * Optional milliseconds of path searching left this frame. Only time spent inside searches is
+   * charged, so mob physics earlier in the frame can't starve later mobs' searches.
+   */
+  ms?: number;
 }
 
 /**
@@ -110,12 +113,13 @@ export class PathSearch {
     return Math.abs(x - this.gx) + Math.abs(z - this.gz) + Math.abs(y - this.gy);
   }
 
-  /** Expands up to `limit` more nodes (stopping early at `deadline`, if given); returns how many. */
-  step(limit: number, deadline?: number): number {
+  /** Expands up to `limit` more nodes (stopping after `timeLimitMs`, if given); returns how many. */
+  step(limit: number, timeLimitMs?: number): number {
     const { get, height, maxDrop, radius, heap } = this;
+    const started = timeLimitMs !== undefined ? performance.now() : 0;
     let used = 0;
     while (!this.done && used < limit) {
-      if (deadline !== undefined && (used & 31) === 31 && performance.now() > deadline) break;
+      if (timeLimitMs !== undefined && (used & 31) === 31 && performance.now() - started > timeLimitMs) break;
       if (heap.length === 0 || this.expanded >= this.maxNodes) {
         this.done = true;
         break;
