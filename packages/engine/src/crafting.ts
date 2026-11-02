@@ -14,7 +14,7 @@ export interface Recipe {
 }
 
 /** Minecraft tool shapes for one head material (`#`), with sticks (`|`) as handles. */
-function toolRecipes(material: "wooden" | "stone", head: string): Recipe[] {
+function toolRecipes(material: "wooden" | "stone" | "iron", head: string): Recipe[] {
   const key = { "#": head, "|": "stick" };
   return [
     { id: `${material}_pickaxe`, pattern: ["###", " | ", " | "], key, result: [`${material}_pickaxe`, 1] },
@@ -32,6 +32,8 @@ export const RECIPES: readonly Recipe[] = [
   { id: "stick", pattern: ["#", "#"], key: { "#": "oak_planks" }, result: ["stick", 4] },
   ...toolRecipes("wooden", "oak_planks"),
   ...toolRecipes("stone", "cobblestone"),
+  ...toolRecipes("iron", "iron_ingot"),
+  { id: "furnace", pattern: ["###", "# #", "###"], key: { "#": "cobblestone" }, result: ["furnace", 1] },
   { id: "oak_planks", ingredients: ["oak_log"], result: ["oak_planks", 4] },
   { id: "oak_planks_from_birch", ingredients: ["birch_log"], result: ["oak_planks", 4], note: "Minecraft yields birch planks" },
   { id: "crafting_table", pattern: ["##", "##"], key: { "#": "oak_planks" }, result: ["crafting_table", 1] },

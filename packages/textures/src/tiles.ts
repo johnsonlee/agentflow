@@ -243,6 +243,20 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
     }
     return t;
   },
+  furnace_top: (t) => {
+    // Smooth dressed stone with a darker border.
+    t.noise(STONE, 2.2);
+    for (let i = 0; i < S; i++) for (const [x, y] of [[i, 0], [i, S - 1], [0, i], [S - 1, i]]) t.set(x, y, hex("#5d5d5d"));
+    return t;
+  },
+  furnace_front: (t) => {
+    t.copyFrom(TILE_GENERATORS.cobblestone(new Tile("furnace_front_stone")));
+    // Dark firebox opening with a grate across the top.
+    for (let y = 8; y <= 13; y++) for (let x = 4; x <= 11; x++) t.set(x, y, y === 8 ? hex("#3a3a3a") : hex(y > 11 ? "#2a1a10" : "#141414"));
+    for (let x = 4; x <= 11; x += 2) t.set(x, 9, hex("#4a4a4a"));
+    for (let x = 5; x <= 10; x++) if (t.rand() < 0.5) t.set(x, 13, hex("#7a3b12"));
+    return t;
+  },
   allow: (t) => framed(t, hex("#4bab3f"), hex("#1f5e1a"), CHECK, hex("#ffffff")),
   deny: (t) => framed(t, hex("#c73a2e"), hex("#5e1612"), CROSS, hex("#ffffff")),
   border: (t) => {

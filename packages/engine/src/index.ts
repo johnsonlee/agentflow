@@ -16,3 +16,5 @@ export * from "./commands";
 export * from "./crafting";
 export * from "./entities";
 export * from "./items";
+export * from "./smelting";
+export * from "./hunger";

@@ -10,6 +10,7 @@ const HANDLE = ["#7a5430", "#8f6539", "#664424"].map(hex);
 const HEADS: Record<string, Rgb[]> = {
   wooden: ["#b08a52", "#9b7643", "#c39d63"].map(hex),
   stone: ["#8e8e8e", "#7b7b7b", "#a2a2a2"].map(hex),
+  iron: ["#dcdcdc", "#c2c2c2", "#f0f0f0"].map(hex),
 };
 
 type Mask = (x: number, y: number) => boolean;
@@ -59,10 +60,36 @@ function toolTile(material: string, kind: string): (t: Tile) => Tile {
   };
 }
 
+/** A lump: an irregular blob filled from `palette` (coal, diamond, meat). */
+function lump(palette: readonly Rgb[], shape: Mask): (t: Tile) => Tile {
+  return (t) => {
+    t.fill(() => null);
+    paint(t, shape, palette);
+    return t;
+  };
+}
+
+const ROUND: Mask = (x, y) => Math.hypot(x - 7.5, y - 8) <= 5.6 && !(x + y <= 6);
+const GEM: Mask = (x, y) => Math.abs(x - 7.5) + Math.abs(y - 7.5) <= 6.5 && y >= 3 && y <= 12;
+/** An ingot seen from above at an angle: a long trapezoid. */
+const INGOT: Mask = (x, y) => y >= 6 && y <= 10 && x >= 2 + (10 - y) * 0.5 && x <= 13 - (10 - y) * 0.5;
+/** A cut of meat with a bone end. */
+const CHOP: Mask = (x, y) => Math.hypot((x - 7) / 1.25, y - 8) <= 4.6 || (x >= 11 && x <= 14 && y >= 7 && y <= 9);
+const DRUMSTICK: Mask = (x, y) => Math.hypot(x - 6, y - 6) <= 4.3 || (Math.abs(x - y) <= 1 && x >= 8 && x <= 13);
+
 export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   item_stick: stick,
+  item_coal: lump(["#2b2b2b", "#1c1c1c", "#3c3c3c"].map(hex), ROUND),
+  item_charcoal: lump(["#3b3026", "#2c241c", "#4a3c2f"].map(hex), ROUND),
+  item_diamond: lump(["#6fe0d6", "#4cc6bb", "#a8f2ec"].map(hex), GEM),
+  item_iron_ingot: lump(["#d8d8d8", "#bdbdbd", "#efefef"].map(hex), INGOT),
+  item_gold_ingot: lump(["#f2c94c", "#d9aa2a", "#fbe38e"].map(hex), INGOT),
+  item_raw_porkchop: lump(["#e88f8f", "#d57272", "#f4b0a8"].map(hex), CHOP),
+  item_cooked_porkchop: lump(["#a8683a", "#8c522a", "#c4874f"].map(hex), CHOP),
+  item_raw_chicken: lump(["#f2c7b8", "#e2ab98", "#f8dccf"].map(hex), DRUMSTICK),
+  item_cooked_chicken: lump(["#c8894a", "#a86c33", "#dca36a"].map(hex), DRUMSTICK),
 };
-for (const material of ["wooden", "stone"]) {
+for (const material of ["wooden", "stone", "iron"]) {
   for (const kind of ["pickaxe", "axe", "shovel", "sword"]) {
     ITEM_TILE_GENERATORS[`item_${material}_${kind}`] = toolTile(material, kind);
   }

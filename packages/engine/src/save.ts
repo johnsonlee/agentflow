@@ -2,6 +2,8 @@ import type { BlockEdit } from "./world";
 import type { ItemStack } from "./inventory";
 import type { GameMode } from "./rules";
 import type { Vec3 } from "./math";
+import type { HungerState } from "./hunger";
+import type { FurnaceState } from "./smelting";
 
 export const SAVE_VERSION = 1;
 
@@ -18,6 +20,10 @@ export interface SaveData {
   gamerules?: { doMobSpawning: boolean; doDaylightCycle: boolean };
   /** Education Edition NPCs placed in the world (optional for older saves). */
   npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
+  /** Survival hunger (optional for older saves; defaults to full). */
+  hunger?: HungerState;
+  /** Furnaces with their contents and progress (optional for older saves). */
+  furnaces?: Array<{ x: number; y: number; z: number; state: FurnaceState }>;
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {

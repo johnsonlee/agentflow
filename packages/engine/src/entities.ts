@@ -12,14 +12,14 @@ export interface MobSpec {
   maxHealth: number;
   /** Walking speed in blocks per second (0 = stationary). */
   speed: number;
-  /** Item dropped on death: [block name, count]. */
+  /** Dropped on death: [block or item name, count]. */
   drop?: [string, number];
 }
 
 export const MOB_SPECS: Record<MobKind, MobSpec> = {
-  pig: { kind: "pig", displayName: "Pig", width: 0.9, height: 0.9, maxHealth: 10, speed: 1.2 },
+  pig: { kind: "pig", displayName: "Pig", width: 0.9, height: 0.9, maxHealth: 10, speed: 1.2, drop: ["raw_porkchop", 2] },
   sheep: { kind: "sheep", displayName: "Sheep", width: 0.9, height: 1.3, maxHealth: 8, speed: 1.1, drop: ["white_wool", 1] },
-  chicken: { kind: "chicken", displayName: "Chicken", width: 0.4, height: 0.7, maxHealth: 4, speed: 1.0 },
+  chicken: { kind: "chicken", displayName: "Chicken", width: 0.4, height: 0.7, maxHealth: 4, speed: 1.0, drop: ["raw_chicken", 1] },
   // Minecraft: Education Edition non-player character: stationary, invulnerable, talks to players.
   npc: { kind: "npc", displayName: "NPC", width: 0.6, height: 1.9, maxHealth: Infinity, speed: 0 },
 };

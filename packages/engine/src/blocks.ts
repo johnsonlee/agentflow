@@ -91,6 +91,8 @@ const specs: BlockSpec[] = [
   { name: "allow", displayName: "Allow", faces: faces("allow"), hardness: Infinity },
   { name: "deny", displayName: "Deny", faces: faces("deny"), hardness: Infinity },
   { name: "border", displayName: "Border", faces: faces("border"), hardness: Infinity },
+  // Append only: block ids are positional and stored in chunks and saves.
+  { name: "furnace", displayName: "Furnace", faces: faces("furnace_top", "furnace_front", "furnace_top"), hardness: 5.25, tool: "pickaxe", harvestTier: 1 },
 ];
 
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, ...s }, id) => ({

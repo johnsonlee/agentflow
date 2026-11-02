@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  MOB_SPECS, PASSIVE_MOBS, SEA_LEVEL, blockId, bodyBox, boxCollides, createMob, damageMob, raycastMob, stepMob,
+  MOB_SPECS, PASSIVE_MOBS, SEA_LEVEL, blockId, bodyBox, boxCollides, createMob, damageMob, raycastMob, stackId, stepMob,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
 
@@ -254,7 +254,7 @@ export class MobManager {
     if (!damageMob(mob, damage, fromYaw)) return undefined;
     this.remove(mob);
     const drop = MOB_SPECS[mob.kind].drop;
-    return drop ? blockId(drop[0]) : null;
+    return drop ? stackId(drop[0]) : null;
   }
 
   animalCount(): number {
