@@ -23,7 +23,14 @@ export interface CodeProgram {
 }
 
 export const MAX_REPEAT = 100;
-export const DEFAULT_STEP_LIMIT = 500;
+/** Maximum nesting of loops / if blocks. */
+export const MAX_NESTING = 4;
+/**
+ * Steps a program may take. Every unit of interpreter work counts: Agent commands, condition
+ * checks, loop iterations and blocks entered, so total work, and the work done inside any single
+ * next() call, is bounded by this.
+ */
+export const DEFAULT_STEP_LIMIT = 1000;
 
 interface Frame {
   blocks: CodeBlock[];
@@ -79,12 +86,16 @@ export class ProgramRunner {
           continue;
         }
         top.remaining--;
-        if (top.remaining > 0) top.index = 0;
-        else this.stack.pop();
+        if (top.remaining > 0) {
+          // Each loop iteration is a step, so nested loops can't spin without counting.
+          if (!this.count()) return null;
+          top.index = 0;
+        } else this.stack.pop();
         continue;
       }
       const block = top.blocks[top.index++];
       if (block.type === "repeat") {
+        if (!this.count()) return null;
         const times = Math.max(0, Math.min(MAX_REPEAT, Math.floor(block.times)));
         if (times > 0 && block.body.length > 0) this.stack.push({ blocks: block.body, index: 0, remaining: times });
         continue;
@@ -107,25 +118,81 @@ export class ProgramRunner {
   }
 }
 
-/** Checks a program's structure (e.g. one loaded from a save) and returns a list of problems. */
-export function validateProgram(p: CodeProgram): string[] {
+const OPS: Record<string, (c: Record<string, unknown>) => boolean> = {
+  move: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
+  place: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
+  destroy: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
+  detect: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
+  inspect: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
+  attack: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
+  turn: (c) => c.side === "left" || c.side === "right",
+  select: (c) => Number.isInteger(c.slot) && (c.slot as number) >= 0 && (c.slot as number) < 27,
+  drop: (c) => Number.isInteger(c.slot) && (c.slot as number) >= 0 && (c.slot as number) < 27,
+  collect: () => true,
+};
+
+/**
+ * Checks a program's structure (from the editor, a save or anywhere else) defensively, and returns
+ * a list of problems (empty = valid). Never throws, whatever the input.
+ */
+export function validateProgram(p: unknown): string[] {
   const problems: string[] = [];
-  const visit = (blocks: CodeBlock[], depth: number) => {
-    if (depth > 8) problems.push("Loops are nested too deeply");
-    for (const b of blocks) {
-      if (b.type === "repeat") {
-        if (!(b.times >= 0 && b.times <= MAX_REPEAT)) problems.push(`repeat must be 0-${MAX_REPEAT}`);
+  const prog = p as Partial<CodeProgram> | null;
+  if (!prog || typeof prog !== "object") return ["Not a program"];
+  if (typeof prog.name !== "string") problems.push("Missing program name");
+  const t = prog.trigger as { type?: unknown; command?: unknown } | undefined;
+  if (!t || (t.type !== "run" && !(t.type === "chat" && typeof t.command === "string" && t.command.length > 0))) problems.push("Invalid trigger");
+  const dirOk = (d: unknown) => AGENT_DIRECTIONS.includes(d as AgentDirection);
+  const visit = (blocks: unknown, depth: number): void => {
+    if (!Array.isArray(blocks)) {
+      problems.push("Blocks must be a list");
+      return;
+    }
+    if (depth > MAX_NESTING) {
+      problems.push(`Loops and ifs can be nested at most ${MAX_NESTING} deep`);
+      return;
+    }
+    for (const raw of blocks) {
+      const b = raw as Record<string, unknown> | null;
+      if (!b || typeof b !== "object") problems.push("Invalid block");
+      else if (b.type === "repeat") {
+        if (!(typeof b.times === "number" && b.times >= 0 && b.times <= MAX_REPEAT)) problems.push(`repeat must be 0-${MAX_REPEAT}`);
         visit(b.body, depth + 1);
       } else if (b.type === "if") {
-        if (!AGENT_DIRECTIONS.includes(b.dir)) problems.push(`Unknown direction ${String(b.dir)}`);
+        if (!dirOk(b.dir)) problems.push(`Unknown direction ${String(b.dir)}`);
         visit(b.then, depth + 1);
         visit(b.else, depth + 1);
       } else if (b.type === "until") {
-        if (!AGENT_DIRECTIONS.includes(b.dir)) problems.push(`Unknown direction ${String(b.dir)}`);
+        if (!dirOk(b.dir)) problems.push(`Unknown direction ${String(b.dir)}`);
         visit(b.body, depth + 1);
-      } else if ("dir" in b.cmd && !AGENT_DIRECTIONS.includes(b.cmd.dir)) problems.push(`Unknown direction ${String(b.cmd.dir)}`);
+      } else if (b.type === "command") {
+        const c = b.cmd as Record<string, unknown> | null;
+        const check = c && typeof c === "object" ? OPS[String(c.op)] : undefined;
+        if (!check) problems.push(`Unknown command ${String(c?.op)}`);
+        else if (!check(c!)) problems.push(c!.dir !== undefined && !dirOk(c!.dir) ? `Unknown direction ${String(c!.dir)}` : `Invalid ${String(c!.op)} parameters`);
+      } else problems.push(`Unknown block ${String(b.type)}`);
     }
   };
-  visit(p.blocks, 0);
+  visit(prog.blocks, 0);
   return problems;
+}
+
+/** Loads programs from a save: keeps the valid ones and reports the ones dropped. */
+export function loadPrograms(raw: unknown): { programs: CodeProgram[]; errors: string[] } {
+  if (!Array.isArray(raw)) return { programs: [], errors: raw === undefined ? [] : ["Saved programs were not a list"] };
+  const programs: CodeProgram[] = [];
+  const errors: string[] = [];
+  raw.forEach((p, i) => {
+    const problems = validateProgram(p);
+    if (problems.length === 0) programs.push(p as CodeProgram);
+    else errors.push(`Program ${i + 1}${typeof (p as { name?: unknown })?.name === "string" ? ` "${(p as CodeProgram).name}"` : ""}: ${problems[0]}`);
+  });
+  return { programs, errors };
+}
+
+/** Every run path goes through here: a runner for a valid program, or the reason it can't run. */
+export function startProgram(program: unknown, stepLimit = DEFAULT_STEP_LIMIT, detect?: DetectFn): { runner: ProgramRunner } | { error: string } {
+  const problems = validateProgram(program);
+  if (problems.length > 0) return { error: problems[0] };
+  return { runner: new ProgramRunner(program as CodeProgram, stepLimit, detect) };
 }

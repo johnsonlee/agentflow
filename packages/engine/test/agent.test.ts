@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AIR, AGENT_SLOTS, Inventory, ProgramRunner, World, blockId, createAgent, giveAgent, itemId, parseCommand, parseSave, runAgentCommand,
-  serializeSave, validateProgram, type AgentCommand, type CodeProgram,
+  serializeSave, validateProgram, loadPrograms, startProgram, type AgentCommand, type CodeProgram,
 } from "../src";
 
 const STONE = blockId("stone");
@@ -110,7 +110,10 @@ describe("Code Builder interpreter", () => {
     const r = new ProgramRunner(program([{ type: "repeat", times: 100, body: [{ type: "repeat", times: 100, body: [{ type: "command", cmd: fwd }] }] }]), 50);
     let n = 0;
     while (r.next()) n++;
-    expect(n).toBe(50);
+    // Loop iterations and blocks entered count as steps too, so fewer than 50 commands run.
+    expect(n).toBeGreaterThan(20);
+    expect(n).toBeLessThan(50);
+    expect(r.steps).toBe(51);
     expect(r.error).toMatch(/more than 50 steps/);
     const s = new ProgramRunner(program([{ type: "repeat", times: 10, body: [{ type: "command", cmd: fwd }] }]));
     s.next();
@@ -182,5 +185,70 @@ describe("Code Builder interpreter", () => {
     expect(never.error).toMatch(/more than 40 steps/);
     expect(n).toBeLessThanOrEqual(40);
     expect(validateProgram(program([{ type: "if", dir: "sideways" as "up", then: [], else: [] }]))).toEqual(["Unknown direction sideways"]);
+  });
+});
+
+describe("Code Builder safety (review e45ce891)", () => {
+  const program = (blocks: CodeProgram["blocks"]): CodeProgram => ({ name: "p", trigger: { type: "run" }, blocks });
+  /** `depth` nested repeat-100 loops around `inner`. */
+  const nest = (depth: number, inner: CodeProgram["blocks"]): CodeProgram["blocks"] =>
+    depth === 0 ? inner : [{ type: "repeat", times: 100, body: nest(depth - 1, inner) }];
+
+  it("deeply nested loops with an empty or condition-free body end within the step limit, fast", () => {
+    // The reviewer's case: 100^5+ iterations of nothing used to run inside one next() with 0 steps counted.
+    for (const inner of [[], [{ type: "repeat", times: 100, body: [] }] as CodeProgram["blocks"]]) {
+      const r = new ProgramRunner(program(nest(6, inner)));
+      const t0 = performance.now();
+      expect(r.next()).toBeNull();
+      expect(performance.now() - t0).toBeLessThan(50);
+      expect(r.error).toMatch(/more than 1000 steps/);
+      expect(r.steps).toBeLessThanOrEqual(1001);
+    }
+  });
+
+  it("every next() call does bounded work, and Stop still works between calls", () => {
+    const r = new ProgramRunner(program(nest(4, [{ type: "command", cmd: { op: "turn", side: "left" } }])), 300);
+    let calls = 0;
+    let last = 0;
+    while (r.next()) {
+      calls++;
+      // Loop bookkeeping between two commands is bounded by the nesting depth.
+      expect(r.steps - last).toBeLessThanOrEqual(1 + 4 + 1);
+      last = r.steps;
+      if (calls === 100) r.stop();
+    }
+    expect(calls).toBe(100);
+    expect(r.done).toBe(true);
+  });
+
+  it("validation rejects too-deep nesting, unknown commands, bad parameters and garbage (never throws)", () => {
+    expect(validateProgram(program(nest(5, [])))).toEqual(["Loops and ifs can be nested at most 4 deep"]);
+    expect(validateProgram(program(nest(4, [])))).toEqual([]);
+    expect(validateProgram(program([{ type: "command", cmd: { op: "fly", dir: "up" } as unknown as AgentCommand }]))).toEqual(["Unknown command fly"]);
+    expect(validateProgram(program([{ type: "command", cmd: { op: "move", dir: "north" } as unknown as AgentCommand }]))).toEqual(["Unknown direction north"]);
+    expect(validateProgram(program([{ type: "command", cmd: { op: "select", slot: 99 } }]))).toEqual(["Invalid select parameters"]);
+    for (const junk of [null, 42, "x", {}, { name: "a", trigger: { type: "run" }, blocks: "nope" }, { name: "a", trigger: { type: "run" }, blocks: [null, { type: "?" }] }]) {
+      expect(() => validateProgram(junk)).not.toThrow();
+      expect(validateProgram(junk).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("corrupt saved programs are dropped with an error; valid ones load", () => {
+    const good: CodeProgram = { name: "Good", trigger: { type: "chat", command: "go" }, blocks: [{ type: "command", cmd: { op: "move", dir: "forward" } }] };
+    const bad = { name: "Bad", trigger: { type: "chat", command: "bad" }, blocks: [{ type: "command", cmd: { op: "move", dir: "sideways" } }] };
+    const { programs, errors } = loadPrograms([good, bad, null]);
+    expect(programs).toEqual([good]);
+    expect(errors).toEqual(['Program 2 "Bad": Unknown direction sideways', "Program 3: Not a program"]);
+    expect(loadPrograms(undefined)).toEqual({ programs: [], errors: [] });
+    expect(loadPrograms("garbage").errors).toHaveLength(1);
+  });
+
+  it("every run path (Run, /code) goes through startProgram: invalid programs give an error, not a throw", () => {
+    const bad = { name: "Bad", trigger: { type: "chat", command: "bad" }, blocks: [{ type: "until", dir: "nowhere", body: [] }] };
+    let started: ReturnType<typeof startProgram> | undefined;
+    expect(() => (started = startProgram(bad))).not.toThrow();
+    expect(started).toEqual({ error: "Unknown direction nowhere" });
+    const ok = startProgram({ name: "Ok", trigger: { type: "run" }, blocks: [] });
+    expect("runner" in ok).toBe(true);
   });
 });

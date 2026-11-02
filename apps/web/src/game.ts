@@ -5,7 +5,7 @@ import {
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  type AgentState, type CodeProgram, giveAgent, maxStackOf, type FurnaceState, type HungerState,
+  type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -91,6 +91,7 @@ export class Game {
   private runnerName = "";
   private stepTimer = 0;
   private runnerStarted = 0;
+  private loadErrors: string[] = [];
   private mobTarget: Mob | null = null;
   private attackCooldown = 0;
   private clock = 0;
@@ -165,7 +166,10 @@ export class Game {
     this.chalkViews = new ChalkboardViews(this.renderer.scene);
     for (const b of save?.chalkboards ?? []) this.addChalkboard({ ...b });
     this.agent = save?.agent ? { ...save.agent, slots: save.agent.slots.map((s) => (s ? { ...s } : null)) } : this.agentNearPlayer();
-    this.programs = save?.programs ?? [];
+    // Saved programs are validated: invalid ones are dropped (and reported) instead of crashing later.
+    const loaded = loadPrograms(save?.programs);
+    this.programs = loaded.programs;
+    this.loadErrors = loaded.errors;
     this.agentView = new AgentView(this.renderer.scene, this.agent);
     this.codeBuilder = new CodeBuilderScreen(
       this.root,
@@ -192,6 +196,7 @@ export class Game {
     window.addEventListener("pagehide", () => this.save());
     this.resize();
 
+    for (const err of this.loadErrors) this.hud.message(`Code Builder: dropped an invalid saved program (${err})`);
     this.hud.message(this.touch
       ? "Move with the left stick, drag to look, tap to place, hold to break."
       : "Click to play. WASD move, mouse look, left click break, right click place, E inventory, / commands.");
@@ -564,14 +569,21 @@ export class Game {
     return `Gave the Agent ${given} ${displayNameOf(held.id)}`;
   }
 
-  /** Starts a Code Builder program (stopping any running one). */
-  runProgram(program: CodeProgram): void {
+  /** Starts a Code Builder program (stopping any running one). Invalid programs are refused with a message. */
+  runProgram(program: CodeProgram): boolean {
     this.runner?.stop();
-    this.runner = new ProgramRunner(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true);
+    this.runner = null;
+    const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true);
+    if ("error" in started) {
+      this.hud.message(`Can't run "${String((program as { name?: unknown })?.name ?? "program")}": ${started.error}`);
+      return false;
+    }
+    this.runner = started.runner;
     this.runnerName = program.name;
     this.stepTimer = 0;
     this.runnerStarted = this.clock;
     this.hud.message(`Running "${program.name}"`);
+    return true;
   }
 
   stopProgram(): void {
@@ -597,13 +609,23 @@ export class Game {
     this.stepTimer -= dt;
     if (this.stepTimer > 0) return;
     this.stepTimer = AGENT_STEP_SECONDS;
-    const cmd = runner.next();
+    let cmd: ReturnType<ProgramRunner["next"]>;
+    try {
+      cmd = runner.next();
+    } catch (e) {
+      // Defence in depth: a broken program must never break the game loop.
+      this.runner = null;
+      this.hud.message(`"${this.runnerName}" stopped: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     if (!cmd) {
       this.runner = null;
       this.hud.message(runner.error ? `"${this.runnerName}": ${runner.error}` : `"${this.runnerName}" finished`);
       return;
     }
-    const result = runAgentCommand(this.world, this.agent, cmd, {
+    let result: ReturnType<typeof runAgentCommand>;
+    try {
+      result = runAgentCommand(this.world, this.agent, cmd, {
       attack: (x, y, z) => {
         const mob = this.mobs.mobs.find((m) => Math.floor(m.position.x) === x && Math.floor(m.position.z) === z && Math.abs(m.position.y - y) < 1.5);
         if (!mob) return false;
@@ -611,7 +633,12 @@ export class Game {
         return true;
       },
       giveToPlayer: (stack) => this.inventory.addStack(stack),
-    });
+      });
+    } catch (e) {
+      this.runner = null;
+      this.hud.message(`"${this.runnerName}" stopped: ${e instanceof Error ? e.message : String(e)}`);
+      return;
+    }
     this.agentView.moveTo(this.agent);
     // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
     if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
@@ -875,8 +902,7 @@ export class Game {
       case "code": {
         const program = this.programs.find((p) => p.trigger.type === "chat" && p.trigger.command === cmd.command);
         if (program) {
-          this.runProgram(program);
-          reply = `Running "${program.name}"`;
+          reply = this.runProgram(program) ? `Running "${program.name}"` : `Couldn't run "${program.name}"`;
         } else reply = `No Code Builder program runs on "${cmd.command}"`;
         break;
       }
