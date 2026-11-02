@@ -1,0 +1,254 @@
+import { describe, expect, it } from "vitest";
+import {
+  AIR, AGENT_SLOTS, Inventory, ProgramRunner, World, blockId, createAgent, giveAgent, itemId, parseCommand, parseSave, runAgentCommand,
+  serializeSave, validateProgram, loadPrograms, startProgram, type AgentCommand, type CodeProgram,
+} from "../src";
+
+const STONE = blockId("stone");
+const PLANKS = blockId("oak_planks");
+
+function flat(): World {
+  const w = new World(5);
+  for (let x = -8; x <= 8; x++) for (let z = -8; z <= 8; z++) {
+    w.setBlock(x, 50, z, STONE);
+    for (let y = 51; y <= 56; y++) w.setBlock(x, y, z, AIR);
+  }
+  return w;
+}
+
+describe("Agent commands", () => {
+  it("moves relative to its facing, turns, flies up and down, and is blocked by solid blocks", () => {
+    const w = flat();
+    const a = createAgent(0, 51, 0, 2); // facing -Z (north)
+    expect(runAgentCommand(w, a, { op: "move", dir: "forward" }).ok).toBe(true);
+    expect([a.x, a.y, a.z]).toEqual([0, 51, -1]);
+    runAgentCommand(w, a, { op: "move", dir: "right" }); // right of north is east (+X)
+    expect([a.x, a.z]).toEqual([1, -1]);
+    runAgentCommand(w, a, { op: "turn", side: "right" }); // now facing east
+    runAgentCommand(w, a, { op: "move", dir: "forward" });
+    expect([a.x, a.z]).toEqual([2, -1]);
+    runAgentCommand(w, a, { op: "move", dir: "up" });
+    expect(a.y).toBe(52);
+    // It flies: no falling between commands. Moving down twice hits the floor.
+    expect(runAgentCommand(w, a, { op: "move", dir: "down" }).ok).toBe(true);
+    expect(runAgentCommand(w, a, { op: "move", dir: "down" })).toMatchObject({ ok: false, message: "Blocked" });
+    w.setBlock(3, 51, -1, STONE);
+    expect(runAgentCommand(w, a, { op: "move", dir: "forward" }).ok).toBe(false);
+    expect(a.x).toBe(2);
+  });
+
+  it("places from its own inventory and destroys into it; detect and inspect report the block", () => {
+    const w = flat();
+    const a = createAgent(0, 51, 0, 2);
+    expect(runAgentCommand(w, a, { op: "place", dir: "forward" })).toMatchObject({ ok: false });
+    giveAgent(a, PLANKS, 2);
+    expect(runAgentCommand(w, a, { op: "place", dir: "forward" }).ok).toBe(true);
+    expect(w.getBlock(0, 51, -1)).toBe(PLANKS);
+    expect(a.slots[0]).toEqual({ id: PLANKS, count: 1 });
+    expect(runAgentCommand(w, a, { op: "detect", dir: "forward" }).value).toBe(true);
+    expect(runAgentCommand(w, a, { op: "inspect", dir: "forward" }).value).toBe("oak_planks");
+    expect(runAgentCommand(w, a, { op: "place", dir: "forward" }).ok).toBe(false); // occupied
+    expect(runAgentCommand(w, a, { op: "destroy", dir: "down" }).ok).toBe(true); // stone below -> cobblestone
+    expect(w.getBlock(0, 50, 0)).toBe(AIR);
+    expect(a.slots[1]).toEqual({ id: blockId("cobblestone"), count: 1 });
+    expect(runAgentCommand(w, a, { op: "detect", dir: "down" }).value).toBe(false);
+    expect(runAgentCommand(w, a, { op: "destroy", dir: "up" }).ok).toBe(false);
+    expect(a.slots).toHaveLength(AGENT_SLOTS);
+  });
+
+  it("obeys Allow/Deny: no building or breaking above a Deny block", () => {
+    const w = flat();
+    w.setBlock(0, 49, -1, blockId("deny"));
+    const a = createAgent(0, 51, 0, 2);
+    giveAgent(a, PLANKS, 5);
+    expect(runAgentCommand(w, a, { op: "place", dir: "forward" })).toMatchObject({ ok: false, message: "Building isn't allowed here (Deny)" });
+    expect(w.getBlock(0, 51, -1)).toBe(AIR);
+    expect(runAgentCommand(w, a, { op: "destroy", dir: "down" }).ok).toBe(true); // (0,50,0) isn't above the Deny block
+  });
+
+  it("selects slots, drops (gives) items to the player, and attacks through the game hook", () => {
+    const w = flat();
+    const a = createAgent(0, 51, 0, 2);
+    giveAgent(a, PLANKS, 3);
+    giveAgent(a, itemId("stick"), 1);
+    expect(runAgentCommand(w, a, { op: "select", slot: 1 }).ok).toBe(true);
+    expect(runAgentCommand(w, a, { op: "place", dir: "forward" }).ok).toBe(false); // a stick isn't a block
+    const player = new Inventory();
+    expect(runAgentCommand(w, a, { op: "drop", slot: 0 }, { giveToPlayer: (s) => player.addStack(s) }).ok).toBe(true);
+    expect(player.slots[0]).toEqual({ id: PLANKS, count: 3 });
+    expect(a.slots[0]).toBeNull();
+    const hits: number[][] = [];
+    expect(runAgentCommand(w, a, { op: "attack", dir: "forward" }, { attack: (x, y, z) => (hits.push([x, y, z]), true) }).ok).toBe(true);
+    expect(hits).toEqual([[0, 51, -1]]);
+    expect(runAgentCommand(w, a, { op: "select", slot: 27 }).ok).toBe(false);
+  });
+
+  it("/agent and /code chat commands parse", () => {
+    expect(parseCommand("/agent tp")).toEqual({ type: "agent", action: "tp" });
+    expect(parseCommand("/code Build")).toEqual({ type: "code", command: "build" });
+  });
+});
+
+describe("Code Builder interpreter", () => {
+  const program = (blocks: CodeProgram["blocks"]): CodeProgram => ({ name: "p", trigger: { type: "run" }, blocks });
+  const place: AgentCommand = { op: "place", dir: "forward" };
+  const fwd: AgentCommand = { op: "move", dir: "forward" };
+
+  it("runs commands in order and expands repeat loops (nested too)", () => {
+    const r = new ProgramRunner(program([
+      { type: "repeat", times: 2, body: [{ type: "command", cmd: place }, { type: "repeat", times: 2, body: [{ type: "command", cmd: fwd }] }] },
+      { type: "command", cmd: { op: "turn", side: "left" } },
+    ]));
+    const ops: string[] = [];
+    for (let c = r.next(); c; c = r.next()) ops.push(c.op);
+    expect(ops).toEqual(["place", "move", "move", "place", "move", "move", "turn"]);
+    expect(r.done).toBe(true);
+    expect(r.error).toBeNull();
+  });
+
+  it("stops at the step limit with an error, and Stop interrupts", () => {
+    const r = new ProgramRunner(program([{ type: "repeat", times: 100, body: [{ type: "repeat", times: 100, body: [{ type: "command", cmd: fwd }] }] }]), 50);
+    let n = 0;
+    while (r.next()) n++;
+    // Loop iterations and blocks entered count as steps too, so fewer than 50 commands run.
+    expect(n).toBeGreaterThan(20);
+    expect(n).toBeLessThan(50);
+    expect(r.steps).toBe(51);
+    expect(r.error).toMatch(/more than 50 steps/);
+    const s = new ProgramRunner(program([{ type: "repeat", times: 10, body: [{ type: "command", cmd: fwd }] }]));
+    s.next();
+    s.stop();
+    expect(s.next()).toBeNull();
+    expect(s.done).toBe(true);
+  });
+
+  it("repeat 4 [place forward; move forward] builds a line of 4 blocks in the world", () => {
+    const w = flat();
+    const a = createAgent(0, 51, 0, 2);
+    giveAgent(a, PLANKS, 10);
+    const r = new ProgramRunner(program([{ type: "repeat", times: 4, body: [{ type: "command", cmd: { op: "place", dir: "down" } }, { type: "command", cmd: fwd }] }]));
+    // Place below needs air below: lift the Agent first.
+    runAgentCommand(w, a, { op: "move", dir: "up" });
+    for (let c = r.next(); c; c = r.next()) runAgentCommand(w, a, c);
+    expect([0, -1, -2, -3].map((z) => w.getBlock(0, 51, z))).toEqual([PLANKS, PLANKS, PLANKS, PLANKS]);
+    expect([a.x, a.y, a.z]).toEqual([0, 52, -4]);
+  });
+
+  it("validates loaded programs, and the Agent and programs survive saving", () => {
+    expect(validateProgram(program([{ type: "repeat", times: 1000, body: [] }]))).toEqual(["repeat must be 0-100"]);
+    const a = createAgent(1, 51, 2, 3);
+    giveAgent(a, PLANKS, 7);
+    const programs: CodeProgram[] = [{ name: "Wall", trigger: { type: "chat", command: "wall" }, blocks: [{ type: "command", cmd: place }] }];
+    const save = parseSave(serializeSave({
+      name: "w", seed: 1, mode: "creative", timeOfDay: 0.3,
+      player: { position: { x: 0, y: 60, z: 0 }, yaw: 0, pitch: 0, flying: false },
+      inventory: new Inventory().toJSON(), edits: [], agent: a, programs,
+    }));
+    expect(save.agent).toEqual(a);
+    expect(save.programs).toEqual(programs);
+  });
+
+  it("if <detect> then .. else .. checks the world when it is reached", () => {
+    const w = flat();
+    const a = createAgent(0, 51, 0, 2);
+    giveAgent(a, PLANKS, 10);
+    const detect = (dir: "forward" | "back" | "left" | "right" | "up" | "down") => runAgentCommand(w, a, { op: "detect", dir }).value === true;
+    // Walk forward 3 times; if there's a block ahead, turn right, else place a block below.
+    w.setBlock(0, 51, -2, STONE);
+    const r = new ProgramRunner(program([
+      { type: "repeat", times: 2, body: [
+        { type: "if", dir: "forward", then: [{ type: "command", cmd: { op: "turn", side: "right" } }], else: [{ type: "command", cmd: fwd }] },
+      ] },
+    ]), 500, detect);
+    const ops: string[] = [];
+    for (let c = r.next(); c; c = r.next()) {
+      ops.push(c.op);
+      runAgentCommand(w, a, c);
+    }
+    // First: nothing ahead at (0,51,-1) -> move; second: stone ahead at (0,51,-2) -> turn.
+    expect(ops).toEqual(["move", "turn"]);
+    expect(a.facing).toBe(3);
+  });
+
+  it("repeat until <detect> walks to a wall, and a never-true condition hits the step limit", () => {
+    const w = flat();
+    w.setBlock(0, 51, -4, STONE);
+    const a = createAgent(0, 51, 0, 2);
+    const detect = (dir: "forward" | "back" | "left" | "right" | "up" | "down") => runAgentCommand(w, a, { op: "detect", dir }).value === true;
+    const r = new ProgramRunner(program([{ type: "until", dir: "forward", body: [{ type: "command", cmd: fwd }] }]), 500, detect);
+    for (let c = r.next(); c; c = r.next()) runAgentCommand(w, a, c);
+    expect(r.error).toBeNull();
+    expect(a.z).toBe(-3);
+    const never = new ProgramRunner(program([{ type: "until", dir: "up", body: [{ type: "command", cmd: { op: "turn", side: "left" } }] }]), 40, () => false);
+    let n = 0;
+    while (never.next()) n++;
+    expect(never.error).toMatch(/more than 40 steps/);
+    expect(n).toBeLessThanOrEqual(40);
+    expect(validateProgram(program([{ type: "if", dir: "sideways" as "up", then: [], else: [] }]))).toEqual(["Unknown direction sideways"]);
+  });
+});
+
+describe("Code Builder safety (review e45ce891)", () => {
+  const program = (blocks: CodeProgram["blocks"]): CodeProgram => ({ name: "p", trigger: { type: "run" }, blocks });
+  /** `depth` nested repeat-100 loops around `inner`. */
+  const nest = (depth: number, inner: CodeProgram["blocks"]): CodeProgram["blocks"] =>
+    depth === 0 ? inner : [{ type: "repeat", times: 100, body: nest(depth - 1, inner) }];
+
+  it("deeply nested loops with an empty or condition-free body end within the step limit, fast", () => {
+    // The reviewer's case: 100^5+ iterations of nothing used to run inside one next() with 0 steps counted.
+    for (const inner of [[], [{ type: "repeat", times: 100, body: [] }] as CodeProgram["blocks"]]) {
+      const r = new ProgramRunner(program(nest(6, inner)));
+      const t0 = performance.now();
+      expect(r.next()).toBeNull();
+      expect(performance.now() - t0).toBeLessThan(50);
+      expect(r.error).toMatch(/more than 1000 steps/);
+      expect(r.steps).toBeLessThanOrEqual(1001);
+    }
+  });
+
+  it("every next() call does bounded work, and Stop still works between calls", () => {
+    const r = new ProgramRunner(program(nest(4, [{ type: "command", cmd: { op: "turn", side: "left" } }])), 300);
+    let calls = 0;
+    let last = 0;
+    while (r.next()) {
+      calls++;
+      // Loop bookkeeping between two commands is bounded by the nesting depth.
+      expect(r.steps - last).toBeLessThanOrEqual(1 + 4 + 1);
+      last = r.steps;
+      if (calls === 100) r.stop();
+    }
+    expect(calls).toBe(100);
+    expect(r.done).toBe(true);
+  });
+
+  it("validation rejects too-deep nesting, unknown commands, bad parameters and garbage (never throws)", () => {
+    expect(validateProgram(program(nest(5, [])))).toEqual(["Loops and ifs can be nested at most 4 deep"]);
+    expect(validateProgram(program(nest(4, [])))).toEqual([]);
+    expect(validateProgram(program([{ type: "command", cmd: { op: "fly", dir: "up" } as unknown as AgentCommand }]))).toEqual(["Unknown command fly"]);
+    expect(validateProgram(program([{ type: "command", cmd: { op: "move", dir: "north" } as unknown as AgentCommand }]))).toEqual(["Unknown direction north"]);
+    expect(validateProgram(program([{ type: "command", cmd: { op: "select", slot: 99 } }]))).toEqual(["Invalid select parameters"]);
+    for (const junk of [null, 42, "x", {}, { name: "a", trigger: { type: "run" }, blocks: "nope" }, { name: "a", trigger: { type: "run" }, blocks: [null, { type: "?" }] }]) {
+      expect(() => validateProgram(junk)).not.toThrow();
+      expect(validateProgram(junk).length).toBeGreaterThan(0);
+    }
+  });
+
+  it("corrupt saved programs are dropped with an error; valid ones load", () => {
+    const good: CodeProgram = { name: "Good", trigger: { type: "chat", command: "go" }, blocks: [{ type: "command", cmd: { op: "move", dir: "forward" } }] };
+    const bad = { name: "Bad", trigger: { type: "chat", command: "bad" }, blocks: [{ type: "command", cmd: { op: "move", dir: "sideways" } }] };
+    const { programs, errors } = loadPrograms([good, bad, null]);
+    expect(programs).toEqual([good]);
+    expect(errors).toEqual(['Program 2 "Bad": Unknown direction sideways', "Program 3: Not a program"]);
+    expect(loadPrograms(undefined)).toEqual({ programs: [], errors: [] });
+    expect(loadPrograms("garbage").errors).toHaveLength(1);
+  });
+
+  it("every run path (Run, /code) goes through startProgram: invalid programs give an error, not a throw", () => {
+    const bad = { name: "Bad", trigger: { type: "chat", command: "bad" }, blocks: [{ type: "until", dir: "nowhere", body: [] }] };
+    let started: ReturnType<typeof startProgram> | undefined;
+    expect(() => (started = startProgram(bad))).not.toThrow();
+    expect(started).toEqual({ error: "Unknown direction nowhere" });
+    const ok = startProgram({ name: "Ok", trigger: { type: "run" }, blocks: [] });
+    expect("runner" in ok).toBe(true);
+  });
+});

@@ -1,0 +1,254 @@
+import { clampPosition } from "./math";
+import { blockById, blockId, isSolid } from "./blocks";
+import type { Vec3 } from "./math";
+
+export const PLAYER_WIDTH = 0.6;
+export const PLAYER_HEIGHT = 1.8;
+export const EYE_HEIGHT = 1.62;
+
+export const WALK_SPEED = 4.317;
+export const SPRINT_SPEED = 5.612;
+export const SNEAK_SPEED = 1.3;
+export const FLY_SPEED = 10.9;
+export const GRAVITY = 32;
+export const JUMP_VELOCITY = 8.9;
+export const TERMINAL_VELOCITY = 78.4;
+const SWIM_SPEED = 2.2;
+const WATER = blockId("water");
+
+export interface PlayerBody {
+  /** Feet position (centre of the bottom of the bounding box). */
+  position: Vec3;
+  velocity: Vec3;
+  /** Radians; 0 looks towards -Z. */
+  yaw: number;
+  pitch: number;
+  onGround: boolean;
+  flying: boolean;
+  inWater: boolean;
+}
+
+export interface MoveInput {
+  /** -1..1, positive = forward. */
+  forward: number;
+  /** -1..1, positive = right. */
+  strafe: number;
+  jump: boolean;
+  /** Sneak on the ground, descend while flying. */
+  descend: boolean;
+  sprint: boolean;
+  /** Bedrock-style auto jump up one-block ledges (used for touch controls). */
+  autoJump?: boolean;
+}
+
+export type BlockGetter = (x: number, y: number, z: number) => number;
+
+export function createPlayerBody(position: Vec3): PlayerBody {
+  return {
+    position: { ...position },
+    velocity: { x: 0, y: 0, z: 0 },
+    yaw: 0,
+    pitch: 0,
+    onGround: false,
+    flying: false,
+    inWater: false,
+  };
+}
+
+interface Box {
+  minX: number; minY: number; minZ: number;
+  maxX: number; maxY: number; maxZ: number;
+}
+
+/** Axis-aligned box for a body of the given size standing at feet position p. */
+export function bodyBox(p: Vec3, width = PLAYER_WIDTH, height = PLAYER_HEIGHT): Box {
+  const h = width / 2;
+  return { minX: p.x - h, minY: p.y, minZ: p.z - h, maxX: p.x + h, maxY: p.y + height, maxZ: p.z + h };
+}
+
+export function playerBox(p: Vec3): Box {
+  return bodyBox(p);
+}
+
+/** Largest box span (in blocks, per axis) any body can have; bigger spans mean corrupt input. */
+const MAX_BOX_SPAN = 8;
+
+/**
+ * True if any solid block intersects the box. Loops run over integer offsets with a bounded count,
+ * so non-finite or enormous coordinates (where x++ stops changing x) can never hang; such a box
+ * counts as colliding.
+ */
+export function boxCollides(getBlock: BlockGetter, b: Box): boolean {
+  const eps = 1e-6;
+  const x0 = Math.floor(b.minX + eps), x1 = Math.floor(b.maxX - eps);
+  const y0 = Math.floor(b.minY + eps), y1 = Math.floor(b.maxY - eps);
+  const z0 = Math.floor(b.minZ + eps), z1 = Math.floor(b.maxZ - eps);
+  const nx = x1 - x0, ny = y1 - y0, nz = z1 - z0;
+  if (!(nx >= 0 && nx <= MAX_BOX_SPAN && ny >= 0 && ny <= MAX_BOX_SPAN && nz >= 0 && nz <= MAX_BOX_SPAN)) {
+    // NaN, Infinity or a span that floating point can't represent: treat as blocked.
+    return !(nx < 0 || ny < 0 || nz < 0);
+  }
+  for (let j = 0; j <= ny; j++) {
+    for (let k = 0; k <= nz; k++) {
+      for (let i = 0; i <= nx; i++) {
+        if (isSolid(getBlock(x0 + i, y0 + j, z0 + k))) return true;
+      }
+    }
+  }
+  return false;
+}
+
+/** Whether the player's body overlaps the given block cell (used to forbid placing blocks inside yourself). */
+export function bodyOverlapsBlock(p: Vec3, x: number, y: number, z: number): boolean {
+  const b = playerBox(p);
+  return b.maxX > x && b.minX < x + 1 && b.maxY > y && b.minY < y + 1 && b.maxZ > z && b.minZ < z + 1;
+}
+
+/**
+ * Moves a body along one axis, stopping flush at the first collision. Returns true if blocked.
+ */
+export function moveAxis(
+  getBlock: BlockGetter,
+  p: Vec3,
+  axis: "x" | "y" | "z",
+  delta: number,
+  width = PLAYER_WIDTH,
+  height = PLAYER_HEIGHT,
+): boolean {
+  if (delta === 0) return false;
+  if (!Number.isFinite(delta) || !Number.isFinite(p[axis])) return true;
+  // Sub-step so fast movement never tunnels through a block; a frame never moves more than
+  // MAX_STEPS sub-steps (far beyond terminal velocity), so a bad delta can't loop for long.
+  const MAX_STEPS = 256;
+  const steps = Math.min(MAX_STEPS, Math.ceil(Math.abs(delta) / 0.45));
+  const step = delta / steps;
+  for (let i = 0; i < steps; i++) {
+    const before = p[axis];
+    p[axis] = before + step;
+    if (boxCollides(getBlock, bodyBox(p, width, height))) {
+      // Snap flush against the block face.
+      if (step > 0) {
+        const extent = axis === "y" ? height : width / 2;
+        const edge = before + extent + step;
+        p[axis] = Math.floor(edge) - extent - 1e-4;
+        if (p[axis] < before) p[axis] = before;
+      } else {
+        const extent = axis === "y" ? 0 : width / 2;
+        const edge = before - extent + step;
+        p[axis] = Math.floor(edge) + 1 + extent + 1e-4;
+        if (p[axis] > before) p[axis] = before;
+      }
+      if (boxCollides(getBlock, bodyBox(p, width, height))) p[axis] = before;
+      return true;
+    }
+  }
+  return false;
+}
+
+function isWaterAt(getBlock: BlockGetter, p: Vec3): boolean {
+  return getBlock(Math.floor(p.x), Math.floor(p.y + 0.4), Math.floor(p.z)) === WATER;
+}
+
+/** Longest physics substep: movement is integrated at >= 60 Hz whatever the frame rate. */
+export const MAX_SUBSTEP = 1 / 60;
+
+/** Splits a frame's dt (clamped to 0.1 s) into equal substeps of at most MAX_SUBSTEP. */
+export function substeps(dt: number): { n: number; h: number } {
+  const t = Math.min(Math.max(dt, 0), 0.1);
+  const n = Math.max(1, Math.ceil(t / MAX_SUBSTEP - 1e-9));
+  return { n, h: t / n };
+}
+
+/**
+ * Advances the player by dt seconds, in fixed-size substeps so jumps, collisions and step-ups
+ * behave the same at 20 fps and 144 fps.
+ */
+export function stepPlayer(getBlock: BlockGetter, body: PlayerBody, input: MoveInput, dt: number): void {
+  const { n, h } = substeps(dt);
+  for (let i = 0; i < n; i++) stepPlayerOnce(getBlock, body, input, h);
+  // Never leave the world (the border is a wall, as in Minecraft).
+  clampPosition(body.position);
+}
+
+function stepPlayerOnce(getBlock: BlockGetter, body: PlayerBody, input: MoveInput, dt: number): void {
+  const p = body.position;
+  const v = body.velocity;
+  body.inWater = !body.flying && isWaterAt(getBlock, p);
+
+  let speed = WALK_SPEED;
+  if (body.flying) speed = input.sprint ? FLY_SPEED * 2 : FLY_SPEED;
+  else if (body.inWater) speed = SWIM_SPEED;
+  else if (input.descend) speed = SNEAK_SPEED;
+  else if (input.sprint && input.forward > 0) speed = SPRINT_SPEED;
+
+  // Horizontal wish direction in world space.
+  let fx = input.forward;
+  let sx = input.strafe;
+  const mag = Math.hypot(fx, sx);
+  if (mag > 1) {
+    fx /= mag;
+    sx /= mag;
+  }
+  const sin = Math.sin(body.yaw);
+  const cos = Math.cos(body.yaw);
+  const wishX = -sin * fx + cos * sx;
+  const wishZ = -cos * fx - sin * sx;
+
+  // Responsive acceleration: snappier on the ground, floatier in the air.
+  const accel = body.onGround || body.flying ? 20 : body.inWater ? 8 : 6;
+  const blend = 1 - Math.exp(-accel * dt);
+  v.x += (wishX * speed - v.x) * blend;
+  v.z += (wishZ * speed - v.z) * blend;
+
+  if (body.flying) {
+    const vertical = (input.jump ? 1 : 0) - (input.descend ? 1 : 0);
+    v.y += (vertical * FLY_SPEED * 0.75 - v.y) * blend;
+  } else if (body.inWater) {
+    v.y -= GRAVITY * 0.25 * dt;
+    if (input.jump) v.y = Math.min(v.y + 30 * dt, 3.5);
+    v.y = Math.max(v.y, -4);
+  }
+  // Vertical displacement uses the average of the old and new velocity: exact for constant gravity,
+  // so jump height does not depend on the step size.
+  let vyMove = v.y;
+  if (!body.flying && !body.inWater) {
+    if (input.jump && body.onGround) v.y = JUMP_VELOCITY;
+    const v0 = v.y;
+    v.y = Math.max(v.y - GRAVITY * dt, -TERMINAL_VELOCITY);
+    vyMove = (v0 + v.y) / 2;
+  }
+
+  const wasOnGround = body.onGround;
+  const sneakEdgeGuard = input.descend && wasOnGround && !body.flying;
+  const prevX = p.x;
+  const prevZ = p.z;
+
+  const blockedX = moveAxis(getBlock, p, "x", v.x * dt);
+  if (blockedX) v.x = 0;
+  if (sneakEdgeGuard && !hasGroundBelow(getBlock, p)) p.x = prevX;
+  const blockedZ = moveAxis(getBlock, p, "z", v.z * dt);
+  if (blockedZ) v.z = 0;
+  if (sneakEdgeGuard && !hasGroundBelow(getBlock, p)) p.z = prevZ;
+
+  const vy = vyMove;
+  const blockedY = moveAxis(getBlock, p, "y", vyMove * dt);
+  body.onGround = blockedY && vy < 0;
+  if (blockedY) v.y = 0;
+  if (body.onGround && body.flying) body.flying = false;
+
+  if (input.autoJump && wasOnGround && (blockedX || blockedZ) && !body.flying && mag > 0.2) {
+    const probe = { x: p.x + wishX * 0.4, y: p.y + 1.05, z: p.z + wishZ * 0.4 };
+    if (!boxCollides(getBlock, playerBox(probe))) v.y = JUMP_VELOCITY;
+  }
+}
+
+function hasGroundBelow(getBlock: BlockGetter, p: Vec3): boolean {
+  const b = playerBox(p);
+  return boxCollides(getBlock, { ...b, minY: b.minY - 0.1, maxY: b.minY });
+}
+
+/** Name of the block at the player's eyes, for underwater tinting. */
+export function blockAtEyes(getBlock: BlockGetter, body: PlayerBody): string {
+  const p = body.position;
+  return blockById(getBlock(Math.floor(p.x), Math.floor(p.y + EYE_HEIGHT), Math.floor(p.z))).name;
+}
