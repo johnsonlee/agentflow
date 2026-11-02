@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   AIR, Inventory, MAX_DIRTY_PER_TICK, Redstone, World, blockId, breakBlock, dustLevel, nameOf, placeBlock, redstoneInfo, runAgentCommand,
-  createAgent, sanitizeScheduled, stackId,
+  createAgent, sanitizeScheduled, stackId, matchRecipe, smeltResult, dropOf, dropCount,
 } from "../src";
 
 const B = blockId;
@@ -240,5 +240,34 @@ describe("Agent, saves and bounds", () => {
     expect(dustLevel(world.getBlock(14, Y, 0))).toBe(2);
     expect(dustLevel(world.getBlock(20, Y, 20))).toBe(0);
     expect(worst).toBeLessThan(250);
+  });
+});
+
+describe("recipes, smelting and ore", () => {
+  const S = (n: string) => ({ id: stackId(n), count: 1 });
+  it("crafts the components with Minecraft's recipes", () => {
+    const cases: Array<[(ReturnType<typeof S> | null)[], number, string, number]> = [
+      [[S("redstone"), S("stick")], 1, "redstone_torch", 1],
+      [[S("stick"), S("cobblestone")], 1, "lever", 1],
+      [[S("stone")], 1, "stone_button", 1],
+      [[S("stone"), S("stone")], 2, "stone_pressure_plate", 1],
+      [[null, S("redstone"), null, S("redstone"), S("glowstone"), S("redstone"), null, S("redstone"), null], 3, "redstone_lamp", 1],
+      [[S("redstone_torch"), S("redstone"), S("redstone_torch"), S("stone"), S("stone"), S("stone"), null, null, null], 3, "repeater", 1],
+      [[S("oak_planks"), S("oak_planks"), null, S("oak_planks"), S("oak_planks"), null, S("oak_planks"), S("oak_planks"), null], 3, "wooden_door", 3],
+      [[S("iron_ingot"), S("iron_ingot"), null, S("iron_ingot"), S("iron_ingot"), null, S("iron_ingot"), S("iron_ingot"), null], 3, "iron_door", 3],
+    ];
+    for (const [grid, width, result, count] of cases) {
+      expect(matchRecipe(grid, width)?.result, result).toEqual({ id: stackId(result), count });
+    }
+  });
+
+  it("redstone ore smelts to redstone, drops 4 redstone, and generates deep underground", () => {
+    expect(smeltResult(B("redstone_ore"))).toBe(stackId("redstone"));
+    expect(dropOf(B("redstone_ore"))).toBe(stackId("redstone"));
+    expect(dropCount(B("redstone_ore"))).toBe(4);
+    const world = new World(7);
+    let found = 0;
+    for (let x = 0; x < 48 && found === 0; x++) for (let z = 0; z < 48; z++) for (let y = 1; y < 16; y++) if (world.getBlock(x, y, z) === B("redstone_ore")) found++;
+    expect(found).toBeGreaterThan(0);
   });
 });
