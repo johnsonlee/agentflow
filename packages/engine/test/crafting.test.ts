@@ -1,13 +1,13 @@
 import { describe, expect, it } from "vitest";
-import { RECIPES, blockId, craftOnce, matchRecipe, type CraftingGrid } from "../src";
+import { RECIPES, blockId, craftOnce, matchRecipe, stackId, type CraftingGrid } from "../src";
 
 const s = (name: string, count = 1) => ({ id: blockId(name), count });
 
 describe("crafting", () => {
-  it("every recipe refers to known blocks", () => {
+  it("every recipe refers to known blocks or items", () => {
     for (const r of RECIPES) {
-      expect(() => blockId(r.result[0])).not.toThrow();
-      for (const name of [...(r.ingredients ?? []), ...Object.values(r.key ?? {})]) expect(() => blockId(name)).not.toThrow();
+      expect(() => stackId(r.result[0])).not.toThrow();
+      for (const name of [...(r.ingredients ?? []), ...Object.values(r.key ?? {})]) expect(() => stackId(name)).not.toThrow();
     }
   });
 

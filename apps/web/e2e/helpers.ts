@@ -1,4 +1,4 @@
-import { expect, type Page, type TestInfo } from "@playwright/test";
+import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs";
 import path from "node:path";
 
@@ -291,4 +291,57 @@ export function bringMob(page: Page, id: number) {
     mob.velocity = { x: 0, y: 0, z: 0 };
     return true;
   }, id);
+}
+
+/**
+ * Crafts a wooden pickaxe from two logs in an open crafting table, through the real UI:
+ * logs -> 8 planks, 2 planks -> 4 sticks, 3 planks + 2 sticks -> pickaxe, put in hotbar slot index 3.
+ * `press` clicks (desktop) or taps (mobile) a locator. Expects the logs in slot 0 and slots 3, 9 and 10 free.
+ */
+export async function craftWoodenPickaxe(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen");
+  const slot = (i: number) => press(inv.locator(`[data-slot="${i}"]`));
+  const craft = (i: number) => press(inv.locator(`[data-craft="${i}"]`));
+  const result = inv.locator("[data-craft-result]");
+  const holding = inv.locator('[data-testid="cursor"]');
+  await expect(inv.locator("[data-craft]")).toHaveCount(9);
+
+  await slot(0); // pick up both logs
+  await craft(0);
+  await craft(0);
+  await expect(result.locator("img")).toHaveAttribute("alt", "Oak Planks");
+  await press(result);
+  await press(result);
+  await expect(holding).toContainText("Oak Planks ×8");
+
+  // Sticks: two planks stacked vertically.
+  await craft(0);
+  await craft(3);
+  await slot(9); // put the other 6 planks down
+  await expect(result.locator("img")).toHaveAttribute("alt", "Stick");
+  await press(result);
+  await expect(holding).toContainText("Stick ×4");
+
+  // Pickaxe: three planks across the top, two sticks down the middle.
+  await craft(4);
+  await craft(7);
+  await slot(10);
+  await slot(9);
+  await craft(0);
+  await craft(1);
+  await craft(2);
+  await slot(9);
+  await expect(result.locator("img")).toHaveAttribute("alt", "Wooden Pickaxe");
+  await press(result);
+  await expect(holding).toContainText("Wooden Pickaxe ×1");
+  await slot(3);
+  await expect(holding).toBeEmpty();
+}
+
+/** Number of a block or item in the inventory. */
+export function countStack(page: Page, name: string) {
+  return page.evaluate((n) => {
+    const id = window.__craft.stackId(n);
+    return window.__craft.game!.inventory.slots.reduce((sum, s) => sum + (s && s.id === id ? s.count : 0), 0);
+  }, name);
 }

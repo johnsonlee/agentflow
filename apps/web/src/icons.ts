@@ -1,4 +1,4 @@
-import { blockById } from "@craft/engine";
+import { blockById, isItem, itemById } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
 const cache = new Map<number, string>();
@@ -29,17 +29,22 @@ function face(ctx: CanvasRenderingContext2D, img: HTMLCanvasElement, m: [number,
   ctx.drawImage(layer, 0, 0);
 }
 
-/** Inventory icon for a block as a data URL: an isometric cube, or a flat sprite for plants. */
+/**
+ * Inventory icon for a stack id as a data URL: an isometric cube for blocks, or a flat sprite
+ * for plants and items (sticks, tools).
+ */
 export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
   const cached = cache.get(id);
   if (cached) return cached;
-  const def = blockById(id);
   const canvas = document.createElement("canvas");
   canvas.width = size;
   canvas.height = size;
   const ctx = canvas.getContext("2d")!;
   ctx.imageSmoothingEnabled = false;
-  if (def.shape === "cross") {
+  const def = isItem(id) ? null : blockById(id);
+  if (!def) {
+    ctx.drawImage(tileCanvas(atlas, itemById(id).icon), 0, 0, size, size);
+  } else if (def.shape === "cross") {
     ctx.drawImage(tileCanvas(atlas, def.faces.side), size * 0.1, size * 0.1, size * 0.8, size * 0.8);
   } else {
     const s = size;

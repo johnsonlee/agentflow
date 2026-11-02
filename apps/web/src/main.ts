@@ -1,11 +1,11 @@
-import { blockId, parseSave, seedFromString, textureNames, type GameMode, type SaveData } from "@craft/engine";
+import { blockId, itemTextureNames, parseSave, seedFromString, stackId, textureNames, type GameMode, type SaveData } from "@craft/engine";
 import { buildAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
 import { Game, SAVE_KEY } from "./game";
 import "./style.css";
 
 const app = document.getElementById("app")!;
-const atlas = buildAtlas(textureNames());
+const atlas = buildAtlas([...textureNames(), ...itemTextureNames()]);
 const params = new URLSearchParams(location.search);
 const touch = params.has("touch")
   ? params.get("touch") !== "0"
@@ -204,7 +204,7 @@ function showDeath(): void {
 // Test / automation hook: lets end-to-end tests observe and drive the game deterministically.
 declare global {
   interface Window {
-    __craft: { readonly game: Game | null; startGame: typeof startGame; blockId: typeof blockId; touch: boolean };
+    __craft: { readonly game: Game | null; startGame: typeof startGame; blockId: typeof blockId; stackId: typeof stackId; touch: boolean };
   }
 }
 window.__craft = {
@@ -213,6 +213,7 @@ window.__craft = {
   },
   startGame,
   blockId,
+  stackId,
   touch,
 };
 

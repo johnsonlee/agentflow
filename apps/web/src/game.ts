@@ -1,5 +1,5 @@
 import {
-  AIR, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock,
+  AIR, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
 } from "@craft/engine";
@@ -302,7 +302,12 @@ export class Game {
       const mob = this.mobTarget;
       if (breaking && this.attackCooldown === 0) {
         this.attackCooldown = 0.4;
-        const drop = this.mobs.attack(mob, this.mode === "creative" ? 4 : 2, this.body.yaw);
+        // Held tools hit harder (swords most); the bare-hand damage keeps the game's balance.
+        const tool = toolOf(this.inventory.selectedStack()?.id);
+        const damage = Math.max(this.mode === "creative" ? 4 : 2, tool?.attack ?? 0);
+        const drop = this.mobs.attack(mob, damage, this.body.yaw);
+        // Minecraft: a hit wears a sword by one use and other tools by two.
+        if (tool && this.mode === "survival") this.wearTool(tool.kind === "sword" ? 1 : 2);
         if (drop !== undefined) {
           this.hud.message(`${MOB_SPECS[mob.kind].displayName} was defeated`);
           if (drop !== null && this.mode === "survival") this.inventory.add(drop, MOB_SPECS[mob.kind].drop![1]);
@@ -312,14 +317,17 @@ export class Game {
       return;
     }
     const t = this.target;
+    const tool = toolOf(this.inventory.selectedStack()?.id);
+    // Minecraft: swords cannot break blocks in creative.
+    const canSwing = !(this.mode === "creative" && tool?.kind === "sword");
 
-    if (breaking && t && canBreak(this.world, this.mode, t.x, t.y, t.z)) {
+    if (breaking && canSwing && t && canBreak(this.world, this.mode, t.x, t.y, t.z)) {
       const key = `${t.x},${t.y},${t.z}`;
       if (key !== this.breakKey) {
         this.breakKey = key;
         this.breakProgress = 0;
       }
-      const needed = breakTime(this.mode, t.id);
+      const needed = breakTime(this.mode, t.id, tool);
       if (needed === 0) {
         if (this.creativeCooldown === 0) {
           breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z);
@@ -329,7 +337,9 @@ export class Game {
       } else {
         this.breakProgress += dt / needed;
         if (this.breakProgress >= 1) {
+          const held = this.inventory.selectedStack();
           breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z);
+          if (held && tool && !this.inventory.selectedStack()) this.hud.message(`${displayNameOf(held.id)} broke`);
           this.breakProgress = 0;
           this.breakKey = "";
         }
@@ -355,6 +365,11 @@ export class Game {
     }
 
     if (pick && t && this.mode === "creative" && blockById(t.id).creative) this.inventory.pick(t.id);
+  }
+
+  private wearTool(uses: number): void {
+    const held = this.inventory.selectedStack();
+    if (held && this.inventory.damageSelected(uses)) this.hud.message(`${displayNameOf(held.id)} broke`);
   }
 
   private updateFall(wasOnGround: boolean): void {
@@ -513,7 +528,7 @@ export class Game {
       }
       case "give": {
         const left = this.inventory.add(cmd.id, cmd.count);
-        reply = `Gave ${cmd.count - left} [${blockById(cmd.id).displayName}]`;
+        reply = `Gave ${cmd.count - left} [${displayNameOf(cmd.id)}]`;
         break;
       }
       case "summon": {

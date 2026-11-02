@@ -1,3 +1,4 @@
+import { ITEMS } from "./items";
 import { BLOCKS } from "./blocks";
 import type { MobKind } from "./entities";
 import type { GameMode } from "./rules";
@@ -21,7 +22,7 @@ export const COMMAND_HELP = [
   "/gamemode <creative|survival>",
   "/time set <day|noon|night|midnight|ticks>",
   "/tp <x> <y> <z>  (~ for relative)",
-  "/give <block> [count]",
+  "/give <block|item> [count]",
   "/summon <pig|sheep|chicken|npc> [name]",
   "/gamerule <doMobSpawning|doDaylightCycle> <true|false>",
   "/seed",
@@ -55,8 +56,8 @@ export function parseCommand(input: string): Command {
     }
     case "give": {
       const blockName = (args[0] ?? "").toLowerCase().replace(/^minecraft:/, "");
-      const def = BLOCKS.find((b) => b.name === blockName && b.creative);
-      if (!def) return { type: "error", message: `Unknown block "${args[0] ?? ""}"` };
+      const def = BLOCKS.find((b) => b.name === blockName && b.creative) ?? ITEMS.find((i) => i.name === blockName);
+      if (!def) return { type: "error", message: `Unknown block or item "${args[0] ?? ""}"` };
       const count = args[1] === undefined ? 1 : Number(args[1]);
       if (!Number.isInteger(count) || count < 1 || count > 2304) return { type: "error", message: "Count must be 1-2304" };
       return { type: "give", id: def.id, count };

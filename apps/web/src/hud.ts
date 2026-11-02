@@ -1,5 +1,5 @@
 import {
-  HOTBAR_SIZE, INVENTORY_SIZE, MAX_STACK, blockById, craftOnce, creativeBlocks, matchRecipe,
+  HOTBAR_SIZE, INVENTORY_SIZE, ITEMS, craftOnce, creativeBlocks, displayNameOf, matchRecipe, maxStackOf, toolOf,
   type CraftingGrid, type GameMode, type Inventory, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
@@ -108,10 +108,12 @@ export class Hud {
         if (stack) {
           const img = el("img");
           img.src = blockIcon(this.atlas, stack.id);
-          img.alt = blockById(stack.id).displayName;
+          img.alt = displayNameOf(stack.id);
           img.draggable = false;
           slot.appendChild(img);
           if (mode === "survival" && stack.count > 1) slot.appendChild(el("span", "count", String(stack.count)));
+          const bar = durabilityBar(stack);
+          if (bar) slot.appendChild(bar);
         }
       });
       this.hearts.hidden = mode !== "survival";
@@ -122,7 +124,7 @@ export class Hud {
         }),
       );
       const stack = inventory.selectedStack();
-      if (selectedChanged && stack) this.showItemName(blockById(stack.id).displayName);
+      if (selectedChanged && stack) this.showItemName(displayNameOf(stack.id));
     }
     if (this.itemNameTimer > 0) {
       this.itemNameTimer -= dt;
@@ -216,7 +218,7 @@ export class InventoryScreen {
   /** Closes the screen, returning crafting-grid and cursor items to the inventory. */
   hide(): void {
     if (this.inventory) {
-      for (const stack of [...this.grid, this.cursor]) if (stack) this.inventory.add(stack.id, stack.count);
+      for (const stack of [...this.grid, this.cursor]) if (stack) this.inventory.addStack(stack);
     }
     this.grid = [];
     this.cursor = null;
@@ -239,11 +241,11 @@ export class InventoryScreen {
 
     if (mode === "creative") {
       const grid = el("div", "item-grid");
-      for (const def of creativeBlocks()) {
+      for (const def of [...creativeBlocks(), ...ITEMS]) {
         const cell = this.cell(def.id, 0, def.displayName);
         cell.dataset.block = def.name;
         cell.addEventListener("click", () => {
-          if (this.width > 0) this.cursor = { id: def.id, count: MAX_STACK };
+          if (this.width > 0) this.cursor = { id: def.id, count: maxStackOf(def.id) };
           else inventory.pick(def.id);
           this.render();
         });
@@ -271,7 +273,7 @@ export class InventoryScreen {
       const img = el("img");
       img.src = blockIcon(this.atlas, this.cursor.id);
       img.alt = "";
-      cursor.append(el("span", "", "Holding:"), img, el("span", "", `${blockById(this.cursor.id).displayName} ×${this.cursor.count}`));
+      cursor.append(el("span", "", "Holding:"), img, el("span", "", `${displayNameOf(this.cursor.id)} ×${this.cursor.count}`));
     }
     parts.push(cursor);
     const hint =
@@ -286,12 +288,12 @@ export class InventoryScreen {
     const section = el("div", "crafting");
     const grid = el("div", `item-grid craft-grid craft-${this.width}`);
     this.grid.forEach((stack, i) => {
-      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? blockById(stack.id).displayName : "Empty");
+      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : "Empty");
       cell.dataset.craft = String(i);
       cell.addEventListener("click", () => {
         const current = this.grid[i];
-        if (this.cursor && (!current || current.id === this.cursor.id) && (current?.count ?? 0) < MAX_STACK) {
-          this.grid[i] = { id: this.cursor.id, count: (current?.count ?? 0) + 1 };
+        if (this.cursor && (!current || current.id === this.cursor.id) && (current?.count ?? 0) < maxStackOf(this.cursor.id)) {
+          this.grid[i] = { ...this.cursor, count: (current?.count ?? 0) + 1 };
           this.cursor.count--;
           if (this.cursor.count <= 0) this.cursor = null;
         } else if (!this.cursor && current) {
@@ -303,13 +305,13 @@ export class InventoryScreen {
       grid.appendChild(cell);
     });
     const match = matchRecipe(this.grid, this.width);
-    const result = this.cell(match?.result.id ?? null, match?.result.count ?? 0, match ? blockById(match.result.id).displayName : "No recipe");
+    const result = this.cell(match?.result.id ?? null, match?.result.count ?? 0, match ? displayNameOf(match.result.id) : "No recipe");
     result.classList.add("craft-result");
     result.dataset.craftResult = "";
     result.addEventListener("click", () => {
       const preview = matchRecipe(this.grid, this.width);
       if (!preview) return;
-      if (this.cursor && (this.cursor.id !== preview.result.id || this.cursor.count + preview.result.count > MAX_STACK)) return;
+      if (this.cursor && (this.cursor.id !== preview.result.id || this.cursor.count + preview.result.count > maxStackOf(preview.result.id))) return;
       const crafted = craftOnce(this.grid, this.width)!;
       this.cursor = this.cursor ? { id: crafted.id, count: this.cursor.count + crafted.count } : crafted;
       this.render();
@@ -322,15 +324,17 @@ export class InventoryScreen {
     const inventory = this.inventory!;
     const stack = inventory.slots[index];
     const showCount = this.mode === "survival" || this.width > 0;
-    const cell = this.cell(stack?.id ?? null, showCount ? (stack?.count ?? 0) : 0, stack ? blockById(stack.id).displayName : "Empty");
+    const cell = this.cell(stack?.id ?? null, showCount ? (stack?.count ?? 0) : 0, stack ? displayNameOf(stack.id) : "Empty");
     cell.dataset.slot = String(index);
+    const bar = stack ? durabilityBar(stack) : null;
+    if (bar) cell.appendChild(bar);
     cell.addEventListener("click", () => {
       if (this.mode === "creative" && this.width === 0) {
         if (index < HOTBAR_SIZE) inventory.select(index);
       } else if (this.cursor) {
         const current = inventory.slots[index];
-        if (current && current.id === this.cursor.id) {
-          const n = Math.min(MAX_STACK - current.count, this.cursor.count);
+        if (current && current.id === this.cursor.id && maxStackOf(current.id) > 1) {
+          const n = Math.min(maxStackOf(current.id) - current.count, this.cursor.count);
           current.count += n;
           this.cursor.count -= n;
           if (this.cursor.count <= 0) this.cursor = null;
@@ -362,6 +366,20 @@ export class InventoryScreen {
     }
     return cell;
   }
+}
+
+/** Minecraft-style wear bar under a damaged tool's icon (none for new tools and non-tools). */
+function durabilityBar(stack: ItemStack): HTMLElement | null {
+  const tool = toolOf(stack.id);
+  if (!tool || !stack.damage) return null;
+  const left = 1 - stack.damage / tool.durability;
+  const bar = el("span", "durability");
+  const fill = el("span", "durability-fill");
+  fill.style.width = `${Math.round(left * 100)}%`;
+  fill.style.background = `hsl(${Math.round(left * 120)}, 90%, 45%)`;
+  bar.appendChild(fill);
+  bar.dataset.durability = String(tool.durability - stack.damage);
+  return bar;
 }
 
 /** Chat / command input line. */

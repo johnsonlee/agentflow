@@ -1,3 +1,4 @@
+import { ITEM_TILE_GENERATORS } from "./items";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 
 const S = TILE_SIZE;
@@ -259,7 +260,7 @@ export const TILE_NAMES: readonly string[] = Object.keys(TILE_GENERATORS);
 /** Generates the RGBA pixels of a named 16x16 tile. Unknown names produce a magenta/black "missing texture". */
 export function generateTile(name: string): Uint8ClampedArray<ArrayBuffer> {
   const t = new Tile(name);
-  const gen = TILE_GENERATORS[name];
+  const gen = TILE_GENERATORS[name] ?? ITEM_TILE_GENERATORS[name];
   if (gen) return gen(t).data;
   return t.fill((x, y) => ((x < 8) !== (y < 8) ? [248, 0, 248] : [0, 0, 0])).data;
 }

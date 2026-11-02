@@ -1,4 +1,4 @@
-import { blockId } from "./blocks";
+import { stackId } from "./items";
 import type { ItemStack } from "./inventory";
 
 export interface Recipe {
@@ -6,18 +6,32 @@ export interface Recipe {
   /** Shaped recipe rows; each character maps through `key`, space = empty. */
   pattern?: string[];
   key?: Record<string, string>;
-  /** Shapeless ingredients (block names). */
+  /** Shapeless ingredients (block or item names). */
   ingredients?: string[];
   result: [block: string, count: number];
   /** Short note when the recipe simplifies Minecraft's (e.g. dyes collapsed into flowers). */
   note?: string;
 }
 
+/** Minecraft tool shapes for one head material (`#`), with sticks (`|`) as handles. */
+function toolRecipes(material: "wooden" | "stone", head: string): Recipe[] {
+  const key = { "#": head, "|": "stick" };
+  return [
+    { id: `${material}_pickaxe`, pattern: ["###", " | ", " | "], key, result: [`${material}_pickaxe`, 1] },
+    { id: `${material}_axe`, pattern: ["##", "#|", " |"], key, result: [`${material}_axe`, 1] },
+    { id: `${material}_shovel`, pattern: ["#", "|", "|"], key, result: [`${material}_shovel`, 1] },
+    { id: `${material}_sword`, pattern: ["#", "#", "|"], key, result: [`${material}_sword`, 1] },
+  ];
+}
+
 /**
- * Recipes for items this game models. The game has no separate item types (sticks, dyes),
- * so only recipes whose inputs and outputs are blocks are included.
+ * Recipes for the blocks and items this game models. Dyes are not modelled, so a few
+ * recipes substitute blocks (see `note`).
  */
 export const RECIPES: readonly Recipe[] = [
+  { id: "stick", pattern: ["#", "#"], key: { "#": "oak_planks" }, result: ["stick", 4] },
+  ...toolRecipes("wooden", "oak_planks"),
+  ...toolRecipes("stone", "cobblestone"),
   { id: "oak_planks", ingredients: ["oak_log"], result: ["oak_planks", 4] },
   { id: "oak_planks_from_birch", ingredients: ["birch_log"], result: ["oak_planks", 4], note: "Minecraft yields birch planks" },
   { id: "crafting_table", pattern: ["##", "##"], key: { "#": "oak_planks" }, result: ["crafting_table", 1] },
@@ -47,7 +61,7 @@ function trim(grid: CraftingGrid, width: number): number[][] {
 function shapedMatches(recipe: Recipe, cells: number[][]): boolean {
   const pattern = recipe.pattern!;
   if (pattern.length !== cells.length || pattern[0].length !== cells[0].length) return false;
-  const expect = (ch: string) => (ch === " " ? 0 : blockId(recipe.key![ch]));
+  const expect = (ch: string) => (ch === " " ? 0 : stackId(recipe.key![ch]));
   const direct = pattern.every((row, r) => [...row].every((ch, c) => expect(ch) === cells[r][c]));
   const mirrored = pattern.every((row, r) => [...row].every((ch, c) => expect(ch) === cells[r][row.length - 1 - c]));
   return direct || mirrored;
@@ -55,7 +69,7 @@ function shapedMatches(recipe: Recipe, cells: number[][]): boolean {
 
 function shapelessMatches(recipe: Recipe, grid: CraftingGrid): boolean {
   const have = grid.filter((s): s is ItemStack => s !== null).map((s) => s.id).sort((a, b) => a - b);
-  const need = recipe.ingredients!.map(blockId).sort((a, b) => a - b);
+  const need = recipe.ingredients!.map(stackId).sort((a, b) => a - b);
   return have.length === need.length && have.every((id, i) => id === need[i]);
 }
 
@@ -65,7 +79,7 @@ export function matchRecipe(grid: CraftingGrid, width: number): { recipe: Recipe
   if (cells.length === 0) return null;
   for (const recipe of RECIPES) {
     const ok = recipe.pattern ? shapedMatches(recipe, cells) : shapelessMatches(recipe, grid);
-    if (ok) return { recipe, result: { id: blockId(recipe.result[0]), count: recipe.result[1] } };
+    if (ok) return { recipe, result: { id: stackId(recipe.result[0]), count: recipe.result[1] } };
   }
   return null;
 }

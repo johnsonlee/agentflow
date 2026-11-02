@@ -26,7 +26,8 @@ npm run build      # production build in apps/web/dist
 - An infinite, seeded world with plains, forest, desert, snowy and ocean biomes, oak and birch trees, flowers, ores and bedrock
 - 38 block types (37 in the creative palette, plus water), including glass, wool, bookshelves, glowstone and the Education Edition **Allow**, **Deny** and **Border** blocks
 - **Creative** mode (fly with a double jump, instant break, block palette) and **Survival** mode (timed breaking with a crack overlay, drops collected into a 36-slot inventory, health and fall damage, respawn)
-- **Crafting:** a 2×2 grid in the survival inventory and a 3×3 grid at a Crafting Table (planks, crafting table, bookshelf, snow, dyed wool, glowstone; recipes are limited to blocks because the game has no separate items)
+- **Crafting:** a 2×2 grid in the survival inventory and a 3×3 grid at a Crafting Table (planks, sticks, crafting table, wooden and stone tools in Minecraft's shapes, bookshelf, snow, dyed wool, glowstone; dyes and books are not modelled, so a few recipes substitute blocks)
+- **Items and tools:** a non-block item registry (sticks; wooden and stone pickaxe, axe, shovel, sword) with original procedural icons and a durability bar. Tools stack to 1, wear by one use per block (two per hit, except swords), and break when spent. Break time depends on the tool type and tier and on the block's preferred tool (Minecraft hardness ×1.5; ×5 when the block can't be harvested). Stone, cobblestone, bricks and ores drop only with a pickaxe of a high enough tier (coal: wood; iron: stone; gold and diamond: iron, which isn't obtainable yet). Swords do the most melee damage (Bedrock values)
 - **Mobs:** pigs, sheep and chickens wander grassland, hop up ledges, panic when hit, and can be defeated (sheep drop wool)
 - **Education Edition:** Camera & Portfolio (capture, caption, save, delete photos); NPCs with editable names and dialogue (`/summon npc`); Allow/Deny/Border
 - Hotbar, inventory screen, middle-click pick block, sneaking (won't walk off edges), sprinting, swimming
@@ -36,7 +37,7 @@ npm run build      # production build in apps/web/dist
 - Touch controls (Pointer Events, so they also work with a mouse or pen on the mobile layout): a floating joystick, camera drag, tap to place or talk, hold to break, jump/fly/descend buttons, auto-jump, tappable hotbar, and inventory, camera and portfolio buttons
 
 ### Not implemented (compared with Minecraft: Education Edition)
-Code Builder / Agent, chemistry (elements, compounds, lab tables), hostile mobs and combat, tools and non-block items, smelting, redstone, multiplayer, block light propagation (torches, caves), hunger, chalkboards, Book & Quill, and the official Mojang textures (copyrighted; this project ships original procedural textures).
+Code Builder / Agent, chemistry (elements, compounds, lab tables), hostile mobs and combat, iron/gold/diamond tools, armour, food and other items beyond sticks and wooden/stone tools, smelting, redstone, multiplayer, block light propagation (torches, caves), hunger, chalkboards, Book & Quill, and the official Mojang textures (copyrighted; this project ships original procedural textures).
 
 ## Controls
 

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { textureNames } from "@craft/engine";
-import { TILE_NAMES, TILE_SIZE, buildAtlas, generateTile } from "../src";
+import { itemTextureNames, textureNames } from "@craft/engine";
+import { ITEM_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile } from "../src";
 
 describe("procedural textures", () => {
   it("provides a texture for every block face", () => {
@@ -66,5 +66,22 @@ describe("texture atlas", () => {
     const atlas = buildAtlas(TILE_NAMES);
     expect(atlas.columns * atlas.columns).toBeGreaterThanOrEqual(TILE_NAMES.length);
     expect(atlas.tiles.size).toBe(TILE_NAMES.length);
+  });
+
+  it("draws an original sprite for every item: transparent background, distinct, deterministic", () => {
+    const names = itemTextureNames();
+    expect(names.filter((n) => !(n in ITEM_TILE_GENERATORS))).toEqual([]);
+    const hashes = new Set<string>();
+    for (const n of names) {
+      const d = generateTile(n);
+      let opaque = 0;
+      for (let i = 3; i < d.length; i += 4) if (d[i] === 255) opaque++;
+      // A sprite, not a full tile and not the magenta "missing" checkerboard.
+      expect(opaque).toBeGreaterThan(10);
+      expect(opaque).toBeLessThan(TILE_SIZE * TILE_SIZE / 2);
+      expect(Buffer.from(d).equals(Buffer.from(generateTile(n)))).toBe(true);
+      hashes.add(Buffer.from(d).toString("base64"));
+    }
+    expect(hashes.size).toBe(names.length);
   });
 });

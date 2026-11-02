@@ -1,10 +1,14 @@
+import { isKnownId, maxStackOf, toolOf } from "./items";
+
 export const HOTBAR_SIZE = 9;
 export const INVENTORY_SIZE = 36;
-export const MAX_STACK = 64;
 
 export interface ItemStack {
+  /** Block id, or item id (>= ITEM_ID_BASE). */
   id: number;
   count: number;
+  /** Uses spent on a tool (absent or 0 = new). */
+  damage?: number;
 }
 
 /** Player inventory: slots 0-8 are the hotbar. */
@@ -26,23 +30,50 @@ export class Inventory {
 
   /** Adds items, filling existing stacks first. Returns the number that did not fit. */
   add(id: number, count = 1): number {
-    let left = count;
-    for (const stack of this.slots) {
-      if (left === 0) break;
-      if (stack && stack.id === id && stack.count < MAX_STACK) {
-        const n = Math.min(MAX_STACK - stack.count, left);
-        stack.count += n;
-        left -= n;
+    return this.addStack({ id, count });
+  }
+
+  /**
+   * Adds a stack, keeping its tool damage. Tools (max stack 1) never merge.
+   * Returns the number of items that did not fit.
+   */
+  addStack(stack: ItemStack): number {
+    const max = maxStackOf(stack.id);
+    let left = stack.count;
+    if (max > 1) {
+      for (const s of this.slots) {
+        if (left === 0) break;
+        if (s && s.id === stack.id && s.count < max) {
+          const n = Math.min(max - s.count, left);
+          s.count += n;
+          left -= n;
+        }
       }
     }
     for (let i = 0; i < this.slots.length && left > 0; i++) {
       if (!this.slots[i]) {
-        const n = Math.min(MAX_STACK, left);
-        this.slots[i] = { id, count: n };
+        const n = Math.min(max, left);
+        this.slots[i] = stack.damage ? { id: stack.id, count: n, damage: stack.damage } : { id: stack.id, count: n };
         left -= n;
       }
     }
     return left;
+  }
+
+  /**
+   * Wears the tool in the selected slot by `uses`. Returns true if it broke (and was removed).
+   * Does nothing for non-tools.
+   */
+  damageSelected(uses = 1): boolean {
+    const stack = this.slots[this.selected];
+    const tool = toolOf(stack?.id);
+    if (!stack || !tool) return false;
+    stack.damage = (stack.damage ?? 0) + uses;
+    if (stack.damage >= tool.durability) {
+      this.slots[this.selected] = null;
+      return true;
+    }
+    return false;
   }
 
   /** Removes one item from the selected hotbar slot. Returns the removed block id or null. */
@@ -68,6 +99,12 @@ export class Inventory {
     this.slots[slot] = stack ? { ...stack } : null;
   }
 
+  /** How many more of `id` could be added to the inventory. */
+  spaceFor(id: number): number {
+    const max = maxStackOf(id);
+    return this.slots.reduce((n, s) => n + (!s ? max : s.id === id && max > 1 ? max - s.count : 0), 0);
+  }
+
   swap(a: number, b: number): void {
     const t = this.slots[a];
     this.slots[a] = this.slots[b];
@@ -78,9 +115,15 @@ export class Inventory {
     return { slots: this.slots.map((s) => (s ? { ...s } : null)), selected: this.selected };
   }
 
+  /** Loads a saved inventory. Saves from before items existed load unchanged; unknown ids are dropped. */
   static fromJSON(data: { slots: (ItemStack | null)[]; selected: number }): Inventory {
     const inv = new Inventory();
-    data.slots.slice(0, INVENTORY_SIZE).forEach((s, i) => inv.setSlot(i, s));
+    data.slots.slice(0, INVENTORY_SIZE).forEach((s, i) => {
+      if (!s || !isKnownId(s.id) || !(s.count > 0)) return;
+      const max = maxStackOf(s.id);
+      const damage = toolOf(s.id) && s.damage ? s.damage : undefined;
+      inv.setSlot(i, damage ? { id: s.id, count: Math.min(s.count, max), damage } : { id: s.id, count: Math.min(s.count, max) });
+    });
     inv.select(data.selected);
     return inv;
   }
