@@ -9,6 +9,7 @@ import { FACING_DIRS } from "./chalkboard";
 import type { ItemStack } from "./inventory";
 import { dropCount, dropOf, isItem } from "./items";
 import { WORLD_HEIGHT } from "./chunk";
+import { WORLD_BORDER } from "./math";
 import { canBreak, canBuildAt } from "./rules";
 import type { World } from "./world";
 
@@ -98,6 +99,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
     case "move": {
       const t = target(cmd.dir);
       if (t.y < 0 || t.y >= WORLD_HEIGHT) return { ok: false, message: "Can't move out of the world" };
+      if (Math.abs(t.x) > WORLD_BORDER || Math.abs(t.z) > WORLD_BORDER) return { ok: false, message: "That's beyond the world border" };
       if (isSolid(world.getBlock(t.x, t.y, t.z))) return { ok: false, message: "Blocked" };
       agent.x = t.x;
       agent.y = t.y;

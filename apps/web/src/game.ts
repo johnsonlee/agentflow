@@ -6,7 +6,7 @@ import {
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type AgentCommand,
-  sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
+  clampPosition, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -864,14 +864,17 @@ export class Game {
         break;
       case "tp": {
         const p = this.body.position;
-        this.body.position = {
+        const wanted = {
           x: cmd.relative[0] ? p.x + cmd.x : cmd.x,
           y: cmd.relative[1] ? p.y + cmd.y : cmd.y,
           z: cmd.relative[2] ? p.z + cmd.z : cmd.z,
         };
+        // Relative moves can still land past the border: clamp, and say so.
+        const q = clampPosition({ ...wanted });
+        this.body.position = q;
         this.body.velocity = { x: 0, y: 0, z: 0 };
-        const q = this.body.position;
-        reply = `Teleported to ${q.x.toFixed(1)}, ${q.y.toFixed(1)}, ${q.z.toFixed(1)}`;
+        const clamped = q.x !== wanted.x || q.y !== wanted.y || q.z !== wanted.z;
+        reply = `Teleported to ${q.x.toFixed(1)}, ${q.y.toFixed(1)}, ${q.z.toFixed(1)}${clamped ? " (clamped to the world border)" : ""}`;
         break;
       }
       case "give": {

@@ -144,8 +144,9 @@ describe("review 8d7fc44b: every chat command, the save's top level and the port
         }
       }
     }
-    expect(parseCommand("/gamemode constructor")).toEqual({ type: "error", message: "Usage: /gamemode <creative|survival>" });
-    expect(parseCommand("/gamemode __proto__")).toEqual({ type: "error", message: "Usage: /gamemode <creative|survival>" });
+    expect(parseCommand("/gamemode constructor")).toEqual({ type: "error", message: 'Unknown game mode "constructor". Usage: /gamemode <creative|survival>' });
+    expect(parseCommand("/gamemode __proto__")).toEqual({ type: "error", message: 'Unknown game mode "__proto__". Usage: /gamemode <creative|survival>' });
+    expect(parseCommand("/gamemode")).toEqual({ type: "error", message: "Usage: /gamemode <creative|survival>" });
     expect(parseCommand("/gamemode s")).toEqual({ type: "gamemode", mode: "survival" });
   });
 

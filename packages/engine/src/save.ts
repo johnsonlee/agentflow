@@ -1,7 +1,7 @@
 import type { BlockEdit } from "./world";
 import type { ItemStack } from "./inventory";
 import type { GameMode } from "./rules";
-import type { Vec3 } from "./math";
+import { clampPosition, type Vec3 } from "./math";
 import type { HungerState } from "./hunger";
 import type { FurnaceState } from "./smelting";
 import type { Chalkboard } from "./chalkboard";
@@ -70,8 +70,9 @@ export function parseSave(text: string): SaveData {
   const time = own(raw, "timeOfDay");
   const player = isObj(own(raw, "player")) ? (own(raw, "player") as Obj) : {};
   const pos = isObj(own(player, "position")) ? (own(player, "position") as Obj) : {};
+  // Positions are clamped into the world border (huge x/z could otherwise hang block loops).
   const position = finite(own(pos, "x")) && finite(own(pos, "y")) && finite(own(pos, "z"))
-    ? { x: own(pos, "x") as number, y: Math.max(-10, Math.min(500, own(pos, "y") as number)), z: own(pos, "z") as number }
+    ? clampPosition({ x: own(pos, "x") as number, y: own(pos, "y") as number, z: own(pos, "z") as number })
     : null;
   const inventory = isObj(own(raw, "inventory")) ? (own(raw, "inventory") as Obj) : {};
   const rules = isObj(own(raw, "gamerules")) ? (own(raw, "gamerules") as Obj) : {};
@@ -80,12 +81,13 @@ export function parseSave(text: string): SaveData {
   const save: SaveData = {
     version: SAVE_VERSION,
     name: typeof name === "string" && name.trim() !== "" ? name.slice(0, 64) : "Untitled World",
-    seed,
+    // Seeds are 32-bit integers (the generator hashes them as such); this is the identity for valid saves.
+    seed: seed | 0,
     mode: mode === "survival" ? "survival" : "creative",
     timeOfDay: finite(time) ? (time >= 0 && time < 1 ? time : ((time % 1) + 1) % 1) : 0.05,
     player: {
       position,
-      yaw: finite(own(player, "yaw")) ? (own(player, "yaw") as number) : 0,
+      yaw: finite(own(player, "yaw")) ? (own(player, "yaw") as number) % (Math.PI * 2) : 0,
       pitch: finite(own(player, "pitch")) ? Math.max(-1.57, Math.min(1.57, own(player, "pitch") as number)) : 0,
       flying: bool(own(player, "flying"), false),
     },

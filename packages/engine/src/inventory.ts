@@ -1,4 +1,5 @@
 import { isKnownId, maxStackOf, toolOf } from "./items";
+import { sanitizeStack } from "./savecheck";
 
 export const HOTBAR_SIZE = 9;
 export const INVENTORY_SIZE = 36;
@@ -125,14 +126,13 @@ export class Inventory {
     const inv = new Inventory();
     if (!data || !Array.isArray(data.slots)) return inv;
     data.slots.slice(0, INVENTORY_SIZE).forEach((s, i) => {
-      if (!s || !isKnownId(s.id) || !(s.count > 0)) return;
-      const max = maxStackOf(s.id);
-      const stack: ItemStack = { id: s.id, count: Math.min(s.count, max) };
-      if (toolOf(s.id) && s.damage) stack.damage = s.damage;
+      // Strict: integer id/count (1..stack max) and integer tool wear (0..durability-1).
+      const stack = sanitizeStack(s);
+      if (!s || !stack) return;
       if (s.book && typeof s.book === "object" && Array.isArray(s.book.pages)) {
-        stack.book = { pages: s.book.pages.map(String).slice(0, 50) };
-        if (typeof s.book.title === "string") stack.book.title = s.book.title;
-        if (typeof s.book.author === "string") stack.book.author = s.book.author;
+        stack.book = { pages: s.book.pages.slice(0, 50).map((p) => String(p).slice(0, 256)) };
+        if (typeof s.book.title === "string") stack.book.title = s.book.title.slice(0, 32);
+        if (typeof s.book.author === "string") stack.book.author = s.book.author.slice(0, 32);
       }
       inv.setSlot(i, stack);
     });

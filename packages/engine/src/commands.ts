@@ -1,5 +1,6 @@
 import { ITEMS } from "./items";
 import { BLOCKS } from "./blocks";
+import { WORLD_BORDER } from "./math";
 import type { MobKind } from "./entities";
 import type { GameMode } from "./rules";
 
@@ -50,7 +51,11 @@ export function parseCommand(input: string): Command {
         case "0":
           return { type: "gamemode", mode: "survival" };
         default:
-          return { type: "error", message: "Usage: /gamemode <creative|survival>" };
+          // Naming the argument makes each reply distinct (and clearer).
+          return {
+            type: "error",
+            message: args[0] ? `Unknown game mode "${args[0].slice(0, 32)}". Usage: /gamemode <creative|survival>` : "Usage: /gamemode <creative|survival>",
+          };
       }
     }
     case "time": {
@@ -66,6 +71,11 @@ export function parseCommand(input: string): Command {
       const relative = args.map((a) => a.startsWith("~")) as [boolean, boolean, boolean];
       const values = args.map((a) => (a.startsWith("~") ? Number(a.slice(1) || "0") : Number(a)));
       if (values.some((v) => !Number.isFinite(v))) return { type: "error", message: "Coordinates must be numbers" };
+      // The world border (also for ~ offsets, which can't move further than the world is wide).
+      if (Math.abs(values[0]) > 2 * WORLD_BORDER || Math.abs(values[2]) > 2 * WORLD_BORDER || (!relative[0] && Math.abs(values[0]) > WORLD_BORDER) || (!relative[2] && Math.abs(values[2]) > WORLD_BORDER)) {
+        return { type: "error", message: `Coordinates must be within the world border (±${WORLD_BORDER})` };
+      }
+      if (Math.abs(values[1]) > 4096) return { type: "error", message: "Height is out of range" };
       return { type: "tp", x: values[0], y: values[1], z: values[2], relative };
     }
     case "give": {
@@ -87,7 +97,7 @@ export function parseCommand(input: string): Command {
       if (kind !== "pig" && kind !== "sheep" && kind !== "chicken" && kind !== "npc" && kind !== "zombie") {
         return { type: "error", message: "Usage: /summon <pig|sheep|chicken|zombie|npc> [name]" };
       }
-      const name = args.slice(1).join(" ").trim();
+      const name = args.slice(1).join(" ").trim().slice(0, 64);
       return name ? { type: "summon", kind, name } : { type: "summon", kind };
     }
     case "gamerule": {

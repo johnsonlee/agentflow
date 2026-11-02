@@ -1,6 +1,6 @@
 import { blockId, isOpaque, isSolid } from "./blocks";
 import { MAX_LIGHT, blockLightOf, skyOf } from "./light";
-import type { Vec3 } from "./math";
+import { clampPosition, type Vec3 } from "./math";
 import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
 import { PathSearch, type PathBudget, type PathNode } from "./pathfind";
 
@@ -144,6 +144,7 @@ export function stepMob(
   const { n, h } = substeps(dt);
   const chasing = planChase(getBlock, mob, n * h, target, budget);
   for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing);
+  clampPosition(mob.position);
 }
 
 /**

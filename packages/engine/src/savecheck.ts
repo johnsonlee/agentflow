@@ -23,10 +23,12 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   if (!isObj(raw)) return null;
   const id = own(raw, "id");
   const count = own(raw, "count");
-  if (!int(id, 0, 100000) || !isKnownId(id) || !int(count, 1, 64)) return null;
-  const s: ItemStack = { id, count: Math.min(count, maxStackOf(id)) };
+  if (!int(id, 0, 100000) || !isKnownId(id) || !int(count, 1, maxStackOf(id))) return null;
+  const s: ItemStack = { id, count };
+  // Tool wear: an integer below the tool's durability (anything else is dropped, i.e. a new tool).
   const damage = own(raw, "damage");
-  if (toolOf(id) && int(damage, 0, 100000) && damage > 0) s.damage = damage;
+  const tool = toolOf(id);
+  if (tool && int(damage, 1, tool.durability - 1)) s.damage = damage;
   return s;
 }
 

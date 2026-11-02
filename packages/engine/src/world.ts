@@ -1,4 +1,5 @@
 import { AIR, BLOCKS, isOpaque } from "./blocks";
+import { WORLD_BORDER } from "./math";
 import { MAX_LIGHT, emission, relightBlock, spread, type LightAccess } from "./light";
 import { CHUNK_SIZE, Chunk, WORLD_HEIGHT, chunkKey, toChunkCoord, toLocalCoord } from "./chunk";
 import { TerrainGenerator } from "./generator";
@@ -156,7 +157,8 @@ export class World {
   }
 
   getBlock(x: number, y: number, z: number): number {
-    if (y < 0 || y >= WORLD_HEIGHT) return AIR;
+    // Outside the world (or NaN): air. Never generate chunks for nonsense coordinates.
+    if (!(y >= 0 && y < WORLD_HEIGHT) || !(Math.abs(x) <= WORLD_BORDER + 64) || !(Math.abs(z) <= WORLD_BORDER + 64)) return AIR;
     const chunk = this.getChunk(toChunkCoord(x), toChunkCoord(z));
     return chunk.get(toLocalCoord(x), Math.floor(y), toLocalCoord(z));
   }
@@ -165,7 +167,7 @@ export class World {
     x = Math.floor(x);
     y = Math.floor(y);
     z = Math.floor(z);
-    if (y < 0 || y >= WORLD_HEIGHT) return;
+    if (!(y >= 0 && y < WORLD_HEIGHT) || !(Math.abs(x) <= WORLD_BORDER) || !(Math.abs(z) <= WORLD_BORDER)) return;
     const cx = toChunkCoord(x);
     const cz = toChunkCoord(z);
     const lx = toLocalCoord(x);

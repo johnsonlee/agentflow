@@ -161,8 +161,8 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     // Check each reply right away: chat lines fade after 7 s, and slow CI runners take seconds per command.
     for (const bad of ["__proto__", "constructor", "toString"]) {
       await command(page, `/gamemode ${bad}`);
-      // The newest chat line is the reply (identical older lines may already have faded).
-      await expect(page.locator(".chat-line").last()).toContainText("Usage: /gamemode <creative|survival>");
+      // Each reply names its argument, so this can't match an earlier command's reply.
+      await expect(page.locator(".chat-line", { hasText: `Unknown game mode "${bad}"` })).toHaveCount(1);
       expect(await page.evaluate(() => window.__craft.game!.mode)).toBe("creative");
     }
     await page.keyboard.press("Escape");
@@ -209,5 +209,36 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     await expect.poll(frame).toBeGreaterThan(f0 + 5);
     await page.keyboard.press("p");
     await expect(page.getByRole("heading", { name: "Portfolio (1)" })).toBeVisible();
+  });
+
+  test("huge coordinates: /tp 1e16 is refused, a relative /tp is clamped to the border, and a save with x=1e16 loads", async ({ page }) => {
+    test.setTimeout(180_000);
+    await createWorld(page);
+    await settle(page);
+    const frame = () => page.evaluate(() => window.__craft.game!.renderer.renderer.info.render.frame);
+    await command(page, "/tp 1e16 80 1e16");
+    await expect(page.locator(".chat-line", { hasText: "within the world border" })).toHaveCount(1);
+    const f0 = await frame();
+    await expect.poll(frame).toBeGreaterThan(f0 + 5);
+    await command(page, "/tp ~59000000 80 ~");
+    await expect(page.locator(".chat-line", { hasText: "clamped to the world border" })).toHaveCount(1);
+    expect(await page.evaluate(() => window.__craft.game!.body.position.x)).toBe(30_000_000);
+    const f1 = await frame();
+    await expect.poll(frame).toBeGreaterThan(f1 + 5);
+
+    // A save edited to x = 1e16 (as the reviewer did) still loads on Continue.
+    await page.evaluate(() => window.__craft.game!.save());
+    await page.evaluate(() => {
+      window.__craft.game!.save = () => undefined;
+      const save = JSON.parse(localStorage.getItem("craft.save.v1")!);
+      save.player.position = { x: 1e16, y: 80, z: -1e16 };
+      localStorage.setItem("craft.save.v1", JSON.stringify(save));
+    });
+    await page.reload();
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await waitForTerrain(page);
+    expect(await page.evaluate(() => ({ ...window.__craft.game!.body.position }))).toMatchObject({ x: 30_000_000, z: -30_000_000 });
+    const f2 = await frame();
+    await expect.poll(frame).toBeGreaterThan(f2 + 5);
   });
 });

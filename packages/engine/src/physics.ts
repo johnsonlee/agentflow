@@ -1,3 +1,4 @@
+import { clampPosition } from "./math";
 import { blockById, blockId, isSolid } from "./blocks";
 import type { Vec3 } from "./math";
 
@@ -69,13 +70,28 @@ export function playerBox(p: Vec3): Box {
   return bodyBox(p);
 }
 
-/** True if any solid block intersects the box. */
+/** Largest box span (in blocks, per axis) any body can have; bigger spans mean corrupt input. */
+const MAX_BOX_SPAN = 8;
+
+/**
+ * True if any solid block intersects the box. Loops run over integer offsets with a bounded count,
+ * so non-finite or enormous coordinates (where x++ stops changing x) can never hang; such a box
+ * counts as colliding.
+ */
 export function boxCollides(getBlock: BlockGetter, b: Box): boolean {
   const eps = 1e-6;
-  for (let y = Math.floor(b.minY + eps); y <= Math.floor(b.maxY - eps); y++) {
-    for (let z = Math.floor(b.minZ + eps); z <= Math.floor(b.maxZ - eps); z++) {
-      for (let x = Math.floor(b.minX + eps); x <= Math.floor(b.maxX - eps); x++) {
-        if (isSolid(getBlock(x, y, z))) return true;
+  const x0 = Math.floor(b.minX + eps), x1 = Math.floor(b.maxX - eps);
+  const y0 = Math.floor(b.minY + eps), y1 = Math.floor(b.maxY - eps);
+  const z0 = Math.floor(b.minZ + eps), z1 = Math.floor(b.maxZ - eps);
+  const nx = x1 - x0, ny = y1 - y0, nz = z1 - z0;
+  if (!(nx >= 0 && nx <= MAX_BOX_SPAN && ny >= 0 && ny <= MAX_BOX_SPAN && nz >= 0 && nz <= MAX_BOX_SPAN)) {
+    // NaN, Infinity or a span that floating point can't represent: treat as blocked.
+    return !(nx < 0 || ny < 0 || nz < 0);
+  }
+  for (let j = 0; j <= ny; j++) {
+    for (let k = 0; k <= nz; k++) {
+      for (let i = 0; i <= nx; i++) {
+        if (isSolid(getBlock(x0 + i, y0 + j, z0 + k))) return true;
       }
     }
   }
@@ -100,8 +116,11 @@ export function moveAxis(
   height = PLAYER_HEIGHT,
 ): boolean {
   if (delta === 0) return false;
-  // Sub-step so fast movement never tunnels through a block.
-  const steps = Math.ceil(Math.abs(delta) / 0.45);
+  if (!Number.isFinite(delta) || !Number.isFinite(p[axis])) return true;
+  // Sub-step so fast movement never tunnels through a block; a frame never moves more than
+  // MAX_STEPS sub-steps (far beyond terminal velocity), so a bad delta can't loop for long.
+  const MAX_STEPS = 256;
+  const steps = Math.min(MAX_STEPS, Math.ceil(Math.abs(delta) / 0.45));
   const step = delta / steps;
   for (let i = 0; i < steps; i++) {
     const before = p[axis];
@@ -147,6 +166,8 @@ export function substeps(dt: number): { n: number; h: number } {
 export function stepPlayer(getBlock: BlockGetter, body: PlayerBody, input: MoveInput, dt: number): void {
   const { n, h } = substeps(dt);
   for (let i = 0; i < n; i++) stepPlayerOnce(getBlock, body, input, h);
+  // Never leave the world (the border is a wall, as in Minecraft).
+  clampPosition(body.position);
 }
 
 function stepPlayerOnce(getBlock: BlockGetter, body: PlayerBody, input: MoveInput, dt: number): void {
