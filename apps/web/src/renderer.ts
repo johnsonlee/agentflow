@@ -22,6 +22,9 @@ export class WorldRenderer {
   private readonly dirty = new Set<string>();
   /** Sky-light multiplier for the chunk shader (1 at noon, 0.2 at night). */
   private readonly daylight = { value: 1 };
+  /** Light carried by the player (a held glow stick): level 0-15 and the eye position. */
+  private readonly heldLight = { value: 0 };
+  private readonly heldPos = { value: new THREE.Vector3() };
   private readonly uv: UvLookup;
   private readonly selection: THREE.LineSegments;
   private readonly crack: THREE.Mesh;
@@ -63,10 +66,18 @@ export class WorldRenderer {
     for (const m of [this.solidMaterial, this.liquidMaterial]) {
       m.onBeforeCompile = (shader) => {
         shader.uniforms.uDaylight = this.daylight;
-        shader.fragmentShader = `uniform float uDaylight;\n${shader.fragmentShader}`.replace(
+        shader.uniforms.uHeldLight = this.heldLight;
+        shader.uniforms.uHeldPos = this.heldPos;
+        shader.vertexShader = `varying vec3 vWorldPos;\n${shader.vertexShader}`.replace(
+          "#include <project_vertex>",
+          "#include <project_vertex>\nvWorldPos = (modelMatrix * vec4(transformed, 1.0)).xyz;",
+        );
+        shader.fragmentShader = `uniform float uDaylight;\nuniform float uHeldLight;\nuniform vec3 uHeldPos;\nvarying vec3 vWorldPos;\n${shader.fragmentShader}`.replace(
           "#include <color_fragment>",
           `#ifdef USE_COLOR
-            float lightLevel = max(vColor.g * uDaylight, vColor.b);
+            // Dynamic light from a held glow stick: level minus distance, like a block light.
+            float held = clamp((uHeldLight - distance(vWorldPos, uHeldPos)) / 15.0, 0.0, 1.0);
+            float lightLevel = max(max(vColor.g * uDaylight, vColor.b), held);
             float dark = 1.0 - lightLevel;
             // Minecraft-like brightness curve, with a little ambient light so caves aren't pitch black.
             diffuseColor.rgb *= vColor.r * mix(0.05, 1.0, (1.0 - dark) / (dark * 3.0 + 1.0));
@@ -187,6 +198,12 @@ export class WorldRenderer {
       const stage = Math.min(9, Math.floor(breakProgress * 10));
       (this.crack.material as THREE.MeshBasicMaterial).map = this.crackTextures[stage];
     }
+  }
+
+  /** Sets the light the player carries (a held glow stick): level 0-15 at a position; 0 = none. */
+  setHeldLight(level: number, at: { x: number; y: number; z: number }): void {
+    this.heldLight.value = level;
+    this.heldPos.value.set(at.x, at.y, at.z);
   }
 
   render(sky: SkyState, underwater: boolean, dt: number): void {

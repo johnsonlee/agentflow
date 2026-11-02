@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  blockAt, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, look, mixSuperFertilizer, parkMouse, pressMouse, reduceSand,
+  blockAt, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, giveLabProducts, labProductEffects, look, mixSuperFertilizer, parkMouse, pressMouse, reduceSand,
   settle, snap, target,
 } from "./helpers";
 
@@ -82,5 +82,22 @@ test.describe("PC browser: Education Edition chemistry", () => {
     await expect(inv.locator('[data-block="element_constructor"]')).toHaveCount(1);
     await close(page);
     await expect(page.locator(".hotbar .slot.selected img")).toHaveAttribute("alt", "Water");
+  });
+
+  test("survival: lab products work — fertilizer, ice bomb, heat block, underwater torch, glow stick", async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    await createWorld(page, { mode: "survival" });
+    await settle(page);
+    await giveLabProducts(page);
+    await labProductEffects(page, async (slot, yaw) => {
+      await page.keyboard.press(`Digit${slot + 1}`);
+      await parkMouse(page);
+      await look(page, yaw, -1.2);
+      const hit = (await target(page))!;
+      await pressMouse(page, "right");
+      await page.waitForTimeout(350);
+      return hit;
+    });
+    await snap(page, testInfo, "65-lab-product-effects");
   });
 });

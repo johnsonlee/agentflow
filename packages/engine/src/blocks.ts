@@ -43,6 +43,8 @@ export interface BlockDef {
   light?: number;
   /** Needs a solid block underneath (plants). */
   needsSupport?: boolean;
+  /** Torch-shaped light that can be placed in water (the underwater torch, glow sticks). */
+  waterproof?: boolean;
 }
 
 function faces(top: string, side = top, bottom = top): BlockFaces {
@@ -104,6 +106,11 @@ const specs: BlockSpec[] = [
   { name: "compound_creator", displayName: "Compound Creator", faces: faces("chem_station_top", "compound_creator_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
   { name: "material_reducer", displayName: "Material Reducer", faces: faces("chem_station_top", "material_reducer_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
   { name: "lab_table", displayName: "Lab Table", faces: faces("chem_station_top", "lab_table_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
+  // Lab Table products once placed (the items place these; breaking one gives the item back), and ice.
+  { name: "ice", displayName: "Ice", faces: faces("ice"), hardness: 0.75, tool: "pickaxe" },
+  { name: "placed_heat_block", displayName: "Heat Block", faces: faces("heat_block"), hardness: 1.5, creative: false, emissive: true, light: 7 },
+  { name: "placed_underwater_torch", displayName: "Underwater Torch", faces: faces("underwater_torch_block"), solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 14, waterproof: true, creative: false },
+  { name: "placed_glow_stick", displayName: "Glow Stick", faces: faces("glow_stick_block"), solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 10, waterproof: true, creative: false },
 ];
 
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, ...s }, id) => ({

@@ -3,7 +3,7 @@
  * {@link ITEM_ID_BASE}, so one numeric id space covers inventory stacks while chunk
  * arrays keep holding block ids only.
  */
-import { BLOCKS, blockById } from "./blocks";
+import { BLOCKS, blockById, blockId } from "./blocks";
 import { COMPOUNDS, ELEMENTS, LAB_REACTIONS, elementItemName, isotopeItemName } from "./chemistry-data";
 
 export const ITEM_ID_BASE = 256;
@@ -33,6 +33,8 @@ export interface ItemDef {
   /** Texture tile drawn as the item's icon. */
   icon: string;
   tool?: ToolSpec;
+  /** Block this item places (Lab Table products such as the heat block and glow stick). */
+  places?: string;
   /** Chemistry: element (atomic number), isotope (plus mass number), compound (formula) or lab product. */
   chem?: { kind: "element" | "isotope" | "compound" | "product"; z?: number; symbol?: string; mass?: number; formula?: string };
   /**
@@ -72,6 +74,9 @@ function material(name: string, displayName: string, food?: ItemDef["food"]): Om
 const TOOL_KINDS = ["pickaxe", "axe", "shovel", "sword"] as const;
 
 // Append only: item ids are positional and stored in saves.
+/** Lab Table products that are placed as blocks (`placed_<name>`). */
+const PLACED_PRODUCTS = new Set(["heat_block", "underwater_torch", "glow_stick"]);
+
 const specs: Omit<ItemDef, "id">[] = [
   { name: "stick", displayName: "Stick", maxStack: MAX_STACK, icon: "item_stick" },
   ...(["wooden", "stone"] as const).flatMap((m) => TOOL_KINDS.map((k) => tool(m, k))),
@@ -108,6 +113,7 @@ const specs: Omit<ItemDef, "id">[] = [
   })),
   ...LAB_REACTIONS.map((r) => ({
     name: r.product, displayName: r.displayName, maxStack: MAX_STACK, icon: `item_product_${r.product}`, chem: { kind: "product" as const },
+    places: PLACED_PRODUCTS.has(r.product) ? `placed_${r.product}` : undefined,
   })),
 ];
 
@@ -162,7 +168,10 @@ export function foodOf(id: number | undefined | null): ItemDef["food"] | null {
 }
 
 /** Minecraft drops that differ from the block itself (coal ore -> coal, diamond ore -> diamond, bookshelf -> 3 books). */
-const BLOCK_ITEM_DROPS: Record<string, string> = { coal_ore: "coal", diamond_ore: "diamond", bookshelf: "book" };
+const BLOCK_ITEM_DROPS: Record<string, string> = {
+  coal_ore: "coal", diamond_ore: "diamond", bookshelf: "book",
+  placed_heat_block: "heat_block", placed_underwater_torch: "underwater_torch", placed_glow_stick: "glow_stick",
+};
 const BLOCK_DROP_COUNTS: Record<string, number> = { bookshelf: 3 };
 
 /** How many of `dropOf(block)` a harvested block gives. */
@@ -176,6 +185,13 @@ export function dropOf(blockIdValue: number): number {
   const item = BLOCK_ITEM_DROPS[def.name];
   if (item) return itemId(item);
   return def.drop ?? def.id;
+}
+
+/** Block id an item places, or null (blocks place themselves). */
+export function placedBlockOf(id: number): number | null {
+  if (!isItem(id)) return id;
+  const places = itemById(id).places;
+  return places ? blockId(places) : null;
 }
 
 export function toolOf(id: number | undefined | null): ToolSpec | null {

@@ -197,6 +197,23 @@ function station(panel: string, emblem: (t: Tile, ink: Rgb) => void): (t: Tile) 
 }
 
 export const CHEMISTRY_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
+  // Pale blue, slightly streaked.
+  ice: (t) => t.fill((x, y) => ((x * 3 + y * 5) % 11 === 0 ? hex("#e8f6ff") : t.pick(["#9cc8f2", "#8fbdea", "#a9d2f6"].map(hex)))),
+  // A glowing orange block with a dark frame.
+  heat_block: (t) => t.fill((x, y) => (x === 0 || y === 0 || x === S - 1 || y === S - 1 ? hex("#7a3410") : t.pick(["#ff8a1c", "#ffb347", "#f07020"].map(hex)))),
+  // A torch-shaped stick with a magnesium-white flame.
+  underwater_torch_block: (t) => {
+    t.fill(() => null);
+    for (let y = 7; y < S; y++) for (let x = 7; x <= 8; x++) t.set(x, y, hex(x === 7 ? "#4a6fa8" : "#35528a"));
+    for (let y = 4; y <= 6; y++) for (let x = 7; x <= 8; x++) t.set(x, y, hex(y === 4 ? "#ffffff" : "#d9f0ff"));
+    return t;
+  },
+  // An upright green glowing tube.
+  glow_stick_block: (t) => {
+    t.fill(() => null);
+    for (let y = 5; y < S; y++) for (let x = 7; x <= 8; x++) t.set(x, y, hex(y === 5 ? "#2b2b2b" : x === 7 ? "#b4ffb9" : "#5cff6a"));
+    return t;
+  },
   chem_station_top: (t) => {
     const metal = ["#b9c0c6", "#a8b0b6", "#c8ced3"].map(hex);
     t.noise(metal, 1.4);

@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  blockAt, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, look, mixSuperFertilizer, reduceSand, settle, snap, target,
+  blockAt, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, giveLabProducts, labProductEffects, look, mixSuperFertilizer, reduceSand, settle, snap, target,
 } from "./helpers";
 
 /** Real touch through CDP; the release is sent without waiting for the press to be handled. */
@@ -63,5 +63,23 @@ test.describe("Mobile browser (touch): Education Edition chemistry", () => {
     await mixSuperFertilizer(page, (l) => l.tap());
     await snap(page, testInfo, "63-touch-lab-table-fertilizer");
     await close();
+  });
+
+  test("survival: lab products used with taps", async ({ page }, testInfo) => {
+    test.setTimeout(240_000);
+    await createWorld(page, { mode: "survival" });
+    await settle(page);
+    await giveLabProducts(page);
+    const touch = await finger(page);
+    const vp = page.viewportSize()!;
+    await labProductEffects(page, async (slot, yaw) => {
+      await page.locator(`.hotbar .slot[data-slot="${slot}"]`).tap();
+      await look(page, yaw, -1.2);
+      const hit = (await target(page))!;
+      await touch.tap(vp.width * 0.65, vp.height * 0.45);
+      await page.waitForTimeout(350);
+      return hit;
+    });
+    await snap(page, testInfo, "65-touch-lab-product-effects");
   });
 });

@@ -4,7 +4,7 @@ import {
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
-  facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
+  facingTowards, useLabProduct, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
@@ -29,6 +29,10 @@ const FURNACE = blockId("furnace");
 const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
   (["element_constructor", "compound_creator", "material_reducer", "lab_table"] as const).map((k) => [blockId(k), k]),
 );
+
+const GLOW_STICK = stackId("glow_stick");
+/** Light level of a held glow stick (as when placed). */
+const HELD_GLOW_LIGHT = blockById(blockId("placed_glow_stick")).light ?? 0;
 
 const furnaceKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
 /** Seconds per Agent action (Education Edition animates each step). */
@@ -73,6 +77,8 @@ export class Game {
   paused = false;
   dead = false;
   fps = 0;
+  /** Light level carried by the player this frame (a held glow stick), 0 = none. */
+  heldLight = 0;
 
   private readonly name: string;
   private readonly keyboard: KeyboardMouseInput;
@@ -375,6 +381,9 @@ export class Game {
     this.hud.setUnderwater(underwater);
     this.hud.update(this.inventory, this.mode, this.health, this.hunger.food, dt);
     this.renderer.setSelection(this.target, this.breakProgress);
+    // A held glow stick lights the area around the player (Education Edition).
+    this.heldLight = this.inventory.selectedStack()?.id === GLOW_STICK ? HELD_GLOW_LIGHT : 0;
+    this.renderer.setHeldLight(this.heldLight, cam.position);
     this.renderer.render(skyAt(this.timeOfDay), underwater, dt);
     this.hud.setDebug(this.debugText());
 
@@ -500,6 +509,17 @@ export class Game {
       this.openFurnace = key;
       this.openInventory("furnace");
       return;
+    }
+
+    // Lab Table products with a use effect: the ice bomb freezes water, super fertilizer grows plants.
+    if (place && t && this.placeCooldown === 0 && held) {
+      const changed = useLabProduct(this.world, held.id, t);
+      if (changed >= 0) {
+        this.placeCooldown = 0.25;
+        if (changed > 0 && this.mode === "survival") this.inventory.takeSelected();
+        if (changed === 0) this.hud.message(`The ${displayNameOf(held.id)} has nothing to act on here`);
+        return;
+      }
     }
 
     if (place && t && this.placeCooldown === 0 && held && chalkboardSizeOf(held.id)) {

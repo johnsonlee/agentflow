@@ -1,6 +1,7 @@
 import { AIR, BLOCKS, blockById, blockId, isOpaque } from "./blocks";
 import type { Inventory } from "./inventory";
-import { dropCount, dropOf, isItem, toolOf, type ToolSpec } from "./items";
+import { dropCount, dropOf, placedBlockOf, toolOf, type ToolSpec } from "./items";
+import { meltAround } from "./labeffects";
 import { bodyOverlapsBlock } from "./physics";
 import type { Vec3 } from "./math";
 import type { World } from "./world";
@@ -10,6 +11,7 @@ export type GameMode = "creative" | "survival";
 const ALLOW = blockId("allow");
 const DENY = blockId("deny");
 const WATER = blockId("water");
+const HEAT_BLOCK = blockId("placed_heat_block");
 
 /**
  * Education Edition Allow/Deny semantics: building is permitted above an Allow block
@@ -88,10 +90,12 @@ export function placeBlock(
   playerFeet: Vec3,
 ): boolean {
   const stack = inventory.selectedStack();
-  if (!stack || isItem(stack.id)) return false;
+  // Items place nothing, except Lab Table products that place a block (heat block, glow stick, ...).
+  const placed = stack ? placedBlockOf(stack.id) : null;
+  if (!stack || placed === null) return false;
   const target = world.getBlock(x, y, z);
   if (target !== AIR && target !== WATER && !BLOCKS[target].needsSupport) return false;
-  const def = blockById(stack.id);
+  const def = blockById(placed);
   if (def.solid && bodyOverlapsBlock(playerFeet, x, y, z)) return false;
   if (def.needsSupport) {
     const below = blockById(world.getBlock(x, y - 1, z));
@@ -99,11 +103,14 @@ export function placeBlock(
   }
   // Torches stand on a block top or hang on a block side (never on a ceiling), as in Minecraft.
   if (def.shape === "torch") {
+    // Only the underwater torch and glow sticks work in water (Education Edition).
+    if (target === WATER && !def.waterproof) return false;
     const sides = [[0, -1, 0], [1, 0, 0], [-1, 0, 0], [0, 0, 1], [0, 0, -1]];
     if (!sides.some(([dx, dy, dz]) => isOpaque(world.getBlock(x + dx, y + dy, z + dz)))) return false;
   }
   if (!canBuildAt(world, mode, x, y, z)) return false;
-  world.setBlock(x, y, z, stack.id);
+  world.setBlock(x, y, z, placed);
+  if (placed === HEAT_BLOCK) meltAround(world, x, y, z);
   if (mode === "survival") inventory.takeSelected();
   return true;
 }

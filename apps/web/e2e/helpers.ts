@@ -577,3 +577,90 @@ export async function mixSuperFertilizer(page: Page, press: (l: Locator) => Prom
   expect(await countStack(page, "ammonia")).toBe(0);
   expect(await countStack(page, "phosphorus")).toBe(0);
 }
+
+/** Test setup: sets a block directly in the world (to stage water, snow or grass next to the player). */
+export function setBlock(page: Page, x: number, y: number, z: number, name: string) {
+  return page.evaluate(([bx, by, bz, n]) => window.__craft.game!.world.setBlock(bx as number, by as number, bz as number, window.__craft.blockId(n as string)), [x, y, z, name] as const);
+}
+
+/** Counts blocks named `names` within `r` (x/z) and ±2 (y) of a point. */
+export function countBlocksNear(page: Page, at: { x: number; y: number; z: number }, names: string[], r = 4) {
+  return page.evaluate(([p, ns, rr]) => {
+    const ids = (ns as string[]).map((n) => window.__craft.blockId(n));
+    const pt = p as { x: number; y: number; z: number };
+    let n = 0;
+    for (let x = -rr; x <= rr; x++) for (let z = -rr; z <= rr; z++) for (let y = -2; y <= 2; y++) {
+      if (ids.includes(window.__craft.game!.world.getBlock(pt.x + x, pt.y + y, pt.z + z))) n++;
+    }
+    return n;
+  }, [at, names, r] as const);
+}
+
+/** Survival kit for the lab products. Slots: 0 super fertilizer, 1 ice bomb, 2 heat block, 3 underwater torch, 4 glow stick, 5 torch. */
+export async function giveLabProducts(page: Page) {
+  for (const c of ["super_fertilizer 2", "ice_bomb 2", "heat_block", "underwater_torch", "glow_stick 2", "torch"]) await command(page, `/give ${c}`);
+  expect(await countStack(page, "glow_stick")).toBe(2);
+}
+
+/**
+ * The five Lab Table product effects. `use(slot, yaw)` selects a hotbar slot, aims down at `yaw`
+ * and uses the held item once; it returns the targeted block.
+ */
+export async function labProductEffects(page: Page, use: (slot: number, yaw: number) => Promise<{ x: number; y: number; z: number }>) {
+  const aim = async (yaw: number) => {
+    await look(page, yaw, -1.2);
+    return (await target(page))!;
+  };
+  // Super fertilizer on grass: plants grow around it.
+  let hit = await aim(0);
+  for (let x = -3; x <= 3; x++) for (let z = -3; z <= 3; z++) {
+    await setBlock(page, hit.x + x, hit.y, hit.z + z, "grass");
+  }
+  await use(0, 0);
+  await expect.poll(() => countBlocksNear(page, { x: hit.x, y: hit.y + 1, z: hit.z }, ["tall_grass", "dandelion", "poppy"])).toBeGreaterThan(0);
+  expect(await countStack(page, "super_fertilizer")).toBe(1);
+  // Clear each stage's results so later aims hit the ground.
+  const clearAbove = async (p: { x: number; y: number; z: number }) => {
+    for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) await setBlock(page, p.x + x, p.y + 1, p.z + z, "air");
+  };
+  await clearAbove(hit);
+
+  // Ice bomb on a pool: the water freezes.
+  hit = await aim(Math.PI / 2);
+  for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) await setBlock(page, hit.x + x, hit.y + 1, hit.z + z, "water");
+  await use(1, Math.PI / 2);
+  await expect.poll(() => countBlocksNear(page, { x: hit.x, y: hit.y + 1, z: hit.z }, ["ice"], 1)).toBe(9);
+  expect(await countStack(page, "ice_bomb")).toBe(1);
+  await clearAbove(hit);
+
+  // Heat block: placed next to snow and ice, it melts them.
+  hit = await aim(Math.PI);
+  const at = { x: hit.x + hit.normal.x, y: hit.y + hit.normal.y, z: hit.z + hit.normal.z };
+  await setBlock(page, at.x + 1, at.y, at.z, "snow");
+  await setBlock(page, at.x - 1, at.y, at.z, "ice");
+  await use(2, Math.PI);
+  await expect.poll(() => page.evaluate((p) => window.__craft.game!.world.getBlock(p.x, p.y, p.z), at)).toBe(await page.evaluate(() => window.__craft.blockId("placed_heat_block")));
+  const blockAtP = (p: { x: number; y: number; z: number }) => page.evaluate((q) => window.__craft.game!.world.getBlock(q.x, q.y, q.z), p);
+  expect(await blockAtP({ ...at, x: at.x + 1 })).toBe(0);
+  expect(await blockAtP({ ...at, x: at.x - 1 })).toBe(await page.evaluate(() => window.__craft.blockId("water")));
+
+  // Underwater torch: a plain torch can't go in water, the underwater torch can, and it lights the water.
+  hit = await aim(-Math.PI / 2);
+  const wet = { x: hit.x + hit.normal.x, y: hit.y + hit.normal.y, z: hit.z + hit.normal.z };
+  await setBlock(page, wet.x, wet.y, wet.z, "water");
+  await use(5, -Math.PI / 2);
+  await page.waitForTimeout(300);
+  expect(await countStack(page, "torch")).toBe(1);
+  await use(3, -Math.PI / 2);
+  await expect.poll(() => page.evaluate((p) => window.__craft.game!.world.getBlock(p.x, p.y, p.z), wet)).toBe(await page.evaluate(() => window.__craft.blockId("placed_underwater_torch")));
+  expect(await page.evaluate((p) => window.__craft.game!.world.getLight(p.x, p.y + 1, p.z) & 15, wet)).toBe(13);
+
+  // Glow stick: held, it lights the player's surroundings; placed, it emits block light.
+  expect(await page.evaluate(() => window.__craft.game!.heldLight)).toBe(0);
+  const lit = await use(4, -Math.PI / 4);
+  await expect.poll(() => page.evaluate(() => window.__craft.game!.heldLight)).toBe(10);
+  const glow = await page.evaluate(() => window.__craft.blockId("placed_glow_stick"));
+  await expect.poll(() => countBlocksNear(page, lit, ["placed_glow_stick"], 2)).toBe(1);
+  expect(await countStack(page, "glow_stick")).toBe(1);
+  expect(glow).toBeGreaterThan(0);
+}
