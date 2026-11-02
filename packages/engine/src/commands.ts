@@ -11,6 +11,8 @@ export type Command =
   | { type: "summon"; kind: MobKind; name?: string }
   | { type: "gamerule"; rule: "doMobSpawning" | "doDaylightCycle"; value: boolean }
   | { type: "seed" }
+  | { type: "agent"; action: "tp" }
+  | { type: "code"; command: string }
   | { type: "help" }
   | { type: "error"; message: string };
 
@@ -26,6 +28,8 @@ export const COMMAND_HELP = [
   "/summon <pig|sheep|chicken|zombie|npc> [name]",
   "/gamerule <doMobSpawning|doDaylightCycle> <true|false>",
   "/seed",
+  "/agent tp  (bring your Agent to you)",
+  "/code <name>  (run a Code Builder program by its chat command)",
 ];
 
 /** Parses a slash command typed into chat (a subset of Minecraft's commands). */
@@ -62,6 +66,12 @@ export function parseCommand(input: string): Command {
       if (!Number.isInteger(count) || count < 1 || count > 2304) return { type: "error", message: "Count must be 1-2304" };
       return { type: "give", id: def.id, count };
     }
+    case "agent":
+      if (args[0] === undefined || args[0] === "tp" || args[0] === "summon") return { type: "agent", action: "tp" };
+      return { type: "error", message: "Usage: /agent tp" };
+    case "code":
+      if (!args[0]) return { type: "error", message: "Usage: /code <name>" };
+      return { type: "code", command: args[0].toLowerCase() };
     case "summon": {
       const kind = (args[0] ?? "").toLowerCase().replace(/^minecraft:/, "");
       if (kind !== "pig" && kind !== "sheep" && kind !== "chicken" && kind !== "npc" && kind !== "zombie") {

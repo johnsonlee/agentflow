@@ -22,3 +22,5 @@ export * from "./light";
 export * from "./pathfind";
 export * from "./chalkboard";
 export * from "./books";
+export * from "./agent";
+export * from "./codebuilder";

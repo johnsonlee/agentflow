@@ -4,7 +4,8 @@ import {
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
-  facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, type FurnaceState, type HungerState,
+  facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
+  type AgentState, type CodeProgram, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -12,6 +13,7 @@ import { ChatInput, Hud, InventoryScreen, type InventoryKind } from "./hud";
 import { MobManager } from "./mobs";
 import { BookScreen, ChalkboardDialog, NpcDialog, Portfolio, PortfolioScreen } from "./screens";
 import { ChalkboardViews } from "./chalkboards";
+import { AgentView } from "./agentView";
 import { WorldRenderer } from "./renderer";
 
 export const SAVE_KEY = "craft.save.v1";
@@ -23,6 +25,9 @@ const CRAFTING_TABLE = blockId("crafting_table");
 const FURNACE = blockId("furnace");
 
 const furnaceKey = (x: number, y: number, z: number) => `${x},${y},${z}`;
+/** Seconds per Agent action (Education Edition animates each step). */
+export const AGENT_STEP_SECONDS = 0.3;
+const PROGRAM_TIMEOUT_SECONDS = 300;
 
 export interface GameOptions {
   name: string;
@@ -76,6 +81,14 @@ export class Game {
   readonly chalkboards = new Map<string, Chalkboard>();
   private readonly chalkCells = new Map<string, string>();
   private readonly chalkViews: ChalkboardViews;
+  /** Education Edition Agent and Code Builder programs. */
+  agent: AgentState;
+  programs: CodeProgram[];
+  private readonly agentView: AgentView;
+  private runner: ProgramRunner | null = null;
+  private runnerName = "";
+  private stepTimer = 0;
+  private runnerStarted = 0;
   private mobTarget: Mob | null = null;
   private attackCooldown = 0;
   private clock = 0;
@@ -148,6 +161,9 @@ export class Game {
     this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen));
     this.chalkViews = new ChalkboardViews(this.renderer.scene);
     for (const b of save?.chalkboards ?? []) this.addChalkboard({ ...b });
+    this.agent = save?.agent ? { ...save.agent, slots: save.agent.slots.map((s) => (s ? { ...s } : null)) } : this.agentNearPlayer();
+    this.programs = save?.programs ?? [];
+    this.agentView = new AgentView(this.renderer.scene, this.agent);
 
     canvas.addEventListener("click", () => {
       if (!this.touch && !this.paused && !this.dead) this.keyboard.requestPointerLock();
@@ -233,6 +249,8 @@ export class Game {
         npcs: this.mobs.exportNpcs(),
         hunger: { ...this.hunger },
         chalkboards: [...this.chalkboards.values()].map((b) => ({ ...b })),
+        agent: { ...this.agent, slots: this.agent.slots.map((s) => (s ? { ...s } : null)) },
+        programs: this.programs,
         furnaces: [...this.furnaces].map(([key, state]) => {
           const [x, y, z] = key.split(",").map(Number);
           return { x, y, z, state };
@@ -308,6 +326,8 @@ export class Game {
       this.eatTimer = 0;
     }
     this.lastPos = { x: this.body.position.x, z: this.body.position.z };
+    if (!this.paused) this.stepAgent(dt);
+    this.agentView.update(dt, AGENT_STEP_SECONDS, this.clock);
     // Furnaces keep smelting while the world runs, even with their screen closed.
     if (!this.paused) {
       for (const f of this.furnaces.values()) tickFurnace(f, dt);
@@ -491,6 +511,73 @@ export class Game {
   chalkboardAt(x: number, y: number, z: number): Chalkboard | null {
     const key = this.chalkCells.get(chalkboardKey(x, y, z));
     return key ? (this.chalkboards.get(key) ?? null) : null;
+  }
+
+  /** A spot next to the player (on their left, Education Edition style), facing where they look. */
+  private agentNearPlayer(): AgentState {
+    const p = this.body.position;
+    const facing = facingTowards(this.body.yaw + Math.PI);
+    return createAgent(p.x - Math.cos(this.body.yaw), Math.floor(p.y), p.z + Math.sin(this.body.yaw), facing);
+  }
+
+  /** /agent tp: brings the Agent next to the player. */
+  teleportAgent(): void {
+    const next = this.agentNearPlayer();
+    Object.assign(this.agent, { x: next.x, y: next.y, z: next.z, facing: next.facing });
+    this.agentView.snap(this.agent);
+  }
+
+  /** Starts a Code Builder program (stopping any running one). */
+  runProgram(program: CodeProgram): void {
+    this.runner?.stop();
+    this.runner = new ProgramRunner(program);
+    this.runnerName = program.name;
+    this.stepTimer = 0;
+    this.runnerStarted = this.clock;
+    this.hud.message(`Running "${program.name}"`);
+  }
+
+  stopProgram(): void {
+    if (!this.runner) return;
+    this.runner.stop();
+    this.runner = null;
+    this.hud.message(`Stopped "${this.runnerName}"`);
+  }
+
+  get programRunning(): boolean {
+    return this.runner !== null;
+  }
+
+  /** Executes one Agent command every AGENT_STEP_SECONDS while a program runs. */
+  private stepAgent(dt: number): void {
+    const runner = this.runner;
+    if (!runner) return;
+    if (this.clock - this.runnerStarted > PROGRAM_TIMEOUT_SECONDS) {
+      this.runner = null;
+      this.hud.message(`"${this.runnerName}" stopped: it ran for more than ${PROGRAM_TIMEOUT_SECONDS} s`);
+      return;
+    }
+    this.stepTimer -= dt;
+    if (this.stepTimer > 0) return;
+    this.stepTimer = AGENT_STEP_SECONDS;
+    const cmd = runner.next();
+    if (!cmd) {
+      this.runner = null;
+      this.hud.message(runner.error ? `"${this.runnerName}": ${runner.error}` : `"${this.runnerName}" finished`);
+      return;
+    }
+    const result = runAgentCommand(this.world, this.agent, cmd, {
+      attack: (x, y, z) => {
+        const mob = this.mobs.mobs.find((m) => Math.floor(m.position.x) === x && Math.floor(m.position.z) === z && Math.abs(m.position.y - y) < 1.5);
+        if (!mob) return false;
+        this.mobs.attack(mob, 4, this.body.yaw);
+        return true;
+      },
+      giveToPlayer: (stack) => this.inventory.addStack(stack),
+    });
+    this.agentView.moveTo(this.agent);
+    // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
+    if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
   }
 
   private closeDialog(dialog: { hide(): void }): void {
@@ -739,6 +826,18 @@ export class Game {
       case "seed":
         reply = `Seed: [${this.world.seed}]`;
         break;
+      case "agent":
+        this.teleportAgent();
+        reply = "Teleported the Agent to you";
+        break;
+      case "code": {
+        const program = this.programs.find((p) => p.trigger.type === "chat" && p.trigger.command === cmd.command);
+        if (program) {
+          this.runProgram(program);
+          reply = `Running "${program.name}"`;
+        } else reply = `No Code Builder program runs on "${cmd.command}"`;
+        break;
+      }
       case "help":
         reply = COMMAND_HELP.join("  ·  ");
         break;

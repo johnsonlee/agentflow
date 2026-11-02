@@ -5,6 +5,8 @@ import type { Vec3 } from "./math";
 import type { HungerState } from "./hunger";
 import type { FurnaceState } from "./smelting";
 import type { Chalkboard } from "./chalkboard";
+import type { AgentState } from "./agent";
+import type { CodeProgram } from "./codebuilder";
 
 export const SAVE_VERSION = 1;
 
@@ -23,6 +25,9 @@ export interface SaveData {
   npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
   /** Survival hunger (optional for older saves; defaults to full). */
   hunger?: HungerState;
+  /** Education Edition Agent and Code Builder programs (optional for older saves). */
+  agent?: AgentState;
+  programs?: CodeProgram[];
   /** Education Edition chalkboards (optional for older saves). */
   chalkboards?: Chalkboard[];
   /** Furnaces with their contents and progress (optional for older saves). */
