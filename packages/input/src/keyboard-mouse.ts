@@ -15,6 +15,9 @@ export interface KeyboardMouseOptions {
  * Ctrl sprint, mouse look (pointer lock), left click break, right click place,
  * middle click pick, 1-9 / wheel hotbar.
  */
+/** Larger single-event mouse deltas are treated as pointer-lock glitches, not real movement. */
+const MAX_MOVE_PX = 400;
+
 export class KeyboardMouseInput {
   private readonly keys = new Set<string>();
   private lookX = 0;
@@ -30,6 +33,8 @@ export class KeyboardMouseInput {
   private readonly flyTap = new DoubleTap();
   private readonly sensitivity: number;
   private readonly disposers: Array<() => void> = [];
+  /** Drops the first mouse event after pointer lock is acquired (see {@link onMouseMove}). */
+  private skipNextMove = false;
   enabled = true;
 
   constructor(
@@ -41,6 +46,9 @@ export class KeyboardMouseInput {
     this.listen(window, "keyup", (e) => this.keys.delete((e as KeyboardEvent).code));
     this.listen(window, "blur", () => this.reset());
     this.listen(document, "mousemove", (e) => this.onMouseMove(e as MouseEvent));
+    this.listen(document, "pointerlockchange", () => {
+      if (this.pointerLocked) this.skipNextMove = true;
+    });
     if (options.mouseButtons ?? true) this.listen(target, "mousedown", (e) => this.onMouseDown(e as MouseEvent));
     this.listen(window, "mouseup", (e) => {
       if ((e as MouseEvent).button === 0) this.breaking = false;
@@ -130,6 +138,13 @@ export class KeyboardMouseInput {
     if (!this.enabled) return;
     // With pointer lock use raw deltas; without it, look while a button is held (drag to look).
     if (this.pointerLocked || e.buttons & 4) {
+      // Chromium can report a bogus jump (measured from a stale cursor position) on the first event
+      // after locking, and occasionally later. Such spikes would spin the camera mid-click.
+      const spike = Math.abs(e.movementX) > MAX_MOVE_PX || Math.abs(e.movementY) > MAX_MOVE_PX;
+      if (this.skipNextMove || spike) {
+        this.skipNextMove = false;
+        return;
+      }
       this.lookX += e.movementX;
       this.lookY += e.movementY;
     }

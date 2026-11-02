@@ -139,11 +139,16 @@ export async function trackRise(page: Page): Promise<() => Promise<number>> {
  * hundreds of milliseconds apart on slow CI runners, which exceeds the 300 ms double-tap window.
  */
 export async function doubleTapSpace(page: Page) {
-  await page.evaluate(async () => {
+  await page.evaluate(() => {
     const key = (type: string) => window.dispatchEvent(new KeyboardEvent(type, { code: "Space", key: " ", bubbles: true }));
     key("keydown");
     key("keyup");
-    await new Promise((r) => setTimeout(r, 80));
+    // Busy-wait instead of setTimeout: on a slow runner a timer can fire after a long frame, stretching
+    // the gap past the 300 ms double-tap window.
+    const t = performance.now();
+    while (performance.now() - t < 80) {
+      // spin
+    }
     key("keydown");
     key("keyup");
   });
@@ -184,9 +189,30 @@ export function frames(page: Page, n = 2) {
  * aim after this, then press with {@link pressMouse}.
  */
 export async function parkMouse(page: Page) {
+  // Pointer lock is requested when a screen closes and granted asynchronously; let it settle first so
+  // the lock's first (discarded) mouse event happens here, not during the click.
+  await page.waitForFunction(() => document.pointerLockElement !== null, undefined, { timeout: 2000 }).catch(() => undefined);
   const box = (await page.locator(".game-canvas").boundingBox())!;
   await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
   await frames(page);
+}
+
+/**
+ * Walks towards a mob with the real W key while {@link trackMob} keeps the camera on it, until it is
+ * under the crosshair within reach, as a player would. Returns false if it never came into reach.
+ */
+export async function approachMob(page: Page, id: number, timeout = 20_000) {
+  const targeted = () => page.evaluate((mobId) => window.__craft.game!.targetMob?.id === mobId, id);
+  if (await targeted()) return true;
+  await page.keyboard.down("KeyW");
+  try {
+    await page.waitForFunction((mobId) => window.__craft.game!.targetMob?.id === mobId, id, { timeout, polling: "raf" });
+    return true;
+  } catch {
+    return false;
+  } finally {
+    await page.keyboard.up("KeyW");
+  }
 }
 
 /** A real mouse click where the mouse already is (no travel, so no camera movement). */

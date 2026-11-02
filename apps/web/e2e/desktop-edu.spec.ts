@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { blockAt, bringMob, command, countItem, createWorld, look, mobExists, newestMob, parkMouse, pressMouse, settle, snap, target, trackMob, waitForTerrain } from "./helpers";
+import { approachMob, blockAt, bringMob, command, countItem, createWorld, look, mobExists, newestMob, parkMouse, pressMouse, settle, snap, target, trackMob, waitForTerrain } from "./helpers";
 
 test.describe("PC browser: crafting, mobs and Education Edition features", () => {
   test("survival crafting: planks in the 2x2 grid, then a crafting table that opens a 3x3 grid", async ({ page }, testInfo) => {
@@ -76,9 +76,9 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     await page.waitForTimeout(400);
     await parkMouse(page);
     const stopTracking = await trackMob(page, id);
-    await expect.poll(() => page.evaluate(() => window.__craft.game!.targetMob?.kind ?? null)).toBe("chicken");
-    // It keeps wandering, so a click can land between frames where it slipped off the crosshair.
+    // It keeps wandering (on slow runners, out of the 5-block reach), so walk up to it before each click.
     for (let i = 0; i < 10 && (await mobExists(page, id)); i++) {
+      expect(await approachMob(page, id)).toBe(true);
       await pressMouse(page, "left");
       await page.waitForTimeout(500);
     }
