@@ -4,7 +4,7 @@ import {
   serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
-  facingTowards, useLabProduct, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
+  facingTowards, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
@@ -57,6 +57,7 @@ export interface GameEvents {
 /** Owns the world simulation, player, input and HUD for one play session. */
 export class Game {
   readonly world: World;
+  readonly redstone: Redstone;
   readonly body: PlayerBody;
   readonly renderer: WorldRenderer;
   readonly hud: Hud;
@@ -140,6 +141,9 @@ export class Game {
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
+    // Redstone: component states are blocks (in the edits); pending ticks are saved separately.
+    this.redstone = new Redstone(this.world);
+    if (save) this.redstone.restore(sanitizeScheduled(save.redstone), this.world.exportEdits());
     this.mode = save?.mode ?? options.mode;
     this.timeOfDay = save?.timeOfDay ?? 0.05;
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
@@ -293,6 +297,7 @@ export class Game {
           return { x, y, z, state };
         }),
         gamerules: { doMobSpawning: this.mobs.spawning, doDaylightCycle: this.daylightCycle },
+        redstone: this.redstone.exportScheduled(),
       }));
     } catch {
       // Storage may be full or disabled (private mode); the game keeps running.
@@ -368,6 +373,10 @@ export class Game {
     this.agentView.update(dt, AGENT_STEP_SECONDS, this.clock);
     // Furnaces keep smelting while the world runs, even with their screen closed.
     if (!this.paused) {
+      // Pressure plates under the player and mobs, then redstone ticks (10 per second).
+      const feet = (p: { x: number; y: number; z: number }) => `${Math.floor(p.x)},${Math.floor(p.y + 0.05)},${Math.floor(p.z)}`;
+      this.redstone.updatePlates(new Set([feet(this.body.position), ...this.mobs.mobs.map((m) => feet(m.position))]));
+      this.redstone.update(dt);
       for (const f of this.furnaces.values()) tickFurnace(f, dt);
       this.inventoryScreen.refresh();
     }
@@ -498,6 +507,11 @@ export class Game {
       this.openInventory("crafting_table");
       return;
     }
+    // Levers, buttons, repeaters and wooden doors react to use instead of having a block placed on them.
+    if (place && t && this.placeCooldown === 0 && this.redstone.interact(t.x, t.y, t.z)) {
+      this.placeCooldown = 0.25;
+      return;
+    }
     const station = t ? CHEMISTRY_STATIONS.get(t.id) : undefined;
     if (place && t && this.placeCooldown === 0 && station) {
       this.openInventory(station);
@@ -533,7 +547,9 @@ export class Game {
       const px = replace ? t.x : t.x + t.normal.x;
       const py = replace ? t.y : t.y + t.normal.y;
       const pz = replace ? t.z : t.z + t.normal.z;
-      if (placeBlock(this.world, this.inventory, this.mode, px, py, pz, this.body.position)) this.placeCooldown = 0.15;
+      // Repeaters point, and doors open, the way the player looks.
+      const look = (facingTowards(this.body.yaw) + 2) % 4;
+      if (placeBlock(this.world, this.inventory, this.mode, px, py, pz, this.body.position, look)) this.placeCooldown = 0.15;
     }
 
     if (pick && t && this.mode === "creative" && blockById(t.id).creative) this.inventory.pick(t.id);

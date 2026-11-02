@@ -18,6 +18,7 @@ const B = {
   iron: blockId("iron_ore"),
   gold: blockId("gold_ore"),
   diamond: blockId("diamond_ore"),
+  redstone: blockId("redstone_ore"),
   oakLog: blockId("oak_log"),
   oakLeaves: blockId("oak_leaves"),
   birchLog: blockId("birch_log"),
@@ -123,6 +124,8 @@ export class TerrainGenerator {
     if (y < 28 && r < 0.004) return B.gold;
     if (y < 48 && r < 0.011) return B.iron;
     if (r < 0.022) return B.coal;
+    // Redstone ore (deep, like Minecraft's); a separate hash, so the other ores are unchanged.
+    if (y < 16 && hash3(this.seed ^ 0x3d, x, y, z) < 0.008) return B.redstone;
     return B.stone;
   }
 

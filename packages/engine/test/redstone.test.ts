@@ -212,6 +212,13 @@ describe("Agent, saves and bounds", () => {
     rs2.restore(sanitizeScheduled(saved), world.exportEdits());
     rs2.settle(30);
     expect(name(world, 0, Y, 0)).toBe("stone_button");
+    // A button saved pressed without its pending tick is released after loading.
+    const { world: w3 } = setup();
+    w3.setBlock(0, Y, 0, B("stone_button_on"));
+    const rs3 = new Redstone(w3);
+    rs3.restore([], w3.exportEdits());
+    rs3.settle(30);
+    expect(name(w3, 0, Y, 0)).toBe("stone_button");
     expect(sanitizeScheduled([{ x: 1.5, y: 0, z: 0, due: 1, kind: "torch" }, { x: 0, y: 0, z: 0, due: 1, kind: "__proto__" }, { x: 0, y: 999, z: 0, due: 1, kind: "torch" }, null, 7])).toEqual([]);
     expect(sanitizeScheduled("junk")).toEqual([]);
   });

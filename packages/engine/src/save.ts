@@ -33,6 +33,8 @@ export interface SaveData {
   chalkboards?: Chalkboard[];
   /** Furnaces with their contents and progress (optional for older saves). */
   furnaces?: Array<{ x: number; y: number; z: number; state: FurnaceState }>;
+  /** Pending redstone ticks (optional; sanitized by `sanitizeScheduled` on load). */
+  redstone?: unknown;
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
@@ -99,7 +101,7 @@ export function parseSave(text: string): SaveData {
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true) },
   };
   // Optional sections: passed through for their own sanitizers.
-  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces"] as const) {
+  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone"] as const) {
     const v = own(raw, key);
     if (v !== undefined) (save as unknown as Obj)[key] = v;
   }

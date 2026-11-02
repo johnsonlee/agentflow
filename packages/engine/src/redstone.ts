@@ -6,7 +6,7 @@
  */
 import { FACING_VECTORS, blockId, isOpaque } from "./blocks";
 import { WORLD_HEIGHT } from "./chunk";
-import type { World } from "./world";
+import type { BlockEdit, World } from "./world";
 
 /** Seconds per redstone tick (Minecraft: 0.1 s). */
 export const REDSTONE_TICK = 0.1;
@@ -431,13 +431,13 @@ export class Redstone {
    * Restores after loading: pending ticks (already sanitized), plates left pressed and buttons
    * left pressed without a pending release, from the saved edits.
    */
-  restore(scheduled: readonly ScheduledTick[], edits: ReadonlyArray<{ x: number; y: number; z: number; id: number }>): void {
+  restore(scheduled: readonly ScheduledTick[], edits: readonly BlockEdit[]): void {
     for (const s of scheduled) this.schedule([s.x, s.y, s.z], s.due, s.kind);
-    for (const e of edits) {
-      const info = INFO.get(e.id);
-      if (info?.kind === "plate" && info.on) this.activePlates.add(key(e.x, e.y, e.z));
-      if (info?.kind === "button" && info.on) this.schedule([e.x, e.y, e.z], BUTTON_TICKS, "button");
-      if (info) this.markAround(e.x, e.y, e.z);
+    for (const [x, y, z, id] of edits) {
+      const info = INFO.get(id);
+      if (info?.kind === "plate" && info.on) this.activePlates.add(key(x, y, z));
+      if (info?.kind === "button" && info.on) this.schedule([x, y, z], BUTTON_TICKS, "button");
+      if (info) this.markAround(x, y, z);
     }
   }
 

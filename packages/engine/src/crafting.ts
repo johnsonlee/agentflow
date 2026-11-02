@@ -45,6 +45,15 @@ export const RECIPES: readonly Recipe[] = [
   { id: "snow_block", pattern: ["##", "##"], key: { "#": "snow" }, result: ["snow", 1], note: "Minecraft uses snowballs" },
   { id: "yellow_wool", ingredients: ["dandelion", "white_wool"], result: ["yellow_wool", 1], note: "dandelion stands in for yellow dye" },
   { id: "red_wool", ingredients: ["poppy", "white_wool"], result: ["red_wool", 1], note: "poppy stands in for red dye" },
+  // Redstone (Minecraft recipes).
+  { id: "redstone_torch", pattern: ["R", "|"], key: { R: "redstone", "|": "stick" }, result: ["redstone_torch", 1] },
+  { id: "lever", pattern: ["|", "#"], key: { "|": "stick", "#": "cobblestone" }, result: ["lever", 1] },
+  { id: "stone_button", ingredients: ["stone"], result: ["stone_button", 1] },
+  { id: "stone_pressure_plate", pattern: ["##"], key: { "#": "stone" }, result: ["stone_pressure_plate", 1] },
+  { id: "redstone_lamp", pattern: [" R ", "RGR", " R "], key: { R: "redstone", G: "glowstone" }, result: ["redstone_lamp", 1] },
+  { id: "repeater", pattern: ["TRT", "SSS"], key: { T: "redstone_torch", R: "redstone", S: "stone" }, result: ["repeater", 1] },
+  { id: "wooden_door", pattern: ["##", "##", "##"], key: { "#": "oak_planks" }, result: ["wooden_door", 3] },
+  { id: "iron_door", pattern: ["##", "##", "##"], key: { "#": "iron_ingot" }, result: ["iron_door", 3] },
   // Education Edition glow stick: polyethylene, hydrogen peroxide and a luminescent chemical.
   {
     id: "glow_stick", pattern: ["PLP", "PHP", " P "], key: { P: "polyethylene", L: "luminol", H: "hydrogen_peroxide" }, result: ["glow_stick", 1],

@@ -664,3 +664,104 @@ export async function labProductEffects(page: Page, use: (slot: number, yaw: num
   expect(await countStack(page, "glow_stick")).toBe(1);
   expect(glow).toBeGreaterThan(0);
 }
+
+/** Aims at the middle of the top face of the block at (x, y, z) (so a placed block lands on it). */
+export function aimAtTop(page: Page, x: number, y: number, z: number) {
+  return page.evaluate(([cx, cy, cz]) => {
+    const g = window.__craft.game!;
+    const dx = cx + 0.5 - g.body.position.x;
+    const dz = cz + 0.5 - g.body.position.z;
+    const dy = cy + 0.98 - (g.body.position.y + 1.62);
+    g.body.yaw = Math.atan2(-dx, -dz);
+    g.body.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+  }, [x, y, z] as const);
+}
+
+/** Survival kit for the redstone route. Slots: 0 lever, 1 redstone, 2 lamp, 3 wooden door, 4 stone button, 5 iron door, 6 redstone torch. */
+export async function giveRedstoneKit(page: Page) {
+  for (const c of ["lever", "redstone 2", "redstone_lamp 2", "wooden_door", "stone_button", "iron_door", "redstone_torch"]) await command(page, `/give ${c}`);
+  expect(await countStack(page, "redstone_torch")).toBe(1);
+}
+
+/**
+ * The redstone route on a flattened 9x9 stone pad around the player (test setup):
+ * lever -> 2 dust -> lamp, toggled on and off; a wooden door opened and closed by hand; an iron
+ * door opened by a stone button, closing again after it; a redstone torch lighting a lamp.
+ * `use(slot, aim)` selects a hotbar slot (or none), aims with `aim` and uses (right-click or tap).
+ */
+export async function redstoneRoute(page: Page, use: (slot: number | null, aim: () => Promise<unknown>) => Promise<void>) {
+  const { px, gy, pz } = await page.evaluate(() => {
+    const g = window.__craft.game!;
+    const p = g.body.position;
+    return { px: Math.floor(p.x), gy: Math.floor(p.y + 0.01) - 1, pz: Math.floor(p.z) };
+  });
+  for (let x = -4; x <= 4; x++) for (let z = -4; z <= 4; z++) {
+    await setBlock(page, px + x, gy, pz + z, "stone");
+    for (let y = 1; y <= 3; y++) await setBlock(page, px + x, gy + y, pz + z, "air");
+  }
+  const id = (n: string) => page.evaluate((name) => window.__craft.blockId(name), n);
+  const at = (x: number, y: number, z: number) => page.evaluate(([a, b, c]) => window.__craft.game!.world.getBlock(a, b, c), [x, y, z] as const);
+  const nameAt = (x: number, y: number, z: number) => page.evaluate(([a, b, c]) => {
+    const g = window.__craft.game!;
+    const bid = g.world.getBlock(a, b, c);
+    return window.__craft.blockName(bid);
+  }, [x, y, z] as const);
+  /** Places from `slot` on the pad at (x, z) and checks the block landed there. */
+  const place = async (slot: number, x: number, z: number, expected: RegExp) => {
+    await use(slot, async () => {
+      await aimAtTop(page, px + x, gy, pz + z);
+      await expect.poll(() => target(page)).toMatchObject({ x: px + x, y: gy, z: pz + z });
+    });
+    await expect.poll(() => nameAt(px + x, gy + 1, pz + z)).toMatch(expected);
+    await page.waitForTimeout(250);
+  };
+  const useOn = async (x: number, y: number, z: number) => {
+    await use(null, async () => {
+      await lookAtCell(page, px + x, gy + y, pz + z);
+      await expect.poll(() => target(page)).toMatchObject({ x: px + x, y: gy + y, z: pz + z });
+    });
+    await page.waitForTimeout(300);
+  };
+  const lightAbove = (x: number, z: number) => page.evaluate(([a, b, c]) => window.__craft.game!.world.getLight(a, b, c) & 15, [px + x, gy + 2, pz + z] as const);
+
+  // Lever -> dust -> dust -> lamp (placed far to near so nothing blocks the aim).
+  await place(2, 2, 3, /^redstone_lamp$/);
+  await place(1, 2, 2, /^redstone_wire_0$/);
+  await place(1, 2, 1, /^redstone_wire_0$/);
+  await place(0, 2, 0, /^lever$/);
+  expect(await lightAbove(2, 3)).toBe(0);
+  await useOn(2, 1, 0);
+  await expect.poll(() => nameAt(px + 2, gy + 1, pz + 3)).toBe("redstone_lamp_on");
+  expect(await nameAt(px + 2, gy + 1, pz)).toBe("lever_on");
+  expect(await nameAt(px + 2, gy + 1, pz + 1)).toBe("redstone_wire_15");
+  expect(await nameAt(px + 2, gy + 1, pz + 2)).toBe("redstone_wire_14");
+  await expect.poll(() => lightAbove(2, 3)).toBe(14);
+  await useOn(2, 1, 0);
+  await expect.poll(() => nameAt(px + 2, gy + 1, pz + 3)).toBe("redstone_lamp");
+  await expect.poll(() => lightAbove(2, 3)).toBe(0);
+
+  // Iron door with a stone button beside it: the button opens it, and it closes after a second.
+  await place(5, -2, 2, /^door_iron_lower_\d_0$/);
+  expect(await nameAt(px - 2, gy + 2, pz + 2)).toMatch(/^door_iron_upper_\d_0$/);
+  await place(4, -2, 1, /^stone_button$/);
+  await useOn(-2, 2, 2); // by hand: an iron door doesn't open
+  expect(await nameAt(px - 2, gy + 1, pz + 2)).toMatch(/_0$/);
+  await useOn(-2, 1, 1);
+  await expect.poll(() => nameAt(px - 2, gy + 1, pz + 2)).toMatch(/^door_iron_lower_\d_1$/);
+  await expect.poll(() => nameAt(px - 2, gy + 1, pz + 2), { timeout: 15_000 }).toMatch(/^door_iron_lower_\d_0$/);
+
+  // Wooden door: opened and closed by hand.
+  await place(3, -3, -1, /^door_wooden_lower_\d_0$/);
+  await useOn(-3, 1, -1);
+  await expect.poll(() => nameAt(px - 3, gy + 1, pz - 1)).toMatch(/^door_wooden_lower_\d_1$/);
+  expect(await nameAt(px - 3, gy + 2, pz - 1)).toMatch(/^door_wooden_upper_\d_1$/);
+  await useOn(-3, 2, -1);
+  await expect.poll(() => nameAt(px - 3, gy + 1, pz - 1)).toMatch(/^door_wooden_lower_\d_0$/);
+
+  // A redstone torch powers the lamp next to it.
+  await place(6, -2, -2, /^redstone_torch$/);
+  await place(2, -1, -2, /^redstone_lamp/);
+  await expect.poll(() => nameAt(px - 1, gy + 1, pz - 2)).toBe("redstone_lamp_on");
+  expect(await at(px, gy, pz)).toBe(await id("stone"));
+  return { px, gy, pz };
+}

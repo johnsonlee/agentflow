@@ -1,4 +1,4 @@
-import { blockId, itemTextureNames, parseSave, seedFromString, stackId, textureNames, type GameMode, type SaveData } from "@craft/engine";
+import { BLOCKS, blockId, itemTextureNames, parseSave, seedFromString, stackId, textureNames, type GameMode, type SaveData } from "@craft/engine";
 import { buildAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
 import { Game, SAVE_KEY } from "./game";
@@ -204,7 +204,7 @@ function showDeath(): void {
 // Test / automation hook: lets end-to-end tests observe and drive the game deterministically.
 declare global {
   interface Window {
-    __craft: { readonly game: Game | null; startGame: typeof startGame; blockId: typeof blockId; stackId: typeof stackId; touch: boolean };
+    __craft: { readonly game: Game | null; startGame: typeof startGame; blockId: typeof blockId; blockName: (id: number) => string; stackId: typeof stackId; touch: boolean };
   }
 }
 window.__craft = {
@@ -213,6 +213,7 @@ window.__craft = {
   },
   startGame,
   blockId,
+  blockName: (id: number) => (BLOCKS[id] ? BLOCKS[id].name : "?"),
   stackId,
   touch,
 };

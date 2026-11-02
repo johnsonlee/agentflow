@@ -57,8 +57,11 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
     for (let i = 0; i < 3; i++) ctx.fillRect(x + 7, y + 8 + i * 6, (w - 14) * (1 - i * 0.25), 2);
   } else if (!def) {
     ctx.drawImage(tileCanvas(atlas, itemById(id).icon), 0, 0, size, size);
-  } else if (def.shape === "cross") {
+  } else if (def.shape === "cross" || def.shape === "torch") {
     ctx.drawImage(tileCanvas(atlas, def.faces.side), size * 0.1, size * 0.1, size * 0.8, size * 0.8);
+  } else if (def.shape === "box") {
+    // Flat redstone parts (plates, buttons, repeaters): their top texture.
+    ctx.drawImage(tileCanvas(atlas, def.faces.top), size * 0.15, size * 0.15, size * 0.7, size * 0.7);
   } else {
     const s = size;
     const k = s / 32;
