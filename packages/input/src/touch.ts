@@ -8,7 +8,7 @@ export interface TouchControlsOptions {
   radius?: number;
 }
 
-interface LookTouch {
+interface LookPointer {
   id: number;
   startX: number;
   startY: number;
@@ -23,6 +23,9 @@ interface LookTouch {
  * Mobile controls modelled on Minecraft Bedrock/Education touch layout:
  * a floating virtual joystick on the left half, camera drag on the right,
  * tap to place, press-and-hold to break, plus jump / fly / descend buttons.
+ *
+ * Built on Pointer Events, so the same controls answer to touch, mouse and pen. Each active pointer
+ * is tracked by id, which keeps multi-touch (stick + look + buttons at once) working.
  */
 export class TouchControls {
   readonly root: HTMLElement;
@@ -33,7 +36,7 @@ export class TouchControls {
   private stickId: number | null = null;
   private stickOrigin = { x: 0, y: 0 };
   private stick = { x: 0, y: 0 };
-  private look: LookTouch | null = null;
+  private look: LookPointer | null = null;
   private lookX = 0;
   private lookY = 0;
   private place = false;
@@ -67,15 +70,15 @@ export class TouchControls {
     this.root.appendChild(buttons);
     container.appendChild(this.root);
 
-    stickZone.addEventListener("touchstart", (e) => this.onStickStart(e), { passive: false });
-    stickZone.addEventListener("touchmove", (e) => this.onStickMove(e), { passive: false });
-    stickZone.addEventListener("touchend", (e) => this.onStickEnd(e));
-    stickZone.addEventListener("touchcancel", (e) => this.onStickEnd(e));
+    stickZone.addEventListener("pointerdown", (e) => this.onStickStart(e));
+    stickZone.addEventListener("pointermove", (e) => this.onStickMove(e));
+    stickZone.addEventListener("pointerup", (e) => this.onStickEnd(e));
+    stickZone.addEventListener("pointercancel", (e) => this.onStickEnd(e));
 
-    lookArea.addEventListener("touchstart", (e) => this.onLookStart(e), { passive: false });
-    lookArea.addEventListener("touchmove", (e) => this.onLookMove(e), { passive: false });
-    lookArea.addEventListener("touchend", (e) => this.onLookEnd(e));
-    lookArea.addEventListener("touchcancel", (e) => this.onLookEnd(e));
+    lookArea.addEventListener("pointerdown", (e) => this.onLookStart(e));
+    lookArea.addEventListener("pointermove", (e) => this.onLookMove(e));
+    lookArea.addEventListener("pointerup", (e) => this.onLookEnd(e, true));
+    lookArea.addEventListener("pointercancel", (e) => this.onLookEnd(e, false));
 
     holdButton(jump, (down) => (this.jumpHeld = down));
     holdButton(down, (d) => (this.descendHeld = d));
@@ -115,36 +118,32 @@ export class TouchControls {
     return f;
   }
 
-  private onStickStart(e: TouchEvent): void {
+  private onStickStart(e: PointerEvent): void {
+    if (!isPrimaryButton(e)) return;
+    // Suppresses compatibility mouse events and focus changes.
     e.preventDefault();
     if (this.stickId !== null) return;
-    const t = e.changedTouches[0];
-    this.stickId = t.identifier;
+    this.stickId = e.pointerId;
+    capture(e);
     // Floating joystick: re-centre where the thumb lands.
     const zone = (e.currentTarget as HTMLElement).getBoundingClientRect();
-    this.stickOrigin = { x: t.clientX, y: t.clientY };
-    this.base.style.left = `${t.clientX - zone.left}px`;
-    this.base.style.top = `${t.clientY - zone.top}px`;
+    this.stickOrigin = { x: e.clientX, y: e.clientY };
+    this.base.style.left = `${e.clientX - zone.left}px`;
+    this.base.style.top = `${e.clientY - zone.top}px`;
     this.base.classList.add("active");
-    this.updateStick(t.clientX, t.clientY);
+    this.updateStick(e.clientX, e.clientY);
   }
 
-  private onStickMove(e: TouchEvent): void {
-    e.preventDefault();
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === this.stickId) this.updateStick(t.clientX, t.clientY);
-    }
+  private onStickMove(e: PointerEvent): void {
+    if (e.pointerId === this.stickId) this.updateStick(e.clientX, e.clientY);
   }
 
-  private onStickEnd(e: TouchEvent): void {
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier === this.stickId) {
-        this.stickId = null;
-        this.stick = { x: 0, y: 0 };
-        this.base.classList.remove("active");
-        this.resetKnob();
-      }
-    }
+  private onStickEnd(e: PointerEvent): void {
+    if (e.pointerId !== this.stickId) return;
+    this.stickId = null;
+    this.stick = { x: 0, y: 0 };
+    this.base.classList.remove("active");
+    this.resetKnob();
   }
 
   private updateStick(x: number, y: number): void {
@@ -162,16 +161,17 @@ export class TouchControls {
     this.base.style.top = "";
   }
 
-  private onLookStart(e: TouchEvent): void {
+  private onLookStart(e: PointerEvent): void {
+    if (!isPrimaryButton(e)) return;
     e.preventDefault();
     if (this.look) return;
-    const t = e.changedTouches[0];
+    capture(e);
     this.look = {
-      id: t.identifier,
-      startX: t.clientX,
-      startY: t.clientY,
-      lastX: t.clientX,
-      lastY: t.clientY,
+      id: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      lastX: e.clientX,
+      lastY: e.clientY,
       startTime: performance.now(),
       moved: 0,
       breaking: false,
@@ -184,29 +184,36 @@ export class TouchControls {
     }, 320);
   }
 
-  private onLookMove(e: TouchEvent): void {
-    e.preventDefault();
+  private onLookMove(e: PointerEvent): void {
     const look = this.look;
-    if (!look) return;
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier !== look.id) continue;
-      this.lookX += t.clientX - look.lastX;
-      this.lookY += t.clientY - look.lastY;
-      look.lastX = t.clientX;
-      look.lastY = t.clientY;
-      look.moved = Math.max(look.moved, Math.hypot(t.clientX - look.startX, t.clientY - look.startY));
-    }
+    if (!look || e.pointerId !== look.id) return;
+    this.lookX += e.clientX - look.lastX;
+    this.lookY += e.clientY - look.lastY;
+    look.lastX = e.clientX;
+    look.lastY = e.clientY;
+    look.moved = Math.max(look.moved, Math.hypot(e.clientX - look.startX, e.clientY - look.startY));
   }
 
-  private onLookEnd(e: TouchEvent): void {
+  private onLookEnd(e: PointerEvent, released: boolean): void {
     const look = this.look;
-    if (!look) return;
-    for (const t of Array.from(e.changedTouches)) {
-      if (t.identifier !== look.id) continue;
-      if (classifyTouch(performance.now() - look.startTime, look.moved, true) === "tap") this.place = true;
-      if (this.holdTimer) clearTimeout(this.holdTimer);
-      this.look = null;
-    }
+    if (!look || e.pointerId !== look.id) return;
+    if (released && classifyTouch(performance.now() - look.startTime, look.moved, true) === "tap") this.place = true;
+    if (this.holdTimer) clearTimeout(this.holdTimer);
+    this.look = null;
+  }
+}
+
+/** Touch and pen contacts, or the left mouse button. */
+function isPrimaryButton(e: PointerEvent): boolean {
+  return e.pointerType !== "mouse" || e.button === 0;
+}
+
+/** Keeps delivering a pointer's moves and release to the element it started on. */
+function capture(e: PointerEvent): void {
+  try {
+    (e.currentTarget as HTMLElement).setPointerCapture(e.pointerId);
+  } catch {
+    // The pointer is already gone (released before the handler ran).
   }
 }
 
@@ -224,15 +231,22 @@ function button(className: string, label: string, title: string): HTMLElement {
 }
 
 function holdButton(b: HTMLElement, onChange: (down: boolean) => void): void {
-  b.addEventListener("touchstart", (e) => {
+  const pointers = new Set<number>();
+  b.addEventListener("pointerdown", (e) => {
+    if (!isPrimaryButton(e)) return;
     e.preventDefault();
+    capture(e);
+    pointers.add(e.pointerId);
     b.classList.add("pressed");
     onChange(true);
-  }, { passive: false });
-  const up = () => {
+  });
+  const up = (e: PointerEvent) => {
+    if (!pointers.delete(e.pointerId) || pointers.size > 0) return;
     b.classList.remove("pressed");
     onChange(false);
   };
-  b.addEventListener("touchend", up);
-  b.addEventListener("touchcancel", up);
+  b.addEventListener("pointerup", up);
+  b.addEventListener("pointercancel", up);
+  // Long presses must not open the context menu over the button.
+  b.addEventListener("contextmenu", (e) => e.preventDefault());
 }

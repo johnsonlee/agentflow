@@ -3,6 +3,11 @@ import { DoubleTap, emptyFrame, type InputFrame } from "./actions";
 export interface KeyboardMouseOptions {
   /** Radians per pixel of mouse movement. */
   sensitivity?: number;
+  /**
+   * Break / place / pick with mouse buttons on the target (default true). Turn off when touch
+   * controls own the target, since they already handle mouse pointers.
+   */
+  mouseButtons?: boolean;
 }
 
 /**
@@ -36,7 +41,7 @@ export class KeyboardMouseInput {
     this.listen(window, "keyup", (e) => this.keys.delete((e as KeyboardEvent).code));
     this.listen(window, "blur", () => this.reset());
     this.listen(document, "mousemove", (e) => this.onMouseMove(e as MouseEvent));
-    this.listen(target, "mousedown", (e) => this.onMouseDown(e as MouseEvent));
+    if (options.mouseButtons ?? true) this.listen(target, "mousedown", (e) => this.onMouseDown(e as MouseEvent));
     this.listen(window, "mouseup", (e) => {
       if ((e as MouseEvent).button === 0) this.breaking = false;
     });

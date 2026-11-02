@@ -106,7 +106,7 @@ export class Game {
     this.body.flying = save?.player.flying ?? false;
     this.inventory = save ? Inventory.fromJSON(save.inventory) : this.starterInventory();
 
-    this.keyboard = new KeyboardMouseInput(canvas);
+    this.keyboard = new KeyboardMouseInput(canvas, { mouseButtons: !options.touch });
     this.touch = options.touch ? new TouchControls(canvas, this.root) : null;
     this.hud = new Hud(this.root, atlas, {
       onSelectSlot: (slot) => this.inventory.select(slot),

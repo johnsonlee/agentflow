@@ -33,7 +33,7 @@ npm run build      # production build in apps/web/dist
 - A 20-minute day/night cycle with sun, moon and clouds; underwater fog
 - Commands: `/gamemode`, `/time set`, `/tp`, `/give`, `/summon`, `/gamerule doMobSpawning|doDaylightCycle`, `/seed`, `/help`
 - Autosaves to `localStorage` (blocks, inventory, NPCs); use **Continue** on the title screen to resume
-- Touch controls: a floating joystick, camera drag, tap to place or talk, hold to break, jump/fly/descend buttons, auto-jump, tappable hotbar, and inventory, camera and portfolio buttons
+- Touch controls (Pointer Events, so they also work with a mouse or pen on the mobile layout): a floating joystick, camera drag, tap to place or talk, hold to break, jump/fly/descend buttons, auto-jump, tappable hotbar, and inventory, camera and portfolio buttons
 
 ### Not implemented (compared with Minecraft: Education Edition)
 Code Builder / Agent, chemistry (elements, compounds, lab tables), hostile mobs and combat, tools and non-block items, smelting, redstone, multiplayer, block light propagation (torches, caves), hunger, chalkboards, Book & Quill, and the official Mojang textures (copyrighted; this project ships original procedural textures).
@@ -61,4 +61,4 @@ npm test            # Vitest unit tests (engine, textures, input)
 npm run e2e         # Playwright: desktop Chrome and Pixel 7 touch emulation
 ```
 
-The e2e suite plays the real build through the UI: it creates worlds, walks, jumps, flies, breaks and places blocks, uses the inventory and commands, saves and continues a world, and on mobile drives the joystick, look-drag, tap, hold and buttons with real multi-touch events (CDP). Set `SCREENSHOT_DIR` to keep the screenshots it captures.
+The e2e suite plays the real build through the UI: it creates worlds, walks, jumps, flies, breaks and places blocks, uses the inventory and commands, saves and continues a world, and on mobile drives the joystick, look-drag, tap, hold and buttons with real touch events (CDP), including a simultaneous stick and look drag, and again with mouse drags and clicks on the mobile layout. Set `SCREENSHOT_DIR` to keep the screenshots it captures.
