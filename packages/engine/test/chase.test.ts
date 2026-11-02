@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, JUMP_VELOCITY, World, blockId, createMob, createPlayerBody, findPath, findSummonSpot, mobAttack, stepMob, stepPlayer, type Mob, type MobKind } from "../src";
+import { AIR, JUMP_VELOCITY, World, blockId, createMob, PATHFINDING, createPlayerBody, findPath, findSummonSpot, mobAttack, stepMob, stepPlayer, type Mob, type MobKind } from "../src";
 
 // Reproduces review bd1e2360: obstacles pinned the straight-line chase, and below ~30 fps mobs
 // could not jump a 1-block step. Both must work at 20-144 fps.
@@ -159,4 +159,89 @@ describe("/summon placement", () => {
     const get = (x: number, y: number, z: number) => w.getBlock(x, y, z);
     expect(findSummonSpot(get, 3.5, 0.5, 51, 2, 2)).toBeNull();
   });
+});
+
+describe("path-finding cost is bounded (review 0dc818e8)", () => {
+  /** 8 zombies (the spawn cap) around a player sealed in a 1x2 stone cell with a roof. */
+  function shelter() {
+    const w = flat();
+    for (let x = -1; x <= 1; x++) for (let z = -1; z <= 1; z++) for (let y = 51; y <= 53; y++) {
+      if (x === 0 && z === 0 && y < 53) continue;
+      w.setBlock(x, y, z, STONE);
+    }
+    const mobs = Array.from({ length: 8 }, (_, i) => {
+      const a = (i / 8) * Math.PI * 2;
+      return createMob(i + 1, "zombie", { x: Math.cos(a) * 7 + 0.5, y: 51, z: Math.sin(a) * 7 + 0.5 });
+    });
+    return { w, mobs, get: (x: number, y: number, z: number) => w.getBlock(x, y, z) };
+  }
+
+  it("8 zombies vs a sealed-in player: at most budgetPerFrame nodes per frame, and little total work", () => {
+    const { mobs, get } = shelter();
+    const player = { x: 0.5, y: 51, z: 0.5 };
+    const budget = { nodes: 0 };
+    let total = 0;
+    let worst = 0;
+    let damage = 0;
+    for (let f = 0; f < 8 * 60; f++) {
+      budget.nodes = PATHFINDING.budgetPerFrame;
+      for (const m of mobs) {
+        stepMob(get, m, 1 / 60, () => 0.5, player, budget);
+        damage += mobAttack(m, player, 1 / 60);
+      }
+      const used = PATHFINDING.budgetPerFrame - budget.nodes;
+      worst = Math.max(worst, used);
+      total += used;
+    }
+    expect(damage).toBe(0);
+    expect(worst).toBeLessThanOrEqual(PATHFINDING.budgetPerFrame);
+    // Before: every zombie re-ran a 3000-node search every 0.5 s = 8 x 16 x 3000 = 384,000 nodes in 8 s.
+    // Now failed searches back off (1, 2, 4, 8 s) with smaller caps (3000, 1500, 750).
+    expect(total).toBeLessThan(60_000);
+  });
+
+  it("zombies still reach the player once the shelter is opened (back-off is bounded)", () => {
+    const { w, mobs, get } = shelter();
+    const player = { x: 0.5, y: 51, z: 0.5 };
+    const budget = { nodes: 0 };
+    const run = (seconds: number) => {
+      let damage = 0;
+      for (let f = 0; f < seconds * 60; f++) {
+        budget.nodes = PATHFINDING.budgetPerFrame;
+        for (const m of mobs) {
+          stepMob(get, m, 1 / 60, () => 0.5, player, budget);
+          damage += mobAttack(m, player, 1 / 60);
+        }
+      }
+      return damage;
+    };
+    expect(run(6)).toBe(0);
+    w.setBlock(1, 51, 0, AIR);
+    w.setBlock(1, 52, 0, AIR);
+    // The longest back-off is 8 s (+ jitter), then the path is found and walked.
+    expect(run(14)).toBeGreaterThan(0);
+  });
+
+  for (const fps of [20, 60]) {
+    it(`with the shared per-frame budget, a zombie still goes around a trunk and a wall at ${fps} fps`, () => {
+      for (const build of ["trunk", "wall"] as const) {
+        const w = flat();
+        if (build === "trunk") {
+          w.setBlock(3, 51, 0, LOG);
+          w.setBlock(3, 52, 0, LOG);
+        } else for (let z = -2; z <= 2; z++) for (const y of [51, 52]) w.setBlock(3, y, z, STONE);
+        const get = (x: number, y: number, z: number) => w.getBlock(x, y, z);
+        const mob = createMob(1, "zombie", { x: 0.5, y: 51, z: 0.5 });
+        const player = { x: 8.5, y: 51, z: 0.5 };
+        const budget = { nodes: 0 };
+        let damage = 0;
+        for (let f = 0; f < 30 * fps; f++) {
+          budget.nodes = PATHFINDING.budgetPerFrame;
+          stepMob(get, mob, 1 / fps, () => 0.5, player, budget);
+          damage += mobAttack(mob, player, 1 / fps);
+        }
+        expect(damage, build).toBeGreaterThan(0);
+      }
+    });
+  }
 });

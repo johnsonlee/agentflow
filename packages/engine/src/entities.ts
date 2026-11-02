@@ -2,7 +2,7 @@ import { blockId, isOpaque, isSolid } from "./blocks";
 import { MAX_LIGHT, blockLightOf, skyOf } from "./light";
 import type { Vec3 } from "./math";
 import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
-import { findPath, type PathNode } from "./pathfind";
+import { PathSearch, type PathBudget, type PathNode } from "./pathfind";
 
 export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie";
 
@@ -71,6 +71,10 @@ export interface Mob {
   burning?: boolean;
   /** Chase path (cell centres) and when to re-plan it. */
   path?: PathNode[];
+  /** A path search in progress (spread over frames under the shared budget). */
+  search?: PathSearch;
+  /** Consecutive searches that didn't reach the player (drives back-off). */
+  failCount?: number;
   pathTimer?: number;
   pathGoal?: Vec3;
   /** Steer-around fallback when no path helps: seconds left and direction (+1 / -1). */
@@ -101,17 +105,42 @@ export function createMob(id: number, kind: MobKind, position: Vec3, extra: Part
 
 const WATER = blockId("water");
 
-/** Seconds between chase path re-plans (or sooner if the target moves). */
-const REPLAN_SECONDS = 0.5;
+/**
+ * Path-finding cost model. Each search expands at most `maxNodes` grid cells (fewer after repeated
+ * failures). All mobs share `budgetPerFrame` expanded cells per frame, and a search that doesn't fit
+ * resumes on later frames. Successful paths are re-planned every `replanSeconds` (staggered per
+ * mob); failed searches (unreachable player) back off exponentially up to `maxBackoffSeconds`,
+ * unless the player moves more than `failMoveBlocks`.
+ */
+export const PATHFINDING = {
+  maxNodes: 3000,
+  budgetPerFrame: 400,
+  /** Wall-clock cap per frame for all path searching (the game sets budget.deadline from this). */
+  budgetMs: 3,
+  replanSeconds: 0.5,
+  maxBackoffSeconds: 8,
+  moveBlocks: 1.5,
+  failMoveBlocks: 3,
+} as const;
+
+/** Deterministic per-mob jitter in [0, 1), so mobs spawned together don't search on the same frame. */
+const jitter = (id: number) => (id * 0.6180339887) % 1;
 
 /**
  * Advances a mob by dt seconds: wander AI (idle / walk in a random direction), panic-running after
  * being hurt, or (hostile mobs) chasing `target` along a path-found route; then physics in fixed
  * substeps (<= 1/60 s) so stepping up blocks works at any frame rate.
  */
-export function stepMob(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => number, target: Vec3 | null = null): void {
+export function stepMob(
+  getBlock: BlockGetter,
+  mob: Mob,
+  dt: number,
+  rand: () => number,
+  target: Vec3 | null = null,
+  budget?: PathBudget,
+): void {
   const { n, h } = substeps(dt);
-  const chasing = planChase(getBlock, mob, n * h, target);
+  const chasing = planChase(getBlock, mob, n * h, target, budget);
   for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing);
 }
 
@@ -120,19 +149,49 @@ export function stepMob(getBlock: BlockGetter, mob: Mob, dt: number, rand: () =>
  * the target moves), and falls back to steering around an obstacle when it makes no progress.
  * Returns true while chasing.
  */
-function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | null): boolean {
+function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | null, budget?: PathBudget): boolean {
   const spec = MOB_SPECS[mob.kind];
   const p = mob.position;
   if (!spec.hostile || !target || Math.hypot(target.x - p.x, target.z - p.z) > ZOMBIE.followRange) {
     mob.path = undefined;
+    mob.search = undefined;
     return false;
   }
-  mob.pathTimer = (mob.pathTimer ?? 0) - dt;
+  // First plan is staggered by up to 0.25 s per mob.
+  mob.pathTimer = (mob.pathTimer ?? jitter(mob.id) * 0.25) - dt;
   const moved = mob.pathGoal ? Math.hypot(target.x - mob.pathGoal.x, target.y - mob.pathGoal.y, target.z - mob.pathGoal.z) : Infinity;
-  if (mob.onGround && (mob.pathTimer <= 0 || moved > 1.5 || !mob.path)) {
-    mob.path = findPath(getBlock, p, target, { height: 2, radius: ZOMBIE.followRange }) ?? [];
-    mob.pathTimer = REPLAN_SECONDS;
+  const failing = (mob.failCount ?? 0) > 0;
+  const playerMoved = moved > (failing ? PATHFINDING.failMoveBlocks : PATHFINDING.moveBlocks);
+  if (!mob.search && mob.onGround && (mob.pathTimer <= 0 || playerMoved || (!mob.path && !failing))) {
+    // A new situation resets the back-off; repeated failures search with smaller caps.
+    if (playerMoved) mob.failCount = 0;
+    const cap = PATHFINDING.maxNodes >> Math.min(mob.failCount ?? 0, 2);
+    mob.search = PathSearch.start(getBlock, p, target, { height: 2, radius: ZOMBIE.followRange, maxNodes: cap }) ?? undefined;
     mob.pathGoal = { ...target };
+    if (!mob.search) {
+      mob.path = [];
+      mob.pathTimer = PATHFINDING.replanSeconds;
+    }
+  }
+  if (mob.search) {
+    const allowance = budget ? budget.nodes : Infinity;
+    const outOfTime = budget?.deadline !== undefined && performance.now() > budget.deadline;
+    if (allowance > 0 && !outOfTime) {
+      const used = mob.search.step(allowance, budget?.deadline);
+      if (budget) budget.nodes -= used;
+    }
+    if (mob.search.done) {
+      mob.path = mob.search.result();
+      if (mob.search.reached) {
+        mob.failCount = 0;
+        mob.pathTimer = PATHFINDING.replanSeconds * (1 + 0.5 * jitter(mob.id));
+      } else {
+        mob.failCount = (mob.failCount ?? 0) + 1;
+        const backoff = Math.min(PATHFINDING.maxBackoffSeconds, PATHFINDING.replanSeconds * 2 ** mob.failCount);
+        mob.pathTimer = backoff * (1 + 0.25 * jitter(mob.id));
+      }
+      mob.search = undefined;
+    }
   }
   const path = mob.path ?? [];
   while (path.length > 0 && Math.hypot(path[0].x + 0.5 - p.x, path[0].z + 0.5 - p.z) < 0.35 && Math.abs(path[0].y - p.y) < 1.2) path.shift();

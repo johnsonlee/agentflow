@@ -1,6 +1,6 @@
 import * as THREE from "three";
 import {
-  MOB_SPECS, PASSIVE_MOBS, SEA_LEVEL, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
+  MOB_SPECS, PASSIVE_MOBS, PATHFINDING, SEA_LEVEL, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
   raycastMob, skyDarken, skyOf, stackId, stepMob,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
@@ -184,6 +184,8 @@ export class MobManager {
   /** Minecraft's doMobSpawning game rule: natural animal spawning (summoning always works). */
   spawning = true;
   private spawnTimer = 0;
+  /** Path-finding allowance shared by all mobs each frame (see PATHFINDING). */
+  private readonly pathBudget: { nodes: number; deadline?: number } = { nodes: 0 };
   private seed = 12345;
   private readonly rand = () => ((this.seed = (this.seed * 16807) % 2147483647) / 2147483647);
 
@@ -230,6 +232,8 @@ export class MobManager {
   update(dt: number, player: Vec3, light: number, time: number, target: Vec3 | null = player, daylight = light): void {
     const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
     const darken = skyDarken(daylight);
+    this.pathBudget.nodes = PATHFINDING.budgetPerFrame;
+    this.pathBudget.deadline = performance.now() + PATHFINDING.budgetMs;
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = 2;
@@ -249,7 +253,7 @@ export class MobManager {
         continue;
       }
       // Only simulate mobs in loaded terrain near the player.
-      if (dist < 64) stepMob(get, mob, dt, this.rand, target);
+      if (dist < 64) stepMob(get, mob, dt, this.rand, target, this.pathBudget);
       // Zombies burn under open sky by day.
       const head = this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
       if (burnInDaylight(mob, skyOf(head), darken, dt)) {
