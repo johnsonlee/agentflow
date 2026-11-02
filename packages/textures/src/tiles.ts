@@ -1,4 +1,5 @@
 import { CHEMISTRY_TILE_GENERATORS, chemistryItemTile } from "./chemistry";
+import { REDSTONE_TILE_GENERATORS } from "./redstone";
 import { ITEM_TILE_GENERATORS } from "./items";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 
@@ -269,6 +270,7 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   allow: (t) => framed(t, hex("#4bab3f"), hex("#1f5e1a"), CHECK, hex("#ffffff")),
   deny: (t) => framed(t, hex("#c73a2e"), hex("#5e1612"), CROSS, hex("#ffffff")),
   ...CHEMISTRY_TILE_GENERATORS,
+  ...REDSTONE_TILE_GENERATORS,
   border: (t) => {
     const red = hex("#a3241c");
     const black = hex("#1c1c1c");

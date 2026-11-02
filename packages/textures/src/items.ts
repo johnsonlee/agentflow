@@ -1,4 +1,5 @@
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
+import { REDSTONE_ITEM_GENERATORS } from "./redstone";
 
 /**
  * Original 16x16 item sprites (transparent background), drawn diagonally like classic
@@ -91,6 +92,7 @@ function book(t: Tile, cover: string, quill: boolean, gilded = false): Tile {
 }
 
 export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
+  ...REDSTONE_ITEM_GENERATORS,
   item_stick: stick,
   item_coal: lump(["#2b2b2b", "#1c1c1c", "#3c3c3c"].map(hex), ROUND),
   item_charcoal: lump(["#3b3026", "#2c241c", "#4a3c2f"].map(hex), ROUND),

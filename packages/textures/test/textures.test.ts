@@ -28,7 +28,10 @@ describe("procedural textures", () => {
       return false;
     });
     expect(alphaTiles.sort()).toEqual(
-      ["birch_leaves", "dandelion", "glass", "glow_stick_block", "oak_leaves", "poppy", "tall_grass", "torch", "underwater_torch_block", "water"].sort(),
+      [
+        "birch_leaves", "dandelion", "glass", "glow_stick_block", "oak_leaves", "poppy", "tall_grass", "torch", "underwater_torch_block", "water",
+        "lever_off", "lever_on", "redstone_torch_on", "redstone_torch_off", ...Array.from({ length: 16 }, (_, p) => `redstone_dust_${p}`),
+      ].sort(),
     );
   });
 
