@@ -172,7 +172,9 @@ export class TouchControls {
       startY: e.clientY,
       lastX: e.clientX,
       lastY: e.clientY,
-      startTime: performance.now(),
+      // Event timestamps, not handler time: a slow frame between press and release must not
+      // turn a quick tap into a hold.
+      startTime: e.timeStamp,
       moved: 0,
       breaking: false,
     };
@@ -197,7 +199,7 @@ export class TouchControls {
   private onLookEnd(e: PointerEvent, released: boolean): void {
     const look = this.look;
     if (!look || e.pointerId !== look.id) return;
-    if (released && classifyTouch(performance.now() - look.startTime, look.moved, true) === "tap") this.place = true;
+    if (released && classifyTouch(e.timeStamp - look.startTime, look.moved, true) === "tap") this.place = true;
     if (this.holdTimer) clearTimeout(this.holdTimer);
     this.look = null;
   }

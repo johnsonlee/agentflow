@@ -16,10 +16,30 @@ class Finger {
   end() {
     return this.cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
   }
+  /**
+   * A quick tap. The release is sent without waiting for the press to be handled: on slow runners the
+   * renderer acknowledges a touch hundreds of milliseconds late, which would stretch the tap into a hold.
+   */
+  async tap(x: number, y: number, ms = 60) {
+    const down = this.start(x, y);
+    await new Promise((r) => setTimeout(r, ms));
+    await Promise.all([down, this.end()]);
+  }
 }
 
 async function cdp(page: Page) {
   return page.context().newCDPSession(page);
+}
+
+/** A quick left click sent like {@link Finger.tap}: the release does not wait for the press to be handled. */
+async function mouseTap(page: Page, x: number, y: number, ms = 60) {
+  await page.mouse.move(x, y);
+  const session = await cdp(page);
+  const send = (type: "mousePressed" | "mouseReleased") =>
+    session.send("Input.dispatchMouseEvent", { type, x, y, button: "left", buttons: type === "mousePressed" ? 1 : 0, clickCount: 1 });
+  const down = send("mousePressed");
+  await new Promise((r) => setTimeout(r, ms));
+  await Promise.all([down, send("mouseReleased")]);
 }
 
 async function centerOf(page: Page, selector: string) {
@@ -97,9 +117,7 @@ test.describe("Mobile browser (touch)", () => {
     const glass = await page.evaluate(() => window.__craft.blockId("glass"));
 
     const finger = new Finger(session);
-    await finger.start(vp.width * 0.65, vp.height * 0.45);
-    await page.waitForTimeout(60);
-    await finger.end();
+    await finger.tap(vp.width * 0.65, vp.height * 0.45);
     await expect.poll(() => blockAt(page, placeAt.x, placeAt.y, placeAt.z)).toBe(glass);
     await snap(page, testInfo, "03-placed-glass");
 
@@ -196,7 +214,7 @@ test.describe("Mobile layout (mouse pointer)", () => {
 
     await page.locator('.hotbar .slot[data-slot="6"]').click();
     const glass = await page.evaluate(() => window.__craft.blockId("glass"));
-    await page.mouse.click(vp.width * 0.65, vp.height * 0.45, { delay: 60 });
+    await mouseTap(page, vp.width * 0.65, vp.height * 0.45);
     await expect.poll(() => blockAt(page, placeAt.x, placeAt.y, placeAt.z)).toBe(glass);
     // A short click is a tap: it must not also break the block it placed.
     await page.waitForTimeout(300);

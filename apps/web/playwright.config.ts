@@ -15,7 +15,10 @@ export default defineConfig({
     trace: "retain-on-failure",
     // RECORD_VIDEO=1 keeps a video of every test as playthrough evidence.
     video: process.env.RECORD_VIDEO ? "on" : "retain-on-failure",
-    launchOptions: { args: ["--enable-unsafe-swiftshader", "--ignore-gpu-blocklist"] },
+    // SOFTWARE_GL=1 renders with SwiftShader like GitHub runners (pair with CPU_THROTTLE to reproduce CI speed).
+    launchOptions: {
+      args: ["--enable-unsafe-swiftshader", "--ignore-gpu-blocklist", ...(process.env.SOFTWARE_GL ? ["--use-angle=swiftshader", "--disable-gpu"] : [])],
+    },
   },
   projects: [
     { name: "desktop", testMatch: /desktop.*\.spec\.ts/, use: { ...devices["Desktop Chrome"], viewport: { width: 1280, height: 720 } } },

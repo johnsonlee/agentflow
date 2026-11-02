@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { blockAt, bringMob, command, countItem, createWorld, look, lookAtMob, mobExists, newestMob, settle, snap, target, waitForTerrain } from "./helpers";
+import { blockAt, bringMob, command, countItem, createWorld, look, mobExists, newestMob, parkMouse, pressMouse, settle, snap, target, trackMob, waitForTerrain } from "./helpers";
 
 test.describe("PC browser: crafting, mobs and Education Edition features", () => {
   test("survival crafting: planks in the 2x2 grid, then a crafting table that opens a 3x3 grid", async ({ page }, testInfo) => {
@@ -31,13 +31,14 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
 
     // Place the table and use it.
     await page.keyboard.press("Digit2");
+    await parkMouse(page);
     await look(page, 0, -1.2);
     const hit = await target(page);
     const at = { x: hit!.x + hit!.normal.x, y: hit!.y + hit!.normal.y, z: hit!.z + hit!.normal.z };
-    await page.locator(".game-canvas").click({ button: "right" });
+    await pressMouse(page, "right");
     await expect.poll(() => blockAt(page, at.x, at.y, at.z)).toBe(await page.evaluate(() => window.__craft.blockId("crafting_table")));
     await page.waitForTimeout(300);
-    await page.locator(".game-canvas").click({ button: "right" });
+    await pressMouse(page, "right");
     await expect(page.getByRole("heading", { name: "Crafting Table" })).toBeVisible();
     await expect(inv.locator("[data-craft]")).toHaveCount(9);
     await snap(page, testInfo, "08-crafting-table");
@@ -70,12 +71,19 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     await settle(page);
     await command(page, "/summon chicken");
     const id = (await newestMob(page, "chicken"))!;
-    // Let it land, then aim at it once and attack: creative hand damage (4) defeats a chicken (4 HP).
+    // Let it land, keep the camera on it, and attack with real clicks: creative hand damage (4)
+    // defeats a chicken (4 HP) in one hit. The chicken is never moved by the test.
     await page.waitForTimeout(400);
-    await lookAtMob(page, id);
+    await parkMouse(page);
+    const stopTracking = await trackMob(page, id);
     await expect.poll(() => page.evaluate(() => window.__craft.game!.targetMob?.kind ?? null)).toBe("chicken");
-    await page.locator(".game-canvas").click({ button: "left" });
-    await expect.poll(() => mobExists(page, id)).toBe(false);
+    // It keeps wandering, so a click can land between frames where it slipped off the crosshair.
+    for (let i = 0; i < 10 && (await mobExists(page, id)); i++) {
+      await pressMouse(page, "left");
+      await page.waitForTimeout(500);
+    }
+    await stopTracking();
+    expect(await mobExists(page, id)).toBe(false);
     await expect(page.locator(".chat-line", { hasText: "Chicken was defeated" })).toHaveCount(1);
   });
 
@@ -86,18 +94,19 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     const id = (await newestMob(page, "sheep"))!;
     expect(id).not.toBeNull();
     await page.waitForTimeout(400);
-    await lookAtMob(page, id);
+    await parkMouse(page);
+    const stopTracking = await trackMob(page, id);
     await page.waitForTimeout(200);
     await snap(page, testInfo, "09-sheep");
     for (let i = 0; i < 20 && (await mobExists(page, id)); i++) {
       // A hurt sheep panics and runs out of reach, as in Minecraft. This test covers the multi-hit
       // damage and drop path, so it keeps the sheep in reach; real targeting is covered by the chicken test.
       await bringMob(page, id);
-      await lookAtMob(page, id);
-      await page.waitForTimeout(80);
-      await page.locator(".game-canvas").click({ button: "left" });
+      await page.waitForTimeout(150);
+      await pressMouse(page, "left");
       await page.waitForTimeout(450);
     }
+    await stopTracking();
     expect(await mobExists(page, id)).toBe(false);
     await expect(page.locator(".chat-line", { hasText: "Sheep was defeated" })).toHaveCount(1);
     expect(await countItem(page, "white_wool")).toBe(1);
@@ -109,10 +118,12 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     await command(page, "/summon npc Guide");
     const id = (await newestMob(page, "npc"))!;
     await page.waitForTimeout(500);
-    await lookAtMob(page, id);
-    await page.waitForTimeout(150);
-    await page.locator(".game-canvas").click({ button: "right" });
+    await parkMouse(page);
+    const stopTracking = await trackMob(page, id);
+    await expect.poll(() => page.evaluate(() => window.__craft.game!.targetMob?.kind ?? null)).toBe("npc");
+    await pressMouse(page, "right");
     await expect(page.locator(".npc-screen h2")).toHaveText("Guide");
+    await stopTracking();
     await snap(page, testInfo, "10-npc-dialog");
     await page.getByLabel("NPC name").fill("Teacher");
     await page.getByLabel("NPC dialogue").fill("Build a house using three different blocks.");

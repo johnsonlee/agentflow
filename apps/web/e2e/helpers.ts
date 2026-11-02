@@ -23,6 +23,9 @@ export async function createWorld(page: Page, options: { seed?: string; mode?: "
   page.on("console", (m) => {
     if (m.type() === "error") errors.push(m.text());
   });
+  // CPU_THROTTLE=<n> slows the page n-fold (CDP), to reproduce slow CI runners locally.
+  const throttle = Number(process.env.CPU_THROTTLE ?? 0);
+  if (throttle > 1) await (await page.context().newCDPSession(page)).send("Emulation.setCPUThrottlingRate", { rate: throttle });
   await page.goto(options.url ?? "/");
   await page.evaluate(() => localStorage.clear());
   await page.reload();
@@ -165,6 +168,62 @@ export function newestMob(page: Page, kind: string) {
     const mobs = window.__craft.game!.mobs.mobs.filter((m) => m.kind === k);
     return mobs.length ? mobs[mobs.length - 1].id : null;
   }, kind);
+}
+
+/** Resolves after the game has run at least `n` more frames. */
+export function frames(page: Page, n = 2) {
+  return page.evaluate((count) => new Promise<void>((resolve) => {
+    const step = () => (--count <= 0 ? resolve() : requestAnimationFrame(step));
+    requestAnimationFrame(step);
+  }), n);
+}
+
+/**
+ * Parks the real mouse on the crosshair before aiming. With pointer lock held (after closing chat or
+ * the inventory), any later mouse travel is camera movement, so clicks must not move the mouse:
+ * aim after this, then press with {@link pressMouse}.
+ */
+export async function parkMouse(page: Page) {
+  const box = (await page.locator(".game-canvas").boundingBox())!;
+  await page.mouse.move(box.x + box.width / 2, box.y + box.height / 2);
+  await frames(page);
+}
+
+/** A real mouse click where the mouse already is (no travel, so no camera movement). */
+export async function pressMouse(page: Page, button: "left" | "right" = "left") {
+  await page.mouse.down({ button });
+  await page.mouse.up({ button });
+}
+
+/**
+ * Keeps the camera on a mob every frame, like a player tracking it with the mouse, until the returned
+ * function is called. The mob itself is not moved. On slow CI runners (a few frames per second) a
+ * single aim goes stale before the click lands because the mob keeps walking.
+ */
+export async function trackMob(page: Page, id: number): Promise<() => Promise<void>> {
+  await page.evaluate((mobId) => {
+    const w = window as unknown as { __track: { on: boolean } };
+    w.__track = { on: true };
+    const heights: Record<string, number> = { pig: 0.9, sheep: 1.3, chicken: 0.7, npc: 1.9 };
+    const step = () => {
+      if (!w.__track.on) return;
+      const g = window.__craft.game!;
+      const mob = g.mobs.mobs.find((m) => m.id === mobId);
+      if (mob) {
+        const dx = mob.position.x - g.body.position.x;
+        const dz = mob.position.z - g.body.position.z;
+        const dy = mob.position.y + heights[mob.kind] * 0.5 - (g.body.position.y + 1.62);
+        g.body.yaw = Math.atan2(-dx, -dz);
+        g.body.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+      }
+      requestAnimationFrame(step);
+    };
+    requestAnimationFrame(step);
+  }, id);
+  await frames(page);
+  return () => page.evaluate(() => {
+    (window as unknown as { __track: { on: boolean } }).__track.on = false;
+  });
 }
 
 /** Points the camera at the centre of a mob. Returns false if it no longer exists. */

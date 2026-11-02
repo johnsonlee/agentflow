@@ -61,4 +61,4 @@ npm test            # Vitest unit tests (engine, textures, input)
 npm run e2e         # Playwright: desktop Chrome and Pixel 7 touch emulation
 ```
 
-The e2e suite plays the real build through the UI: it creates worlds, walks, jumps, flies, breaks and places blocks, uses the inventory and commands, saves and continues a world, and on mobile drives the joystick, look-drag, tap, hold and buttons with real touch events (CDP), including a simultaneous stick and look drag, and again with mouse drags and clicks on the mobile layout. Set `SCREENSHOT_DIR` to keep the screenshots it captures.
+The e2e suite plays the real build through the UI: it creates worlds, walks, jumps, flies, breaks and places blocks, uses the inventory and commands, saves and continues a world, and on mobile drives the joystick, look-drag, tap, hold and buttons with real touch events (CDP), including a simultaneous stick and look drag, and again with mouse drags and clicks on the mobile layout. Set `SCREENSHOT_DIR` to keep the screenshots it captures. GitHub runners render with software WebGL at a few frames per second; `SOFTWARE_GL=1 CPU_THROTTLE=4 npm run e2e` approximates that locally.
