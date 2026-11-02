@@ -1,5 +1,5 @@
 import {
-  AGENT_DIRECTIONS, AGENT_SLOTS, MAX_REPEAT, validateProgram, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
+  AGENT_DIRECTIONS, AGENT_SLOTS, MAX_NESTING, MAX_REPEAT, validateProgram, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
 } from "@craft/engine";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
@@ -43,8 +43,9 @@ export class CodeBuilderScreen {
   readonly root = el("div", "screen code-screen");
   private readonly panel = el("div", "panel code-panel");
   private program: CodeProgram = { name: "My program", trigger: { type: "run" }, blocks: [] };
-  /** The drop zone taps add to. */
+  /** The drop zone taps add to, and its nesting depth (the program itself is 0). */
   private target: CodeBlock[] = this.program.blocks;
+  private targetDepth = 0;
   private dragging: { block: CodeBlock; from: CodeBlock[] | null } | null = null;
   private status = "";
 
@@ -63,6 +64,7 @@ export class CodeBuilderScreen {
     const last = this.host.programs[this.host.programs.length - 1];
     if (last) this.program = last;
     this.target = this.program.blocks;
+    this.targetDepth = 0;
     this.status = "";
     this.render();
     this.root.hidden = false;
@@ -72,9 +74,26 @@ export class CodeBuilderScreen {
     this.root.hidden = true;
   }
 
-  private commit(): void {
+  /** Saves the program into the world, unless it's invalid (then shows why and returns false). */
+  private commit(): boolean {
+    const problems = validateProgram(this.program);
+    if (problems.length > 0) {
+      this.status = problems.join("; ");
+      return false;
+    }
     if (!this.host.programs.includes(this.program)) this.host.programs.push(this.program);
     this.host.save();
+    return true;
+  }
+
+  /**
+   * Whether `block` may go into a zone at `depth`: loops and ifs may nest at most MAX_NESTING deep
+   * (the same rule validation applies). Shows why when it can't.
+   */
+  private fits(block: CodeBlock, depth: number): boolean {
+    if (depth + height(block) <= MAX_NESTING) return true;
+    this.status = `Loops and ifs can be nested at most ${MAX_NESTING} deep`;
+    return false;
   }
 
   private render(): void {
@@ -96,7 +115,8 @@ export class CodeBuilderScreen {
         e.dataTransfer?.setData("text/plain", entry.id);
       });
       b.addEventListener("click", () => {
-        this.target.push(entry.make());
+        const block = entry.make();
+        if (this.fits(block, this.targetDepth)) this.target.push(block);
         this.render();
       });
       palette.appendChild(b);
@@ -120,7 +140,7 @@ export class CodeBuilderScreen {
     meta.append(name, chat);
 
     const workspace = el("div", "cb-workspace");
-    workspace.append(this.zone(this.program.blocks, "on run / chat"));
+    workspace.append(this.zone(this.program.blocks, "on run / chat", 0));
 
     const actions = el("div", "cb-actions");
     const run = el("button", "mc-button primary", "▶ Run");
@@ -132,7 +152,10 @@ export class CodeBuilderScreen {
         this.render();
         return;
       }
-      this.commit();
+      if (!this.commit()) {
+        this.render();
+        return;
+      }
       this.host.run(this.program);
       this.onClose();
     });
@@ -149,9 +172,13 @@ export class CodeBuilderScreen {
     });
     const newProgram = el("button", "mc-button", "New");
     newProgram.addEventListener("click", () => {
-      this.commit();
+      if (this.program.blocks.length > 0 && !this.commit()) {
+        this.render();
+        return;
+      }
       this.program = { name: `Program ${this.host.programs.length + 1}`, trigger: { type: "run" }, blocks: [] };
       this.target = this.program.blocks;
+      this.targetDepth = 0;
       this.render();
     });
     actions.append(run, stop, give, newProgram);
@@ -160,8 +187,8 @@ export class CodeBuilderScreen {
     this.panel.replaceChildren(header, meta, palette, workspace, actions, status);
   }
 
-  /** A drop zone listing `blocks`; tapping it makes it the tap target. */
-  private zone(blocks: CodeBlock[], label: string): HTMLElement {
+  /** A drop zone listing `blocks` at nesting `depth`; tapping it makes it the tap target. */
+  private zone(blocks: CodeBlock[], label: string, depth: number): HTMLElement {
     const zone = el("div", `cb-zone${blocks === this.target ? " cb-target" : ""}`);
     zone.dataset.drop = label;
     zone.addEventListener("click", (e) => {
@@ -169,6 +196,7 @@ export class CodeBuilderScreen {
       // Don't let an outer zone take the selection back.
       e.stopPropagation();
       this.target = blocks;
+      this.targetDepth = depth;
       this.render();
     });
     zone.addEventListener("dragover", (e) => e.preventDefault());
@@ -178,16 +206,20 @@ export class CodeBuilderScreen {
       const d = this.dragging;
       this.dragging = null;
       if (!d || contains(d.block, blocks)) return;
+      if (!this.fits(d.block, depth)) {
+        this.render();
+        return;
+      }
       if (d.from) d.from.splice(d.from.indexOf(d.block), 1);
       blocks.push(d.block);
       this.render();
     });
     if (blocks.length === 0) zone.append(el("span", "cb-empty", label));
-    blocks.forEach((b, i) => zone.append(this.blockView(b, blocks, i)));
+    blocks.forEach((b, i) => zone.append(this.blockView(b, blocks, i, depth)));
     return zone;
   }
 
-  private blockView(block: CodeBlock, list: CodeBlock[], index: number): HTMLElement {
+  private blockView(block: CodeBlock, list: CodeBlock[], index: number, depth: number): HTMLElement {
     const view = el("div", `cb-block cb-${block.type === "command" ? "command" : block.type === "if" ? "logic" : "loop"}`);
     view.dataset.type = block.type === "command" ? block.cmd.op : block.type;
     view.draggable = true;
@@ -213,8 +245,8 @@ export class CodeBuilderScreen {
     }
     row.append(...this.moveButtons(list, index));
     view.append(row);
-    if (block.type === "repeat" || block.type === "until") view.append(this.zone(block.body, "do"));
-    if (block.type === "if") view.append(this.zone(block.then, "then"), el("span", "cb-label", "else"), this.zone(block.else, "else"));
+    if (block.type === "repeat" || block.type === "until") view.append(this.zone(block.body, "do", depth + 1));
+    if (block.type === "if") view.append(this.zone(block.then, "then", depth + 1), el("span", "cb-label", "else"), this.zone(block.else, "else", depth + 1));
     return view;
   }
 
@@ -273,6 +305,13 @@ export class CodeBuilderScreen {
       button("✕", "Delete block", () => list.splice(index, 1)),
     ];
   }
+}
+
+/** Nesting a block adds: 0 for commands, 1 + the deepest child for loops and ifs. */
+function height(block: CodeBlock): number {
+  const children = block.type === "repeat" || block.type === "until" ? [block.body] : block.type === "if" ? [block.then, block.else] : [];
+  if (children.length === 0) return 0;
+  return 1 + Math.max(0, ...children.flat().map(height));
 }
 
 /** True if `list` is `block`'s own body (or nested inside it): dropping there would lose the block. */

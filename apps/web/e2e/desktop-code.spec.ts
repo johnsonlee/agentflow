@@ -90,7 +90,67 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     await page.reload();
     await page.getByRole("button", { name: /Continue/ }).click();
     await waitForTerrain(page);
-    await expect(page.locator(".chat-line", { hasText: "dropped an invalid saved program" })).toHaveCount(1);
+    expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual(['Program 1 "Broken": Unknown direction sideways']);
     expect(await page.evaluate(() => window.__craft.game!.programs.length)).toBe(0);
+  });
+
+  test("a hand-corrupted save (\"__proto__\"/\"toString\" ops, a \"__proto__\" chalkboard) loads, renders, and drops the bad entries", async ({ page }) => {
+    test.setTimeout(180_000);
+    await createWorld(page);
+    await settle(page);
+    await page.evaluate(() => window.__craft.game!.save());
+    // Edit the saved JSON the way a user (or a damaged file) could. The running game saves on
+    // pagehide, so stop it saving over the edited file during the reload.
+    await page.evaluate(() => {
+      window.__craft.game!.save = () => undefined;
+      const key = Object.keys(localStorage).find((k) => k.startsWith("craft.save"))!;
+      const text = localStorage.getItem(key)!;
+      const save = JSON.parse(text);
+      save.programs = "__PROGRAMS__";
+      save.chalkboards = "__BOARDS__";
+      const programs =
+        '[{"name":"Proto","trigger":{"type":"chat","command":"proto"},"blocks":[{"type":"command","cmd":{"op":"__proto__","dir":"up"}}]},' +
+        '{"name":"Str","trigger":{"type":"chat","command":"str"},"blocks":[{"type":"command","cmd":{"op":"toString"}}]}]';
+      const boards = '[{"x":0,"y":60,"z":0,"size":"__proto__","facing":0,"standing":true,"text":"x","locked":false}]';
+      localStorage.setItem(key, JSON.stringify(save).replace('"__PROGRAMS__"', programs).replace('"__BOARDS__"', boards));
+    });
+    await page.reload();
+    await page.getByRole("button", { name: /Continue/ }).click();
+    await waitForTerrain(page);
+    // Chat messages fade after 7 s (terrain can take longer on slow machines), so check the record.
+    expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([
+      'Program 1 "Proto": Unknown command __proto__',
+      'Program 2 "Str": Unknown command toString',
+      "1 damaged chalkboard/furnace entries",
+    ]);
+    expect(await page.evaluate(() => [window.__craft.game!.programs.length, window.__craft.game!.chalkboards.size])).toEqual([0, 0]);
+    const frame = () => page.evaluate(() => window.__craft.game!.renderer.renderer.info.render.frame);
+    const f0 = await frame();
+    await command(page, "/code str");
+    await expect(page.locator(".chat-line", { hasText: 'No Code Builder program runs on "str"' })).toHaveCount(1);
+    await expect.poll(frame).toBeGreaterThan(f0 + 5);
+  });
+
+  test("the editor refuses to nest loops and ifs deeper than 4", async ({ page }) => {
+    test.setTimeout(120_000);
+    await createWorld(page);
+    await settle(page);
+    await openCodeBuilder(page);
+    // Tap-add 5 nested repeats: each time select the innermost "do" zone.
+    await page.locator('[data-palette="repeat"]').click();
+    for (let depth = 1; depth < 5; depth++) {
+      await page.locator('[data-drop="do"] .cb-empty').last().click();
+      await page.locator('[data-palette="repeat"]').click();
+    }
+    await expect(page.locator(".cb-status")).toHaveText("Loops and ifs can be nested at most 4 deep");
+    expect(await page.locator(".cb-block[data-type=repeat]").count()).toBe(4);
+    // Dragging a loop into the deepest zone is refused too.
+    await page.locator('[data-palette="if"]').dragTo(page.locator('[data-drop="do"]').last());
+    expect(await page.locator(".cb-block[data-type=if]").count()).toBe(0);
+    // A command still fits at the deepest level, and the program runs.
+    await page.locator('[data-drop="do"] .cb-empty').last().click();
+    await page.locator('[data-palette="turn"]').click();
+    await page.getByRole("button", { name: "▶ Run" }).click();
+    await expect(page.locator(".code-screen")).toBeHidden();
   });
 });

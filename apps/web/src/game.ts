@@ -5,7 +5,8 @@ import {
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type FurnaceState, type HungerState,
+  type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type AgentCommand,
+  sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -91,7 +92,8 @@ export class Game {
   private runnerName = "";
   private stepTimer = 0;
   private runnerStarted = 0;
-  private loadErrors: string[] = [];
+  /** Problems found while loading the save (also shown as chat messages, which fade after 7 s). */
+  loadErrors: string[] = [];
   private mobTarget: Mob | null = null;
   private attackCooldown = 0;
   private clock = 0;
@@ -127,14 +129,16 @@ export class Game {
     const save = options.save;
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
-    if (save) this.world.importEdits(save.edits);
+    if (save) this.world.importEdits(sanitizeEdits(save.edits));
     this.mode = save?.mode ?? options.mode;
     this.timeOfDay = save?.timeOfDay ?? 0.05;
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.mobs = new MobManager(this.world, this.renderer.scene);
-    for (const npc of save?.npcs ?? []) this.mobs.spawn("npc", npc, npc);
-    this.hunger = save?.hunger ? { ...save.hunger } : createHunger();
-    for (const f of save?.furnaces ?? []) this.furnaces.set(furnaceKey(f.x, f.y, f.z), f.state);
+    // Every optional save section is sanitized (strict, own-property checks); bad entries are dropped.
+    for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
+    this.hunger = sanitizeHunger(save?.hunger) ?? createHunger();
+    const furnaces = sanitizeFurnaces(save?.furnaces);
+    for (const f of furnaces.furnaces) this.furnaces.set(furnaceKey(f.x, f.y, f.z), f.state);
     this.mobs.spawning = save?.gamerules?.doMobSpawning ?? options.spawnAnimals ?? true;
     this.daylightCycle = save?.gamerules?.doDaylightCycle ?? true;
 
@@ -164,12 +168,14 @@ export class Game {
     this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
     this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen));
     this.chalkViews = new ChalkboardViews(this.renderer.scene);
-    for (const b of save?.chalkboards ?? []) this.addChalkboard({ ...b });
-    this.agent = save?.agent ? { ...save.agent, slots: save.agent.slots.map((s) => (s ? { ...s } : null)) } : this.agentNearPlayer();
-    // Saved programs are validated: invalid ones are dropped (and reported) instead of crashing later.
+    const boards = sanitizeChalkboards(save?.chalkboards);
+    for (const b of boards.boards) this.addChalkboard(b);
+    this.agent = sanitizeAgent(save?.agent) ?? this.agentNearPlayer();
+    // Saved programs are validated (a total function): invalid ones are dropped and reported.
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    if (boards.dropped + furnaces.dropped > 0) this.loadErrors.push(`${boards.dropped + furnaces.dropped} damaged chalkboard/furnace entries`);
     this.agentView = new AgentView(this.renderer.scene, this.agent);
     this.codeBuilder = new CodeBuilderScreen(
       this.root,
@@ -625,7 +631,7 @@ export class Game {
     }
     let result: ReturnType<typeof runAgentCommand>;
     try {
-      result = runAgentCommand(this.world, this.agent, cmd, {
+      result = runAgentCommand(this.world, this.agent, cmd as AgentCommand, {
       attack: (x, y, z) => {
         const mob = this.mobs.mobs.find((m) => Math.floor(m.position.x) === x && Math.floor(m.position.z) === z && Math.abs(m.position.y - y) < 1.5);
         if (!mob) return false;
@@ -634,14 +640,16 @@ export class Game {
       },
       giveToPlayer: (stack) => this.inventory.addStack(stack),
       });
+      // Defence in depth: anything but a result object stops the program.
+      if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
+      this.agentView.moveTo(this.agent);
+      // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
+      if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
     } catch (e) {
       this.runner = null;
       this.hud.message(`"${this.runnerName}" stopped: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
-    this.agentView.moveTo(this.agent);
-    // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
-    if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
   }
 
   private closeDialog(dialog: { hide(): void }): void {

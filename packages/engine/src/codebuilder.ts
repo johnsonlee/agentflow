@@ -118,31 +118,48 @@ export class ProgramRunner {
   }
 }
 
-const OPS: Record<string, (c: Record<string, unknown>) => boolean> = {
-  move: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
-  place: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
-  destroy: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
-  detect: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
-  inspect: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
-  attack: (c) => AGENT_DIRECTIONS.includes(c.dir as AgentDirection),
-  turn: (c) => c.side === "left" || c.side === "right",
-  select: (c) => Number.isInteger(c.slot) && (c.slot as number) >= 0 && (c.slot as number) < 27,
-  drop: (c) => Number.isInteger(c.slot) && (c.slot as number) >= 0 && (c.slot as number) < 27,
-  collect: () => true,
-};
+const isDir = (d: unknown): d is AgentDirection => typeof d === "string" && (AGENT_DIRECTIONS as readonly string[]).includes(d);
+const isSlot = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n >= 0 && n < 27;
+const isPlainObject = (v: unknown): v is Record<string, unknown> =>
+  typeof v === "object" && v !== null && !Array.isArray(v) && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
+/** Own (not inherited) property, so names like "constructor" or "__proto__" never resolve. */
+const own = (o: Record<string, unknown>, key: string): unknown => (Object.prototype.hasOwnProperty.call(o, key) ? o[key] : undefined);
+
+/** Allowed Agent commands and their parameter checks (a Map: no prototype keys). */
+const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
+  ["move", (c) => isDir(own(c, "dir"))],
+  ["place", (c) => isDir(own(c, "dir"))],
+  ["destroy", (c) => isDir(own(c, "dir"))],
+  ["detect", (c) => isDir(own(c, "dir"))],
+  ["inspect", (c) => isDir(own(c, "dir"))],
+  ["attack", (c) => isDir(own(c, "dir"))],
+  ["turn", (c) => own(c, "side") === "left" || own(c, "side") === "right"],
+  ["select", (c) => isSlot(own(c, "slot"))],
+  ["drop", (c) => isSlot(own(c, "slot"))],
+  ["collect", () => true],
+]);
 
 /**
- * Checks a program's structure (from the editor, a save or anywhere else) defensively, and returns
- * a list of problems (empty = valid). Never throws, whatever the input.
+ * Checks a program's structure (from the editor, a save or anywhere else) with strict, own-property
+ * type checks, and returns a list of problems (empty = valid). Total: never throws, whatever the input.
  */
 export function validateProgram(p: unknown): string[] {
+  try {
+    return checkProgram(p);
+  } catch {
+    return ["Not a valid program"];
+  }
+}
+
+function checkProgram(p: unknown): string[] {
   const problems: string[] = [];
-  const prog = p as Partial<CodeProgram> | null;
-  if (!prog || typeof prog !== "object") return ["Not a program"];
-  if (typeof prog.name !== "string") problems.push("Missing program name");
-  const t = prog.trigger as { type?: unknown; command?: unknown } | undefined;
-  if (!t || (t.type !== "run" && !(t.type === "chat" && typeof t.command === "string" && t.command.length > 0))) problems.push("Invalid trigger");
-  const dirOk = (d: unknown) => AGENT_DIRECTIONS.includes(d as AgentDirection);
+  if (!isPlainObject(p)) return ["Not a program"];
+  if (typeof own(p, "name") !== "string") problems.push("Missing program name");
+  const t = own(p, "trigger");
+  const tType = isPlainObject(t) ? own(t, "type") : undefined;
+  const tCommand = isPlainObject(t) ? own(t, "command") : undefined;
+  if (!(tType === "run" || (tType === "chat" && typeof tCommand === "string" && /^[a-z0-9_-]{1,32}$/.test(tCommand)))) problems.push("Invalid trigger");
+  let count = 0;
   const visit = (blocks: unknown, depth: number): void => {
     if (!Array.isArray(blocks)) {
       problems.push("Blocks must be a list");
@@ -152,42 +169,61 @@ export function validateProgram(p: unknown): string[] {
       problems.push(`Loops and ifs can be nested at most ${MAX_NESTING} deep`);
       return;
     }
-    for (const raw of blocks) {
-      const b = raw as Record<string, unknown> | null;
-      if (!b || typeof b !== "object") problems.push("Invalid block");
-      else if (b.type === "repeat") {
-        if (!(typeof b.times === "number" && b.times >= 0 && b.times <= MAX_REPEAT)) problems.push(`repeat must be 0-${MAX_REPEAT}`);
-        visit(b.body, depth + 1);
-      } else if (b.type === "if") {
-        if (!dirOk(b.dir)) problems.push(`Unknown direction ${String(b.dir)}`);
-        visit(b.then, depth + 1);
-        visit(b.else, depth + 1);
-      } else if (b.type === "until") {
-        if (!dirOk(b.dir)) problems.push(`Unknown direction ${String(b.dir)}`);
-        visit(b.body, depth + 1);
-      } else if (b.type === "command") {
-        const c = b.cmd as Record<string, unknown> | null;
-        const check = c && typeof c === "object" ? OPS[String(c.op)] : undefined;
-        if (!check) problems.push(`Unknown command ${String(c?.op)}`);
-        else if (!check(c!)) problems.push(c!.dir !== undefined && !dirOk(c!.dir) ? `Unknown direction ${String(c!.dir)}` : `Invalid ${String(c!.op)} parameters`);
-      } else problems.push(`Unknown block ${String(b.type)}`);
+    for (const b of blocks) {
+      if (++count > 2000) {
+        problems.push("Too many blocks");
+        return;
+      }
+      if (!isPlainObject(b)) {
+        problems.push("Invalid block");
+        continue;
+      }
+      const type = own(b, "type");
+      if (type === "repeat") {
+        const times = own(b, "times");
+        if (!(typeof times === "number" && Number.isInteger(times) && times >= 0 && times <= MAX_REPEAT)) problems.push(`repeat must be 0-${MAX_REPEAT}`);
+        visit(own(b, "body"), depth + 1);
+      } else if (type === "if") {
+        if (!isDir(own(b, "dir"))) problems.push(`Unknown direction ${String(own(b, "dir"))}`);
+        visit(own(b, "then"), depth + 1);
+        visit(own(b, "else"), depth + 1);
+      } else if (type === "until") {
+        if (!isDir(own(b, "dir"))) problems.push(`Unknown direction ${String(own(b, "dir"))}`);
+        visit(own(b, "body"), depth + 1);
+      } else if (type === "command") {
+        const c = own(b, "cmd");
+        const op = isPlainObject(c) ? own(c, "op") : undefined;
+        const check = typeof op === "string" ? OPS.get(op) : undefined;
+        if (!isPlainObject(c) || !check) problems.push(`Unknown command ${typeof op === "string" ? op : String(typeof op)}`);
+        else if (!check(c)) {
+          const dir = own(c, "dir");
+          problems.push(dir !== undefined && !isDir(dir) ? `Unknown direction ${String(dir)}` : `Invalid ${op} parameters`);
+        }
+      } else problems.push(`Unknown block ${typeof type === "string" ? type : String(typeof type)}`);
     }
   };
-  visit(prog.blocks, 0);
+  visit(own(p, "blocks"), 0);
   return problems;
 }
 
 /** Loads programs from a save: keeps the valid ones and reports the ones dropped. */
 export function loadPrograms(raw: unknown): { programs: CodeProgram[]; errors: string[] } {
-  if (!Array.isArray(raw)) return { programs: [], errors: raw === undefined ? [] : ["Saved programs were not a list"] };
-  const programs: CodeProgram[] = [];
-  const errors: string[] = [];
-  raw.forEach((p, i) => {
-    const problems = validateProgram(p);
-    if (problems.length === 0) programs.push(p as CodeProgram);
-    else errors.push(`Program ${i + 1}${typeof (p as { name?: unknown })?.name === "string" ? ` "${(p as CodeProgram).name}"` : ""}: ${problems[0]}`);
-  });
-  return { programs, errors };
+  try {
+    if (!Array.isArray(raw)) return { programs: [], errors: raw === undefined ? [] : ["Saved programs were not a list"] };
+    const programs: CodeProgram[] = [];
+    const errors: string[] = [];
+    raw.forEach((p, i) => {
+      const problems = validateProgram(p);
+      if (problems.length === 0) programs.push(p as CodeProgram);
+      else {
+        const name = isPlainObject(p) && typeof own(p, "name") === "string" ? ` "${own(p, "name") as string}"` : "";
+        errors.push(`Program ${i + 1}${name}: ${problems[0]}`);
+      }
+    });
+    return { programs, errors };
+  } catch {
+    return { programs: [], errors: ["Saved programs could not be read"] };
+  }
 }
 
 /** Every run path goes through here: a runner for a valid program, or the reason it can't run. */

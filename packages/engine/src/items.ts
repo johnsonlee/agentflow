@@ -122,6 +122,7 @@ export function stackId(name: string): number {
 
 /** True for any id a stack may hold (a known block or item). */
 export function isKnownId(id: number): boolean {
+  if (typeof id !== "number" || !Number.isInteger(id) || id < 0) return false;
   return isItem(id) ? ITEMS[id - ITEM_ID_BASE] !== undefined : BLOCKS[id] !== undefined;
 }
 

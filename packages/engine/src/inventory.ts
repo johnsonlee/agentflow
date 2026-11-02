@@ -123,15 +123,20 @@ export class Inventory {
   /** Loads a saved inventory. Saves from before items existed load unchanged; unknown ids are dropped. */
   static fromJSON(data: { slots: (ItemStack | null)[]; selected: number }): Inventory {
     const inv = new Inventory();
+    if (!data || !Array.isArray(data.slots)) return inv;
     data.slots.slice(0, INVENTORY_SIZE).forEach((s, i) => {
       if (!s || !isKnownId(s.id) || !(s.count > 0)) return;
       const max = maxStackOf(s.id);
       const stack: ItemStack = { id: s.id, count: Math.min(s.count, max) };
       if (toolOf(s.id) && s.damage) stack.damage = s.damage;
-      if (s.book && Array.isArray(s.book.pages)) stack.book = { ...s.book, pages: s.book.pages.map(String) };
+      if (s.book && typeof s.book === "object" && Array.isArray(s.book.pages)) {
+        stack.book = { pages: s.book.pages.map(String).slice(0, 50) };
+        if (typeof s.book.title === "string") stack.book.title = s.book.title;
+        if (typeof s.book.author === "string") stack.book.author = s.book.author;
+      }
       inv.setSlot(i, stack);
     });
-    inv.select(data.selected);
+    inv.select(Number.isInteger(data.selected) ? data.selected : 0);
     return inv;
   }
 }

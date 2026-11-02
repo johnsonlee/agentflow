@@ -46,7 +46,8 @@ export function parseCommand(input: string): Command {
     }
     case "time": {
       if (args[0] !== "set" || args[1] === undefined) return { type: "error", message: "Usage: /time set <day|night|ticks>" };
-      const ticks = NAMED_TIMES[args[1].toLowerCase()] ?? Number(args[1]);
+      const named = args[1].toLowerCase();
+      const ticks = Object.prototype.hasOwnProperty.call(NAMED_TIMES, named) ? NAMED_TIMES[named] : Number(args[1]);
       if (!Number.isFinite(ticks)) return { type: "error", message: `Invalid time "${args[1]}"` };
       return { type: "time", timeOfDay: (((ticks % TICKS_PER_DAY) + TICKS_PER_DAY) % TICKS_PER_DAY) / TICKS_PER_DAY };
     }

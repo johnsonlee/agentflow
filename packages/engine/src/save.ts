@@ -46,5 +46,10 @@ export function parseSave(text: string): SaveData {
     throw new Error("Malformed save data");
   }
   if (data.mode !== "creative" && data.mode !== "survival") throw new Error("Malformed game mode");
+  const p = data.player as unknown as { position?: Record<string, unknown>; yaw?: unknown; pitch?: unknown };
+  const finite = (v: unknown) => typeof v === "number" && Number.isFinite(v);
+  if (!p.position || !finite(p.position.x) || !finite(p.position.y) || !finite(p.position.z) || !finite(p.yaw) || !finite(p.pitch)) {
+    throw new Error("Malformed player data");
+  }
   return data as SaveData;
 }

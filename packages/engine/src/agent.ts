@@ -157,6 +157,9 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
     case "collect":
       // Items never lie on the ground in this game (drops go straight to an inventory).
       return { ok: true, value: false, message: "Nothing to collect" };
+    default:
+      // Never reached for validated programs; still a defined result for anything else.
+      return { ok: false, message: "Unknown command" };
   }
 }
 
