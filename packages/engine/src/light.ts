@@ -5,7 +5,7 @@
  * Incremental updates use the classic remove-then-refill passes, so placing or breaking a block
  * only touches the cells whose light actually changes.
  */
-import { BLOCKS, isOpaque } from "./blocks";
+import { tryBlockById, isOpaque } from "./blocks";
 import { WORLD_HEIGHT } from "./chunk";
 
 export const MAX_LIGHT = 15;
@@ -13,7 +13,7 @@ export type LightChannel = "sky" | "block";
 
 /** Light emitted by a block. */
 export function emission(id: number): number {
-  return BLOCKS[id]?.light ?? 0;
+  return tryBlockById(id)?.light ?? 0;
 }
 
 /** Packed light accessors over loaded chunks; `get` returns -1 for cells in unloaded chunks. */

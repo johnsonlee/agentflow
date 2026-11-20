@@ -1,6 +1,7 @@
+import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { itemTextureNames, textureNames } from "@craft/engine";
-import { TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
+import { BLOCKS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
+import { ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
 
 describe("procedural textures", () => {
   it("provides a texture for every block face", () => {
@@ -35,6 +36,33 @@ describe("procedural textures", () => {
         ...Array.from({ length: 8 }, (_, age) => `wheat_stage_${age}`),
       ].sort(),
     );
+  });
+
+  it("covers all generic element faces with distinct fully opaque periodic-table art", () => {
+    const names = ["element_block_0_unknown", ...ELEMENTS.map((e) => `element_block_${e.z}_${e.symbol}`)];
+    expect(Object.keys(ELEMENT_BLOCK_TILE_GENERATORS).sort()).toEqual([...names].sort());
+    const worldFaces = new Set(BLOCKS.filter((b) => b.id >= 32768).flatMap((b) => Object.values(b.faces)));
+    expect([...worldFaces].sort()).toEqual([...names].sort());
+    const atlas = buildAtlas([...textureNames(), ...itemTextureNames()]);
+    const hashes = new Set<string>();
+    for (const name of names) {
+      expect(TILE_NAMES).toContain(name);
+      expect(atlas.tiles.has(name)).toBe(true);
+      const data = generateTile(name);
+      for (let i = 3; i < data.length; i += 4) expect(data[i]).toBe(255);
+      expect(Buffer.from(atlas.tilePixels(name)).equals(Buffer.from(data))).toBe(true);
+      hashes.add(Buffer.from(data).toString("base64"));
+    }
+    expect(hashes.size).toBe(119);
+  });
+
+  it("keeps every pre-element-world block and inventory texture byte-identical", () => {
+    // Recorded from frozen 9c5d8d0: 130 block face keys and 519 item icons.
+    const names = [...textureNames().filter((n) => !n.startsWith("element_block_")), ...itemTextureNames()];
+    expect(names).toHaveLength(649);
+    const hash = createHash("sha256");
+    for (const name of names) hash.update(name + "\0").update(generateTile(name));
+    expect(hash.digest("hex")).toBe("e730bdce08dc1ccb353ed281d84090428c29f652ab575c47b6c0b1c95a7dfd2a");
   });
 
   it("grass side has a green top fringe over dirt", () => {

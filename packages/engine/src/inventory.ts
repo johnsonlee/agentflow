@@ -1,11 +1,11 @@
-import { ARMOR_SLOTS, armorOf, maxStackOf, toolOf, type ArmorSlot } from "./items";
+import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, maxStackOf, toolOf, type ArmorSlot } from "./items";
 import { sanitizeStack } from "./savecheck";
 
 export const HOTBAR_SIZE = 9;
 export const INVENTORY_SIZE = 36;
 
 export interface ItemStack {
-  /** Block id, or item id (>= ITEM_ID_BASE). */
+  /** A registered block/item stack ID; extended blocks share the unsigned16-bit namespace. */
   id: number;
   count: number;
   /** Uses spent on a tool or armor (absent or 0 = new). */
@@ -49,6 +49,8 @@ export class Inventory {
    * Returns the number of items that did not fit.
    */
   addStack(stack: ItemStack): number {
+    if (!isKnownId(stack.id)) return stack.count;
+    stack = { ...stack, id: baseStackId(stack.id) };
     const max = maxStackOf(stack.id);
     let left = stack.count;
     if (max > 1) {
@@ -133,6 +135,8 @@ export class Inventory {
 
   /** Creative pick: puts a block in the hotbar, reusing a slot that already holds it. */
   pick(id: number): void {
+    if (!isKnownId(id)) return;
+    id = baseStackId(id);
     const existing = this.slots.findIndex((s, i) => i < HOTBAR_SIZE && s?.id === id);
     if (existing >= 0) {
       this.selected = existing;
@@ -142,11 +146,13 @@ export class Inventory {
   }
 
   setSlot(slot: number, stack: ItemStack | null): void {
-    this.slots[slot] = stack ? { ...stack } : null;
+    this.slots[slot] = stack ? { ...stack, id: baseStackId(stack.id) } : null;
   }
 
   /** How many more of `id` could be added to the inventory. */
   spaceFor(id: number): number {
+    if (!isKnownId(id)) return 0;
+    id = baseStackId(id);
     const max = maxStackOf(id);
     return this.slots.reduce((n, s) => n + (!s ? max : s.id === id && max > 1 ? max - s.count : 0), 0);
   }

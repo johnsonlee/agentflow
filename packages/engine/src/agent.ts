@@ -5,13 +5,13 @@
  * (it can't build or break in Deny areas).
  */
 import { blockDrops } from "./farming";
-import { AIR, BLOCKS, blockById, isSolid } from "./blocks";
+import { AIR, tryBlockById, blockById, isSolid } from "./blocks";
 import { FACING_DIRS } from "./chalkboard";
 import type { ItemStack } from "./inventory";
-import { isKnownId, maxStackOf, placedBlockOf } from "./items";
+import { baseStackId, isKnownId, maxStackOf, placedBlockOf } from "./items";
 import { doorPartner, orientedPlacement } from "./redstone";
 import { WORLD_HEIGHT } from "./chunk";
-import { WORLD_BORDER } from "./math";
+import { WORLD_BORDER, type Vec3 } from "./math";
 import { canBreak, canBuildAt, extraCellsFree, hasSupport } from "./rules";
 import type { World } from "./world";
 
@@ -66,6 +66,41 @@ export function createAgent(x: number, y: number, z: number, facing = 2): AgentS
   return { x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), facing, slots: new Array(AGENT_SLOTS).fill(null), selected: 0 };
 }
 
+/**
+ * Finds a safe nearby teleport cell, preferring the player's left and a floor.
+ * Search is deliberately local (radius 3, two levels above/below); an Agent can
+ * fly, so a clear unsupported cell is a fallback. Facing is left to the caller.
+ */
+export function findAgentPosition(world: Pick<World, "getBlock">, player: Vec3, yaw: number): Vec3 | null {
+  if (![player.x, player.y, player.z, yaw].every(Number.isFinite) ||
+    Math.abs(player.x) > WORLD_BORDER || Math.abs(player.z) > WORLD_BORDER ||
+    player.y < 0 || player.y >= WORLD_HEIGHT) return null;
+  const px = Math.floor(player.x), pz = Math.floor(player.z);
+  // Physics can leave feet a few ulps below an integer floor; don't round real slopes/heights.
+  const py = Math.floor(player.y + 1e-5);
+  const leftX = Math.floor(player.x - Math.cos(yaw)), leftZ = Math.floor(player.z + Math.sin(yaw));
+  const columns: { x: number; z: number }[] = [];
+  for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {
+    const x = px + dx, z = pz + dz;
+    if ((dx === 0 && dz === 0) || Math.abs(x) > WORLD_BORDER || Math.abs(z) > WORLD_BORDER) continue;
+    columns.push({ x, z });
+  }
+  columns.sort((a, b) =>
+    ((a.x - leftX) ** 2 + (a.z - leftZ) ** 2) - ((b.x - leftX) ** 2 + (b.z - leftZ) ** 2));
+  let flying: Vec3 | null = null;
+  for (const dy of [0, 1, -1, 2, -2]) {
+    const y = py + dy;
+    if (y < 0 || y + 1 >= WORLD_HEIGHT) continue;
+    for (const { x, z } of columns) {
+      if (isSolid(world.getBlock(x, y, z)) || isSolid(world.getBlock(x, y + 1, z))) continue;
+      const spot = { x, y, z };
+      if (y > 0 && isSolid(world.getBlock(x, y - 1, z))) return spot;
+      flying ??= spot;
+    }
+  }
+  return flying;
+}
+
 /** World-space step for a direction relative to the Agent's facing. */
 export function agentStep(agent: AgentState, dir: AgentDirection): readonly [number, number, number] {
   const [fx, fz] = FACING_DIRS[agent.facing];
@@ -87,6 +122,7 @@ function copyStack(stack: ItemStack, count = stack.count): ItemStack {
 function addToAgent(agent: AgentState, stack: ItemStack): number {
   if (!Number.isSafeInteger(stack.count) || stack.count <= 0) return 0;
   if (!isKnownId(stack.id)) return stack.count;
+  stack = { ...stack, id: baseStackId(stack.id) };
   const max = maxStackOf(stack.id);
   let left = stack.count;
   // Durable items and books do not merge, and even ordinary stacks obey their item limit.
@@ -127,7 +163,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
     case "place": {
       const t = target(cmd.dir);
       const here = world.getBlock(t.x, t.y, t.z);
-      if (here !== AIR && !BLOCKS[here].replaceable && BLOCKS[here].shape !== "liquid") return { ok: false, message: "Something is in the way" };
+      if (here !== AIR && !tryBlockById(here)?.replaceable && tryBlockById(here)?.shape !== "liquid") return { ok: false, message: "Something is in the way" };
       const stack = agent.slots[agent.selected];
       // Blocks, and items that place a block (redstone dust, doors, lab products).
       const placed = stack ? placedBlockOf(stack.id) : null;
@@ -150,7 +186,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
       const above = world.getBlock(t.x, t.y + 1, t.z);
-      const supported = BLOCKS[above]?.needsSupport === true;
+      const supported = tryBlockById(above)?.needsSupport === true;
       const drops = [...blockDrops(id), ...(supported ? blockDrops(above) : [])];
       const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
       if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };

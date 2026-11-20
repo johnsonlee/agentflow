@@ -35,3 +35,5 @@ export * from "./armor";
 export * from "./farming";
 
 export * from "./education-isotopes";
+
+export { LEGACY_BLOCK_ID_LIMIT, ITEM_ID_LIMIT, EXTENDED_BLOCK_ID_BASE, BLOCK_ID_LIMIT, isBlockNamespace } from "./ids";

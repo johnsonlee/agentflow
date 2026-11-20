@@ -19,7 +19,7 @@ it("pins the exact 411 neutral rows and preserves all 164 block and 449 item IDs
   expect(EDUCATION_ISOTOPE_GUIDE.reduce((sum, [, , ns]) => sum + ns.length, 0)).toBe(411);
   // This digest was computed from retained, cross-checked source geometry, not generated runtime definitions.
   expect(digest(EDUCATION_ISOTOPE_GUIDE)).toBe("93d6c6f1381c6d65475459cb98b963a74f203c98b47611c97f93f58d1a2f9b96");
-  expect(digest(BLOCKS.map(({ id, name }) => [id, name]))).toBe("01c152ce6dbc67a7e4e07b24fccf35b2a20725eb6e3fb3b97694403c39b84894");
+  expect(digest(BLOCKS.slice(0, 164).map(({ id, name }) => [id, name]))).toBe("01c152ce6dbc67a7e4e07b24fccf35b2a20725eb6e3fb3b97694403c39b84894");
   expect(digest(ITEMS.slice(0, 449).map(({ id, name }) => [id, name]))).toBe("5ce6fee25a8ca0c4fb72fca071996a41a3914122acf7724705b2fc616eb47294");
   expect(digest(ITEMS.slice(0, 449).filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope")
     .map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))

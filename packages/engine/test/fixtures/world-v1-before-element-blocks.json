@@ -1,0 +1,289 @@
+{
+  "version": 1,
+  "name": "Before extended blocks",
+  "seed": 13,
+  "mode": "survival",
+  "timeOfDay": 0.3,
+  "player": {
+    "position": {
+      "x": 32768,
+      "y": 70,
+      "z": -1
+    },
+    "yaw": 0,
+    "pitch": 0,
+    "flying": false
+  },
+  "inventory": {
+    "slots": [
+      {
+        "id": 284,
+        "count": 3
+      },
+      {
+        "id": 705,
+        "count": 2
+      },
+      {
+        "id": 402,
+        "count": 4
+      },
+      {
+        "id": 704,
+        "count": 1
+      },
+      {
+        "id": 311,
+        "count": 2
+      },
+      {
+        "id": 435,
+        "count": 1,
+        "damage": 12
+      },
+      {
+        "id": 283,
+        "count": 1,
+        "book": {
+          "pages": [
+            "Literal 32768 is text, not an ID."
+          ],
+          "title": "Old notes",
+          "author": "Builder"
+        }
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ],
+    "selected": 0,
+    "equipment": {
+      "head": null,
+      "chest": {
+        "id": 685,
+        "count": 1,
+        "damage": 37
+      },
+      "legs": null,
+      "feet": null
+    }
+  },
+  "inventoryPending": [
+    {
+      "id": 668,
+      "count": 2
+    },
+    {
+      "id": 283,
+      "count": 1,
+      "book": {
+        "pages": [
+          "Literal 32768 is text, not an ID."
+        ],
+        "title": "Old notes",
+        "author": "Builder"
+      }
+    }
+  ],
+  "edits": [
+    [
+      2,
+      70,
+      2,
+      41
+    ],
+    [
+      3,
+      70,
+      3,
+      39
+    ],
+    [
+      4,
+      70,
+      4,
+      75
+    ],
+    [
+      6,
+      69,
+      6,
+      151
+    ],
+    [
+      6,
+      70,
+      6,
+      154
+    ]
+  ],
+  "gamerules": {
+    "doMobSpawning": false,
+    "doDaylightCycle": true
+  },
+  "npcs": [
+    {
+      "x": 1,
+      "y": 70,
+      "z": 2,
+      "yaw": 0,
+      "name": "Guide",
+      "dialogue": "Keep 32768 unchanged"
+    }
+  ],
+  "hunger": {
+    "food": 17,
+    "saturation": 2,
+    "exhaustion": 0.1,
+    "timer": 0
+  },
+  "agent": {
+    "x": 0,
+    "y": 70,
+    "z": 0,
+    "facing": 2,
+    "selected": 1,
+    "slots": [
+      {
+        "id": 320,
+        "count": 3
+      },
+      {
+        "id": 705,
+        "count": 2
+      },
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null,
+      null
+    ]
+  },
+  "programs": [
+    {
+      "name": "Slots 32768",
+      "trigger": {
+        "type": "run"
+      },
+      "blocks": [
+        {
+          "type": "repeat",
+          "times": 2,
+          "body": [
+            {
+              "type": "command",
+              "cmd": {
+                "op": "select",
+                "slot": 1
+              }
+            },
+            {
+              "type": "command",
+              "cmd": {
+                "op": "inspect",
+                "dir": "forward"
+              }
+            }
+          ]
+        }
+      ]
+    }
+  ],
+  "chalkboards": [
+    {
+      "x": 2,
+      "y": 70,
+      "z": 2,
+      "size": "slate",
+      "facing": 0,
+      "standing": true,
+      "text": "Literal32768",
+      "locked": false
+    }
+  ],
+  "furnaces": [
+    {
+      "x": 3,
+      "y": 70,
+      "z": 3,
+      "state": {
+        "input": {
+          "id": 15,
+          "count": 2
+        },
+        "fuel": {
+          "id": 265,
+          "count": 3
+        },
+        "output": {
+          "id": 267,
+          "count": 1
+        },
+        "burnLeft": 40,
+        "burnTotal": 80,
+        "progress": 0.2
+      }
+    }
+  ],
+  "redstone": [
+    {
+      "x": 4,
+      "y": 70,
+      "z": 4,
+      "due": 2,
+      "kind": "torch"
+    }
+  ],
+  "farming": {
+    "version": 1,
+    "tick": 20,
+    "accumulator": 0.3,
+    "cursor": 0
+  }
+}

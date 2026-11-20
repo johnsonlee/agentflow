@@ -12,8 +12,8 @@ const hash = (defs: readonly { id: number; name: string }[]) => createHash("sha2
 it("preserves all 160 existing block IDs and all 448 item IDs while appending four torch blocks", () => {
   expect(hash(BLOCKS.slice(0, 160))).toBe("3c71ae1be8abe2fbb2e31d60411fd521684402a8f2971516c48818060e731ae4");
   expect(hash(ITEMS.slice(0, 448))).toBe("a1222a5815e226e6abc590dd4b5ec912aea858050cd49e05e26eb40df2f5f888");
-  expect(BLOCKS.slice(160).map((b) => [b.id, b.name])).toEqual(recipes.map(([color], i) => [160 + i, `${color}_torch`]));
-  expect(BLOCKS.length).toBeLessThan(256);
+  expect(BLOCKS.slice(160, 164).map((b) => [b.id, b.name])).toEqual(recipes.map(([color], i) => [160 + i, `${color}_torch`]));
+  expect(BLOCKS.slice(0, 164).every((b) => b.id < 256)).toBe(true);
   expect(creativeBlocks().filter((b) => recipes.some(([color]) => b.name === `${color}_torch`))).toHaveLength(4);
 });
 

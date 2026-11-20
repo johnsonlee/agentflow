@@ -1,4 +1,4 @@
-import { AIR, BLOCKS, blockId, isOpaque } from "./blocks";
+import { AIR, blockId, isOpaque, tryBlockById } from "./blocks";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "./chunk";
 import type { World } from "./world";
 
@@ -73,7 +73,7 @@ const PAD = CHUNK_SIZE + 2;
  */
 export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): ChunkMesh {
   // Copy the chunk plus a one-block border from its neighbours into a padded array for fast lookups.
-  const padded = new Uint8Array(PAD * PAD * WORLD_HEIGHT);
+  const padded = new Uint16Array(PAD * PAD * WORLD_HEIGHT);
   const paddedLight = new Uint8Array(PAD * PAD * WORLD_HEIGHT);
   const pidx = (x: number, y: number, z: number) => (y * PAD + (z + 1)) * PAD + (x + 1);
   for (let dz = -1; dz <= 1; dz++) {
@@ -107,7 +107,8 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
       for (let x = 0; x < CHUNK_SIZE; x++) {
         const id = get(x, y, z);
         if (id === AIR) continue;
-        const def = BLOCKS[id];
+        const def = tryBlockById(id);
+        if (!def) continue;
         // Drawn elsewhere (e.g. chalkboards are textured planes).
         if (def.shape === "none") continue;
         if (def.shape === "cross" || def.shape === "torch") {

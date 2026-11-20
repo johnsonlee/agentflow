@@ -9,6 +9,7 @@ const S = TILE_SIZE;
 
 /** 3x5 pixel glyphs (rows top to bottom, "#" = ink). Lowercase letters use the bottom 4 rows. */
 const GLYPHS = new Map<string, readonly string[]>([
+  ["?", ["##.", "..#", ".#.", "...", ".#."]],
   ["0", ["###", "#.#", "#.#", "#.#", "###"]],
   ["1", [".#.", "##.", ".#.", ".#.", "###"]],
   ["2", ["##.", "..#", ".#.", "#..", "###"]],
@@ -286,3 +287,37 @@ export const CHEMISTRY_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
     for (let y = 8; y <= 11; y++) for (let x = 5; x <= 10; x++) t.set(x, y, hex("#5ad0ff"));
   }),
 };
+
+/** Stable scientific symbol order; engine face-name coverage tests guard this independent art table. */
+const ELEMENT_SYMBOLS = ("H He Li Be B C N O F Ne Na Mg Al Si P S Cl Ar K Ca Sc Ti V Cr Mn Fe Co Ni Cu Zn Ga Ge As Se Br Kr " +
+  "Rb Sr Y Zr Nb Mo Tc Ru Rh Pd Ag Cd In Sn Sb Te I Xe Cs Ba La Ce Pr Nd Pm Sm Eu Gd Tb Dy Ho Er Tm Yb Lu " +
+  "Hf Ta W Re Os Ir Pt Au Hg Tl Pb Bi Po At Rn Fr Ra Ac Th Pa U Np Pu Am Cm Bk Cf Es Fm Md No Lr Rf Db Sg Bh Hs Mt Ds Rg Cn Nh Fl Mc Lv Ts Og").split(" ");
+
+/** Fully opaque cube faces. Inventory cards intentionally keep their original translucent pixels. */
+function elementBlockTile(z: number, symbol: string): (t: Tile) => Tile {
+  return (t) => {
+    const face = z === 0 ? hex("#b7bfc7") : hue(z, 0.62);
+    const frame = z === 0 ? hex("#4d5661") : shade(hue(z, 0.5), 0.55);
+    t.fill((x, y) => x === 0 || y === 0 || x === S - 1 || y === S - 1 ? frame : face);
+    const ink = hex("#1a1a1a");
+    if (z === 0) {
+      GLYPHS.get("?")!.forEach((row, y) => [...row].forEach((pixel, x) => {
+        if (pixel !== "#") return;
+        for (let dy = 0; dy < 2; dy++) for (let dx = 0; dx < 2; dx++) t.set(5 + x * 2 + dx, 3 + y * 2 + dy, ink);
+      }));
+    } else {
+      const number = String(z);
+      text(t, number, Math.floor((S - (number.length * 4 - 1)) / 2), 2, ink);
+      text(t, symbol, Math.floor((S - (symbol.length * 4 - 1)) / 2), 8, ink);
+    }
+    return t;
+  };
+}
+
+export const ELEMENT_BLOCK_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
+  element_block_0_unknown: elementBlockTile(0, "?"),
+};
+ELEMENT_SYMBOLS.forEach((symbol, index) => {
+  const z = index + 1;
+  ELEMENT_BLOCK_TILE_GENERATORS[`element_block_${z}_${symbol}`] = elementBlockTile(z, symbol);
+});

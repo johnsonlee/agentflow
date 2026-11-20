@@ -4,10 +4,11 @@
  * arrays keep holding block ids only.
  */
 import { ADDITIONAL_GUIDE_ISOTOPES } from "./education-isotopes";
-import { BLOCKS, blockById, blockId } from "./blocks";
-import { ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, LEGACY_COMPOUNDS, LEGACY_ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
+import { BLOCKS, blockById, blockId, isKnownBlockId, tryBlockById } from "./blocks";
+import { ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, ELEMENTS, LEGACY_COMPOUNDS, LEGACY_ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
 
-export const ITEM_ID_BASE = 256;
+import { ITEM_ID_BASE, ITEM_ID_LIMIT } from "./ids";
+export { ITEM_ID_BASE } from "./ids";
 export const MAX_STACK = 64;
 
 export type ToolKind = "pickaxe" | "axe" | "shovel" | "sword" | "hoe";
@@ -141,7 +142,7 @@ const specs: Omit<ItemDef, "id">[] = [
   { name: "written_book", displayName: "Written Book", maxStack: 1, icon: "item_written_book" },
   // Increment 6a: Education Edition chemistry (elements 1-36, isotopes, compounds, lab products).
   ...LEGACY_ELEMENTS.map((e) => ({
-    name: elementItemName(e), displayName: e.name, maxStack: MAX_STACK, icon: `item_element_${e.z}_${e.symbol}`,
+    name: elementItemName(e), displayName: e.name, maxStack: MAX_STACK, places: `element_${e.z}`, icon: `item_element_${e.z}_${e.symbol}`,
     chem: { kind: "element" as const, z: e.z, symbol: e.symbol, mass: e.a },
   })),
   ...LEGACY_ELEMENTS.flatMap((e) => e.isotopes.map((m) => ({
@@ -162,7 +163,7 @@ const specs: Omit<ItemDef, "id">[] = [
   ...(["golden", "diamond"] as const).flatMap((m) => TOOL_KINDS.map((k) => tool(m, k))),
   // Append new chemistry after every legacy item (including tools): never reinterpret old saves.
   ...ADDITIONAL_ELEMENTS.map((e) => ({
-    name: elementItemName(e), displayName: e.name, maxStack: MAX_STACK, icon: `item_element_${e.z}_${e.symbol}`,
+    name: elementItemName(e), displayName: e.name, maxStack: MAX_STACK, places: `element_${e.z}`, icon: `item_element_${e.z}_${e.symbol}`,
     chem: { kind: "element" as const, z: e.z, symbol: e.symbol, mass: e.a },
   })),
   ...ADDITIONAL_ELEMENTS.flatMap((e) => e.isotopes.map((m) => ({
@@ -189,16 +190,17 @@ const specs: Omit<ItemDef, "id">[] = [
   }),
 ];
 
+if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));
 
 const itemsByName = new Map(ITEMS.map((i) => [i.name, i]));
 
 export function isItem(id: number): boolean {
-  return id >= ITEM_ID_BASE;
+  return Number.isInteger(id) && id >= ITEM_ID_BASE && id <= ITEM_ID_LIMIT;
 }
 
 export function itemById(id: number): ItemDef {
-  const def = ITEMS[id - ITEM_ID_BASE];
+  const def = isItem(id) ? ITEMS[id - ITEM_ID_BASE] : undefined;
   if (!def) throw new Error(`Unknown item id ${id}`);
   return def;
 }
@@ -216,10 +218,14 @@ export function stackId(name: string): number {
   return itemId(name);
 }
 
-/** True for any id a stack may hold (a known block or item). */
+/** Registered items only; namespace membership alone is not enough. */
+export function isKnownItemId(id: number): boolean {
+  return isItem(id) && ITEMS[id - ITEM_ID_BASE] !== undefined;
+}
+
+/** True for a registered block or item, including extended world blocks. */
 export function isKnownId(id: number): boolean {
-  if (typeof id !== "number" || !Number.isInteger(id) || id < 0) return false;
-  return isItem(id) ? ITEMS[id - ITEM_ID_BASE] !== undefined : BLOCKS[id] !== undefined;
+  return isKnownBlockId(id) || isKnownItemId(id);
 }
 
 export function nameOf(id: number): string {
@@ -231,11 +237,13 @@ export function displayNameOf(id: number): string {
 }
 
 export function maxStackOf(id: number): number {
-  return isItem(id) ? itemById(id).maxStack : MAX_STACK;
+  if (isItem(id)) return itemById(id).maxStack;
+  blockById(id); // Strict: an unregistered block is not a valid stack.
+  return MAX_STACK;
 }
 
 export function foodOf(id: number | undefined | null): ItemDef["food"] | null {
-  if (id === undefined || id === null || !isItem(id)) return null;
+  if (id === undefined || id === null || !isKnownItemId(id)) return null;
   return itemById(id).food ?? null;
 }
 
@@ -244,6 +252,7 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
   ["coal_ore", "coal"], ["diamond_ore", "diamond"], ["bookshelf", "book"],
   ["placed_heat_block", "heat_block"], ["placed_underwater_torch", "underwater_torch"], ["placed_glow_stick", "glow_stick"],
   ["redstone_ore", "redstone"],
+  ...ELEMENTS.map((e) => [`element_${e.z}`, elementItemName(e)] as [string, string]),
   ...BLOCKS.filter((b) => /^wheat_\d$/.test(b.name)).map((b) => [b.name, "wheat_seeds"] as [string, string]),
   ...BLOCKS.filter((b) => b.name.startsWith("redstone_wire_")).map((b) => [b.name, "redstone"] as [string, string]),
   ...BLOCKS.filter((b) => b.name.startsWith("door_")).map((b) => [b.name, b.name.startsWith("door_wooden") ? "wooden_door" : "iron_door"] as [string, string]),
@@ -269,7 +278,7 @@ export function dropOf(blockIdValue: number): number {
  */
 export function baseStackId(id: number): number {
   if (isItem(id)) return id;
-  const def = BLOCKS[id];
+  const def = tryBlockById(id);
   if (!def || def.creative) return id;
   const drop = dropOf(id);
   return drop !== id ? drop : id;
@@ -277,13 +286,14 @@ export function baseStackId(id: number): number {
 
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
-  if (!isItem(id)) return id;
+  if (isKnownBlockId(id)) return id;
+  if (!isKnownItemId(id)) return null;
   const places = itemById(id).places;
   return places ? blockId(places) : null;
 }
 
 export function toolOf(id: number | undefined | null): ToolSpec | null {
-  if (id === undefined || id === null || !isItem(id)) return null;
+  if (id === undefined || id === null || !isKnownItemId(id)) return null;
   return itemById(id).tool ?? null;
 }
 
@@ -294,12 +304,12 @@ export function itemTextureNames(): string[] {
 
 /** Armor metadata, or null for a non-armor/unknown id. */
 export function armorOf(id: number | null | undefined): ArmorSpec | null {
-  return typeof id === "number" && Number.isInteger(id) ? ITEMS[id - ITEM_ID_BASE]?.armor ?? null : null;
+  return typeof id === "number" && isKnownItemId(id) ? ITEMS[id - ITEM_ID_BASE].armor ?? null : null;
 }
 
 /** Uses before breaking for a tool or armor item. */
 export function durabilityOf(id: number | null | undefined): number | null {
-  if (typeof id !== "number" || !Number.isInteger(id)) return null;
+  if (typeof id !== "number" || !isKnownItemId(id)) return null;
   const item = ITEMS[id - ITEM_ID_BASE];
   return item?.tool?.durability ?? item?.armor?.durability ?? null;
 }

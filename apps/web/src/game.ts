@@ -1,10 +1,10 @@
 import {
-  AIR, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  AIR, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
-  facingTowards, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
+  facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
@@ -188,7 +188,8 @@ export class Game {
     this.chalkViews = new ChalkboardViews(this.renderer.scene);
     const boards = sanitizeChalkboards(save?.chalkboards);
     for (const b of boards.boards) this.addChalkboard(b);
-    this.agent = sanitizeAgent(save?.agent) ?? this.agentNearPlayer();
+    this.agent = sanitizeAgent(save?.agent) ?? this.agentNearPlayer() ?? this.agentNearPlayer(this.spawn)
+      ?? createAgent(this.spawn.x, this.spawn.y, this.spawn.z, facingTowards(this.body.yaw + Math.PI));
     // Saved programs are validated (a total function): invalid ones are dropped and reported.
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
@@ -415,7 +416,7 @@ export class Game {
   private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
     const eye = { x: this.body.position.x, y: this.body.position.y + EYE_HEIGHT, z: this.body.position.z };
     const dir = lookDirection(this.body.yaw, this.body.pitch);
-    const targetable = (id: number) => id !== AIR && BLOCKS[id].shape !== "liquid";
+    const targetable = (id: number) => id !== AIR && blockById(id).shape !== "liquid";
     this.target = raycast((x, y, z) => this.world.getBlock(x, y, z), eye, dir, REACH, targetable);
     this.creativeCooldown = Math.max(0, this.creativeCooldown - dt);
     this.placeCooldown = Math.max(0, this.placeCooldown - dt);
@@ -563,7 +564,7 @@ export class Game {
 
     if (place && t && this.placeCooldown === 0) {
       // Plants and other replaceable blocks are replaced in place; otherwise place against the hit face.
-      const replace = BLOCKS[t.id].replaceable === true;
+      const replace = blockById(t.id).replaceable === true;
       const px = replace ? t.x : t.x + t.normal.x;
       const py = replace ? t.y : t.y + t.normal.y;
       const pz = replace ? t.z : t.z + t.normal.z;
@@ -572,7 +573,11 @@ export class Game {
       if (placeBlock(this.world, this.inventory, this.mode, px, py, pz, this.body.position, look)) this.placeCooldown = 0.15;
     }
 
-    if (pick && t && this.mode === "creative" && blockById(t.id).creative) this.inventory.pick(t.id);
+    if (pick && t && this.mode === "creative") {
+      // Hidden world states (including element cubes) pick their established inventory identity.
+      const canonical = baseStackId(t.id);
+      if (isKnownId(canonical) && (isItem(canonical) || tryBlockById(canonical)?.creative)) this.inventory.pick(canonical);
+    }
   }
 
   /**
@@ -607,17 +612,20 @@ export class Game {
   }
 
   /** A spot next to the player (on their left, Education Edition style), facing where they look. */
-  private agentNearPlayer(): AgentState {
-    const p = this.body.position;
+  private agentNearPlayer(position = this.body.position): AgentState | null {
+    const p = findAgentPosition(this.world, position, this.body.yaw);
+    if (!p) return null;
     const facing = facingTowards(this.body.yaw + Math.PI);
-    return createAgent(p.x - Math.cos(this.body.yaw), Math.floor(p.y), p.z + Math.sin(this.body.yaw), facing);
+    return createAgent(p.x, p.y, p.z, facing);
   }
 
   /** /agent tp: brings the Agent next to the player. */
-  teleportAgent(): void {
+  teleportAgent(): boolean {
     const next = this.agentNearPlayer();
+    if (!next) return false;
     Object.assign(this.agent, { x: next.x, y: next.y, z: next.z, facing: next.facing });
     this.agentView.snap(this.agent);
+    return true;
   }
 
   openCodeBuilder(): void {
@@ -1001,8 +1009,7 @@ export class Game {
         reply = `Seed: [${this.world.seed}]`;
         break;
       case "agent":
-        this.teleportAgent();
-        reply = "Teleported the Agent to you";
+        reply = this.teleportAgent() ? "Teleported the Agent to you" : "No open space nearby for the Agent";
         break;
       case "code": {
         const program = this.programs.find((p) => p.trigger.type === "chat" && p.trigger.command === cmd.command);
@@ -1028,7 +1035,7 @@ export class Game {
     const clear = (x: number, y0: number, y1: number, z: number) => {
       for (let y = y0; y < y1; y++) {
         const id = this.world.getBlock(x, y, z);
-        if (id !== AIR && !BLOCKS[id].replaceable) return false;
+        if (id !== AIR && !blockById(id).replaceable) return false;
       }
       return true;
     };

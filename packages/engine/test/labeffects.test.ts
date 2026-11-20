@@ -106,7 +106,7 @@ describe("underwater torch and glow stick", () => {
 
   it("other items still place nothing", () => {
     const world = flat();
-    for (const n of ["salt", "ice_bomb", "super_fertilizer", "oxygen"]) expect(placeBlock(world, holding(n), "survival", 0, 51, 0, far)).toBe(false);
+    for (const n of ["salt", "ice_bomb", "super_fertilizer"]) expect(placeBlock(world, holding(n), "survival", 0, 51, 0, far)).toBe(false);
   });
 });
 

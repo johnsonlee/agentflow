@@ -1,5 +1,5 @@
 /** Seeded loaded-only wheat simulation. Cadence and fertility are explicit approximations, not an Education equivalence claim. */
-import { AIR, BLOCKS, blockId } from "./blocks";
+import { AIR, tryBlockById, blockId } from "./blocks";
 import { WORLD_HEIGHT } from "./chunk";
 import type { ItemStack } from "./inventory";
 import { dropCount, dropOf, stackId } from "./items";
@@ -102,7 +102,7 @@ export class FarmingSystem {
     if (moisture !== null) {
       const above = this.world.getLoadedBlock(x, y + 1, z);
       if (above === undefined) return;
-      if (BLOCKS[above]?.solid) { this.world.setBlock(x, y, z, DIRT); return; }
+      if (tryBlockById(above)?.solid) { this.world.setBlock(x, y, z, DIRT); return; }
       if (hasFarmWater(this.world, x, y, z)) {
         if (moisture < 7) this.world.setBlock(x, y, z, farmlandId(7));
       } else if (sample) {

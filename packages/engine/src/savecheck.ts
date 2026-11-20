@@ -3,6 +3,8 @@
  * field is type-checked using own properties only (keys like "__proto__" or "constructor" never
  * resolve to built-ins). Invalid entries are dropped and counted; nothing here throws.
  */
+import { BLOCK_ID_LIMIT } from "./ids";
+import { isKnownBlockId } from "./blocks";
 import { AGENT_SLOTS, type AgentState } from "./agent";
 import { CHALKBOARD_SIZES, type Chalkboard, type ChalkboardSize } from "./chalkboard";
 import type { HungerState } from "./hunger";
@@ -159,7 +161,7 @@ export function sanitizeEdits(raw: unknown): Array<[number, number, number, numb
     for (const e of raw) {
       if (!Array.isArray(e) || e.length !== 4) continue;
       const [x, y, z, id] = e as unknown[];
-      if (int(x) && int(y, 0, 1000) && int(z) && int(id, 0, 255) && isKnownId(id)) out.push([x, y, z, id]);
+      if (int(x) && int(y, 0, 1000) && int(z) && int(id, 0, BLOCK_ID_LIMIT) && isKnownBlockId(id)) out.push([x, y, z, id]);
     }
   } catch {
     // Keep what was valid.

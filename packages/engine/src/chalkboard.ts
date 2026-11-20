@@ -5,7 +5,7 @@
  * ground, faces the player who placed it, and holds multi-line text that can be locked so only
  * world builders (creative players) can edit it.
  */
-import { AIR, BLOCKS, blockId } from "./blocks";
+import { AIR, tryBlockById, blockId } from "./blocks";
 import type { BlockGetter } from "./physics";
 import type { Vec3 } from "./math";
 
@@ -33,7 +33,7 @@ export interface Chalkboard {
 }
 
 export function chalkboardSizeOf(id: number): ChalkboardSize | null {
-  const name = BLOCKS[id]?.name;
+  const name = tryBlockById(id)?.name;
   for (const [size, spec] of Object.entries(CHALKBOARD_SIZES)) if (spec.block === name) return size as ChalkboardSize;
   return null;
 }
@@ -70,7 +70,7 @@ export function chalkboardCells(b: Pick<Chalkboard, "x" | "y" | "z" | "size" | "
 export function canPlaceChalkboard(get: BlockGetter, b: Pick<Chalkboard, "x" | "y" | "z" | "size" | "facing">): boolean {
   return chalkboardCells(b).every((c) => {
     const id = get(c.x, c.y, c.z);
-    return id === AIR || BLOCKS[id]?.replaceable === true;
+    return id === AIR || tryBlockById(id)?.replaceable === true;
   });
 }
 

@@ -1,4 +1,4 @@
-import { BLOCKS, blockId, itemTextureNames, parseSave, seedFromString, stackId, textureNames, type GameMode, type SaveData } from "@craft/engine";
+import { tryBlockById, blockId, itemTextureNames, parseSave, seedFromString, stackId, textureNames, type GameMode, type SaveData } from "@craft/engine";
 import { buildAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
 import { Game, SAVE_KEY } from "./game";
@@ -213,7 +213,7 @@ window.__craft = {
   },
   startGame,
   blockId,
-  blockName: (id: number) => (BLOCKS[id] ? BLOCKS[id].name : "?"),
+  blockName: (id: number) => tryBlockById(id)?.name ?? "?",
   stackId,
   touch,
 };

@@ -1,4 +1,4 @@
-import { AIR, BLOCKS, isOpaque } from "./blocks";
+import { AIR, isKnownBlockId, isOpaque } from "./blocks";
 import { WORLD_BORDER } from "./math";
 import { MAX_LIGHT, emission, relightBlock, spread, type LightAccess } from "./light";
 import { CHUNK_SIZE, Chunk, WORLD_HEIGHT, chunkKey, toChunkCoord, toLocalCoord } from "./chunk";
@@ -171,6 +171,7 @@ export class World {
   }
 
   setBlock(x: number, y: number, z: number, id: number): void {
+    if (!isKnownBlockId(id)) return;
     x = Math.floor(x);
     y = Math.floor(y);
     z = Math.floor(z);

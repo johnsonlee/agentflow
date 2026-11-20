@@ -1,4 +1,4 @@
-import { AIR, BLOCKS, blockById, blockId, isOpaque, type BlockDef } from "./blocks";
+import { AIR, tryBlockById, blockById, blockId, isOpaque, type BlockDef } from "./blocks";
 import { WORLD_HEIGHT } from "./chunk";
 import { Inventory, type ItemStack } from "./inventory";
 import { placedBlockOf, toolOf, type ToolSpec } from "./items";
@@ -65,7 +65,7 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   if (!canBreak(world, mode, x, y, z)) return false;
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
   const tool = toolOf(inventory.selectedStack()?.id);
-  const supported = BLOCKS[above]?.needsSupport === true;
+  const supported = tryBlockById(above)?.needsSupport === true;
   const drops: ItemStack[] = [...(mode === "survival" ? [
     ...(canHarvest(id, tool) ? blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
   ] : []), ...externalDrops];
@@ -141,7 +141,7 @@ export function placeBlock(
   const placed = stack ? placedBlockOf(stack.id) : null;
   if (!stack || placed === null) return false;
   const target = world.getBlock(x, y, z);
-  if (target !== AIR && target !== WATER && !BLOCKS[target].replaceable) return false;
+  if (target !== AIR && target !== WATER && !tryBlockById(target)?.replaceable) return false;
   const def = blockById(placed);
   if (def.solid && bodyOverlapsBlock(playerFeet, x, y, z)) return false;
   if (!hasSupport(world, def, x, y, z, target)) return false;

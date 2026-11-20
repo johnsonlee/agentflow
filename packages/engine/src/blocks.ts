@@ -1,7 +1,10 @@
 /**
- * Block registry. Block ids are small integers stored in chunk arrays;
+ * Compact block registry. Stable low and extended IDs are stored in Uint16 chunk arrays;
  * textures are referenced by tile name and resolved by the renderer.
  */
+
+import { ELEMENTS } from "./chemistry-data";
+import { EXTENDED_BLOCK_ID_BASE, isBlockNamespace } from "./ids";
 
 export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "none";
 
@@ -60,7 +63,7 @@ function faces(top: string, side = top, bottom = top): BlockFaces {
 export const FACING_VECTORS: readonly (readonly [number, number])[] = [[0, 1], [-1, 0], [0, -1], [1, 0]];
 
 type BlockSpec = Omit<BlockDef, "id" | "solid" | "transparent" | "shape" | "creative" | "hardness" | "drop"> &
-  Partial<Pick<BlockDef, "solid" | "transparent" | "shape" | "creative" | "hardness">> & { drop?: string };
+  Partial<Pick<BlockDef, "solid" | "transparent" | "shape" | "creative" | "hardness">> & { id?: number; drop?: string };
 
 const specs: BlockSpec[] = [
   { name: "air", displayName: "Air", faces: faces("none"), solid: false, transparent: true, shape: "none", creative: false, hardness: 0 },
@@ -192,23 +195,39 @@ for (const color of ["blue", "red", "purple", "green"]) specs.push({
   solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 14,
 });
 
-export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, ...s }, id) => ({
+// Generic world representations preserve existing atom inventory IDs and reference metadata.
+for (let z = 0; z <= 118; z++) {
+  const element = ELEMENTS.find((e) => e.z === z);
+  const tile = `element_block_${z}_${element?.symbol ?? "unknown"}`;
+  specs.push({ id: EXTENDED_BLOCK_ID_BASE + z, name: `element_${z}`, displayName: element?.name ?? "Unknown Element",
+    faces: faces(tile), creative: z === 0 });
+}
+
+const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
+if (idsByName.size !== specs.length) throw new Error("Duplicate block name");
+export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, id: explicitId, ...s }, index) => ({
   solid: true,
   transparent: false,
   shape: "cube" as RenderShape,
   creative: true,
   hardness: 1,
   ...s,
-  id,
-  drop: drop === undefined ? undefined : specs.findIndex((o) => o.name === drop),
+  id: explicitId ?? index,
+  drop: drop === undefined ? undefined : (() => {
+    const id = idsByName.get(drop);
+    if (id === undefined) throw new Error(`Unknown block drop ${drop}`);
+    return id;
+  })(),
 }));
 
 const byName = new Map(BLOCKS.map((b) => [b.name, b]));
+const byId = new Map(BLOCKS.map((b) => [b.id, b]));
+if (byId.size !== BLOCKS.length || BLOCKS.some((b) => !isBlockNamespace(b.id))) throw new Error("Invalid or duplicate block ID");
 
 export const AIR = 0;
 
 export function blockById(id: number): BlockDef {
-  const def = BLOCKS[id];
+  const def = tryBlockById(id);
   if (!def) throw new Error(`Unknown block id ${id}`);
   return def;
 }
@@ -217,6 +236,22 @@ export function blockId(name: string): number {
   const def = byName.get(name);
   if (!def) throw new Error(`Unknown block "${name}"`);
   return def.id;
+}
+
+/** Optional lookup for guards and untrusted IDs; the registry remains compact. */
+export function tryBlockById(id: number): BlockDef | undefined {
+  return isBlockNamespace(id) ? byId.get(id) : undefined;
+}
+export function isKnownBlockId(id: unknown): id is number {
+  return isBlockNamespace(id) && byId.has(id);
+}
+export function elementBlockId(z: number): number {
+  if (!Number.isInteger(z) || z < 0 || z > 118) throw new RangeError("Element atomic number must be 0–118");
+  return EXTENDED_BLOCK_ID_BASE + z;
+}
+export function elementZOfBlock(id: number): number | null {
+  const z = id - EXTENDED_BLOCK_ID_BASE;
+  return Number.isInteger(z) && z >= 0 && z <= 118 && isKnownBlockId(id) ? z : null;
 }
 
 /** Blocks shown in the creative inventory, in display order. */
@@ -238,10 +273,10 @@ export function textureNames(): string[] {
 
 /** True when the block fully occludes faces of neighbouring blocks. */
 export function isOpaque(id: number): boolean {
-  const b = BLOCKS[id];
+  const b = tryBlockById(id);
   return b !== undefined && b.shape === "cube" && !b.transparent;
 }
 
 export function isSolid(id: number): boolean {
-  return BLOCKS[id]?.solid ?? false;
+  return tryBlockById(id)?.solid ?? false;
 }

@@ -1,15 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { AIR, BLOCKS, blockById, blockId, creativeBlocks, isOpaque, isSolid, textureNames } from "../src";
+import { AIR, BLOCKS, BLOCK_ID_LIMIT, isKnownBlockId, blockById, blockId, creativeBlocks, isOpaque, isSolid, textureNames } from "../src";
 
 describe("block registry", () => {
   it("assigns ids by index with air at 0", () => {
     expect(AIR).toBe(0);
-    BLOCKS.forEach((b, i) => expect(b.id).toBe(i));
+    BLOCKS.slice(0, 164).forEach((b, i) => expect(b.id).toBe(i));
     expect(blockById(blockId("stone")).name).toBe("stone");
   });
 
-  it("fits in a Uint8 chunk array and has unique names", () => {
-    expect(BLOCKS.length).toBeLessThan(256);
+  it("has known unsigned16-bit block IDs and unique names", () => {
+    expect(BLOCKS.every((b) => isKnownBlockId(b.id) && b.id <= BLOCK_ID_LIMIT)).toBe(true);
     expect(new Set(BLOCKS.map((b) => b.name)).size).toBe(BLOCKS.length);
   });
 

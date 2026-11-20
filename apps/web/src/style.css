@@ -446,4 +446,4 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .element-lookup { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
 .element-lookup .hint { flex: 1; min-width: 180px; max-width: 320px; margin: 0; }
 .element-lookup .chem-status { flex-basis: 100%; color: #8a1c1c; }
-.particle-value:disabled { color: #3f3f3f; opacity: 1; }
+.particle-value:disabled { color: #f3f0e7; opacity: 1; }

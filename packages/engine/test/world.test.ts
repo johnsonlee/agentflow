@@ -33,9 +33,9 @@ describe("terrain generation", () => {
   it("generates the same chunk for the same seed", () => {
     const a = new World(7).getChunk(3, -2).blocks;
     const b = new World(7).getChunk(3, -2).blocks;
-    expect(Buffer.from(a).equals(Buffer.from(b))).toBe(true);
+    expect(Array.from(a).every((id, i) => id === b[i])).toBe(true);
     const c = new World(8).getChunk(3, -2).blocks;
-    expect(Buffer.from(a).equals(Buffer.from(c))).toBe(false);
+    expect(Array.from(a).every((id, i) => id === c[i])).toBe(false);
   });
 
   it("has bedrock at the bottom, solid ground and air above", () => {
