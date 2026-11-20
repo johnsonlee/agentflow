@@ -10,12 +10,12 @@ export const ITEM_ID_BASE = 256;
 export const MAX_STACK = 64;
 
 export type ToolKind = "pickaxe" | "axe" | "shovel" | "sword";
-export type ToolMaterial = "wooden" | "stone" | "iron";
+export type ToolMaterial = "wooden" | "stone" | "iron" | "golden" | "diamond";
 
 export interface ToolSpec {
   kind: ToolKind;
   material: ToolMaterial;
-  /** Harvest level: wooden 1, stone 2, iron 3. */
+  /** Harvest level: wooden/golden 1, stone 2, iron 3, diamond 4. */
   tier: number;
   /** Mining speed multiplier on blocks this tool is made for. */
   speed: number;
@@ -49,9 +49,12 @@ const MATERIALS: Record<ToolMaterial, { tier: number; speed: number; durability:
   wooden: { tier: 1, speed: 2, durability: 59, attack: { sword: 5, axe: 4, pickaxe: 3, shovel: 2 } },
   stone: { tier: 2, speed: 4, durability: 131, attack: { sword: 6, axe: 5, pickaxe: 4, shovel: 3 } },
   iron: { tier: 3, speed: 6, durability: 250, attack: { sword: 7, axe: 6, pickaxe: 5, shovel: 4 } },
+  // Bedrock permits one more use than the nominal Java durability (32 / 1561).
+  golden: { tier: 1, speed: 12, durability: 33, attack: { sword: 5, axe: 4, pickaxe: 3, shovel: 2 } },
+  diamond: { tier: 4, speed: 8, durability: 1562, attack: { sword: 8, axe: 7, pickaxe: 6, shovel: 5 } },
 };
 
-const MATERIAL_NAMES: Record<ToolMaterial, string> = { wooden: "Wooden", stone: "Stone", iron: "Iron" };
+const MATERIAL_NAMES: Record<ToolMaterial, string> = { wooden: "Wooden", stone: "Stone", iron: "Iron", golden: "Golden", diamond: "Diamond" };
 
 const KIND_NAMES: Record<ToolKind, string> = { pickaxe: "Pickaxe", axe: "Axe", shovel: "Shovel", sword: "Sword" };
 
@@ -122,6 +125,8 @@ const specs: Omit<ItemDef, "id">[] = [
   { name: "redstone", displayName: "Redstone Dust", maxStack: MAX_STACK, icon: "item_redstone", places: "redstone_wire_0" },
   { name: "wooden_door", displayName: "Wooden Door", maxStack: MAX_STACK, icon: "item_wooden_door", places: "door_wooden_lower_0_0" },
   { name: "iron_door", displayName: "Iron Door", maxStack: MAX_STACK, icon: "item_iron_door", places: "door_iron_lower_0_0" },
+  // Append only: preserve every previous item id in saved inventories.
+  ...(["golden", "diamond"] as const).flatMap((m) => TOOL_KINDS.map((k) => tool(m, k))),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));

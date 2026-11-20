@@ -1,4 +1,4 @@
-import { stackId } from "./items";
+import { stackId, type ToolMaterial } from "./items";
 import type { ItemStack } from "./inventory";
 
 export interface Recipe {
@@ -14,7 +14,7 @@ export interface Recipe {
 }
 
 /** Minecraft tool shapes for one head material (`#`), with sticks (`|`) as handles. */
-function toolRecipes(material: "wooden" | "stone" | "iron", head: string): Recipe[] {
+function toolRecipes(material: ToolMaterial, head: string): Recipe[] {
   const key = { "#": head, "|": "stick" };
   return [
     { id: `${material}_pickaxe`, pattern: ["###", " | ", " | "], key, result: [`${material}_pickaxe`, 1] },
@@ -33,6 +33,8 @@ export const RECIPES: readonly Recipe[] = [
   ...toolRecipes("wooden", "oak_planks"),
   ...toolRecipes("stone", "cobblestone"),
   ...toolRecipes("iron", "iron_ingot"),
+  ...toolRecipes("golden", "gold_ingot"),
+  ...toolRecipes("diamond", "diamond"),
   { id: "torch", pattern: ["C", "|"], key: { C: "coal", "|": "stick" }, result: ["torch", 4] },
   { id: "torch_from_charcoal", pattern: ["C", "|"], key: { C: "charcoal", "|": "stick" }, result: ["torch", 4] },
   { id: "ink_sac", ingredients: ["coal"], result: ["ink_sac", 1], note: "Minecraft gets ink sacs from squids (not modelled)" },

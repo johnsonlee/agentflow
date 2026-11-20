@@ -12,6 +12,8 @@ const HEADS: Record<string, Rgb[]> = {
   wooden: ["#b08a52", "#9b7643", "#c39d63"].map(hex),
   stone: ["#8e8e8e", "#7b7b7b", "#a2a2a2"].map(hex),
   iron: ["#dcdcdc", "#c2c2c2", "#f0f0f0"].map(hex),
+  golden: ["#f2c94c", "#d9aa2a", "#fbe38e"].map(hex),
+  diamond: ["#6fe0d6", "#4cc6bb", "#a8f2ec"].map(hex),
 };
 
 type Mask = (x: number, y: number) => boolean;
@@ -119,7 +121,7 @@ export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   // Ragged greenish-brown strip.
   item_rotten_flesh: lump(["#8a6a3c", "#6f8a3a", "#9c4e3a", "#5d4a2a"].map(hex), (x, y) => Math.abs(x - y) <= 3 - ((x * 7 + y * 3) % 3 === 0 ? 1 : 0) && x >= 2 && x <= 13),
 };
-for (const material of ["wooden", "stone", "iron"]) {
+for (const material of ["wooden", "stone", "iron", "golden", "diamond"]) {
   for (const kind of ["pickaxe", "axe", "shovel", "sword"]) {
     ITEM_TILE_GENERATORS[`item_${material}_${kind}`] = toolTile(material, kind);
   }
