@@ -172,11 +172,6 @@ export class Inventory {
       // Strict: integer id/count (1..stack max) and integer tool wear (0..durability-1).
       const stack = sanitizeStack(s);
       if (!s || !stack) return;
-      if (s.book && typeof s.book === "object" && Array.isArray(s.book.pages)) {
-        stack.book = { pages: s.book.pages.slice(0, 50).map((p) => String(p).slice(0, 256)) };
-        if (typeof s.book.title === "string") stack.book.title = s.book.title.slice(0, 32);
-        if (typeof s.book.author === "string") stack.book.author = s.book.author.slice(0, 32);
-      }
       inv.setSlot(i, stack);
     });
     // Equipment is optional and own-property-only: prototype keys never resolve to pieces.

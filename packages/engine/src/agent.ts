@@ -7,7 +7,7 @@
 import { AIR, BLOCKS, blockById, isSolid } from "./blocks";
 import { FACING_DIRS } from "./chalkboard";
 import type { ItemStack } from "./inventory";
-import { dropCount, dropOf, placedBlockOf } from "./items";
+import { dropCount, dropOf, isKnownId, maxStackOf, placedBlockOf } from "./items";
 import { doorPartner, orientedPlacement } from "./redstone";
 import { WORLD_HEIGHT } from "./chunk";
 import { WORLD_BORDER } from "./math";
@@ -75,16 +75,25 @@ export function agentStep(agent: AgentState, dir: AgentDirection): readonly [num
   }
 }
 
-function addToAgent(agent: AgentState, id: number, count: number): number {
-  let left = count;
-  for (const s of agent.slots) if (left > 0 && s && s.id === id && s.count < 64) {
-    const n = Math.min(64 - s.count, left);
+function copyStack(stack: ItemStack, count = stack.count): ItemStack {
+  return { ...stack, count, ...(stack.book ? { book: { ...stack.book, pages: [...stack.book.pages] } } : {}) };
+}
+
+function addToAgent(agent: AgentState, stack: ItemStack): number {
+  if (!Number.isSafeInteger(stack.count) || stack.count <= 0) return 0;
+  if (!isKnownId(stack.id)) return stack.count;
+  const max = maxStackOf(stack.id);
+  let left = stack.count;
+  // Durable items and books do not merge, and even ordinary stacks obey their item limit.
+  for (const s of agent.slots) if (max > 1 && left > 0 && s && s.id === stack.id && s.count < max &&
+    !s.damage && !stack.damage && !s.book && !stack.book) {
+    const n = Math.min(max - s.count, left);
     s.count += n;
     left -= n;
   }
   for (let i = 0; i < agent.slots.length && left > 0; i++) if (!agent.slots[i]) {
-    const n = Math.min(64, left);
-    agent.slots[i] = { id, count: n };
+    const n = Math.min(max, left);
+    agent.slots[i] = copyStack(stack, n);
     left -= n;
   }
   return left;
@@ -139,7 +148,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       world.setBlock(t.x, t.y, t.z, AIR);
       if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
       // The Agent collects what it destroys (Education Edition).
-      addToAgent(agent, dropOf(id), dropCount(id));
+      addToAgent(agent, { id: dropOf(id), count: dropCount(id) });
       return { ok: true };
     }
     case "detect": {
@@ -162,7 +171,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const stack = agent.slots[cmd.slot];
       if (!stack) return { ok: false, message: "That slot is empty" };
       if (!env.giveToPlayer) return { ok: false, message: "No player to give it to" };
-      const left = env.giveToPlayer({ ...stack });
+      const left = env.giveToPlayer(copyStack(stack));
       agent.slots[cmd.slot] = left > 0 ? { ...stack, count: left } : null;
       return { ok: true };
     }
@@ -176,7 +185,9 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
 }
 
 /** Gives the Agent items (e.g. the player hands it building blocks). */
-export function giveAgent(agent: AgentState, id: number, count: number): number {
-  return addToAgent(agent, id, count);
+export function giveAgent(agent: AgentState, stack: ItemStack): number;
+export function giveAgent(agent: AgentState, id: number, count: number): number;
+export function giveAgent(agent: AgentState, stackOrId: ItemStack | number, count?: number): number {
+  return addToAgent(agent, typeof stackOrId === "number" ? { id: stackOrId, count: count ?? 0 } : stackOrId);
 }
 

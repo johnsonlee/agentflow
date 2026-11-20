@@ -84,8 +84,48 @@ export async function armorRoute(page: Page, info: TestInfo, mobile: boolean) {
   await open();
   await expect(inv.locator('[data-equipment="chest"] img')).toHaveAttribute("alt", "Iron Chestplate");
   await snap(page, info, "armor-worn-equipment-restored");
+  await press(inv.locator('[data-equipment="chest"]'));
+  await press(inv.locator('[data-slot="2"]'));
   await press(page.getByRole("button", { name: "Close inventory" }));
   await command(page, "/gamemode survival");
+  await command(page, "/give material_reducer");
+  if (mobile) await press(page.locator('.hotbar [data-slot="0"]'));
+  else { await page.keyboard.press("Digit1"); await parkMouse(page); }
+  await look(page, Math.PI / 2, -1.2);
+  await target(page);
+  await use();
+  await expect.poll(async () => (await target(page))?.id).toBe(await page.evaluate(() => window.__craft.blockId("material_reducer")));
+  await page.waitForTimeout(300);
+  await use();
+  await expect(page.getByRole("heading", { name: "Material Reducer" })).toBeVisible();
+  await press(inv.locator('[data-slot="2"]'));
+  await press(inv.locator('[data-chem-input="0"]'));
+  await press(inv.locator('[data-chem-input="0"]'));
+  await press(inv.locator('[data-slot="2"]'));
+  expect(await page.evaluate(() => window.__craft.game!.inventory.slots[2])).toEqual(saved);
+  await snap(page, info, "armor-station-input-preserves-wear");
+  await press(page.getByRole("button", { name: "Close inventory" }));
+  if (mobile) {
+    await press(page.locator('.hotbar [data-slot="2"]'));
+    await press(page.getByRole("button", { name: "Code Builder", exact: true }));
+  } else {
+    await page.keyboard.press("Digit3");
+    await expect.poll(() => page.evaluate(() => window.__craft.game!.inventory.selected)).toBe(2);
+    await page.keyboard.press("k");
+  }
+  await expect(page.getByRole("heading", { name: "Code Builder" })).toBeVisible();
+  await press(page.getByRole("button", { name: "Give held stack to Agent" }));
+  await expect(page.locator(".cb-status")).toContainText("Gave the Agent 1 Iron Chestplate");
+  expect(await page.evaluate(() => window.__craft.game!.agent.slots[0])).toEqual(saved);
+  await press(page.locator('[data-palette="drop"]'));
+  await press(page.getByRole("button", { name: "▶ Run" }));
+  await expect(page.locator(".code-screen")).toBeHidden();
+  await expect.poll(() => countStack(page, "iron_chestplate")).toBe(1);
+  expect(await page.evaluate(() => window.__craft.game!.inventory.slots[0])).toEqual(saved);
+  await open();
+  await press(inv.locator('[data-slot="0"]'));
+  await press(inv.locator('[data-equipment="chest"]'));
+  await press(page.getByRole("button", { name: "Close inventory" }));
   const capacity = await page.evaluate(() => {
     const g = window.__craft.game!;
     return g.inventory.spaceFor(window.__craft.blockId("cobblestone"));

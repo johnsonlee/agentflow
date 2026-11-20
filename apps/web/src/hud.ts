@@ -544,7 +544,7 @@ export class InventoryScreen {
     cell.addEventListener("click", () => {
       const current = this.grid[i];
       if (this.cursor && (!current || current.id === this.cursor.id) && (current?.count ?? 0) < maxStackOf(this.cursor.id)) {
-        this.grid[i] = { id: this.cursor.id, count: (current?.count ?? 0) + 1 };
+        this.grid[i] = { ...this.cursor, count: (current?.count ?? 0) + 1 };
         this.cursor.count--;
         if (this.cursor.count <= 0) this.cursor = null;
       } else if (!this.cursor && current) {

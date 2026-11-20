@@ -34,6 +34,12 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   // New armor is strict: invalid wear must not silently repair damaged equipped pieces.
   if (armorOf(id) && damage !== undefined && !int(damage, 0, durability! - 1)) return null;
   if (durability !== null && int(damage, 1, durability - 1)) s.damage = damage;
+  const book = own(raw, "book");
+  if (isObj(book) && Array.isArray(own(book, "pages"))) {
+    s.book = { pages: (own(book, "pages") as unknown[]).slice(0, 50).map((p) => typeof p === "string" ? p.slice(0, 256) : "") };
+    if (typeof own(book, "title") === "string") s.book.title = (own(book, "title") as string).slice(0, 32);
+    if (typeof own(book, "author") === "string") s.book.author = (own(book, "author") as string).slice(0, 32);
+  }
   return s;
 }
 
@@ -44,12 +50,6 @@ export function sanitizeInventoryPending(raw: unknown): ItemStack[] {
   for (const value of raw.slice(0, 10)) {
     const stack = sanitizeStack(value);
     if (!stack || !isObj(value)) continue;
-    const book = own(value, "book");
-    if (isObj(book) && Array.isArray(own(book, "pages"))) {
-      stack.book = { pages: (own(book, "pages") as unknown[]).slice(0, 50).map((p) => String(p).slice(0, 256)) };
-      if (typeof own(book, "title") === "string") stack.book.title = (own(book, "title") as string).slice(0, 32);
-      if (typeof own(book, "author") === "string") stack.book.author = (own(book, "author") as string).slice(0, 32);
-    }
     result.push(stack);
   }
   return result;

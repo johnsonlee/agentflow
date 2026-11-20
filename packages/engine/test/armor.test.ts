@@ -21,6 +21,9 @@ it("persists held equipment and crafting stacks without repairing malformed armo
   const clean = sanitizeInventoryPending(pending);
   clean[2].book!.pages[0] = "changed";
   expect(book.book.pages[0]).toBe("Saved notes");
+  const malformed = JSON.parse(JSON.stringify({ ...book, book: { pages: [{ toString: null }, "valid"] } }));
+  expect(Inventory.fromJSON({ slots: [malformed], selected: 0 }).slots[0]?.book?.pages).toEqual(["", "valid"]);
+  expect(sanitizeInventoryPending([malformed])[0].book?.pages).toEqual(["", "valid"]);
 });
 
 it("preserves all 428 published item IDs and appends twelve armor pieces", () => {

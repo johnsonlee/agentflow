@@ -614,7 +614,7 @@ export class Game {
     if (!held) return "Select a stack in your hotbar first";
     // Creative has unlimited blocks: give a full stack without taking any.
     const count = this.mode === "creative" ? maxStackOf(held.id) : held.count;
-    const left = giveAgent(this.agent, held.id, count);
+    const left = giveAgent(this.agent, { ...held, count });
     const given = count - left;
     if (this.mode === "survival") {
       held.count = left;
