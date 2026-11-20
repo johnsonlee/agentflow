@@ -31,7 +31,7 @@ describe("crafting", () => {
 
   it("needs a 3x3 grid for the bookshelf", () => {
     const p = () => s("oak_planks");
-    const l = () => s("oak_log");
+    const l = () => ({ id: stackId("book"), count: 1 });
     expect(matchRecipe([p(), p(), p(), l(), l(), l(), p(), p(), p()], 3)?.result.id).toBe(blockId("bookshelf"));
   });
 

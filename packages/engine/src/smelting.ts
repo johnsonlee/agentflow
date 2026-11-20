@@ -10,6 +10,8 @@ export const SMELT_SECONDS = 10;
 /** Input -> output (block or item names). */
 export const SMELTING_RECIPES: Readonly<Record<string, string>> = {
   iron_ore: "iron_ingot",
+  coal_ore: "coal",
+  diamond_ore: "diamond",
   redstone_ore: "redstone",
   gold_ore: "gold_ingot",
   sand: "glass",

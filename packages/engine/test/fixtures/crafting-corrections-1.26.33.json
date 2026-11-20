@@ -1,0 +1,1896 @@
+{
+  "candidateVersion": "1.26.33.0",
+  "acceptedTarget": false,
+  "installerSHA256": "80bb151b1db4e46edc503230bc8ece25210fff94b7d73d6774559a054398a91e",
+  "sourceRevision": "931b62f5aad13cc13cd46cf5f5230de1f025f979",
+  "scope": "Transformed factual recipe records; raw native files remain in private ticket artifacts. 10s duration is inherited app behavior, not established by these recipe files.",
+  "cases": [
+    {
+      "identifier": "minecraft:Bookshelf_woodplanks_recipeId",
+      "source": {
+        "path": "behavior_packs/vanilla/recipes/bookshelf.json",
+        "bytes": 577,
+        "sha256": "ea0593d1d8b018edb3f9240502fe440980111eb7ef756eae1f865d0b45f4a8f7",
+        "kind": "recipe"
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "pattern": [
+        "AAA",
+        "BBB",
+        "AAA"
+      ],
+      "key": {
+        "A": "oak_planks",
+        "B": "book"
+      },
+      "input": null,
+      "output": [
+        [
+          "bookshelf",
+          1
+        ]
+      ]
+    },
+    {
+      "identifier": "minecraft:furnace_coal_ore",
+      "source": {
+        "path": "behavior_packs/vanilla/recipes/furnace_coal_ore.json",
+        "bytes": 260,
+        "sha256": "2a694e195c5484ed23482f40b027534aaa9d50bd4e79389601beff656e9e302e",
+        "kind": "recipe"
+      },
+      "stationTags": [
+        "furnace",
+        "blast_furnace"
+      ],
+      "pattern": null,
+      "key": {},
+      "input": "coal_ore",
+      "output": [
+        [
+          "coal",
+          1
+        ]
+      ]
+    },
+    {
+      "identifier": "minecraft:furnace_diamond_ore",
+      "source": {
+        "path": "behavior_packs/vanilla/recipes/furnace_diamond_ore.json",
+        "bytes": 269,
+        "sha256": "6be03d1cd8392ec40391aacbc93686c531981e2a5e6edaf1cf3c3fca8ff6c8e9",
+        "kind": "recipe"
+      },
+      "stationTags": [
+        "furnace",
+        "blast_furnace"
+      ],
+      "pattern": null,
+      "key": {},
+      "input": "diamond_ore",
+      "output": [
+        [
+          "diamond",
+          1
+        ]
+      ]
+    },
+    {
+      "identifier": "minecraft:furnace_coal_ore",
+      "source": {
+        "path": "behavior_packs/vanilla_1.20.10/recipes/furnace_coal_ore.json",
+        "bytes": 334,
+        "sha256": "2a8f0e8fb20b2182bc08e63726503816b066c1c1d855bfabe8b8de80d240f0c8",
+        "kind": "recipe"
+      },
+      "stationTags": [
+        "furnace",
+        "blast_furnace"
+      ],
+      "pattern": null,
+      "key": {},
+      "input": "coal_ore",
+      "output": [
+        [
+          "coal",
+          1
+        ]
+      ]
+    },
+    {
+      "identifier": "minecraft:furnace_diamond_ore",
+      "source": {
+        "path": "behavior_packs/vanilla_1.20.10/recipes/furnace_diamond_ore.json",
+        "bytes": 346,
+        "sha256": "ddf5284cbe482ea08429d4e2cc09ef033bed170b45177f40d15ba5c6e1b59d48",
+        "kind": "recipe"
+      },
+      "stationTags": [
+        "furnace",
+        "blast_furnace"
+      ],
+      "pattern": null,
+      "key": {},
+      "input": "diamond_ore",
+      "output": [
+        [
+          "diamond",
+          1
+        ]
+      ]
+    }
+  ],
+  "unchangedRecipes": [
+    {
+      "id": "stick",
+      "pattern": [
+        "#",
+        "#"
+      ],
+      "key": {
+        "#": "oak_planks"
+      },
+      "result": [
+        "stick",
+        4
+      ]
+    },
+    {
+      "id": "wooden_pickaxe",
+      "pattern": [
+        "###",
+        " | ",
+        " | "
+      ],
+      "key": {
+        "#": "oak_planks",
+        "|": "stick"
+      },
+      "result": [
+        "wooden_pickaxe",
+        1
+      ]
+    },
+    {
+      "id": "wooden_axe",
+      "pattern": [
+        "##",
+        "#|",
+        " |"
+      ],
+      "key": {
+        "#": "oak_planks",
+        "|": "stick"
+      },
+      "result": [
+        "wooden_axe",
+        1
+      ]
+    },
+    {
+      "id": "wooden_shovel",
+      "pattern": [
+        "#",
+        "|",
+        "|"
+      ],
+      "key": {
+        "#": "oak_planks",
+        "|": "stick"
+      },
+      "result": [
+        "wooden_shovel",
+        1
+      ]
+    },
+    {
+      "id": "wooden_sword",
+      "pattern": [
+        "#",
+        "#",
+        "|"
+      ],
+      "key": {
+        "#": "oak_planks",
+        "|": "stick"
+      },
+      "result": [
+        "wooden_sword",
+        1
+      ]
+    },
+    {
+      "id": "stone_pickaxe",
+      "pattern": [
+        "###",
+        " | ",
+        " | "
+      ],
+      "key": {
+        "#": "cobblestone",
+        "|": "stick"
+      },
+      "result": [
+        "stone_pickaxe",
+        1
+      ]
+    },
+    {
+      "id": "stone_axe",
+      "pattern": [
+        "##",
+        "#|",
+        " |"
+      ],
+      "key": {
+        "#": "cobblestone",
+        "|": "stick"
+      },
+      "result": [
+        "stone_axe",
+        1
+      ]
+    },
+    {
+      "id": "stone_shovel",
+      "pattern": [
+        "#",
+        "|",
+        "|"
+      ],
+      "key": {
+        "#": "cobblestone",
+        "|": "stick"
+      },
+      "result": [
+        "stone_shovel",
+        1
+      ]
+    },
+    {
+      "id": "stone_sword",
+      "pattern": [
+        "#",
+        "#",
+        "|"
+      ],
+      "key": {
+        "#": "cobblestone",
+        "|": "stick"
+      },
+      "result": [
+        "stone_sword",
+        1
+      ]
+    },
+    {
+      "id": "iron_pickaxe",
+      "pattern": [
+        "###",
+        " | ",
+        " | "
+      ],
+      "key": {
+        "#": "iron_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "iron_pickaxe",
+        1
+      ]
+    },
+    {
+      "id": "iron_axe",
+      "pattern": [
+        "##",
+        "#|",
+        " |"
+      ],
+      "key": {
+        "#": "iron_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "iron_axe",
+        1
+      ]
+    },
+    {
+      "id": "iron_shovel",
+      "pattern": [
+        "#",
+        "|",
+        "|"
+      ],
+      "key": {
+        "#": "iron_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "iron_shovel",
+        1
+      ]
+    },
+    {
+      "id": "iron_sword",
+      "pattern": [
+        "#",
+        "#",
+        "|"
+      ],
+      "key": {
+        "#": "iron_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "iron_sword",
+        1
+      ]
+    },
+    {
+      "id": "golden_pickaxe",
+      "pattern": [
+        "###",
+        " | ",
+        " | "
+      ],
+      "key": {
+        "#": "gold_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "golden_pickaxe",
+        1
+      ]
+    },
+    {
+      "id": "golden_axe",
+      "pattern": [
+        "##",
+        "#|",
+        " |"
+      ],
+      "key": {
+        "#": "gold_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "golden_axe",
+        1
+      ]
+    },
+    {
+      "id": "golden_shovel",
+      "pattern": [
+        "#",
+        "|",
+        "|"
+      ],
+      "key": {
+        "#": "gold_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "golden_shovel",
+        1
+      ]
+    },
+    {
+      "id": "golden_sword",
+      "pattern": [
+        "#",
+        "#",
+        "|"
+      ],
+      "key": {
+        "#": "gold_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "golden_sword",
+        1
+      ]
+    },
+    {
+      "id": "diamond_pickaxe",
+      "pattern": [
+        "###",
+        " | ",
+        " | "
+      ],
+      "key": {
+        "#": "diamond",
+        "|": "stick"
+      },
+      "result": [
+        "diamond_pickaxe",
+        1
+      ]
+    },
+    {
+      "id": "diamond_axe",
+      "pattern": [
+        "##",
+        "#|",
+        " |"
+      ],
+      "key": {
+        "#": "diamond",
+        "|": "stick"
+      },
+      "result": [
+        "diamond_axe",
+        1
+      ]
+    },
+    {
+      "id": "diamond_shovel",
+      "pattern": [
+        "#",
+        "|",
+        "|"
+      ],
+      "key": {
+        "#": "diamond",
+        "|": "stick"
+      },
+      "result": [
+        "diamond_shovel",
+        1
+      ]
+    },
+    {
+      "id": "diamond_sword",
+      "pattern": [
+        "#",
+        "#",
+        "|"
+      ],
+      "key": {
+        "#": "diamond",
+        "|": "stick"
+      },
+      "result": [
+        "diamond_sword",
+        1
+      ]
+    },
+    {
+      "id": "wooden_hoe",
+      "pattern": [
+        "HH",
+        " |",
+        " |"
+      ],
+      "key": {
+        "H": "oak_planks",
+        "|": "stick"
+      },
+      "result": [
+        "wooden_hoe",
+        1
+      ]
+    },
+    {
+      "id": "stone_hoe",
+      "pattern": [
+        "HH",
+        " |",
+        " |"
+      ],
+      "key": {
+        "H": "cobblestone",
+        "|": "stick"
+      },
+      "result": [
+        "stone_hoe",
+        1
+      ]
+    },
+    {
+      "id": "iron_hoe",
+      "pattern": [
+        "HH",
+        " |",
+        " |"
+      ],
+      "key": {
+        "H": "iron_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "iron_hoe",
+        1
+      ]
+    },
+    {
+      "id": "golden_hoe",
+      "pattern": [
+        "HH",
+        " |",
+        " |"
+      ],
+      "key": {
+        "H": "gold_ingot",
+        "|": "stick"
+      },
+      "result": [
+        "golden_hoe",
+        1
+      ]
+    },
+    {
+      "id": "diamond_hoe",
+      "pattern": [
+        "HH",
+        " |",
+        " |"
+      ],
+      "key": {
+        "H": "diamond",
+        "|": "stick"
+      },
+      "result": [
+        "diamond_hoe",
+        1
+      ]
+    },
+    {
+      "id": "bread",
+      "pattern": [
+        "WWW"
+      ],
+      "key": {
+        "W": "wheat"
+      },
+      "result": [
+        "bread",
+        1
+      ]
+    },
+    {
+      "id": "iron_helmet",
+      "pattern": [
+        "###",
+        "# #"
+      ],
+      "key": {
+        "#": "iron_ingot"
+      },
+      "result": [
+        "iron_helmet",
+        1
+      ]
+    },
+    {
+      "id": "iron_chestplate",
+      "pattern": [
+        "# #",
+        "###",
+        "###"
+      ],
+      "key": {
+        "#": "iron_ingot"
+      },
+      "result": [
+        "iron_chestplate",
+        1
+      ]
+    },
+    {
+      "id": "iron_leggings",
+      "pattern": [
+        "###",
+        "# #",
+        "# #"
+      ],
+      "key": {
+        "#": "iron_ingot"
+      },
+      "result": [
+        "iron_leggings",
+        1
+      ]
+    },
+    {
+      "id": "iron_boots",
+      "pattern": [
+        "# #",
+        "# #"
+      ],
+      "key": {
+        "#": "iron_ingot"
+      },
+      "result": [
+        "iron_boots",
+        1
+      ]
+    },
+    {
+      "id": "golden_helmet",
+      "pattern": [
+        "###",
+        "# #"
+      ],
+      "key": {
+        "#": "gold_ingot"
+      },
+      "result": [
+        "golden_helmet",
+        1
+      ]
+    },
+    {
+      "id": "golden_chestplate",
+      "pattern": [
+        "# #",
+        "###",
+        "###"
+      ],
+      "key": {
+        "#": "gold_ingot"
+      },
+      "result": [
+        "golden_chestplate",
+        1
+      ]
+    },
+    {
+      "id": "golden_leggings",
+      "pattern": [
+        "###",
+        "# #",
+        "# #"
+      ],
+      "key": {
+        "#": "gold_ingot"
+      },
+      "result": [
+        "golden_leggings",
+        1
+      ]
+    },
+    {
+      "id": "golden_boots",
+      "pattern": [
+        "# #",
+        "# #"
+      ],
+      "key": {
+        "#": "gold_ingot"
+      },
+      "result": [
+        "golden_boots",
+        1
+      ]
+    },
+    {
+      "id": "diamond_helmet",
+      "pattern": [
+        "###",
+        "# #"
+      ],
+      "key": {
+        "#": "diamond"
+      },
+      "result": [
+        "diamond_helmet",
+        1
+      ]
+    },
+    {
+      "id": "diamond_chestplate",
+      "pattern": [
+        "# #",
+        "###",
+        "###"
+      ],
+      "key": {
+        "#": "diamond"
+      },
+      "result": [
+        "diamond_chestplate",
+        1
+      ]
+    },
+    {
+      "id": "diamond_leggings",
+      "pattern": [
+        "###",
+        "# #",
+        "# #"
+      ],
+      "key": {
+        "#": "diamond"
+      },
+      "result": [
+        "diamond_leggings",
+        1
+      ]
+    },
+    {
+      "id": "diamond_boots",
+      "pattern": [
+        "# #",
+        "# #"
+      ],
+      "key": {
+        "#": "diamond"
+      },
+      "result": [
+        "diamond_boots",
+        1
+      ]
+    },
+    {
+      "id": "torch",
+      "pattern": [
+        "C",
+        "|"
+      ],
+      "key": {
+        "C": "coal",
+        "|": "stick"
+      },
+      "result": [
+        "torch",
+        4
+      ]
+    },
+    {
+      "id": "torch_from_charcoal",
+      "pattern": [
+        "C",
+        "|"
+      ],
+      "key": {
+        "C": "charcoal",
+        "|": "stick"
+      },
+      "result": [
+        "torch",
+        4
+      ]
+    },
+    {
+      "id": "underwater_torch",
+      "pattern": [
+        "M",
+        "T"
+      ],
+      "key": {
+        "M": "magnesium",
+        "T": "torch"
+      },
+      "result": [
+        "underwater_torch",
+        1
+      ]
+    },
+    {
+      "id": "blue_torch",
+      "pattern": [
+        "C",
+        "T"
+      ],
+      "key": {
+        "C": "cerium_chloride",
+        "T": "torch"
+      },
+      "result": [
+        "blue_torch",
+        1
+      ]
+    },
+    {
+      "id": "red_torch",
+      "pattern": [
+        "C",
+        "T"
+      ],
+      "key": {
+        "C": "mercuric_chloride",
+        "T": "torch"
+      },
+      "result": [
+        "red_torch",
+        1
+      ]
+    },
+    {
+      "id": "purple_torch",
+      "pattern": [
+        "C",
+        "T"
+      ],
+      "key": {
+        "C": "potassium_chloride",
+        "T": "torch"
+      },
+      "result": [
+        "purple_torch",
+        1
+      ]
+    },
+    {
+      "id": "green_torch",
+      "pattern": [
+        "C",
+        "T"
+      ],
+      "key": {
+        "C": "tungsten_chloride",
+        "T": "torch"
+      },
+      "result": [
+        "green_torch",
+        1
+      ]
+    },
+    {
+      "id": "ink_sac",
+      "ingredients": [
+        "coal"
+      ],
+      "result": [
+        "ink_sac",
+        1
+      ],
+      "note": "Minecraft gets ink sacs from squids (not modelled)"
+    },
+    {
+      "id": "book_and_quill",
+      "ingredients": [
+        "book",
+        "ink_sac",
+        "feather"
+      ],
+      "result": [
+        "book_and_quill",
+        1
+      ]
+    },
+    {
+      "id": "furnace",
+      "pattern": [
+        "###",
+        "# #",
+        "###"
+      ],
+      "key": {
+        "#": "cobblestone"
+      },
+      "result": [
+        "furnace",
+        1
+      ]
+    },
+    {
+      "id": "oak_planks",
+      "ingredients": [
+        "oak_log"
+      ],
+      "result": [
+        "oak_planks",
+        4
+      ]
+    },
+    {
+      "id": "oak_planks_from_birch",
+      "ingredients": [
+        "birch_log"
+      ],
+      "result": [
+        "oak_planks",
+        4
+      ],
+      "note": "Minecraft yields birch planks"
+    },
+    {
+      "id": "crafting_table",
+      "pattern": [
+        "##",
+        "##"
+      ],
+      "key": {
+        "#": "oak_planks"
+      },
+      "result": [
+        "crafting_table",
+        1
+      ]
+    },
+    {
+      "id": "snow_block",
+      "pattern": [
+        "##",
+        "##"
+      ],
+      "key": {
+        "#": "snow"
+      },
+      "result": [
+        "snow",
+        1
+      ],
+      "note": "Minecraft uses snowballs"
+    },
+    {
+      "id": "black_dye_from_ink_sac",
+      "ingredients": [
+        "ink_sac"
+      ],
+      "result": [
+        "black_dye",
+        1
+      ]
+    },
+    {
+      "id": "cyan_dye",
+      "ingredients": [
+        "blue_dye",
+        "green_dye"
+      ],
+      "result": [
+        "cyan_dye",
+        2
+      ]
+    },
+    {
+      "id": "gray_dye",
+      "ingredients": [
+        "black_dye",
+        "white_dye"
+      ],
+      "result": [
+        "gray_dye",
+        2
+      ]
+    },
+    {
+      "id": "gray_dye_from_ink_white",
+      "ingredients": [
+        "ink_sac",
+        "white_dye"
+      ],
+      "result": [
+        "gray_dye",
+        2
+      ]
+    },
+    {
+      "id": "light_blue_dye",
+      "ingredients": [
+        "blue_dye",
+        "white_dye"
+      ],
+      "result": [
+        "light_blue_dye",
+        2
+      ]
+    },
+    {
+      "id": "light_gray_dye",
+      "ingredients": [
+        "black_dye",
+        "white_dye",
+        "white_dye"
+      ],
+      "result": [
+        "light_gray_dye",
+        3
+      ]
+    },
+    {
+      "id": "light_gray_dye_from_gray_white",
+      "ingredients": [
+        "gray_dye",
+        "white_dye"
+      ],
+      "result": [
+        "light_gray_dye",
+        2
+      ]
+    },
+    {
+      "id": "light_gray_dye_from_ink_white",
+      "ingredients": [
+        "ink_sac",
+        "white_dye",
+        "white_dye"
+      ],
+      "result": [
+        "light_gray_dye",
+        3
+      ]
+    },
+    {
+      "id": "lime_dye",
+      "ingredients": [
+        "green_dye",
+        "white_dye"
+      ],
+      "result": [
+        "lime_dye",
+        2
+      ]
+    },
+    {
+      "id": "magenta_dye",
+      "ingredients": [
+        "blue_dye",
+        "red_dye",
+        "pink_dye"
+      ],
+      "result": [
+        "magenta_dye",
+        3
+      ]
+    },
+    {
+      "id": "magenta_dye_from_blue_ink_white",
+      "ingredients": [
+        "blue_dye",
+        "red_dye",
+        "red_dye",
+        "white_dye"
+      ],
+      "result": [
+        "magenta_dye",
+        4
+      ]
+    },
+    {
+      "id": "magenta_dye_from_purple_and_pink",
+      "ingredients": [
+        "purple_dye",
+        "pink_dye"
+      ],
+      "result": [
+        "magenta_dye",
+        2
+      ]
+    },
+    {
+      "id": "orange_dye_from_red_yellow",
+      "ingredients": [
+        "red_dye",
+        "yellow_dye"
+      ],
+      "result": [
+        "orange_dye",
+        2
+      ]
+    },
+    {
+      "id": "pink_dye",
+      "ingredients": [
+        "red_dye",
+        "white_dye"
+      ],
+      "result": [
+        "pink_dye",
+        2
+      ]
+    },
+    {
+      "id": "purple_dye",
+      "ingredients": [
+        "blue_dye",
+        "red_dye"
+      ],
+      "result": [
+        "purple_dye",
+        2
+      ]
+    },
+    {
+      "id": "red_dye_from_poppy",
+      "ingredients": [
+        "poppy"
+      ],
+      "result": [
+        "red_dye",
+        1
+      ]
+    },
+    {
+      "id": "yellow_dye_from_dandelion",
+      "ingredients": [
+        "dandelion"
+      ],
+      "result": [
+        "yellow_dye",
+        1
+      ]
+    },
+    {
+      "id": "orange_wool",
+      "ingredients": [
+        "white_wool",
+        "orange_dye"
+      ],
+      "result": [
+        "orange_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "magenta_wool",
+      "ingredients": [
+        "white_wool",
+        "magenta_dye"
+      ],
+      "result": [
+        "magenta_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "light_blue_wool",
+      "ingredients": [
+        "white_wool",
+        "light_blue_dye"
+      ],
+      "result": [
+        "light_blue_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "yellow_wool",
+      "ingredients": [
+        "white_wool",
+        "yellow_dye"
+      ],
+      "result": [
+        "yellow_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "lime_wool",
+      "ingredients": [
+        "white_wool",
+        "lime_dye"
+      ],
+      "result": [
+        "lime_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "pink_wool",
+      "ingredients": [
+        "white_wool",
+        "pink_dye"
+      ],
+      "result": [
+        "pink_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "gray_wool",
+      "ingredients": [
+        "white_wool",
+        "gray_dye"
+      ],
+      "result": [
+        "gray_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "light_gray_wool",
+      "ingredients": [
+        "white_wool",
+        "light_gray_dye"
+      ],
+      "result": [
+        "light_gray_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "cyan_wool",
+      "ingredients": [
+        "white_wool",
+        "cyan_dye"
+      ],
+      "result": [
+        "cyan_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "purple_wool",
+      "ingredients": [
+        "white_wool",
+        "purple_dye"
+      ],
+      "result": [
+        "purple_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "blue_wool",
+      "ingredients": [
+        "white_wool",
+        "blue_dye"
+      ],
+      "result": [
+        "blue_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "brown_wool",
+      "ingredients": [
+        "white_wool",
+        "brown_dye"
+      ],
+      "result": [
+        "brown_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "green_wool",
+      "ingredients": [
+        "white_wool",
+        "green_dye"
+      ],
+      "result": [
+        "green_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "red_wool",
+      "ingredients": [
+        "white_wool",
+        "red_dye"
+      ],
+      "result": [
+        "red_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "black_wool",
+      "ingredients": [
+        "white_wool",
+        "black_dye"
+      ],
+      "result": [
+        "black_wool",
+        1
+      ],
+      "note": "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified"
+    },
+    {
+      "id": "white_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "white_dye"
+      },
+      "result": [
+        "white_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "orange_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "orange_dye"
+      },
+      "result": [
+        "orange_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "magenta_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "magenta_dye"
+      },
+      "result": [
+        "magenta_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "light_blue_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "light_blue_dye"
+      },
+      "result": [
+        "light_blue_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "yellow_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "yellow_dye"
+      },
+      "result": [
+        "yellow_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "lime_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "lime_dye"
+      },
+      "result": [
+        "lime_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "pink_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "pink_dye"
+      },
+      "result": [
+        "pink_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "gray_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "gray_dye"
+      },
+      "result": [
+        "gray_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "light_gray_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "light_gray_dye"
+      },
+      "result": [
+        "light_gray_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "cyan_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "cyan_dye"
+      },
+      "result": [
+        "cyan_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "purple_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "purple_dye"
+      },
+      "result": [
+        "purple_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "blue_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "blue_dye"
+      },
+      "result": [
+        "blue_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "brown_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "brown_dye"
+      },
+      "result": [
+        "brown_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "green_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "green_dye"
+      },
+      "result": [
+        "green_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "red_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "red_dye"
+      },
+      "result": [
+        "red_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "black_stained_glass",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "black_dye"
+      },
+      "result": [
+        "black_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "black_stained_glass_from_ink_sac",
+      "pattern": [
+        "GGG",
+        "GDG",
+        "GGG"
+      ],
+      "key": {
+        "G": "glass",
+        "D": "ink_sac"
+      },
+      "result": [
+        "black_stained_glass",
+        8
+      ]
+    },
+    {
+      "id": "bleach_red_wool",
+      "ingredients": [
+        "bleach",
+        "red_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_orange_wool",
+      "ingredients": [
+        "bleach",
+        "orange_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_yellow_wool",
+      "ingredients": [
+        "bleach",
+        "yellow_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_lime_wool",
+      "ingredients": [
+        "bleach",
+        "lime_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_blue_wool",
+      "ingredients": [
+        "bleach",
+        "blue_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_purple_wool",
+      "ingredients": [
+        "bleach",
+        "purple_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_black_wool",
+      "ingredients": [
+        "bleach",
+        "black_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_magenta_wool",
+      "ingredients": [
+        "bleach",
+        "magenta_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_light_blue_wool",
+      "ingredients": [
+        "bleach",
+        "light_blue_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_pink_wool",
+      "ingredients": [
+        "bleach",
+        "pink_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_gray_wool",
+      "ingredients": [
+        "bleach",
+        "gray_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_light_gray_wool",
+      "ingredients": [
+        "bleach",
+        "light_gray_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_cyan_wool",
+      "ingredients": [
+        "bleach",
+        "cyan_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_brown_wool",
+      "ingredients": [
+        "bleach",
+        "brown_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "bleach_green_wool",
+      "ingredients": [
+        "bleach",
+        "green_wool"
+      ],
+      "result": [
+        "white_wool",
+        1
+      ]
+    },
+    {
+      "id": "redstone_torch",
+      "pattern": [
+        "R",
+        "|"
+      ],
+      "key": {
+        "R": "redstone",
+        "|": "stick"
+      },
+      "result": [
+        "redstone_torch",
+        1
+      ]
+    },
+    {
+      "id": "lever",
+      "pattern": [
+        "|",
+        "#"
+      ],
+      "key": {
+        "|": "stick",
+        "#": "cobblestone"
+      },
+      "result": [
+        "lever",
+        1
+      ]
+    },
+    {
+      "id": "stone_button",
+      "ingredients": [
+        "stone"
+      ],
+      "result": [
+        "stone_button",
+        1
+      ]
+    },
+    {
+      "id": "stone_pressure_plate",
+      "pattern": [
+        "##"
+      ],
+      "key": {
+        "#": "stone"
+      },
+      "result": [
+        "stone_pressure_plate",
+        1
+      ]
+    },
+    {
+      "id": "redstone_lamp",
+      "pattern": [
+        " R ",
+        "RGR",
+        " R "
+      ],
+      "key": {
+        "R": "redstone",
+        "G": "glowstone"
+      },
+      "result": [
+        "redstone_lamp",
+        1
+      ]
+    },
+    {
+      "id": "repeater",
+      "pattern": [
+        "TRT",
+        "SSS"
+      ],
+      "key": {
+        "T": "redstone_torch",
+        "R": "redstone",
+        "S": "stone"
+      },
+      "result": [
+        "repeater",
+        1
+      ]
+    },
+    {
+      "id": "wooden_door",
+      "pattern": [
+        "##",
+        "##",
+        "##"
+      ],
+      "key": {
+        "#": "oak_planks"
+      },
+      "result": [
+        "wooden_door",
+        3
+      ]
+    },
+    {
+      "id": "iron_door",
+      "pattern": [
+        "##",
+        "##",
+        "##"
+      ],
+      "key": {
+        "#": "iron_ingot"
+      },
+      "result": [
+        "iron_door",
+        3
+      ]
+    },
+    {
+      "id": "glow_stick",
+      "pattern": [
+        "PHP",
+        "PDP",
+        "PLP"
+      ],
+      "key": {
+        "P": "polyethylene",
+        "H": "hydrogen_peroxide",
+        "D": "green_dye",
+        "L": "luminol"
+      },
+      "result": [
+        "glow_stick",
+        1
+      ],
+      "note": "Existing green item only; output count provisional, activation/lifetime/current Education behavior unverified"
+    },
+    {
+      "id": "glowstone",
+      "pattern": [
+        "##",
+        "##"
+      ],
+      "key": {
+        "#": "gold_ore"
+      },
+      "result": [
+        "glowstone",
+        1
+      ],
+      "note": "Minecraft uses glowstone dust"
+    }
+  ],
+  "previousSmelting": {
+    "iron_ore": "iron_ingot",
+    "redstone_ore": "redstone",
+    "gold_ore": "gold_ingot",
+    "sand": "glass",
+    "cobblestone": "stone",
+    "oak_log": "charcoal",
+    "birch_log": "charcoal",
+    "raw_porkchop": "cooked_porkchop",
+    "raw_chicken": "cooked_chicken"
+  },
+  "previousFuels": {
+    "coal": 80,
+    "charcoal": 80,
+    "oak_planks": 15,
+    "oak_log": 15,
+    "birch_log": 15,
+    "stick": 5,
+    "wooden_hoe": 10
+  }
+}
