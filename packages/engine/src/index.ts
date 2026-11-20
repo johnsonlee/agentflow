@@ -33,3 +33,5 @@ export * from "./redstone";
 export * from "./armor";
 
 export * from "./farming";
+
+export * from "./education-isotopes";

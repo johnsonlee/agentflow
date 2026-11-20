@@ -441,3 +441,9 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .equipment-column { display: flex; flex-direction: column; align-items: center; gap: 3px; }
 .equipment-label, .equipment-empty { font-size: 10px; color: #343434; }
 .equipment-empty { pointer-events: none; }
+
+/* Owned element inspection shares the inventory cursor and stays within the scrolling panel. */
+.element-lookup { display: flex; align-items: center; justify-content: center; flex-wrap: wrap; gap: 8px; }
+.element-lookup .hint { flex: 1; min-width: 180px; max-width: 320px; margin: 0; }
+.element-lookup .chem-status { flex-basis: 100%; color: #8a1c1c; }
+.particle-value:disabled { color: #3f3f3f; opacity: 1; }

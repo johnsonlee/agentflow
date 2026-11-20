@@ -3,6 +3,7 @@
  * {@link ITEM_ID_BASE}, so one numeric id space covers inventory stacks while chunk
  * arrays keep holding block ids only.
  */
+import { ADDITIONAL_GUIDE_ISOTOPES } from "./education-isotopes";
 import { BLOCKS, blockById, blockId } from "./blocks";
 import { ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, LEGACY_COMPOUNDS, LEGACY_ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
 
@@ -178,6 +179,14 @@ const specs: Omit<ItemDef, "id">[] = [
   material("bread", "Bread", { hunger: 5, saturation: 6 }),
   // Distinct Lab Table product; never insert into the positional legacy LAB_PRODUCTS array.
   { name: "bleach", displayName: "Bleach", maxStack: MAX_STACK, icon: "item_product_bleach", chem: { kind: "product" } },
+  // Append 70 missing documented-guide masses after all 449 existing entries.
+  ...ADDITIONAL_GUIDE_ISOTOPES.map(({ z, symbol, mass }) => {
+    const e = [...LEGACY_ELEMENTS, ...ADDITIONAL_ELEMENTS].find((element) => element.z === z)!;
+    return {
+      name: isotopeItemName(e, mass), displayName: `${e.name}-${mass}`, maxStack: MAX_STACK, icon: `item_isotope_${z}_${symbol}_${mass}`,
+      chem: { kind: "isotope" as const, z, symbol, mass },
+    };
+  }),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));

@@ -1,5 +1,5 @@
 import {
-  HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, fuelSeconds,
+  HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
   isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial,
   type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
@@ -248,6 +248,8 @@ export class InventoryScreen {
   readonly root = el("div", "screen inventory-screen");
   private readonly panel = el("div", "panel inventory-panel");
   private cursor: ItemStack | null = null;
+  private lookup: ItemStack | null = null;
+  private lookupError = "";
   private grid: CraftingGrid = [];
   private width = 0;
   private kind: InventoryKind = "inventory";
@@ -283,6 +285,8 @@ export class InventoryScreen {
   }
 
   show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null): void {
+    // A station switch must return every owned pending item before replacing its screen state.
+    if (this.open && !this.hide()) return;
     this.inventory = inventory;
     this.mode = mode;
     this.kind = kind;
@@ -296,6 +300,8 @@ export class InventoryScreen {
             : mode === "survival" ? 2 : 0;
     this.grid = new Array(this.width * this.width).fill(null);
     this.cursor = null;
+    this.lookup = null;
+    this.lookupError = "";
     this.closeHint = "";
     this.recovery = [];
     this.recovering = false;
@@ -306,7 +312,7 @@ export class InventoryScreen {
 
   /** Saved grid/cursor contents are recovered without recreating a potentially missing station. */
   restorePending(inventory: Inventory, mode: GameMode, stacks: ItemStack[]): boolean {
-    if (stacks.length === 0) return false;
+    if (stacks.length === 0 || this.open) return false;
     this.show(inventory, mode);
     this.recovery = structuredClone(stacks);
     this.recovering = true;
@@ -316,7 +322,7 @@ export class InventoryScreen {
 
   /** A detached save snapshot; saving never moves items out of the live screen. */
   pendingItems(): ItemStack[] {
-    return structuredClone([...this.recovery, ...this.grid, this.cursor].filter((stack): stack is ItemStack => stack !== null));
+    return structuredClone([...this.recovery, ...this.grid, this.cursor, this.lookup].filter((stack): stack is ItemStack => stack !== null));
   }
 
   /** True when the screen has a work area (crafting grid or chemistry station): the palette fills the cursor. */
@@ -339,6 +345,8 @@ export class InventoryScreen {
     }
     this.grid = [];
     this.cursor = null;
+    this.lookup = null;
+    this.lookupError = "";
     this.furnace = null;
     this.recovery = [];
     this.recovering = false;
@@ -393,8 +401,19 @@ export class InventoryScreen {
         const cell = this.cell(def.id, 0, def.displayName);
         cell.dataset.block = def.name;
         cell.addEventListener("click", () => {
-          if (this.working) this.cursor = { id: def.id, count: maxStackOf(def.id) };
-          else inventory.pick(def.id);
+          if (this.working) {
+            if (this.cursor) {
+              // Palette selection must not overwrite a withdrawn owned stack.
+              const trial = Inventory.fromJSON(inventory.toJSON());
+              if (trial.addStack(this.cursor) > 0) {
+                this.closeHint = "Make room for the held item before choosing another item.";
+                this.render();
+                return;
+              }
+              inventory.addStack(this.cursor);
+            }
+            this.cursor = { id: def.id, count: maxStackOf(def.id) };
+          } else inventory.pick(def.id);
           this.render();
         });
         grid.appendChild(cell);
@@ -574,6 +593,56 @@ export class InventoryScreen {
     return [cell, status];
   }
 
+  /** Transfers an actual owned stack; particle inspection never creates or converts it. */
+  private elementLookupSection(): HTMLElement {
+    const section = el("section", "element-lookup");
+    section.setAttribute("aria-label", "Inspect owned element");
+    const stack = this.lookup;
+    const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : "Inspect element");
+    cell.dataset.elementLookup = "";
+    cell.setAttribute("aria-label", `Inspect owned element: ${stack ? displayNameOf(stack.id) : "empty"}`);
+    if (!stack) cell.appendChild(el("span", "equipment-empty", "Inspect"));
+    cell.addEventListener("click", () => {
+      if (this.cursor) {
+        const particles = elementParticlesOf(this.cursor.id);
+        if (!particles) {
+          this.lookupError = "Only an element or isotope can be inspected here.";
+          this.render();
+          return;
+        }
+        const previous = this.lookup;
+        this.lookup = this.cursor;
+        this.cursor = previous;
+        this.particles.protons = particles.protons;
+        this.particles.neutrons = particles.neutrons;
+        this.particles.electrons = particles.electrons;
+      } else if (this.lookup) {
+        this.cursor = this.lookup;
+        this.lookup = null;
+      }
+      this.lookupError = "";
+      this.render();
+    });
+    const inspected = elementParticlesOf(stack?.id);
+    const note = el("p", "hint", inspected
+      ? `${inspected.protons} protons, ${inspected.neutrons} neutrons, ${inspected.electrons} electrons. Take back the owned stack to edit these counts.`
+      : "Place an owned element or isotope here to read its particle counts.");
+    note.dataset.elementLookupReadout = "";
+    if (inspected) {
+      cell.dataset.protons = String(inspected.protons);
+      cell.dataset.neutrons = String(inspected.neutrons);
+      cell.dataset.electrons = String(inspected.electrons);
+    }
+    section.append(cell, note);
+    if (this.lookupError) {
+      const status = el("p", "chem-status", this.lookupError);
+      status.dataset.elementLookupStatus = "error";
+      status.setAttribute("role", "status");
+      section.appendChild(status);
+    }
+    return section;
+  }
+
   /** The four Education Edition chemistry stations. */
   private chemistrySection(): HTMLElement {
     const section = el("div", "chemistry");
@@ -590,9 +659,11 @@ export class InventoryScreen {
         value.min = "0";
         value.max = String(MAX_PARTICLES);
         value.value = String(p[key]);
+        value.disabled = this.lookup !== null;
         value.setAttribute("aria-label", key);
         value.addEventListener("keydown", (e) => e.stopPropagation());
         value.addEventListener("change", () => {
+          if (this.lookup) return;
           const n = Math.round(Number(value.value));
           p[key] = Number.isFinite(n) ? Math.max(0, Math.min(MAX_PARTICLES, n)) : 0;
           this.render();
@@ -600,8 +671,10 @@ export class InventoryScreen {
         const step = (d: number) => {
           const b = el("button", "mc-button small stepper", d < 0 ? "−" : "+");
           b.dataset.step = String(d);
+          b.disabled = this.lookup !== null;
           b.setAttribute("aria-label", `${d < 0 ? "Fewer" : "More"} ${key}`);
           b.addEventListener("click", () => {
+            if (this.lookup) return;
             p[key] = Math.max(0, Math.min(MAX_PARTICLES, p[key] + d));
             this.render();
           });
@@ -613,8 +686,14 @@ export class InventoryScreen {
       const e = elementByZ(p.protons);
       const card = el("div", "element-preview", e ? `${e.symbol}` : "?");
       card.title = e ? e.name : "No element";
-      row.append(steppers, el("span", "craft-arrow", "➜"), ...this.resultCell(constructElement(p.protons, p.neutrons, p.electrons), () => undefined));
-      section.append(card, row);
+      const result = this.lookup
+        ? { error: "Take back the inspected item before constructing another element." }
+        : constructElement(p.protons, p.neutrons, p.electrons);
+      const output = this.resultCell(result, () => undefined);
+      (output[0] as HTMLButtonElement).disabled = this.lookup !== null;
+      output[0].dataset.elementCreationEnabled = String(this.lookup === null);
+      row.append(steppers, el("span", "craft-arrow", "➜"), ...output);
+      section.append(card, row, this.elementLookupSection());
       return section;
     }
     if (this.chem === "material_reducer") {

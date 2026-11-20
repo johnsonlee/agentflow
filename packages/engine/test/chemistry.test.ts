@@ -99,8 +99,8 @@ describe("Compound Creator", () => {
       expect(ok(createCompound([...stacks(["hydrogen", 2], ["oxygen", 1]), { id: id("carbon"), count: bad }]))).toMatch(/Invalid stack/);
       expect(ok(labReaction([...stacks(["ammonia", 1], ["phosphorus", 1]), { id: id("salt"), count: bad }]))).toMatch(/Invalid stack/);
     }
-    // Isotopes and non-elements are refused.
-    expect(ok(createCompound(stacks(["hydrogen_2", 2], ["oxygen", 1])))).toMatch(/Only elements/);
+    // Journal page 12 permits isotope ingredients; non-atoms remain refused.
+    expect(ok(createCompound(stacks(["hydrogen_2", 2], ["oxygen", 1])))).toBe("water_compound");
     expect(ok(createCompound(stacks(["dirt", 1])))).toMatch(/Only elements/);
   });
 });

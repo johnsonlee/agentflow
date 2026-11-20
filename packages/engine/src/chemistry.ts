@@ -2,6 +2,7 @@
  * Education Edition chemistry: Element Constructor, Compound Creator, Material Reducer and Lab Table.
  * Every lookup goes through Maps built from the data tables (never `obj[userString]`).
  */
+import { isDocumentedEducationIsotope, supportedIsotopeMasses } from "./education-isotopes";
 import { COMPOUNDS, ELEMENTS, LAB_REACTIONS, MAX_Z, REDUCTIONS, elementItemName, isotopeItemName, type ElementData } from "./chemistry-data";
 import type { ItemStack } from "./inventory";
 import { ITEMS, isKnownId, itemById, isItem, nameOf, stackId } from "./items";
@@ -32,13 +33,30 @@ export function constructElement(protons: number, neutrons: number, electrons: n
   if (electrons !== protons) return { error: `A neutral ${e.name} atom needs ${protons} electron${protons === 1 ? "" : "s"}` };
   const mass = protons + neutrons;
   if (mass === e.a) return { id: stackId(elementItemName(e)) };
-  if (e.isotopes.includes(mass)) return { id: stackId(isotopeItemName(e, mass)) };
-  const known = [e.a, ...e.isotopes].sort((a, b) => a - b).map((m) => m - protons);
+  const masses = supportedIsotopeMasses(protons);
+  if (masses.includes(mass)) return { id: stackId(isotopeItemName(e, mass)) };
+  const known = masses.map((m) => m - protons);
   return { error: `${e.name}-${mass} isn't in the supported isotope catalogue (neutrons: ${known.join(", ")})` };
 }
 
-/** Element symbol of an element item id (isotopes don't count as plain elements), else undefined. */
-const elementSymbolById = new Map(ITEMS.filter((i) => i.chem?.kind === "element").map((i) => [i.id, i.chem!.symbol!]));
+export interface ElementParticles {
+  protons: number; neutrons: number; electrons: number;
+  z: number; symbol: string; mass: number;
+  /** Listed by the pinned 2018 guide; false for retained legacy scientific-only entries. */
+  documented: boolean;
+}
+
+/** Detached owned-item lookup data; never treats a non-atom or malformed ID as an element. */
+export function elementParticlesOf(id: number | null | undefined): ElementParticles | null {
+  if (typeof id !== "number" || !Number.isInteger(id) || !isKnownId(id) || !isItem(id)) return null;
+  const chem = itemById(id).chem;
+  if (chem?.kind !== "element" && chem?.kind !== "isotope") return null;
+  const z = chem.z, mass = chem.mass;
+  if (typeof z !== "number" || typeof mass !== "number" || !Number.isInteger(z) || !Number.isInteger(mass)) return null;
+  const element = elementsByZ.get(z);
+  if (!element || element.symbol !== chem.symbol || !supportedIsotopeMasses(z).includes(mass)) return null;
+  return { protons: z, neutrons: mass - z, electrons: z, z, symbol: element.symbol, mass, documented: isDocumentedEducationIsotope(z, mass) };
+}
 
 const multisetKey = (entries: Iterable<readonly [string, number]>) =>
   [...entries].filter(([, n]) => n > 0).sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0)).map(([k, n]) => `${k}${n}`).join(",");
@@ -54,7 +72,8 @@ export function createCompound(slots: readonly (ItemStack | null)[]): { id: numb
   for (const s of slots) {
     if (!s) continue;
     if (!validCount(s.count)) return { error: "Invalid stack" };
-    const symbol = elementSymbolById.get(s.id);
+    // Journal page 12 explicitly permits different isotopes in the Compound Creator.
+    const symbol = elementParticlesOf(s.id)?.symbol;
     if (!symbol) return { error: "Only elements can go into the Compound Creator" };
     counts.set(symbol, (counts.get(symbol) ?? 0) + s.count);
   }

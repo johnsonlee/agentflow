@@ -18,7 +18,7 @@ it("retains the old NaClO identity at ID402 and appends a distinct bleach produc
   expect(COMPOUNDS.find((c) => c.name === "sodium_hypochlorite")).toMatchObject({ formula: "NaClO", recipe: [["Na", 1], ["Cl", 1], ["O", 1]] });
   expect(COMPOUNDS.some((c) => c.name === "bleach")).toBe(false);
   expect(stackId("bleach")).toBe(productId);
-  expect(ITEMS.slice(448).map((i) => [i.id, i.name])).toEqual([[productId, "bleach"]]);
+  expect(ITEMS.slice(448, 449).map((i) => [i.id, i.name])).toEqual([[productId, "bleach"]]);
   expect(itemById(productId)).toMatchObject({ displayName: "Bleach", icon: "item_product_bleach", chem: { kind: "product" }, maxStack: 64 });
   expect(LAB_PRODUCTS.map((p) => p.product)).toEqual(["heat_block", "super_fertilizer", "ice_bomb", "underwater_torch", "glow_stick"]);
   expect(createHash("sha256").update(JSON.stringify(historicalItemMap(ITEMS.slice(0, 448))) + "\n").digest("hex"))
