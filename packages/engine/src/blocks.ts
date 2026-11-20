@@ -1,3 +1,4 @@
+import { DYE_COLORS } from "./dyes";
 /**
  * Compact block registry. Stable low and extended IDs are stored in Uint16 chunk arrays;
  * textures are referenced by tile name and resolved by the renderer.
@@ -201,6 +202,12 @@ for (let z = 0; z <= 118; z++) {
   const tile = `element_block_${z}_${element?.symbol ?? "unknown"}`;
   specs.push({ id: EXTENDED_BLOCK_ID_BASE + z, name: `element_${z}`, displayName: element?.name ?? "Unknown Element",
     faces: faces(tile), creative: z === 0 });
+}
+
+// Explicit low IDs: compact-array indices now include the high element definitions.
+for (const [i, name] of (["magenta", "light_blue", "pink", "gray", "light_gray", "cyan", "brown", "green"] as const).entries()) {
+  const color = DYE_COLORS.find((c) => c.name === name)!;
+  specs.push({ id: 164 + i, name: `${name}_wool`, displayName: `${color.displayName} Wool`, faces: faces(`${name}_wool`), hardness: 1.2 });
 }
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));

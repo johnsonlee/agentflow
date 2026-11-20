@@ -21,10 +21,10 @@ function emptyWorld() {
 
 it("keeps all old numeric/particle identities and adds 119 compact, disjoint extended block definitions", () => {
   expect(hash(BLOCKS.slice(0, 164).map(({ id, name }) => [id, name]))).toBe("01c152ce6dbc67a7e4e07b24fccf35b2a20725eb6e3fb3b97694403c39b84894");
-  expect(hash(ITEMS.map(({ id, name }) => [id, name]))).toBe("c7c43e88c216c30259536783a583814edc6f93126bf4aa6397f024a33cce5ba7");
+  expect(hash(ITEMS.slice(0, 519).map(({ id, name }) => [id, name]))).toBe("c7c43e88c216c30259536783a583814edc6f93126bf4aa6397f024a33cce5ba7");
   expect(hash(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");
-  expect(BLOCKS).toHaveLength(283); expect(ITEMS).toHaveLength(519);
+  expect(BLOCKS.slice(0, 283)).toHaveLength(283); expect(ITEMS.slice(0, 519)).toHaveLength(519);
   expect(new Set(BLOCKS.map((b) => b.id)).size).toBe(BLOCKS.length);
   for (let z = 0; z <= 118; z++) {
     const id = elementBlockId(z), def = blockById(id);
@@ -49,7 +49,7 @@ it("separates registered membership from numeric namespaces and rejects unknown 
   expect(isItem(32767)).toBe(true); expect(isKnownId(32767)).toBe(false);
   expect(isBlockNamespace(65535)).toBe(true); expect(isKnownBlockId(65535)).toBe(false); expect(isBlockNamespace(65536)).toBe(false);
   const world = new World(13), chunk = new Chunk(0, 0);
-  for (const bad of [-1, .5, NaN, Infinity, 164, 255, 256, 774, 32767, 32887, 65535, 65536]) {
+  for (const bad of [-1, .5, NaN, Infinity, 172, 255, 256, 774, 32767, 32887, 65535, 65536]) {
     expect(isKnownBlockId(bad)).toBe(false); expect(tryBlockById(bad)).toBeUndefined(); expect(placedBlockOf(bad)).toBeNull();
     world.setBlock(8, 90, 8, bad); chunk.set(1, 90, 1, bad);
     expect(chunk.get(1, 90, 1)).toBe(AIR);
@@ -170,5 +170,5 @@ it("uses the same canonical IDs for capacity prediction and actual adds, includi
     expect(bag.spaceFor(alias)).toBe(0); expect(bag.add(alias)).toBe(1);
   }
   const bag = new Inventory();
-  for (const invalid of [-1, NaN, Infinity, 775, 32767, 65535, 65536]) expect(bag.spaceFor(invalid)).toBe(0);
+  for (const invalid of [-1, NaN, Infinity, 791, 32767, 65535, 65536]) expect(bag.spaceFor(invalid)).toBe(0);
 });

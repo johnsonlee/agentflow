@@ -58,7 +58,7 @@ it("refuses wrong Lab quantities, water blocks, finished bleach and extra ingred
 });
 
 it("whitens every existing colored wool in any crafting cells and consumes only one of each", () => {
-  expect(coloredWool.map((b) => b.name)).toEqual(["red_wool", "orange_wool", "yellow_wool", "lime_wool", "blue_wool", "purple_wool", "black_wool"]);
+  expect(coloredWool.map((b) => b.name)).toEqual(["red_wool", "orange_wool", "yellow_wool", "lime_wool", "blue_wool", "purple_wool", "black_wool", "magenta_wool", "light_blue_wool", "pink_wool", "gray_wool", "light_gray_wool", "cyan_wool", "brown_wool", "green_wool"]);
   for (const wool of coloredWool) for (const width of [2, 3]) {
     for (let a = 0; a < width * width; a++) for (let b = 0; b < width * width; b++) {
       if (a === b) continue;

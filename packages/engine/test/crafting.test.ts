@@ -35,9 +35,9 @@ describe("crafting", () => {
     expect(matchRecipe([p(), p(), p(), l(), l(), l(), p(), p(), p()], 3)?.result.id).toBe(blockId("bookshelf"));
   });
 
-  it("dyes wool with flowers", () => {
-    expect(matchRecipe([s("white_wool"), null, null, s("poppy")], 2)?.result.id).toBe(blockId("red_wool"));
-    expect(matchRecipe([s("dandelion"), s("white_wool"), null, null], 2)?.result.id).toBe(blockId("yellow_wool"));
+  it("dyes wool with canonical dyes rather than direct flower substitutions", () => {
+    expect(matchRecipe([s("white_wool"), null, null, { id: stackId("red_dye"), count: 1 }], 2)?.result.id).toBe(blockId("red_wool"));
+    expect(matchRecipe([{ id: stackId("yellow_dye"), count: 1 }, s("white_wool"), null, null], 2)?.result.id).toBe(blockId("yellow_wool"));
     expect(matchRecipe([s("dandelion"), s("dandelion"), null, null], 2)).toBeNull();
   });
 });

@@ -151,3 +151,18 @@ for (const material of ["iron", "golden", "diamond"]) {
     };
   }
 }
+
+/** Original pigment heaps; color names match the engine registry without a runtime dependency. */
+const DYE_PIGMENTS: Record<string, string> = {
+  white: "#e9ecec", orange: "#f07613", magenta: "#b13bb0", light_blue: "#61a8c9",
+  yellow: "#f8c527", lime: "#70b919", pink: "#ee91b4", gray: "#4d5157",
+  light_gray: "#a7aaad", cyan: "#238c91", purple: "#7a2aac", blue: "#35399d",
+  brown: "#794d2e", green: "#4e6b28", red: "#a12722", black: "#1e1b1b",
+};
+const PIGMENT_HEAP: Mask = (x, y) => x >= 2 && x <= 13 && y >= 7 && y <= 13 &&
+  (y >= 11 || (x >= 4 && x <= 11 && y >= 9) || (x >= 6 && x <= 9)) &&
+  !(y === 13 && (x === 2 || x === 13));
+for (const [name, color] of Object.entries(DYE_PIGMENTS)) {
+  const base = hex(color);
+  ITEM_TILE_GENERATORS[`item_${name}_dye`] = lump([base, shade(base, 0.88), shade(base, 1.12)], PIGMENT_HEAP);
+}

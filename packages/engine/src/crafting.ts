@@ -1,3 +1,4 @@
+import { DYE_COLORS } from "./dyes";
 import { BLOCKS } from "./blocks";
 import { stackId, type ArmorMaterial, type ToolMaterial } from "./items";
 import type { ItemStack } from "./inventory";
@@ -10,7 +11,7 @@ export interface Recipe {
   /** Shapeless ingredients (block or item names). */
   ingredients?: string[];
   result: [block: string, count: number];
-  /** Short note when the recipe simplifies Minecraft's (e.g. dyes collapsed into flowers). */
+  /** Short note when the recipe simplifies Minecraft or its exact rules remain unverified. */
   note?: string;
 }
 
@@ -36,10 +37,31 @@ function armorRecipes(material: ArmorMaterial, head: string): Recipe[] {
   ];
 }
 
-/**
- * Recipes for the blocks and items this game models. Dyes are not modelled, so a few
- * recipes substitute blocks (see `note`).
+/** Verified available-input subset of Mojang samples 15701fa9c13923f12662984c32c124327e40e3d3.
+ * Exact normalized source records/hashes: artifacts/chemistry-dyes-glowstick-sources.json.
+ * Missing acquisition resources are not substituted; legacy ink-sac mix alternatives stay distinct.
  */
+export const DYE_RECIPES: readonly Recipe[] = [
+  { id: "black_dye_from_ink_sac", ingredients: ["ink_sac"], result: ["black_dye", 1] },
+  { id: "cyan_dye", ingredients: ["blue_dye", "green_dye"], result: ["cyan_dye", 2] },
+  { id: "gray_dye", ingredients: ["black_dye", "white_dye"], result: ["gray_dye", 2] },
+  { id: "gray_dye_from_ink_white", ingredients: ["ink_sac", "white_dye"], result: ["gray_dye", 2] },
+  { id: "light_blue_dye", ingredients: ["blue_dye", "white_dye"], result: ["light_blue_dye", 2] },
+  { id: "light_gray_dye", ingredients: ["black_dye", "white_dye", "white_dye"], result: ["light_gray_dye", 3] },
+  { id: "light_gray_dye_from_gray_white", ingredients: ["gray_dye", "white_dye"], result: ["light_gray_dye", 2] },
+  { id: "light_gray_dye_from_ink_white", ingredients: ["ink_sac", "white_dye", "white_dye"], result: ["light_gray_dye", 3] },
+  { id: "lime_dye", ingredients: ["green_dye", "white_dye"], result: ["lime_dye", 2] },
+  { id: "magenta_dye", ingredients: ["blue_dye", "red_dye", "pink_dye"], result: ["magenta_dye", 3] },
+  { id: "magenta_dye_from_blue_ink_white", ingredients: ["blue_dye", "red_dye", "red_dye", "white_dye"], result: ["magenta_dye", 4] },
+  { id: "magenta_dye_from_purple_and_pink", ingredients: ["purple_dye", "pink_dye"], result: ["magenta_dye", 2] },
+  { id: "orange_dye_from_red_yellow", ingredients: ["red_dye", "yellow_dye"], result: ["orange_dye", 2] },
+  { id: "pink_dye", ingredients: ["red_dye", "white_dye"], result: ["pink_dye", 2] },
+  { id: "purple_dye", ingredients: ["blue_dye", "red_dye"], result: ["purple_dye", 2] },
+  { id: "red_dye_from_poppy", ingredients: ["poppy"], result: ["red_dye", 1] },
+  { id: "yellow_dye_from_dandelion", ingredients: ["dandelion"], result: ["yellow_dye", 1] },
+];
+
+/** Recipes for the blocks and items this game models; provisional rules carry a note. */
 export const RECIPES: readonly Recipe[] = [
   { id: "stick", pattern: ["#", "#"], key: { "#": "oak_planks" }, result: ["stick", 4] },
   ...toolRecipes("wooden", "oak_planks"),
@@ -72,8 +94,12 @@ export const RECIPES: readonly Recipe[] = [
   { id: "crafting_table", pattern: ["##", "##"], key: { "#": "oak_planks" }, result: ["crafting_table", 1] },
   { id: "bookshelf", pattern: ["###", "LLL", "###"], key: { "#": "oak_planks", L: "oak_log" }, result: ["bookshelf", 1], note: "Minecraft uses books instead of logs" },
   { id: "snow_block", pattern: ["##", "##"], key: { "#": "snow" }, result: ["snow", 1], note: "Minecraft uses snowballs" },
-  { id: "yellow_wool", ingredients: ["dandelion", "white_wool"], result: ["yellow_wool", 1], note: "dandelion stands in for yellow dye" },
-  { id: "red_wool", ingredients: ["poppy", "white_wool"], result: ["red_wool", 1], note: "poppy stands in for red dye" },
+  ...DYE_RECIPES,
+  // Official 2019 dye article teaches white wool + dye; exact current Education counts are unverified.
+  ...DYE_COLORS.filter((c) => c.name !== "white").map(({ name }) => ({
+    id: `${name}_wool`, ingredients: ["white_wool", `${name}_dye`], result: [`${name}_wool`, 1] as [string, number],
+    note: "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified",
+  })),
   // Journal page 8: the finished Lab Table bleach product whitens existing colored wool.
   ...BLOCKS.filter((b) => b.name.endsWith("_wool") && b.name !== "white_wool").map((b) => ({
     id: `bleach_${b.name}`, ingredients: ["bleach", b.name], result: ["white_wool", 1] as [string, number],
@@ -87,11 +113,10 @@ export const RECIPES: readonly Recipe[] = [
   { id: "repeater", pattern: ["TRT", "SSS"], key: { T: "redstone_torch", R: "redstone", S: "stone" }, result: ["repeater", 1] },
   { id: "wooden_door", pattern: ["##", "##", "##"], key: { "#": "oak_planks" }, result: ["wooden_door", 3] },
   { id: "iron_door", pattern: ["##", "##", "##"], key: { "#": "iron_ingot" }, result: ["iron_door", 3] },
-  // Education Edition glow stick: polyethylene, hydrogen peroxide and a luminescent chemical.
-  {
-    id: "glow_stick", pattern: ["PLP", "PHP", " P "], key: { P: "polyethylene", L: "luminol", H: "hydrogen_peroxide" }, result: ["glow_stick", 1],
-    note: "Education Edition also takes a dye for the colour; dyes aren't modelled, so luminol stands in",
-  },
+  // Chemistry Lab Journal p9: six polyethylene, peroxide above dye, luminol below.
+  { id: "glow_stick", pattern: ["PHP", "PDP", "PLP"],
+    key: { P: "polyethylene", H: "hydrogen_peroxide", D: "green_dye", L: "luminol" }, result: ["glow_stick", 1],
+    note: "Existing green item only; output count provisional, activation/lifetime/current Education behavior unverified" },
   { id: "glowstone", pattern: ["##", "##"], key: { "#": "gold_ore" }, result: ["glowstone", 1], note: "Minecraft uses glowstone dust" },
 ];
 

@@ -213,6 +213,14 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   blue_wool: (t) => wool(t, hex("#35399d")),
   purple_wool: (t) => wool(t, hex("#7a2aac")),
   black_wool: (t) => wool(t, hex("#1e1b1b")),
+  magenta_wool: (t) => wool(t, hex("#b13bb0")),
+  light_blue_wool: (t) => wool(t, hex("#61a8c9")),
+  pink_wool: (t) => wool(t, hex("#ee91b4")),
+  gray_wool: (t) => wool(t, hex("#4d5157")),
+  light_gray_wool: (t) => wool(t, hex("#a7aaad")),
+  cyan_wool: (t) => wool(t, hex("#238c91")),
+  brown_wool: (t) => wool(t, hex("#794d2e")),
+  green_wool: (t) => wool(t, hex("#4e6b28")),
   glowstone: (t) => t.noise(["#f9d49c", "#c98f45", "#fff1c4", "#8f6328", "#ffd060"].map(hex), 1),
   bookshelf: (t) => {
     planks(t, PLANK);

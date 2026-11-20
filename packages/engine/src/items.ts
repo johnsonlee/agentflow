@@ -3,6 +3,7 @@
  * {@link ITEM_ID_BASE}, so one numeric id space covers inventory stacks while chunk
  * arrays keep holding block ids only.
  */
+import { DYE_COLORS } from "./dyes";
 import { ADDITIONAL_GUIDE_ISOTOPES } from "./education-isotopes";
 import { BLOCKS, blockById, blockId, isKnownBlockId, tryBlockById } from "./blocks";
 import { ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, ELEMENTS, LEGACY_COMPOUNDS, LEGACY_ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
@@ -188,6 +189,8 @@ const specs: Omit<ItemDef, "id">[] = [
       chem: { kind: "isotope" as const, z, symbol, mass },
     };
   }),
+  // Append-only canonical dyes after all 519 published entries.
+  ...DYE_COLORS.map(({ name, displayName }) => material(`${name}_dye`, `${displayName} Dye`)),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

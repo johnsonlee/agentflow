@@ -164,11 +164,11 @@ describe("addExhaustion (review 95edfbc8 hardening)", () => {
 });
 
 describe("glow stick crafting (review 0ee9512d)", () => {
-  it("is crafted at the crafting table from polyethylene, luminol and hydrogen peroxide", () => {
+  it("uses the Journal grid with six polyethylene, peroxide, green dye and luminol", () => {
     expect(itemById(id("polyethylene")).chem).toEqual({ kind: "compound", formula: "(C₂H₄)₅" });
     expect(ok(createCompound(stacks(["carbon", 10], ["hydrogen", 20])))).toBe("polyethylene");
     const P = { id: id("polyethylene"), count: 1 };
-    const grid = [P, { id: id("luminol"), count: 1 }, P, P, { id: id("hydrogen_peroxide"), count: 1 }, P, null, P, null];
+    const grid = [P, { id: id("hydrogen_peroxide"), count: 1 }, P, P, { id: id("green_dye"), count: 1 }, P, P, { id: id("luminol"), count: 1 }, P];
     expect(matchRecipe(grid, 3)?.result).toEqual({ id: id("glow_stick"), count: 1 });
     expect(matchRecipe([P, null, P, P, { id: id("hydrogen_peroxide"), count: 1 }, P, null, P, null], 3)).toBeNull();
   });

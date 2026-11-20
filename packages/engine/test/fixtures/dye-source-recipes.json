@@ -1,0 +1,1483 @@
+{
+  "revision": "15701fa9c13923f12662984c32c124327e40e3d3",
+  "recipes": [
+    {
+      "file": "black_dye_from_ink_sac.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "ink_sac",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "black_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/black_dye_from_ink_sac.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/black_dye_from_ink_sac.json",
+        "gitBlobSha": "b0b73bb2e625a82db830915d26f3832adcd932bb",
+        "bytes": 473,
+        "sha256": "4c6eaf26dccde4fb6e0a950a888b4f4accd1d3e3e17752e24a15518cbeaa62b4"
+      }
+    },
+    {
+      "file": "black_dye_from_wither_rose.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "wither_rose",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "black_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/black_dye_from_wither_rose.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/black_dye_from_wither_rose.json",
+        "gitBlobSha": "2eb37bc5093d7d968ab01ae528c1d701a49112d1",
+        "bytes": 452,
+        "sha256": "71b3660e9edd2a0d303cd2d02bdc3b396ba2387668ab6f27e8f647de11473d64"
+      }
+    },
+    {
+      "file": "blue_dye_from_cornflower.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "cornflower",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "blue_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/blue_dye_from_cornflower.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/blue_dye_from_cornflower.json",
+        "gitBlobSha": "72e36151c5bb98e37e94475efb90b9024aeff2dc",
+        "bytes": 449,
+        "sha256": "51b2d973343cb4ca47b1a7f0becc4851c76ebee42efedb56bc7bbe9c0165820b"
+      }
+    },
+    {
+      "file": "blue_dye_from_lapis_lazuli.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "blue_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/blue_dye_from_lapis_lazuli.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/blue_dye_from_lapis_lazuli.json",
+        "gitBlobSha": "1bd7d7d52e6e997948b5e3933ea8797dbb4280c6",
+        "bytes": 477,
+        "sha256": "bb672874088fc898ee8c3796121acb0204b70cc1e67a5d2b19e0843eb01bc573"
+      }
+    },
+    {
+      "file": "brown_dye_from_cocoa_beans.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "cocoa_beans",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "brown_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/brown_dye_from_cocoa_beans.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/brown_dye_from_cocoa_beans.json",
+        "gitBlobSha": "33b333578a0f3bc9bba2a3ffc7b6eaf59fc53806",
+        "bytes": 478,
+        "sha256": "401319d58966502438bec8bdaeef041e4613fcbc298383e9e14a74afbae28bbd"
+      }
+    },
+    {
+      "file": "cyan_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_dye",
+          "count": 1
+        },
+        {
+          "name": "green_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "cyan_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/cyan_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/cyan_dye.json",
+        "gitBlobSha": "ce73203663be269b04ea98a2935c632a6f3ee1e2",
+        "bytes": 575,
+        "sha256": "7a069665c5292334765e54779f536f63857a2de718c8898eff5fe073e553498d"
+      }
+    },
+    {
+      "file": "cyan_dye_from_lapis_lazuli.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        },
+        {
+          "name": "green_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "cyan_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/cyan_dye_from_lapis_lazuli.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/cyan_dye_from_lapis_lazuli.json",
+        "gitBlobSha": "6ad684d9e2591d28be89ddcc46b9cf34e422dc04",
+        "bytes": 610,
+        "sha256": "40d36043c45316554e653382743f49dcbc5382a09e25b34226ef886cc660206f"
+      }
+    },
+    {
+      "file": "cyan_dye_from_pitcher_plant.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "pitcher_plant",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "cyan_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/cyan_dye_from_pitcher_plant.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/cyan_dye_from_pitcher_plant.json",
+        "gitBlobSha": "72bad104860fbfcfe41998f46026233624e2341c",
+        "bytes": 472,
+        "sha256": "e1ba4301931b93a7353166108f0064c164cc9c08ab8a7e313a8d75d0073ec99d"
+      }
+    },
+    {
+      "file": "furnace_cactus.json",
+      "type": "minecraft:recipe_furnace",
+      "inputs": [
+        {
+          "name": "cactus",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "green_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/furnace_cactus.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/furnace_cactus.json",
+        "gitBlobSha": "0a7374db8c83ec8449221a96458a65255f03ff29",
+        "bytes": 343,
+        "sha256": "c8e1a2ff2854d52b046fc10fcc91f0f1bef4639262b7b0163fe2066245cc791f"
+      }
+    },
+    {
+      "file": "furnace_sea_pickle.json",
+      "type": "minecraft:recipe_furnace",
+      "inputs": [
+        {
+          "name": "sea_pickle",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "lime_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/furnace_sea_pickle.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/furnace_sea_pickle.json",
+        "gitBlobSha": "da810ef6eb2aa5eb7925723b2cf9040c6f54cf1a",
+        "bytes": 356,
+        "sha256": "7d965a45f36b8629fec95f64dcdc82e7a959a9965610a3d6d2453ae3a5c923d9"
+      }
+    },
+    {
+      "file": "gray_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "black_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "gray_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/gray_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/gray_dye.json",
+        "gitBlobSha": "9d39b805178ee7da556d137fed1cc7ec60a53e69",
+        "bytes": 577,
+        "sha256": "886ab95257a4bf8aeee55039f21edada820a37f9ad45bb321e4cf7e4fe5ec9f0"
+      }
+    },
+    {
+      "file": "gray_dye_from_black_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "black_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "gray_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/gray_dye_from_black_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/gray_dye_from_black_bonemeal.json",
+        "gitBlobSha": "b7751888a776b375ab7cc33d9a918902bf498c89",
+        "bytes": 616,
+        "sha256": "95354cd701d58fb97d5f818371a956b1b8ad4c8dee89d123d39b48b250fdb27d"
+      }
+    },
+    {
+      "file": "gray_dye_from_closed_eyeblossom.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "closed_eyeblossom",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "gray_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/gray_dye_from_closed_eyeblossom.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/gray_dye_from_closed_eyeblossom.json",
+        "gitBlobSha": "6e1f8a00d5f8da3e72830a021fd717af49d34d37",
+        "bytes": 573,
+        "sha256": "3fb90a6c780dab792c4a390b4f3a4187c82b1b9007419cb644e8ad130497e800"
+      }
+    },
+    {
+      "file": "gray_dye_from_ink_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "ink_sac",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "gray_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/gray_dye_from_ink_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/gray_dye_from_ink_bonemeal.json",
+        "gitBlobSha": "9da5c6605a4ef49bb29332bdc590c3c01f1329f1",
+        "bytes": 612,
+        "sha256": "578b804ad391fcb40d5bc01bafb006c1dfd6afc9c6d0005f57b9c16a2e0b539f"
+      }
+    },
+    {
+      "file": "gray_dye_from_ink_white.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "ink_sac",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "gray_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/gray_dye_from_ink_white.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/gray_dye_from_ink_white.json",
+        "gitBlobSha": "4af8156dba7d34b182ac115eaecdfb003441761c",
+        "bytes": 609,
+        "sha256": "ffcacbfe59cfdfa16ad08adc320324d45b730936d92365cf716a905209f69db9"
+      }
+    },
+    {
+      "file": "light_blue_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_blue_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_blue_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_blue_dye.json",
+        "gitBlobSha": "8a4c340c378a2a47e961afdfa152c867100b3da7",
+        "bytes": 634,
+        "sha256": "40d391433868059daf47a6c836e4c3a2ce4fa603e8266888f61ed8c61bcd9dc8"
+      }
+    },
+    {
+      "file": "light_blue_dye_from_blue_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_blue_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_blue_dye_from_blue_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_blue_dye_from_blue_bonemeal.json",
+        "gitBlobSha": "7ce2dd29d0db93c06c537bae1f7e8932c63b0cf4",
+        "bytes": 653,
+        "sha256": "2595550bde99f0c5612d98cc174f05b9ef1ffb8a4254c25b836e02c76c528e9b"
+      }
+    },
+    {
+      "file": "light_blue_dye_from_blue_orchid.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_orchid",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_blue_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_blue_dye_from_blue_orchid.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_blue_dye_from_blue_orchid.json",
+        "gitBlobSha": "41ec05dddba3f7045f68afa85e6f4b2c1c8664e6",
+        "bytes": 462,
+        "sha256": "92877329d86f1f4c0d52911ea2f9908ed9ebbdcd2797abf7d2f83f61c3dcb27c"
+      }
+    },
+    {
+      "file": "light_blue_dye_from_lapis_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_blue_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_blue_dye_from_lapis_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_blue_dye_from_lapis_bonemeal.json",
+        "gitBlobSha": "deba60b89529aa046a2806cd539041dad9e900d9",
+        "bytes": 652,
+        "sha256": "d49d1b9016efe2974b264a22d0c41b9c52d0267770b55437fccf4e88931c33d1"
+      }
+    },
+    {
+      "file": "light_blue_dye_from_lapis_white.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_blue_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_blue_dye_from_lapis_white.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_blue_dye_from_lapis_white.json",
+        "gitBlobSha": "799971989c04497f0ba96f31d1e5277e2b024424",
+        "bytes": 649,
+        "sha256": "378300a69e59803e9409bf468a40c5c23a6b0632fc3149b286dbded0a4fdfbbc"
+      }
+    },
+    {
+      "file": "light_gray_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "black_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 3
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye.json",
+        "gitBlobSha": "7b0bd19bd0af404a94bfc4fd75f6320dad291dcd",
+        "bytes": 702,
+        "sha256": "8c21abdc45d84d8d23b38ef8335ed26bdcc8e92fde1e57148f9b2daa51792eff"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_azure_bluet.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "azure_bluet",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_azure_bluet.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_azure_bluet.json",
+        "gitBlobSha": "007b17f28f8677173727c2d6f90a2d352d5e83be",
+        "bytes": 485,
+        "sha256": "d238cc04c4b1e63dce28afa114b4640e8db56c60fd736f24ab81b155c8ba41ef"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_black_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "black_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 3
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_black_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_black_bonemeal.json",
+        "gitBlobSha": "2adb530ae3adad4b0a7212b95f025ff2161cf149",
+        "bytes": 722,
+        "sha256": "09fbf7d85d3e6e58d79c78673c6eaa5a4dcede506e3b48264074a238a841ec2d"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_gray_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "gray_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_gray_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_gray_bonemeal.json",
+        "gitBlobSha": "39c4e0b5c2d2badf6b5dda7291f52e7bcbd4a3ad",
+        "bytes": 650,
+        "sha256": "42806668f94f55fc6060e8fea171fe0519924475ca4d1d3488c168a46160cf7b"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_gray_white.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "gray_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_gray_white.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_gray_white.json",
+        "gitBlobSha": "ea3df514083d46f1411267b6dedf1cfdd393c9f8",
+        "bytes": 647,
+        "sha256": "5c0da37af5f4de0ae1385d2ba2f9ac98a25b09554335a2c74bd2998b5b894b3f"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_ink_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "ink_sac",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 3
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_ink_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_ink_bonemeal.json",
+        "gitBlobSha": "fee196f9241359a0b6cf3aa1ff7c962d942d4f6b",
+        "bytes": 718,
+        "sha256": "c377a6923e8901294a44048c1f82f7706af7ef9bfe4c082f445acace721efa4a"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_ink_white.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "ink_sac",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 3
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_ink_white.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_ink_white.json",
+        "gitBlobSha": "ab7f129229cb59d5aa9979b5c7030bb8ce0543b5",
+        "bytes": 715,
+        "sha256": "d4a4cdddb64da3378a70b630eb51a1d43de1dd189b8da167762ce4841e8b8169"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_oxeye_daisy.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "oxeye_daisy",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_oxeye_daisy.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_oxeye_daisy.json",
+        "gitBlobSha": "25ef67188171d704138567ff8af001dcefdfb5c0",
+        "bytes": 485,
+        "sha256": "4e0b8b85ad889da8e67bfe617f5a07554ca6514ab12bb73fe088e0c5746ca6da"
+      }
+    },
+    {
+      "file": "light_gray_dye_from_white_tulip.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "white_tulip",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "light_gray_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_dye_from_white_tulip.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_dye_from_white_tulip.json",
+        "gitBlobSha": "9f8e19c6737a8369b069e280528a0ac5b89893e3",
+        "bytes": 466,
+        "sha256": "62a0688289927fb70380774b0e6e88623b7aff936e142cec25b17d2d9a3d7622"
+      }
+    },
+    {
+      "file": "lime_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "green_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "lime_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/lime_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/lime_dye.json",
+        "gitBlobSha": "4eebe31bb5e83d70dee8161b92848f989c375a73",
+        "bytes": 576,
+        "sha256": "0a3e35608a1b67a740d40bf4ad3171d500b462fb97bbbc09993a92be71985019"
+      }
+    },
+    {
+      "file": "lime_dye_from_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "green_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "lime_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/lime_dye_from_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/lime_dye_from_bonemeal.json",
+        "gitBlobSha": "d72b32decf55ce016d69b6b1252339ada7dcd16a",
+        "bytes": 609,
+        "sha256": "798c96a41dee715d310a8f79ffb42fbfaa9a1517237ff65c577e7d0f93e0e349"
+      }
+    },
+    {
+      "file": "magenta_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "pink_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 3
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye.json",
+        "gitBlobSha": "0e0e4dba83778ed58a9aa113da5e4a2ff70fdce9",
+        "bytes": 753,
+        "sha256": "ff7eb6d6f8e64dd0e0af05bc578343b727d15fbbc01433aa179d98bf992dc78f"
+      }
+    },
+    {
+      "file": "magenta_dye_from_allium.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "allium",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_allium.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_allium.json",
+        "gitBlobSha": "b6332a0598779814464a348228009880c77904ff",
+        "bytes": 459,
+        "sha256": "a8ed57f50f5ac816d9451ac5da15fe60be12020faf93cf8fe94dfb8e8dcea222"
+      }
+    },
+    {
+      "file": "magenta_dye_from_blue_ink_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 4
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_blue_ink_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_blue_ink_bonemeal.json",
+        "gitBlobSha": "110cf5c53dff631485a440f22331a9af2749a031",
+        "bytes": 846,
+        "sha256": "effc3a2b00958f75da5e5f891a5574dbd7aaa17746708146e129024008ac72de"
+      }
+    },
+    {
+      "file": "magenta_dye_from_blue_ink_white.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 4
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_blue_ink_white.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_blue_ink_white.json",
+        "gitBlobSha": "37543161d7006709173c112955200ebb9fd24630",
+        "bytes": 843,
+        "sha256": "930feffc54827f5fc72b06cbbd02a27219b04e6dc4b3d8f4f54773c5ef487a62"
+      }
+    },
+    {
+      "file": "magenta_dye_from_lapis_ink_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 4
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_lapis_ink_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_lapis_ink_bonemeal.json",
+        "gitBlobSha": "7895ac6bf015433d6c9f373b5a92612584a31266",
+        "bytes": 845,
+        "sha256": "034944ed7a5631d7d2e7c4de7cf6de2386a676de2425dc2712d73f954f0bdb3a"
+      }
+    },
+    {
+      "file": "magenta_dye_from_lapis_ink_white.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 4
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_lapis_ink_white.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_lapis_ink_white.json",
+        "gitBlobSha": "6a4ec21ab2f1c2e59f707821a8d67222657b41f6",
+        "bytes": 842,
+        "sha256": "bc835ac187cef7c69d53dda7de3cca5a8ddfc53c0c1d28c67dd39ef5b378400d"
+      }
+    },
+    {
+      "file": "magenta_dye_from_lapis_red_pink.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "pink_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 3
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_lapis_red_pink.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_lapis_red_pink.json",
+        "gitBlobSha": "ae1e50654fa757275dd5f06732d08f874d53338a",
+        "bytes": 771,
+        "sha256": "21c2e360abbef7cb46ddcf507d7db648155f0df9e5e90a85ce07849496aa7d37"
+      }
+    },
+    {
+      "file": "magenta_dye_from_lilac.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lilac",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_lilac.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_lilac.json",
+        "gitBlobSha": "087c4c3ec8bd2f09e9e0b923d7914f43182dbead",
+        "bytes": 445,
+        "sha256": "0c7747a86f71d12608e45af645f8ab97ad30a873eba52f707692239a7a66cd3c"
+      }
+    },
+    {
+      "file": "magenta_dye_from_purple_and_pink.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "purple_dye",
+          "count": 1
+        },
+        {
+          "name": "pink_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "magenta_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/magenta_dye_from_purple_and_pink.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_dye_from_purple_and_pink.json",
+        "gitBlobSha": "59ff3874ee1c044ddee958ec174093a4a85a317b",
+        "bytes": 645,
+        "sha256": "eeb63c33379a5e34864fd07eef6fbf7e6e0b34352d4b939db9c8fcf4d3319fb9"
+      }
+    },
+    {
+      "file": "orange_dye_from_open_eyeblossom.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "open_eyeblossom",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "orange_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/orange_dye_from_open_eyeblossom.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/orange_dye_from_open_eyeblossom.json",
+        "gitBlobSha": "ef3f2fe31fd930b4e17e86e45d479316baf33467",
+        "bytes": 573,
+        "sha256": "95e936210515771a5542777dac21b29c12429116a4452b79609cbbcb7f2e7383"
+      }
+    },
+    {
+      "file": "orange_dye_from_orange_tulip.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "orange_tulip",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "orange_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/orange_dye_from_orange_tulip.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/orange_dye_from_orange_tulip.json",
+        "gitBlobSha": "d7e12120b44cf510aa59bd1f54d3fe2694d9cc44",
+        "bytes": 459,
+        "sha256": "8ad55dd30230116e3f5676d6f46f07b93a095ce17542bd710a9d324272fec5c2"
+      }
+    },
+    {
+      "file": "orange_dye_from_red_yellow.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "yellow_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "orange_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/orange_dye_from_red_yellow.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/orange_dye_from_red_yellow.json",
+        "gitBlobSha": "c95f85e088926f5d7e41f7bce423d1449251ff7f",
+        "bytes": 630,
+        "sha256": "0ec819d8052e57e996beb45b30ebdb0b2bc70768cf335ea039cedd185ecdf6f9"
+      }
+    },
+    {
+      "file": "orange_dye_from_torchflower.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "torchflower",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "orange_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/orange_dye_from_torchflower.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/orange_dye_from_torchflower.json",
+        "gitBlobSha": "b668666b084deaed2867fe3399751e6d8dd16661",
+        "bytes": 578,
+        "sha256": "f2b4ce72d496237b646e3ed6fd6f68d1037b3f3ecd3c33c30febe5fc2e522199"
+      }
+    },
+    {
+      "file": "pink_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "pink_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/pink_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/pink_dye.json",
+        "gitBlobSha": "8e7b7fd3e52700c06cb04ed649fa1b66080f3916",
+        "bytes": 600,
+        "sha256": "0b700c67972ae200ca3bf109f710de06d98b31446f65efe19edc970815303564"
+      }
+    },
+    {
+      "file": "pink_dye_from_cactus_flower.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "cactus_flower",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "pink_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/pink_dye_from_cactus_flower.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/pink_dye_from_cactus_flower.json",
+        "gitBlobSha": "e33e1e51867b2ac3694f5b59ecc09b959f081b86",
+        "bytes": 454,
+        "sha256": "44398cb1c1786705a329b0c352958da9701fe3bec4292aa4d218464f48bca02d"
+      }
+    },
+    {
+      "file": "pink_dye_from_peony.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "peony",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "pink_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/pink_dye_from_peony.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/pink_dye_from_peony.json",
+        "gitBlobSha": "01f5ca8f79cc56e42feda74272e65fa4e8a6afca",
+        "bytes": 436,
+        "sha256": "d963e08439f72e609bac6e6722624fae66c7730527b79eab23aa448bfc8d93c7"
+      }
+    },
+    {
+      "file": "pink_dye_from_pink_petals.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "pink_petals",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "pink_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/pink_dye_from_pink_petals.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/pink_dye_from_pink_petals.json",
+        "gitBlobSha": "cf9e8594152daf7617ceb6951fbfd03db39c29a0",
+        "bytes": 447,
+        "sha256": "1775161ea9aef239ee3726eee8b309d73f3f028187b85df6b67f5810516b1975"
+      }
+    },
+    {
+      "file": "pink_dye_from_pink_tulip.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "pink_tulip",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "pink_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/pink_dye_from_pink_tulip.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/pink_dye_from_pink_tulip.json",
+        "gitBlobSha": "7c5f92a27f56d65f6c84c7052935927afaa8d76f",
+        "bytes": 448,
+        "sha256": "1289e9773e005af248c4eb8bc362f2f1d724b2a046d21cd2ea5c22332864d6ea"
+      }
+    },
+    {
+      "file": "pink_dye_from_red_bonemeal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "red_dye",
+          "count": 1
+        },
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "pink_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/pink_dye_from_red_bonemeal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/pink_dye_from_red_bonemeal.json",
+        "gitBlobSha": "bb29fba2c45628204921e613cf33c692106557e3",
+        "bytes": 618,
+        "sha256": "997ac6c235caba3d3d713a4729d21b817aeba44b211a25e05a77c05fe3ccd18a"
+      }
+    },
+    {
+      "file": "purple_dye.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "blue_dye",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "purple_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/purple_dye.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/purple_dye.json",
+        "gitBlobSha": "16937843150a88f9fdacbcf432bf148c6f98ed32",
+        "bytes": 586,
+        "sha256": "c642fe598a257189c40d68da6bcfa9a9b04d761fb1a29da95730d147f3e12373"
+      }
+    },
+    {
+      "file": "purple_dye_from_lapis_lazuli.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lapis_lazuli",
+          "count": 1
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "purple_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/purple_dye_from_lapis_lazuli.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/purple_dye_from_lapis_lazuli.json",
+        "gitBlobSha": "90f81d737514d52309633cdd25a9e95af7725acd",
+        "bytes": 621,
+        "sha256": "15b2241d3894811844f3d6365279841ddd8be7090240a3e51a0e47ab39bb092e"
+      }
+    },
+    {
+      "file": "red_dye_from_beetroot.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "beetroot",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "red_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/red_dye_from_beetroot.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/red_dye_from_beetroot.json",
+        "gitBlobSha": "e435365a3e4f6b4829e55aaf3b0755b026637ef8",
+        "bytes": 437,
+        "sha256": "b8c1a8c407dfd22496f4d93044ed5f2f936c87312656b9d3f2f06b27a24e174e"
+      }
+    },
+    {
+      "file": "red_dye_from_poppy.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "poppy",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "red_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/red_dye_from_poppy.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/red_dye_from_poppy.json",
+        "gitBlobSha": "df7694ff71a3b04937716cc8885ff0093037d962",
+        "bytes": 428,
+        "sha256": "a7659c570f103a777a543578a969c0cb787d3099563e1065524b2cf2494ab7e1"
+      }
+    },
+    {
+      "file": "red_dye_from_rose_bush.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "rose_bush",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "red_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/red_dye_from_rose_bush.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/red_dye_from_rose_bush.json",
+        "gitBlobSha": "73a4428be1b84d511fdd827580fa0d67324a8002",
+        "bytes": 445,
+        "sha256": "47b2e8f2e88ffb35a6322f8a5cf320aeb8069ed7483c7ebbbc00ea0fd70ee094"
+      }
+    },
+    {
+      "file": "red_dye_from_tulip.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "red_tulip",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "red_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/red_dye_from_tulip.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/red_dye_from_tulip.json",
+        "gitBlobSha": "c8dd470d6202c69dd196ff57e2789e7827d42873",
+        "bytes": 436,
+        "sha256": "c0d1344bc1d145e781d1a92a8c71d5d80ab0439cf83d7648c79b02b880dfa1fb"
+      }
+    },
+    {
+      "file": "white_dye_from_bone_meal.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "bone_meal",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "white_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/white_dye_from_bone_meal.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/white_dye_from_bone_meal.json",
+        "gitBlobSha": "777f9fbcfd26f63c57fe4a1c0a504045c1322081",
+        "bytes": 476,
+        "sha256": "3856b6d951947a226e6dfc9c734121e936a4f64c4725a9c284f08996f8e521ca"
+      }
+    },
+    {
+      "file": "white_dye_from_lily_of_the_valley.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "lily_of_the_valley",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "white_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/white_dye_from_lily_of_the_valley.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/white_dye_from_lily_of_the_valley.json",
+        "gitBlobSha": "2ab7e3a12ae1a36d6b8bd0148be4c9c8be5a8cdd",
+        "bytes": 475,
+        "sha256": "1306202bf4b4a3ea1057343a3cca324e005e107fb53ad7ac3419c396f7454e76"
+      }
+    },
+    {
+      "file": "yellow_dye_from_dandelion.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "dandelion",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "yellow_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/yellow_dye_from_dandelion.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/yellow_dye_from_dandelion.json",
+        "gitBlobSha": "820f6b4c663ed326c46fdf41f047f8936f446969",
+        "bytes": 485,
+        "sha256": "471946c033e39ea108656c5a2353797adccf563e0ccc26eae9da0e04e1291b81"
+      }
+    },
+    {
+      "file": "yellow_dye_from_golden_dandelion.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "golden_dandelion",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "yellow_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/yellow_dye_from_golden_dandelion.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/yellow_dye_from_golden_dandelion.json",
+        "gitBlobSha": "c7c2cc1382dccd2d574476948e5932553362573f",
+        "bytes": 506,
+        "sha256": "28e92c1f4eda53ccf321b09e56f050505ee31f0779a7bc0327bae80d733625ff"
+      }
+    },
+    {
+      "file": "yellow_dye_from_sunflower.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "sunflower",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "yellow_dye",
+        "count": 2
+      },
+      "source": {
+        "path": "behavior_pack/recipes/yellow_dye_from_sunflower.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/yellow_dye_from_sunflower.json",
+        "gitBlobSha": "faeb71973539e6f2633278af66e4b74c03ee5f89",
+        "bytes": 454,
+        "sha256": "19759a2f7742151ba31e3314d02aab3f14e78418f66b5f71c2618418cca40361"
+      }
+    },
+    {
+      "file": "yellow_dye_from_wildflowers.json",
+      "type": "minecraft:recipe_shapeless",
+      "inputs": [
+        {
+          "name": "wildflowers",
+          "count": 1
+        }
+      ],
+      "result": {
+        "name": "yellow_dye",
+        "count": 1
+      },
+      "source": {
+        "path": "behavior_pack/recipes/yellow_dye_from_wildflowers.json",
+        "url": "https://github.com/Mojang/bedrock-samples/blob/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/yellow_dye_from_wildflowers.json",
+        "gitBlobSha": "42f7597861d26ae10dbdfe7208d19c6054abe31f",
+        "bytes": 454,
+        "sha256": "7edb0be511187d77a0f3fdf5a9ee2b2ae8eb8906214c5f99714c7d2341b98c77"
+      }
+    }
+  ]
+}

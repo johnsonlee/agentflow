@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { BLOCKS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
+import { BLOCKS, DYE_COLORS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
+import legacyTextures from "./fixtures/legacy-textures-a81.json";
 import { ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
 
 describe("procedural textures", () => {
@@ -58,11 +59,49 @@ describe("procedural textures", () => {
 
   it("keeps every pre-element-world block and inventory texture byte-identical", () => {
     // Recorded from frozen 9c5d8d0: 130 block face keys and 519 item icons.
-    const names = [...textureNames().filter((n) => !n.startsWith("element_block_")), ...itemTextureNames()];
+    const names = legacyTextures.names.filter((n) => !n.startsWith("element_block_"));
     expect(names).toHaveLength(649);
     const hash = createHash("sha256");
     for (const name of names) hash.update(name + "\0").update(generateTile(name));
     expect(hash.digest("hex")).toBe("e730bdce08dc1ccb353ed281d84090428c29f652ab575c47b6c0b1c95a7dfd2a");
+  });
+
+  it("covers all sixteen canonical dyes and wool colors with distinct original art", () => {
+    expect(DYE_COLORS).toHaveLength(16);
+    const dyeKeys = new Set(itemTextureNames());
+    const dyes = new Set<string>();
+    const wools = new Set<string>();
+    for (const color of DYE_COLORS) {
+      const dye = `item_${color.name}_dye`;
+      const wool = `${color.name}_wool`;
+      expect(dyeKeys.has(dye)).toBe(true);
+      expect(hasItemTile(dye)).toBe(true);
+      expect(TILE_NAMES).toContain(wool);
+      const definition = BLOCKS.find((b) => b.name === wool);
+      expect(definition).toBeDefined();
+      expect(new Set(Object.values(definition!.faces))).toEqual(new Set([wool]));
+      const woolPixels = generateTile(wool);
+      for (let i = 3; i < woolPixels.length; i += 4) expect(woolPixels[i]).toBe(255);
+      const dyePixels = generateTile(dye);
+      const opaque = Array.from(dyePixels).filter((_, i) => i % 4 === 3 && dyePixels[i] === 255).length;
+      expect(opaque).toBeGreaterThan(10);
+      expect(opaque).toBeLessThan(128);
+      dyes.add(Buffer.from(dyePixels).toString("base64"));
+      wools.add(Buffer.from(woolPixels).toString("base64"));
+    }
+    expect(dyes.size).toBe(16);
+    expect(wools.size).toBe(16);
+  });
+
+  it("preserves all 768 pre-dye block and inventory textures pixel-for-pixel", () => {
+    expect(legacyTextures.names).toHaveLength(768);
+    const current = new Set([...textureNames(), ...itemTextureNames()]);
+    const hash = createHash("sha256");
+    for (const name of legacyTextures.names) {
+      expect(current.has(name)).toBe(true);
+      hash.update(name + "\0").update(generateTile(name));
+    }
+    expect(hash.digest("hex")).toBe(legacyTextures.sha256);
   });
 
   it("grass side has a green top fringe over dirt", () => {

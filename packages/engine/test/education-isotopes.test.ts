@@ -24,9 +24,9 @@ it("pins the exact 411 neutral rows and preserves all 164 block and 449 item IDs
   expect(digest(ITEMS.slice(0, 449).filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope")
     .map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("b8161c443051325894cfaed35fae4f0a5d31f9d75b5e48658586e73891828c1b");
-  expect(ITEMS.slice(449).map((i) => [i.chem?.z, i.chem?.mass])).toEqual(missingGuideMasses);
-  expect(ITEMS.slice(449).map((i) => i.id)).toEqual(Array.from({ length: 70 }, (_, i) => 705 + i));
-  expect(ITEMS.slice(449).every((i) => i.chem?.kind === "isotope")).toBe(true);
+  expect(ITEMS.slice(449, 519).map((i) => [i.chem?.z, i.chem?.mass])).toEqual(missingGuideMasses);
+  expect(ITEMS.slice(449, 519).map((i) => i.id)).toEqual(Array.from({ length: 70 }, (_, i) => 705 + i));
+  expect(ITEMS.slice(449, 519).every((i) => i.chem?.kind === "isotope")).toBe(true);
 });
 
 it("constructs every guide combination, retains the eight guide-absent combinations, and supports exactly their union", () => {
