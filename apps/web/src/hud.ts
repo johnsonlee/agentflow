@@ -701,6 +701,9 @@ export class InventoryScreen {
       const parts = input ? reduceMaterial(input.id) : null;
       const out = el("div", "item-grid reducer-output");
       for (const s of parts ?? []) out.appendChild(this.cell(s.id, s.count, displayNameOf(s.id)));
+      const status = el("p", "chem-status", input ? (parts ? `${displayNameOf(input.id)} reduces to:` : `${displayNameOf(input.id)} can't be reduced`) : "Put a block or item in");
+      status.dataset.chemStatus = parts ? "ok" : "error";
+      status.setAttribute("role", "status");
       const button = el("button", "mc-button small chem-action", "Reduce");
       button.dataset.chemAction = "reduce";
       button.disabled = !parts;
@@ -708,15 +711,23 @@ export class InventoryScreen {
         const stack = this.grid[0];
         const result = stack ? reduceMaterial(stack.id) : null;
         if (!stack || !result || !this.inventory) return;
-        // Only reduce if every element fits.
-        if (result.some((s) => this.inventory!.spaceFor(s.id) < s.count)) return;
-        for (const s of result) this.inventory.addStack(s);
+        // Reserve the whole batch on an exact deep copy; loading/sanitizing could create false space.
+        const snapshot = structuredClone(this.inventory.toJSON());
+        const trial = new Inventory();
+        trial.slots.splice(0, trial.slots.length, ...snapshot.slots);
+        trial.selected = snapshot.selected;
+        Object.assign(trial.equipment, snapshot.equipment);
+        if (result.some((s) => trial.addStack(s) > 0)) {
+          status.textContent = "Make room for all reduced elements.";
+          status.dataset.chemStatus = "error";
+          return;
+        }
+        // One synchronous commit preserves the live slot array and cannot partially add outputs.
+        this.inventory.slots.splice(0, this.inventory.slots.length, ...trial.slots);
         stack.count--;
         if (stack.count <= 0) this.grid[0] = null;
         this.render();
       });
-      const status = el("p", "chem-status", input ? (parts ? `${displayNameOf(input.id)} reduces to:` : `${displayNameOf(input.id)} can't be reduced`) : "Put a block or item in");
-      status.dataset.chemStatus = parts ? "ok" : "error";
       row.append(this.inputCell(0, "Input"), el("span", "craft-arrow", "➜"), out);
       section.append(row, status, button);
       return section;

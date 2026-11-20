@@ -5,7 +5,7 @@
 import { isDocumentedEducationIsotope, supportedIsotopeMasses } from "./education-isotopes";
 import { COMPOUNDS, ELEMENTS, LAB_REACTIONS, MAX_Z, REDUCTIONS, elementItemName, isotopeItemName, type ElementData } from "./chemistry-data";
 import type { ItemStack } from "./inventory";
-import { ITEMS, isKnownId, itemById, isItem, nameOf, stackId } from "./items";
+import { ITEMS, isKnownId, itemById, isItem, maxStackOf, nameOf, stackId } from "./items";
 
 // Bounded input still covers Oganesson-294 (118 protons + 176 neutrons).
 export const MAX_PARTICLES = 256;
@@ -87,7 +87,7 @@ const compoundParts = new Map(COMPOUNDS.map((c) => [c.name, c.recipe]));
 
 /**
  * Material Reducer: a block or item breaks into its elements (curated mappings; compounds reduce
- * to their formula). Returns element stacks, or null if it can't be reduced.
+ * to their formula). Returns bounded element stacks, or null if it can't be reduced.
  */
 export function reduceMaterial(id: number): ItemStack[] | null {
   if (!isKnownId(id)) return null;
@@ -99,7 +99,14 @@ export function reduceMaterial(id: number): ItemStack[] | null {
     if (chem?.kind === "isotope" && chem.z !== undefined) return [{ id: stackId(elementItemName(elementsByZ.get(chem.z)!)), count: 1 }];
     return null;
   }
-  return parts.map(([symbol, count]) => ({ id: stackId(elementItemName(elementsBySymbol.get(symbol)!)), count }));
+  const output: ItemStack[] = [];
+  for (const [symbol, count] of parts) {
+    const id = stackId(elementItemName(elementsBySymbol.get(symbol)!));
+    const maximum = maxStackOf(id);
+    // Preserve aggregate composition and source order without producing invalid oversized stacks.
+    for (let left = count; left > 0; left -= maximum) output.push({ id, count: Math.min(left, maximum) });
+  }
+  return output;
 }
 
 const reactionsByIngredients = new Map(LAB_REACTIONS.map((r) => [multisetKey(r.ingredients), r]));

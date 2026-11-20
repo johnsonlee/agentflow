@@ -235,6 +235,9 @@ export const REDUCTIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonly 
   ["iron_ingot", [["Fe", 1]]],
   ["iron_ore", [["Fe", 2], ["O", 3]]],
   ["coal_ore", [["C", 1], ["Si", 1], ["O", 2]]],
+  // Official Chemistry Lab Journal, printed p11 screenshot: C15, O64+6, N8, P7.
+  // Historical guide composition, not a claim of current Education-client parity.
+  ["grass", [["C", 15], ["O", 70], ["N", 8], ["P", 7]]],
 ];
 
 /** Products of the chemistry stations (items, in registry order). */
