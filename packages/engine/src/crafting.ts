@@ -1,3 +1,4 @@
+import { BLOCKS } from "./blocks";
 import { stackId, type ArmorMaterial, type ToolMaterial } from "./items";
 import type { ItemStack } from "./inventory";
 
@@ -73,6 +74,10 @@ export const RECIPES: readonly Recipe[] = [
   { id: "snow_block", pattern: ["##", "##"], key: { "#": "snow" }, result: ["snow", 1], note: "Minecraft uses snowballs" },
   { id: "yellow_wool", ingredients: ["dandelion", "white_wool"], result: ["yellow_wool", 1], note: "dandelion stands in for yellow dye" },
   { id: "red_wool", ingredients: ["poppy", "white_wool"], result: ["red_wool", 1], note: "poppy stands in for red dye" },
+  // Journal page 8: the finished Lab Table bleach product whitens existing colored wool.
+  ...BLOCKS.filter((b) => b.name.endsWith("_wool") && b.name !== "white_wool").map((b) => ({
+    id: `bleach_${b.name}`, ingredients: ["bleach", b.name], result: ["white_wool", 1] as [string, number],
+  })),
   // Redstone (Minecraft recipes).
   { id: "redstone_torch", pattern: ["R", "|"], key: { R: "redstone", "|": "stick" }, result: ["redstone_torch", 1] },
   { id: "lever", pattern: ["|", "#"], key: { "|": "stick", "#": "cobblestone" }, result: ["lever", 1] },

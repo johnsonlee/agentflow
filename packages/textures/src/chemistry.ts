@@ -148,6 +148,21 @@ function flask(name: string): (t: Tile) => Tile {
 }
 
 const PRODUCTS = new Map<string, (t: Tile) => Tile>([
+  // Manufactured bleach: a white handled jug with a blue cap and cleaning label.
+  ["bleach", (t) => {
+    t.fill(() => null);
+    for (let y = 5; y <= 13; y++) for (let x = 3; x <= 10; x++) {
+      if (y === 13 && (x === 3 || x === 10)) continue;
+      t.set(x, y, hex(x === 10 || y === 13 ? "#b8c9d4" : "#f2f7fa"));
+    }
+    for (let y = 2; y <= 4; y++) for (let x = 4; x <= 7; x++) t.set(x, y, hex(y === 4 ? "#d5e1e8" : "#3b71c2"));
+    // Transparent handle opening separates the product jug from round-bottomed compound flasks.
+    for (let y = 5; y <= 10; y++) t.set(13, y, hex("#b8c9d4"));
+    for (let x = 11; x <= 12; x++) { t.set(x, 5, hex("#f2f7fa")); t.set(x, 10, hex("#b8c9d4")); }
+    for (let y = 8; y <= 10; y++) for (let x = 5; x <= 8; x++) t.set(x, y, hex("#3b71c2"));
+    t.set(6, 8, hex("#ffffff")); t.set(6, 9, hex("#ffffff")); t.set(7, 9, hex("#ffffff")); t.set(6, 10, hex("#ffffff"));
+    return t;
+  }],
   // An orange, glowing cube.
   ["heat_block", (t) => {
     t.fill(() => null);
@@ -199,7 +214,11 @@ export function chemistryItemTile(name: string): ((t: Tile) => Tile) | undefined
   m = /^item_isotope_(\d{1,3})_([A-Z][a-z]?)_(\d{1,3})$/.exec(name);
   if (m) return card(Number(m[1]), m[2], Number(m[3]), true);
   m = /^item_compound_([a-z_]{1,40})$/.exec(name);
-  if (m) return flask(m[1]);
+  if (m) {
+    // The former "bleach" compound was NaClO. Its canonical rename keeps the original pixels.
+    if (m[1] === "sodium_hypochlorite") return (t) => t.copyFrom(flask("bleach")(new Tile("item_compound_bleach")));
+    return flask(m[1]);
+  }
   m = /^item_product_([a-z_]{1,40})$/.exec(name);
   if (m) return PRODUCTS.get(m[1]);
   return undefined;

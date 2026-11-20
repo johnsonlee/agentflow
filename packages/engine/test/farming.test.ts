@@ -1,3 +1,4 @@
+import { historicalItemMap } from "./historical-item-map";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -8,7 +9,7 @@ import {
 } from "../src";
 
 const spot = { x: 8, y: 90, z: 8, normal: { x: 0, y: 1, z: 0 } };
-const idMapHash = (defs: readonly { id: number; name: string }[]) => createHash("sha256").update(JSON.stringify(defs.map(({ id, name }) => [id, name])) + "\n").digest("hex");
+const idMapHash = (defs: readonly { id: number; name: string }[]) => createHash("sha256").update(JSON.stringify(historicalItemMap(defs)) + "\n").digest("hex");
 function farm(seed = 73) {
   const world = new World(seed);
   world.setBlock(8, 90, 8, farmlandId(7));
@@ -25,7 +26,7 @@ it("preserves the complete published block/item maps and keeps all appended stat
   expect(idMapHash(ITEMS.slice(0, 440))).toBe("1f38a3e5c7182d96cded60859bd0d6d45576b0545ceeffbad4434e31873e14f3");
   expect(BLOCKS.slice(0, 160)).toHaveLength(160);
   expect(BLOCKS.length).toBeLessThan(256);
-  expect(ITEMS.slice(440).map((s) => s.name)).toEqual(["wooden_hoe", "stone_hoe", "iron_hoe", "golden_hoe", "diamond_hoe", "wheat_seeds", "wheat", "bread"]);
+  expect(ITEMS.slice(440, 448).map((s) => s.name)).toEqual(["wooden_hoe", "stone_hoe", "iron_hoe", "golden_hoe", "diamond_hoe", "wheat_seeds", "wheat", "bread"]);
   for (let n = 0; n < 8; n++) {
     expect(farmlandMoisture(farmlandId(n))).toBe(n); expect(wheatAge(wheatId(n))).toBe(n);
   }

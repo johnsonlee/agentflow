@@ -176,6 +176,8 @@ const specs: Omit<ItemDef, "id">[] = [
   { ...material("wheat_seeds", "Wheat Seeds"), places: "wheat_0" },
   material("wheat", "Wheat"),
   material("bread", "Bread", { hunger: 5, saturation: 6 }),
+  // Distinct Lab Table product; never insert into the positional legacy LAB_PRODUCTS array.
+  { name: "bleach", displayName: "Bleach", maxStack: MAX_STACK, icon: "item_product_bleach", chem: { kind: "product" } },
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));

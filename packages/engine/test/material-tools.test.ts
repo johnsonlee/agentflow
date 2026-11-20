@@ -1,3 +1,4 @@
+import { historicalItemMap } from "./historical-item-map";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -12,7 +13,7 @@ const stack = (name: string, count = 1) => ({ id: stackId(name), count });
 // Snapshot of the complete id/name mapping at PR revision f0e47b7, before these tools were appended.
 // A renamed or reordered old item would silently reinterpret saved player and Agent inventories.
 it("preserves every existing saved item id and appends the eight new tools", () => {
-  const old = ITEMS.slice(0, 175).map(({ id, name }) => [id, name]);
+  const old = historicalItemMap(ITEMS.slice(0, 175));
   expect(createHash("sha256").update(JSON.stringify(old) + "\n").digest("hex"))
     .toBe("944783e08056612e522e46ee9f4f7e64337e8ecb4fe096eef91acfc65164c152");
   expect(ITEMS.slice(175, 183).map((i) => i.name)).toEqual(materials.flatMap((m) => kinds.map((k) => `${m}_${k}`)));

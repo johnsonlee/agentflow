@@ -46,6 +46,16 @@ describe("procedural textures", () => {
     expect(r1).toBeGreaterThan(g1);
   });
 
+  it("preserves the renamed NaClO flask while distinguishing the manufactured bleach product", () => {
+    const oldCompound = Buffer.from(generateTile("item_compound_bleach"));
+    const compound = Buffer.from(generateTile("item_compound_sodium_hypochlorite"));
+    const product = Buffer.from(generateTile("item_product_bleach"));
+    expect(hasItemTile("item_compound_sodium_hypochlorite")).toBe(true);
+    expect(hasItemTile("item_product_bleach")).toBe(true);
+    expect(compound.equals(oldCompound)).toBe(true);
+    expect(product.equals(compound)).toBe(false);
+  });
+
   it("renders a magenta/black placeholder for unknown tiles", () => {
     const d = generateTile("does_not_exist");
     expect(Array.from(d.slice(0, 4))).toEqual([0, 0, 0, 255]);

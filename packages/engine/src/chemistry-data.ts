@@ -176,7 +176,7 @@ export const LEGACY_COMPOUNDS: readonly CompoundData[] = [
   { name: "hydrogen_peroxide", displayName: "Hydrogen Peroxide", formula: "H₂O₂", recipe: [["H", 2], ["O", 2]] },
   { name: "latex", displayName: "Latex", formula: "C₅H₈", recipe: [["C", 5], ["H", 8]] },
   { name: "glue", displayName: "Glue", formula: "C₅H₅NO₂", recipe: [["C", 5], ["H", 5], ["N", 1], ["O", 2]] },
-  { name: "bleach", displayName: "Bleach", formula: "NaClO", recipe: [["Na", 1], ["Cl", 1], ["O", 1]] },
+  { name: "sodium_hypochlorite", displayName: "Sodium Hypochlorite", formula: "NaClO", recipe: [["Na", 1], ["Cl", 1], ["O", 1]] },
   { name: "sugar", displayName: "Sugar", formula: "C₆H₁₂O₆", recipe: [["C", 6], ["H", 12], ["O", 6]] },
   { name: "aluminium_oxide", displayName: "Aluminium Oxide", formula: "Al₂O₃", recipe: [["Al", 2], ["O", 3]] },
   { name: "benzene", displayName: "Benzene", formula: "C₆H₆", recipe: [["C", 6], ["H", 6]] },
@@ -259,4 +259,5 @@ export const LAB_REACTIONS: readonly LabReaction[] = [
   { product: "heat_block", ingredients: [["iron", 1], ["water_compound", 1], ["salt", 1], ["charcoal", 1]] },
   { product: "super_fertilizer", ingredients: [["ammonia", 1], ["phosphorus", 1]] },
   { product: "ice_bomb", ingredients: [["sodium_acetate", 4]] },
+  { product: "bleach", ingredients: [["water_compound", 3], ["sodium_hypochlorite", 3]] },
 ];

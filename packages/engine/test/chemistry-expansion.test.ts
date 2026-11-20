@@ -1,3 +1,4 @@
+import { historicalItemMap } from "./historical-item-map";
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import {
@@ -8,7 +9,7 @@ import {
 const resultName = (r: { id: number } | { error: string }) => "id" in r ? nameOf(r.id) : r.error;
 
 it("keeps all 183 pre-expansion saved item ids, including the new tool increment", () => {
-  const old = ITEMS.slice(0, 183).map(({ id, name }) => [id, name]);
+  const old = historicalItemMap(ITEMS.slice(0, 183));
   expect(createHash("sha256").update(JSON.stringify(old) + "\n").digest("hex"))
     .toBe("9091696b691a6ab9086501a1113f156a4a2afd200614e90eec7e5420f8704d92");
   expect(ITEMS[183].name).toBe("rubidium");
