@@ -242,6 +242,7 @@ export const LAB_PRODUCTS: ReadonlyArray<{ product: string; displayName: string 
   { product: "heat_block", displayName: "Heat Block" },
   { product: "super_fertilizer", displayName: "Super Fertilizer" },
   { product: "ice_bomb", displayName: "Ice Bomb" },
+  // Crafted at the crafting table; keep this legacy registration position for saved IDs.
   { product: "underwater_torch", displayName: "Underwater Torch" },
   // Crafted at the crafting table (see crafting.ts), as in Education Edition.
   { product: "glow_stick", displayName: "Glow Stick" },
@@ -258,5 +259,4 @@ export const LAB_REACTIONS: readonly LabReaction[] = [
   { product: "heat_block", ingredients: [["iron", 1], ["water_compound", 1], ["salt", 1], ["charcoal", 1]] },
   { product: "super_fertilizer", ingredients: [["ammonia", 1], ["phosphorus", 1]] },
   { product: "ice_bomb", ingredients: [["sodium_acetate", 4]] },
-  { product: "underwater_torch", ingredients: [["magnesium", 1], ["torch", 1]] },
 ];

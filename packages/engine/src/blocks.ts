@@ -186,6 +186,12 @@ for (let age = 0; age < 8; age++) specs.push({
   solid: false, transparent: true, shape: "cross", hardness: 0, creative: false, needsSupport: true,
 });
 
+// Append-only Education chemistry torches inherit the ordinary torch's scalar lighting model.
+for (const color of ["blue", "red", "purple", "green"]) specs.push({
+  name: `${color}_torch`, displayName: `${color[0].toUpperCase()}${color.slice(1)} Torch`, faces: faces(`${color}_torch`),
+  solid: false, transparent: true, shape: "torch", hardness: 0, emissive: true, light: 14,
+});
+
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, ...s }, id) => ({
   solid: true,
   transparent: false,

@@ -6,6 +6,19 @@ import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 
 const S = TILE_SIZE;
 
+/** Original colored flame sprites sharing the ordinary torch's wooden silhouette. */
+function coloredTorch(flame: readonly string[]): (t: Tile) => Tile {
+  const colors = flame.map(hex);
+  return (t) => {
+    t.fill(() => null);
+    for (let y = 7; y < S; y++) for (let x = 7; x <= 8; x++) t.set(x, y, hex(x === 7 ? "#8a6236" : "#6b4a28"));
+    for (let y = 4; y <= 6; y++) for (let x = 7; x <= 8; x++) t.set(x, y, colors[y - 4]);
+    t.set(7, 3, colors[1]);
+    return t;
+  };
+}
+
+
 const DIRT = ["#866043", "#79553a", "#966c4a", "#6b4a30", "#5c3f29"].map(hex);
 const GRASS = ["#5f9f35", "#56932f", "#6aad3d", "#4c8429", "#74b847"].map(hex);
 const STONE = ["#7f7f7f", "#757575", "#878787", "#6d6d6d", "#8f8f8f"].map(hex);
@@ -246,6 +259,10 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
     }
     return t;
   },
+  blue_torch: coloredTorch(["#daefff", "#78bbff", "#4057e8"]),
+  red_torch: coloredTorch(["#ffd4c4", "#f77b67", "#d93b35"]),
+  purple_torch: coloredTorch(["#edcaff", "#b77be6", "#7337bd"]),
+  green_torch: coloredTorch(["#d6ffc3", "#7cda77", "#1f9b51"]),
   torch: (t) => {
     // A stick with a glowing head, centred on a transparent tile (drawn crosswise like plants).
     t.fill(() => null);

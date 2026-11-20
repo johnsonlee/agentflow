@@ -57,6 +57,12 @@ export const RECIPES: readonly Recipe[] = [
   ...armorRecipes("diamond", "diamond"),
   { id: "torch", pattern: ["C", "|"], key: { C: "coal", "|": "stick" }, result: ["torch", 4] },
   { id: "torch_from_charcoal", pattern: ["C", "|"], key: { C: "charcoal", "|": "stick" }, result: ["torch", 4] },
+  // Official Chemistry Lab Journal, printed page 9: magnesium directly above a torch.
+  { id: "underwater_torch", pattern: ["M", "T"], key: { M: "magnesium", T: "torch" }, result: ["underwater_torch", 1] },
+  // The same page places a chloride directly above an ordinary torch.
+  ...([ ["blue", "cerium_chloride"], ["red", "mercuric_chloride"], ["purple", "potassium_chloride"], ["green", "tungsten_chloride"] ] as const).map(([color, compound]) => ({
+    id: `${color}_torch`, pattern: ["C", "T"], key: { C: compound, T: "torch" }, result: [`${color}_torch`, 1] as [string, number],
+  })),
   { id: "ink_sac", ingredients: ["coal"], result: ["ink_sac", 1], note: "Minecraft gets ink sacs from squids (not modelled)" },
   { id: "book_and_quill", ingredients: ["book", "ink_sac", "feather"], result: ["book_and_quill", 1] },
   { id: "furnace", pattern: ["###", "# #", "###"], key: { "#": "cobblestone" }, result: ["furnace", 1] },
