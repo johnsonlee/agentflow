@@ -100,6 +100,12 @@ export const RECIPES: readonly Recipe[] = [
     id: `${name}_wool`, ingredients: ["white_wool", `${name}_dye`], result: [`${name}_wool`, 1] as [string, number],
     note: "Provisional one white wool + one canonical dye -> one wool; current Education quantities/recoloring unverified",
   })),
+  // Official Mojang samples 15701fa: eight clear glass around one matching dye -> eight.
+  ...DYE_COLORS.map(({ name }) => ({
+    id: `${name}_stained_glass`, pattern: ["GGG", "GDG", "GGG"], key: { G: "glass", D: `${name}_dye` },
+    result: [`${name}_stained_glass`, 8] as [string, number],
+  })),
+  { id: "black_stained_glass_from_ink_sac", pattern: ["GGG", "GDG", "GGG"], key: { G: "glass", D: "ink_sac" }, result: ["black_stained_glass", 8] },
   // Journal page 8: the finished Lab Table bleach product whitens existing colored wool.
   ...BLOCKS.filter((b) => b.name.endsWith("_wool") && b.name !== "white_wool").map((b) => ({
     id: `bleach_${b.name}`, ingredients: ["bleach", b.name], result: ["white_wool", 1] as [string, number],

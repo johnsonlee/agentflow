@@ -1,6 +1,7 @@
 import { CHEMISTRY_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, chemistryItemTile } from "./chemistry";
 import { REDSTONE_TILE_GENERATORS } from "./redstone";
 import { FARMING_TILE_GENERATORS } from "./farming";
+import { STAINED_GLASS_TILE_GENERATORS } from "./stained-glass";
 import { ITEM_TILE_GENERATORS } from "./items";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 
@@ -295,6 +296,7 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   },
   allow: (t) => framed(t, hex("#4bab3f"), hex("#1f5e1a"), CHECK, hex("#ffffff")),
   deny: (t) => framed(t, hex("#c73a2e"), hex("#5e1612"), CROSS, hex("#ffffff")),
+  ...STAINED_GLASS_TILE_GENERATORS,
   ...FARMING_TILE_GENERATORS,
   ...CHEMISTRY_TILE_GENERATORS,
   ...ELEMENT_BLOCK_TILE_GENERATORS,

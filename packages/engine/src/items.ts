@@ -260,7 +260,12 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
   ...BLOCKS.filter((b) => b.name.startsWith("redstone_wire_")).map((b) => [b.name, "redstone"] as [string, string]),
   ...BLOCKS.filter((b) => b.name.startsWith("door_")).map((b) => [b.name, b.name.startsWith("door_wooden") ? "wooden_door" : "iron_door"] as [string, string]),
 ]);
-const BLOCK_DROP_COUNTS = new Map<string, number>([["bookshelf", 3], ["redstone_ore", 4]]);
+// Ordinary and stained glass shatter without Silk Touch (enchantments are not modelled).
+// Keep dropOf/baseStackId as canonical identities; zero is a quantity, never the air item.
+const BLOCK_DROP_COUNTS = new Map<string, number>([
+  ["bookshelf", 3], ["redstone_ore", 4], ["glass", 0],
+  ...DYE_COLORS.map(({ name }) => [`${name}_stained_glass`, 0] as [string, number]),
+]);
 
 /** How many of `dropOf(block)` a harvested block gives. */
 export function dropCount(blockIdValue: number): number {

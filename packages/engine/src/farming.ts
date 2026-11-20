@@ -30,7 +30,10 @@ export function farmDrops(id: number, rand: () => number = Math.random): ItemSta
   return [{ id: stackId("wheat"), count: 1 }, ...(count ? [{ id: seeds, count }] : [])];
 }
 export function blockDrops(id: number, rand: () => number = Math.random): ItemStack[] {
-  return farmDrops(id, rand) ?? [{ id: dropOf(id), count: dropCount(id) }];
+  const farm = farmDrops(id, rand);
+  if (farm !== null) return farm;
+  const count = dropCount(id);
+  return count > 0 ? [{ id: dropOf(id), count }] : [];
 }
 
 /** Water may be at soil height or one above, in the inclusive four-block horizontal square. */

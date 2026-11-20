@@ -17,8 +17,10 @@ export interface MeshData {
 export interface ChunkMesh {
   /** Opaque and alpha-cutout geometry (stone, leaves, glass, plants). */
   solid: MeshData;
-  /** Translucent geometry (water). */
+  /** Translucent liquid geometry (water). */
   liquid: MeshData;
+  /** Alpha-blended solid blocks, separate from old cutout geometry and liquids. */
+  translucent: MeshData;
 }
 
 class MeshBuilder {
@@ -101,6 +103,7 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
 
   const solid = new MeshBuilder();
   const liquid = new MeshBuilder();
+  const translucent = new MeshBuilder();
 
   for (let y = 0; y < WORLD_HEIGHT; y++) {
     for (let z = 0; z < CHUNK_SIZE; z++) {
@@ -120,7 +123,7 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
           continue;
         }
         const isLiquid = def.shape === "liquid";
-        const builder = isLiquid ? liquid : solid;
+        const builder = isLiquid ? liquid : def.translucent ? translucent : solid;
         const bright = def.emissive === true;
         for (const face of FACES) {
           const nx = x + face.dir[0];
@@ -139,7 +142,7 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
       }
     }
   }
-  return { solid: solid.build(), liquid: liquid.build() };
+  return { solid: solid.build(), liquid: liquid.build(), translucent: translucent.build() };
 }
 
 /**

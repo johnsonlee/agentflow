@@ -2,7 +2,8 @@ import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { BLOCKS, DYE_COLORS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
 import legacyTextures from "./fixtures/legacy-textures-a81.json";
-import { ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
+import legacyGlassTextures from "./fixtures/legacy-textures-96.json";
+import { STAINED_GLASS_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
 
 describe("procedural textures", () => {
   it("provides a texture for every block face", () => {
@@ -31,6 +32,7 @@ describe("procedural textures", () => {
     });
     expect(alphaTiles.sort()).toEqual(
       [
+        ...DYE_COLORS.map((c) => `${c.name}_stained_glass`),
         "blue_torch", "red_torch", "purple_torch", "green_torch",
         "birch_leaves", "dandelion", "glass", "glow_stick_block", "oak_leaves", "poppy", "tall_grass", "torch", "underwater_torch_block", "water",
         "lever_off", "lever_on", "redstone_torch_on", "redstone_torch_off", ...Array.from({ length: 16 }, (_, p) => `redstone_dust_${p}`),
@@ -102,6 +104,39 @@ describe("procedural textures", () => {
       hash.update(name + "\0").update(generateTile(name));
     }
     expect(hash.digest("hex")).toBe(legacyTextures.sha256);
+  });
+
+  it("provides sixteen distinct genuinely translucent tinted cube textures", () => {
+    const names = DYE_COLORS.map((c) => `${c.name}_stained_glass`);
+    expect(Object.keys(STAINED_GLASS_TILE_GENERATORS).sort()).toEqual([...names].sort());
+    const hashes = new Set<string>();
+    for (const name of names) {
+      const definition = BLOCKS.find((b) => b.name === name)!;
+      expect(definition.translucent).toBe(true);
+      expect(definition.solid).toBe(true);
+      expect(new Set(Object.values(definition.faces))).toEqual(new Set([name]));
+      const tile = generateTile(name);
+      const alpha = new Set<number>();
+      for (let i = 3; i < tile.length; i += 4) {
+        expect(tile[i]).toBeGreaterThan(0);
+        expect(tile[i]).toBeLessThan(255);
+        alpha.add(tile[i]);
+      }
+      expect(alpha.size).toBeGreaterThan(1);
+      hashes.add(Buffer.from(tile).toString("base64"));
+    }
+    expect(hashes.size).toBe(16);
+  });
+
+  it("preserves all 792 pre-stained textures including plain cutout glass", () => {
+    expect(legacyGlassTextures.names).toHaveLength(792);
+    const current = new Set([...textureNames(), ...itemTextureNames()]);
+    const hash = createHash("sha256");
+    for (const name of legacyGlassTextures.names) {
+      expect(current.has(name)).toBe(true);
+      hash.update(name + "\0").update(generateTile(name));
+    }
+    expect(hash.digest("hex")).toBe(legacyGlassTextures.sha256);
   });
 
   it("grass side has a green top fringe over dirt", () => {

@@ -153,7 +153,7 @@ for (const material of ["iron", "golden", "diamond"]) {
 }
 
 /** Original pigment heaps; color names match the engine registry without a runtime dependency. */
-const DYE_PIGMENTS: Record<string, string> = {
+export const DYE_PIGMENTS: Readonly<Record<string, string>> = {
   white: "#e9ecec", orange: "#f07613", magenta: "#b13bb0", light_blue: "#61a8c9",
   yellow: "#f8c527", lime: "#70b919", pink: "#ee91b4", gray: "#4d5157",
   light_gray: "#a7aaad", cyan: "#238c91", purple: "#7a2aac", blue: "#35399d",

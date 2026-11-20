@@ -48,7 +48,7 @@ it("dispatches only bounded valid output stacks and keeps invalid/unsupported ID
     expect(Number.isInteger(s.count)).toBe(true); expect(s.count).toBeGreaterThan(0); expect(s.count).toBeLessThanOrEqual(maxStackOf(s.id));
   }
   for (const compound of COMPOUNDS) expect(reduceMaterial(stackId(compound.name))).not.toBeNull();
-  for (const id of [-1, .5, NaN, Infinity, 172, 791, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
+  for (const id of [-1, .5, NaN, Infinity, 188, 791, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
   for (const name of ["element_0", "element_6", "crafting_table", "bleach", "red_dye"]) expect(reduceMaterial(stackId(name))).toBeNull();
 });
 
@@ -87,8 +87,8 @@ it("retains source-sized output stacks through actual JSON save, pending ownersh
 });
 
 it("does not add or move any dye-era registry or atom metadata identity", () => {
-  expect(BLOCKS).toHaveLength(291); expect(ITEMS).toHaveLength(535);
-  expect(hash(BLOCKS.map(({ id, name }) => [id, name]))).toBe("25176986039cc25bf6439a18fa41557d6795fff785648954210ae5451484b561");
+  expect(BLOCKS.slice(0, 291)).toHaveLength(291); expect(ITEMS).toHaveLength(535);
+  expect(hash(BLOCKS.slice(0, 291).map(({ id, name }) => [id, name]))).toBe("25176986039cc25bf6439a18fa41557d6795fff785648954210ae5451484b561");
   expect(hash(ITEMS.map(({ id, name }) => [id, name]))).toBe("885d45248089dcfd792313e7a5e8cd18f293596684eb119a628a8afda3844b3f");
   expect(hash(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");

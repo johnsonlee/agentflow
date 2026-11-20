@@ -23,6 +23,8 @@ export interface BlockDef {
   solid: boolean;
   /** Fully hides neighbouring faces when false. */
   transparent: boolean;
+  /** Uses alpha blending in the separate translucent-solid mesh pass. */
+  translucent?: boolean;
   shape: RenderShape;
   faces: BlockFaces;
   /**
@@ -209,6 +211,14 @@ for (const [i, name] of (["magenta", "light_blue", "pink", "gray", "light_gray",
   const color = DYE_COLORS.find((c) => c.name === name)!;
   specs.push({ id: 164 + i, name: `${name}_wool`, displayName: `${color.displayName} Wool`, faces: faces(`${name}_wool`), hardness: 1.2 });
 }
+
+// Append explicit low IDs after wool; compact registry indices include high element IDs.
+for (const [i, color] of DYE_COLORS.entries()) specs.push({
+  id: 172 + i, name: `${color.name}_stained_glass`, displayName: `${color.displayName} Stained Glass`,
+  faces: faces(`${color.name}_stained_glass`), transparent: true, translucent: true,
+  // Reuse the existing ordinary-glass proxy; exact current Education mining times are unverified.
+  hardness: .45,
+});
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

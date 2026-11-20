@@ -248,7 +248,7 @@ export class Game {
     this.keyboard.dispose();
     this.farming.dispose();
     this.root.remove();
-    this.renderer.renderer.dispose();
+    this.renderer.dispose();
   }
 
   pause(): void {

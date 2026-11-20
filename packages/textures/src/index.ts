@@ -6,3 +6,5 @@ export * from "./chemistry";
 export * from "./redstone";
 
 export * from "./farming";
+
+export * from "./stained-glass";

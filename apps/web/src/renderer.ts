@@ -4,6 +4,7 @@ import type { TextureAtlas } from "@craft/textures";
 
 interface ChunkEntry {
   solid: THREE.Mesh | null;
+  translucent: THREE.Mesh | null;
   liquid: THREE.Mesh | null;
 }
 
@@ -18,6 +19,10 @@ export class WorldRenderer {
 
   private readonly solidMaterial: THREE.MeshBasicMaterial;
   private readonly liquidMaterial: THREE.MeshBasicMaterial;
+  private readonly translucentMaterial: THREE.MeshBasicMaterial;
+  private readonly atlasTexture: THREE.DataTexture;
+  private readonly unsubscribeChunk: () => void;
+  private disposed = false;
   private readonly chunks = new Map<string, ChunkEntry>();
   private readonly dirty = new Set<string>();
   /** Sky-light multiplier for the chunk shader (1 at noon, 0.2 at night). */
@@ -46,6 +51,7 @@ export class WorldRenderer {
     this.camera.rotation.order = "YXZ";
 
     const texture = new THREE.DataTexture(atlas.data, atlas.width, atlas.height, THREE.RGBAFormat);
+    this.atlasTexture = texture;
     texture.magFilter = THREE.NearestFilter;
     texture.minFilter = THREE.NearestFilter;
     texture.colorSpace = THREE.SRGBColorSpace;
@@ -62,8 +68,17 @@ export class WorldRenderer {
       side: THREE.DoubleSide,
     });
 
+    this.translucentMaterial = new THREE.MeshBasicMaterial({
+      map: texture,
+      vertexColors: true,
+      transparent: true,
+      depthWrite: false,
+      alphaTest: 0.01,
+      side: THREE.DoubleSide,
+    });
+
     // Vertex colours carry (shade x AO, sky light, block light); combine them with the time of day.
-    for (const m of [this.solidMaterial, this.liquidMaterial]) {
+    for (const m of [this.solidMaterial, this.liquidMaterial, this.translucentMaterial]) {
       m.onBeforeCompile = (shader) => {
         shader.uniforms.uDaylight = this.daylight;
         shader.uniforms.uHeldLight = this.heldLight;
@@ -115,7 +130,7 @@ export class WorldRenderer {
     this.clouds.rotation.x = -Math.PI / 2;
     this.scene.add(this.clouds);
 
-    world.onChunkChanged((cx, cz) => {
+    this.unsubscribeChunk = world.onChunkChanged((cx, cz) => {
       const key = `${cx},${cz}`;
       if (this.chunks.has(key)) this.dirty.add(key);
     });
@@ -248,9 +263,12 @@ export class WorldRenderer {
     const mesh = meshChunk(this.world, cx, cz, this.uv);
     const entry: ChunkEntry = {
       solid: this.toMesh(mesh.solid, this.solidMaterial, cx, cz),
+      translucent: this.toMesh(mesh.translucent, this.translucentMaterial, cx, cz),
       liquid: this.toMesh(mesh.liquid, this.liquidMaterial, cx, cz),
     };
-    if (entry.liquid) entry.liquid.renderOrder = 1;
+    // Share the transparent sort group with water; Three sorts whole chunk meshes by depth.
+    // Faces/triangles within a chunk are not individually sorted, so intersecting layers remain approximate.
+    for (const transparent of [entry.translucent, entry.liquid]) if (transparent) transparent.renderOrder = 1;
     this.chunks.set(key, entry);
   }
 
@@ -271,8 +289,30 @@ export class WorldRenderer {
     return mesh;
   }
 
+  /** Releases resources owned by this view; the shared CPU atlas data remains usable by menus/HUD. */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    this.unsubscribeChunk();
+    for (const entry of this.chunks.values()) this.disposeEntry(entry);
+    this.chunks.clear();
+    this.dirty.clear();
+    this.solidMaterial.dispose();
+    this.liquidMaterial.dispose();
+    this.translucentMaterial.dispose();
+    this.atlasTexture.dispose();
+    (this.clouds.material as THREE.MeshBasicMaterial).map?.dispose();
+    for (const texture of this.crackTextures) texture.dispose();
+    for (const object of [this.selection, this.crack, this.sun, this.moon, this.clouds]) {
+      this.scene.remove(object);
+      object.geometry.dispose();
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) material.dispose();
+    }
+    this.renderer.dispose();
+  }
+
   private disposeEntry(entry: ChunkEntry): void {
-    for (const mesh of [entry.solid, entry.liquid]) {
+    for (const mesh of [entry.solid, entry.translucent, entry.liquid]) {
       if (!mesh) continue;
       this.scene.remove(mesh);
       mesh.geometry.dispose();
