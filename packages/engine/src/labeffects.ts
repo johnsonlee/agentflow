@@ -3,6 +3,7 @@
  * the heat block melts snow and ice, the ice bomb freezes water, super fertilizer grows plants.
  */
 import { AIR, blockId } from "./blocks";
+import { matureCrop, wheatAge } from "./farming";
 import { nameOf } from "./items";
 import type { World } from "./world";
 
@@ -88,6 +89,10 @@ export function useLabProduct(
 ): number {
   const name = nameOf(itemId);
   if (name === "ice_bomb") return freezeAround(world, hit.x + hit.normal.x, hit.y + hit.normal.y, hit.z + hit.normal.z);
-  if (name === "super_fertilizer") return world.getBlock(hit.x, hit.y, hit.z) === GRASS ? fertilizeAround(world, hit.x, hit.y, hit.z, rand) : -1;
+  if (name === "super_fertilizer") {
+    const id = world.getBlock(hit.x, hit.y, hit.z);
+    if (wheatAge(id) !== null) return matureCrop(world, hit.x, hit.y, hit.z);
+    return id === GRASS ? fertilizeAround(world, hit.x, hit.y, hit.z, rand) : -1;
+  }
   return -1;
 }

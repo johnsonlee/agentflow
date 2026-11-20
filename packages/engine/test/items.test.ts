@@ -30,7 +30,7 @@ describe("item registry", () => {
     expect(itemById(itemId("wooden_pickaxe")).displayName).toBe("Wooden Pickaxe");
     expect(displayNameOf(itemId("stick"))).toBe("Stick");
     expect(displayNameOf(blockId("dirt"))).toBe("Dirt");
-    expect(() => itemId("diamond_hoe")).toThrow();
+    expect(() => itemId("unknown_not_registered")).toThrow();
   });
 
   it("has wooden and stone pickaxe, axe, shovel and sword with Minecraft stats", () => {

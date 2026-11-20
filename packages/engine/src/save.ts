@@ -1,3 +1,4 @@
+import { sanitizeFarmingState, type FarmingState } from "./farming";
 import type { BlockEdit } from "./world";
 import type { InventoryData, ItemStack } from "./inventory";
 import { sanitizeInventoryPending } from "./savecheck";
@@ -38,6 +39,7 @@ export interface SaveData {
   furnaces?: Array<{ x: number; y: number; z: number; state: FurnaceState }>;
   /** Pending redstone ticks (optional; sanitized by `sanitizeScheduled` on load). */
   redstone?: unknown;
+  farming?: FarmingState;
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
@@ -102,6 +104,7 @@ export function parseSave(text: string): SaveData {
       ...(isObj(own(inventory, "equipment")) ? { equipment: own(inventory, "equipment") as InventoryData["equipment"] } : {}),
     },
     inventoryPending: sanitizeInventoryPending(own(raw, "inventoryPending")),
+    farming: sanitizeFarmingState(own(raw, "farming")),
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true) },
   };

@@ -28,6 +28,7 @@ export const FUELS: Readonly<Record<string, number>> = {
   oak_log: 15,
   birch_log: 15,
   stick: 5,
+  wooden_hoe: 10,
 };
 
 const recipeIds = new Map(Object.entries(SMELTING_RECIPES).map(([i, o]) => [stackId(i), stackId(o)]));

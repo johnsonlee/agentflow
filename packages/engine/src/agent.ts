@@ -4,10 +4,11 @@
  * solid blocks, carries a 27-slot inventory, and obeys Allow/Deny/Border like a survival player
  * (it can't build or break in Deny areas).
  */
+import { blockDrops } from "./farming";
 import { AIR, BLOCKS, blockById, isSolid } from "./blocks";
 import { FACING_DIRS } from "./chalkboard";
 import type { ItemStack } from "./inventory";
-import { dropCount, dropOf, isKnownId, maxStackOf, placedBlockOf } from "./items";
+import { isKnownId, maxStackOf, placedBlockOf } from "./items";
 import { doorPartner, orientedPlacement } from "./redstone";
 import { WORLD_HEIGHT } from "./chunk";
 import { WORLD_BORDER } from "./math";
@@ -55,6 +56,10 @@ export interface AgentEnv {
   attack?(x: number, y: number, z: number): boolean;
   /** Hands a stack to the player (the Agent's "drop"); returns how many didn't fit. */
   giveToPlayer?(stack: ItemStack): number;
+  /** Atomically preflight external block contents before destruction. */
+  beforeDestroy?(x: number, y: number, z: number): boolean;
+  /** Recover external contents only after a committed destruction. */
+  afterDestroy?(x: number, y: number, z: number): void;
 }
 
 export function createAgent(x: number, y: number, z: number, facing = 2): AgentState {
@@ -144,11 +149,18 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const id = world.getBlock(t.x, t.y, t.z);
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
+      const above = world.getBlock(t.x, t.y + 1, t.z);
+      const supported = BLOCKS[above]?.needsSupport === true;
+      const drops = [...blockDrops(id), ...(supported ? blockDrops(above) : [])];
+      const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
+      if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
+      if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
       const partner = doorPartner(world, t.x, t.y, t.z);
       world.setBlock(t.x, t.y, t.z, AIR);
       if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
-      // The Agent collects what it destroys (Education Edition).
-      addToAgent(agent, { id: dropOf(id), count: dropCount(id) });
+      if (supported) world.setBlock(t.x, t.y + 1, t.z, AIR);
+      for (const stack of drops) addToAgent(agent, stack);
+      env.afterDestroy?.(t.x, t.y, t.z);
       return { ok: true };
     }
     case "detect": {

@@ -91,7 +91,13 @@ export function boxCollides(getBlock: BlockGetter, b: Box): boolean {
   for (let j = 0; j <= ny; j++) {
     for (let k = 0; k <= nz; k++) {
       for (let i = 0; i <= nx; i++) {
-        if (isSolid(getBlock(x0 + i, y0 + j, z0 + k))) return true;
+        const x = x0 + i, y = y0 + j, z = z0 + k;
+        const id = getBlock(x, y, z);
+        if (!isSolid(id)) continue;
+        const bounds = blockById(id).collisionBox ?? [0, 0, 0, 1, 1, 1];
+        if (b.maxX > x + bounds[0] + eps && b.minX < x + bounds[3] - eps &&
+          b.maxY > y + bounds[1] + eps && b.minY < y + bounds[4] - eps &&
+          b.maxZ > z + bounds[2] + eps && b.minZ < z + bounds[5] - eps) return true;
       }
     }
   }
@@ -126,19 +132,15 @@ export function moveAxis(
     const before = p[axis];
     p[axis] = before + step;
     if (boxCollides(getBlock, bodyBox(p, width, height))) {
-      // Snap flush against the block face.
-      if (step > 0) {
-        const extent = axis === "y" ? height : width / 2;
-        const edge = before + extent + step;
-        p[axis] = Math.floor(edge) - extent - 1e-4;
-        if (p[axis] < before) p[axis] = before;
-      } else {
-        const extent = axis === "y" ? 0 : width / 2;
-        const edge = before - extent + step;
-        p[axis] = Math.floor(edge) + 1 + extent + 1e-4;
-        if (p[axis] > before) p[axis] = before;
+      // Resolve the actual collision bounds (farmland is lower than a full cube).
+      let low = 0, high = 1;
+      for (let n = 0; n < 18; n++) {
+        const mid = (low + high) / 2;
+        p[axis] = before + step * mid;
+        if (boxCollides(getBlock, bodyBox(p, width, height))) high = mid;
+        else low = mid;
       }
-      if (boxCollides(getBlock, bodyBox(p, width, height))) p[axis] = before;
+      p[axis] = before + step * Math.max(0, low - 1e-5 / Math.abs(step));
       return true;
     }
   }

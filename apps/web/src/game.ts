@@ -1,5 +1,5 @@
 import {
-  AIR, ARMOR_SLOTS, applyArmorDamage, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  AIR, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
@@ -31,6 +31,7 @@ const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
 );
 
 const GLOW_STICK = stackId("glow_stick");
+const SUPER_FERTILIZER = stackId("super_fertilizer");
 /** Light level of a held glow stick (as when placed). */
 const HELD_GLOW_LIGHT = blockById(blockId("placed_glow_stick")).light ?? 0;
 
@@ -71,6 +72,8 @@ export class Game {
   hunger: HungerState;
   /** Furnace contents by block position ("x,y,z"); they keep smelting while the world runs. */
   readonly furnaces = new Map<string, FurnaceState>();
+  /** Loaded-area crop hydration and growth; its scheduler is persisted with the world. */
+  readonly farming: FarmingSystem;
   private openFurnace: string | null = null;
   /** Seconds the use button has been held on food. */
   private eatTimer = 0;
@@ -141,6 +144,7 @@ export class Game {
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
+    this.farming = new FarmingSystem(this.world, save?.farming);
     // Redstone: component states are blocks (in the edits); pending ticks are saved separately.
     this.redstone = new Redstone(this.world);
     if (save) this.redstone.restore(sanitizeScheduled(save.redstone), this.world.exportEdits());
@@ -241,6 +245,7 @@ export class Game {
     this.running = false;
     this.save();
     this.keyboard.dispose();
+    this.farming.dispose();
     this.root.remove();
     this.renderer.renderer.dispose();
   }
@@ -300,6 +305,7 @@ export class Game {
         }),
         gamerules: { doMobSpawning: this.mobs.spawning, doDaylightCycle: this.daylightCycle },
         redstone: this.redstone.exportScheduled(),
+        farming: this.farming.toJSON(),
       }));
     } catch {
       // Storage may be full or disabled (private mode); the game keeps running.
@@ -379,6 +385,7 @@ export class Game {
       const feet = (p: { x: number; y: number; z: number }) => `${Math.floor(p.x)},${Math.floor(p.y + 0.05)},${Math.floor(p.z)}`;
       this.redstone.updatePlates(new Set([feet(this.body.position), ...this.mobs.mobs.map((m) => feet(m.position))]));
       this.redstone.update(dt);
+      this.farming.update(dt, 15 - skyDarken(skyAt(this.timeOfDay).light));
       for (const f of this.furnaces.values()) tickFurnace(f, dt);
       this.inventoryScreen.refresh();
     }
@@ -456,7 +463,7 @@ export class Game {
         this.attackCooldown = 0.4;
         // Held tools hit harder (swords most); the bare-hand damage keeps the game's balance.
         const tool = toolOf(this.inventory.selectedStack()?.id);
-        const damage = Math.max(this.mode === "creative" ? 4 : 2, tool?.attack ?? 0);
+        const damage = tool?.attack ?? (this.mode === "creative" ? 4 : 2);
         const drop = this.mobs.attack(mob, damage, this.body.yaw);
         if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.attack);
         // Minecraft: a hit wears a sword by one use and other tools by two.
@@ -527,8 +534,19 @@ export class Game {
       return;
     }
 
+    // Hoe use precedes generic placement; authorization and successful-use wear are engine-owned.
+    if (place && t && this.placeCooldown === 0 && tool?.kind === "hoe") {
+      if (tillSoil(this.world, this.inventory, this.mode, t)) this.placeCooldown = 0.25;
+      return;
+    }
+
     // Lab Table products with a use effect: the ice bomb freezes water, super fertilizer grows plants.
     if (place && t && this.placeCooldown === 0 && held) {
+      if (held.id === SUPER_FERTILIZER && wheatAge(t.id) !== null && !canBuildAt(this.world, this.mode, t.x, t.y, t.z)) {
+        this.placeCooldown = 0.25;
+        this.hud.message("Building is not allowed here");
+        return;
+      }
       const changed = useLabProduct(this.world, held.id, t);
       if (changed >= 0) {
         this.placeCooldown = 0.25;
@@ -687,6 +705,8 @@ export class Game {
         return true;
       },
       giveToPlayer: (stack) => this.inventory.addStack(stack),
+      beforeDestroy: (x, y, z) => this.canRecoverFurnace(x, y, z),
+      afterDestroy: (x, y, z) => this.recoverFurnace(x, y, z),
       });
       // Defence in depth: anything but a result object stops the program.
       if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
@@ -707,9 +727,14 @@ export class Game {
 
   /** Breaks the targeted block; a broken furnace gives back its contents (Minecraft drops them). */
   private breakAt(t: RaycastHit): void {
+    const furnace = t.id === FURNACE ? this.furnaces.get(furnaceKey(t.x, t.y, t.z)) : undefined;
+    const contents = furnace ? furnaceContents(furnace) : [];
     // Breaking any cell of a chalkboard removes the whole board (one item drops, from the broken cell).
     const board = chalkboardSizeOf(t.id) ? this.chalkboardAt(t.x, t.y, t.z) : null;
-    if (!breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z)) return;
+    if (!breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z, Math.random, contents)) {
+      if (t.id === FURNACE && canBreak(this.world, this.mode, t.x, t.y, t.z)) this.hud.message("Inventory full: make room before breaking this furnace");
+      return;
+    }
     if (board) {
       for (const c of chalkboardCells(board)) {
         this.chalkCells.delete(chalkboardKey(c.x, c.y, c.z));
@@ -720,7 +745,24 @@ export class Game {
     }
     if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.breakBlock);
     if (t.id !== FURNACE) return;
-    const key = furnaceKey(t.x, t.y, t.z);
+    this.furnaces.delete(furnaceKey(t.x, t.y, t.z));
+  }
+
+  /** Reserve the complete contents before removal; there is no dropped-item entity fallback. */
+  private canRecoverFurnace(x: number, y: number, z: number): boolean {
+    if (this.world.getBlock(x, y, z) !== FURNACE) return true;
+    const contents = this.furnaces.get(furnaceKey(x, y, z));
+    if (!contents) return true;
+    const trial = Inventory.fromJSON(this.inventory.toJSON());
+    if (furnaceContents(contents).some((stack) => trial.addStack(stack) > 0)) {
+      this.hud.message("Inventory full: make room before breaking this furnace");
+      return false;
+    }
+    return true;
+  }
+
+  private recoverFurnace(x: number, y: number, z: number): void {
+    const key = furnaceKey(x, y, z);
     const furnace = this.furnaces.get(key);
     if (furnace) for (const stack of furnaceContents(furnace)) this.inventory.addStack(stack);
     this.furnaces.delete(key);

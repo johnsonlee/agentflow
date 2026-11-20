@@ -150,10 +150,17 @@ export class World {
   /** Drops a chunk from memory; edits are kept and re-applied when it is regenerated. */
   unloadChunk(cx: number, cz: number): void {
     this.chunks.delete(chunkKey(cx, cz));
+    if (this.lastPeek?.cx === cx && this.lastPeek.cz === cz) this.lastPeek = undefined;
   }
 
   loadedChunkCount(): number {
     return this.chunks.size;
+  }
+
+  /** Undefined means unloaded; never generates terrain. Out-of-height cells are air. */
+  getLoadedBlock(x: number, y: number, z: number): number | undefined {
+    if (!(y >= 0 && y < WORLD_HEIGHT)) return AIR;
+    return this.peek(Math.floor(x), Math.floor(z))?.get(toLocalCoord(x), Math.floor(y), toLocalCoord(z));
   }
 
   getBlock(x: number, y: number, z: number): number {

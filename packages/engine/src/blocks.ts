@@ -48,6 +48,7 @@ export interface BlockDef {
   /** Torch-shaped light that can be placed in water (the underwater torch, glow sticks). */
   waterproof?: boolean;
   /** Bounds of a "box" shape within the cell: [x0, y0, z0, x1, y1, z1], each 0-1. */
+  collisionBox?: readonly [number, number, number, number, number, number];
   box?: readonly [number, number, number, number, number, number];
 }
 
@@ -173,6 +174,17 @@ function redstoneBlocks(): BlockSpec[] {
   }
   return out;
 }
+
+// Append-only farming states stay below the byte-storage and item-ID boundary.
+for (let moisture = 0; moisture < 8; moisture++) specs.push({
+  name: `farmland_${moisture}`, displayName: "Farmland", faces: faces(moisture > 0 ? "farmland_wet" : "farmland_dry", "dirt", "dirt"),
+  shape: "box", transparent: true, box: [0, 0, 0, 1, 15 / 16, 1], collisionBox: [0, 0, 0, 1, 15 / 16, 1],
+  hardness: .9, tool: "shovel", creative: false, drop: "dirt",
+});
+for (let age = 0; age < 8; age++) specs.push({
+  name: `wheat_${age}`, displayName: `Wheat (age ${age})`, faces: faces(`wheat_stage_${age}`),
+  solid: false, transparent: true, shape: "cross", hardness: 0, creative: false, needsSupport: true,
+});
 
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, ...s }, id) => ({
   solid: true,

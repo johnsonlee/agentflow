@@ -46,6 +46,12 @@ export const RECIPES: readonly Recipe[] = [
   ...toolRecipes("iron", "iron_ingot"),
   ...toolRecipes("golden", "gold_ingot"),
   ...toolRecipes("diamond", "diamond"),
+  ...(["wooden", "stone", "iron", "golden", "diamond"] as const).map((m) => ({
+    id: `${m}_hoe`, pattern: ["HH", " |", " |"],
+    key: { H: m === "wooden" ? "oak_planks" : m === "stone" ? "cobblestone" : m === "iron" ? "iron_ingot" : m === "golden" ? "gold_ingot" : "diamond", "|": "stick" },
+    result: [`${m}_hoe`, 1] as [string, number],
+  })),
+  { id: "bread", pattern: ["WWW"], key: { W: "wheat" }, result: ["bread", 1] },
   ...armorRecipes("iron", "iron_ingot"),
   ...armorRecipes("golden", "gold_ingot"),
   ...armorRecipes("diamond", "diamond"),

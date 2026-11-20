@@ -1,4 +1,5 @@
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
+import { FARMING_ITEM_GENERATORS } from "./farming";
 import { REDSTONE_ITEM_GENERATORS } from "./redstone";
 
 /**
@@ -35,6 +36,8 @@ function handle(x0: number, y0: number, x1: number): Mask {
 }
 
 const HEAD_MASKS: Record<string, Mask> = {
+  // A bent metal blade perpendicular to the diagonal handle.
+  hoe: (x, y) => (y >= 2 && y <= 4 && x >= 5 && x <= 13) || (x >= 5 && x <= 7 && y >= 3 && y <= 7),
   // Crescent centred on the handle's end.
   pickaxe: (x, y) => {
     const r = Math.hypot(x - 2, y - 13);
@@ -95,6 +98,7 @@ function book(t: Tile, cover: string, quill: boolean, gilded = false): Tile {
 
 export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   ...REDSTONE_ITEM_GENERATORS,
+  ...FARMING_ITEM_GENERATORS,
   item_stick: stick,
   item_coal: lump(["#2b2b2b", "#1c1c1c", "#3c3c3c"].map(hex), ROUND),
   item_charcoal: lump(["#3b3026", "#2c241c", "#4a3c2f"].map(hex), ROUND),
@@ -122,7 +126,7 @@ export const ITEM_TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   item_rotten_flesh: lump(["#8a6a3c", "#6f8a3a", "#9c4e3a", "#5d4a2a"].map(hex), (x, y) => Math.abs(x - y) <= 3 - ((x * 7 + y * 3) % 3 === 0 ? 1 : 0) && x >= 2 && x <= 13),
 };
 for (const material of ["wooden", "stone", "iron", "golden", "diamond"]) {
-  for (const kind of ["pickaxe", "axe", "shovel", "sword"]) {
+  for (const kind of ["pickaxe", "axe", "shovel", "sword", "hoe"]) {
     ITEM_TILE_GENERATORS[`item_${material}_${kind}`] = toolTile(material, kind);
   }
 }

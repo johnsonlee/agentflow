@@ -4,3 +4,5 @@ export * from "./tiles";
 export * from "./items";
 export * from "./chemistry";
 export * from "./redstone";
+
+export * from "./farming";

@@ -1,7 +1,8 @@
 import { AIR, BLOCKS, blockById, blockId, isOpaque, type BlockDef } from "./blocks";
 import { WORLD_HEIGHT } from "./chunk";
-import type { Inventory } from "./inventory";
-import { dropCount, dropOf, placedBlockOf, toolOf, type ToolSpec } from "./items";
+import { Inventory, type ItemStack } from "./inventory";
+import { placedBlockOf, toolOf, type ToolSpec } from "./items";
+import { blockDrops, farmlandId, farmlandMoisture, wheatAge } from "./farming";
 import { meltAround } from "./labeffects";
 import { doorPartner, orientedPlacement } from "./redstone";
 import { bodyOverlapsBlock } from "./physics";
@@ -60,26 +61,36 @@ export function breakTime(mode: GameMode, id: number, tool: ToolSpec | null = nu
  * (only if the held tool can harvest it), and a held tool wears by one use, breaking when spent.
  * Plants resting on the block are broken too. Returns false if the action is not allowed.
  */
-export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number): boolean {
+export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = []): boolean {
   if (!canBreak(world, mode, x, y, z)) return false;
-  const id = world.getBlock(x, y, z);
+  const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
   const tool = toolOf(inventory.selectedStack()?.id);
-  // A door's other half goes with it (one door is dropped).
+  const supported = BLOCKS[above]?.needsSupport === true;
+  const drops: ItemStack[] = [...(mode === "survival" ? [
+    ...(canHarvest(id, tool) ? blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
+  ] : []), ...externalDrops];
+  // No dropped-item entities exist yet: refuse the whole harvest rather than discard overflow.
+  const trial = Inventory.fromJSON(inventory.toJSON());
+  if (drops.some((stack) => trial.addStack(stack) > 0)) return false;
   const partner = doorPartner(world, x, y, z);
   world.setBlock(x, y, z, AIR);
   if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
-  if (mode === "survival") {
-    if (canHarvest(id, tool)) inventory.add(dropOf(id), dropCount(id));
-    // Minecraft: instantly broken blocks (hardness 0) do not wear tools.
-    if (tool && blockById(id).hardness > 0) inventory.damageSelected(1);
-  }
-  const above = world.getBlock(x, y + 1, z);
-  if (BLOCKS[above]?.needsSupport) {
-    world.setBlock(x, y + 1, z, AIR);
-    // The supported block drops its item (powered dust gives redstone, a pressed button a button):
-    // internal state blocks never reach the inventory (review 193df6be).
-    if (mode === "survival") inventory.add(dropOf(above), dropCount(above));
-  }
+  if (supported) world.setBlock(x, y + 1, z, AIR);
+  for (const stack of drops) inventory.addStack(stack);
+  if (mode === "survival" && tool && blockById(id).hardness > 0) inventory.damageSelected(1);
+  return true;
+}
+
+/** Hoe use obeys build rules and consumes durability only after a successful transformation. */
+export function tillSoil(world: World, inventory: Inventory, mode: GameMode,
+  hit: { x: number; y: number; z: number; normal: { x: number; y: number; z: number } }): boolean {
+  const { x, y, z, normal } = hit;
+  if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT - 1 || normal.y < 0 ||
+    toolOf(inventory.selectedStack()?.id)?.kind !== "hoe") return false;
+  const id = world.getBlock(x, y, z);
+  if ((id !== blockId("grass") && id !== blockId("dirt")) || world.getBlock(x, y + 1, z) !== AIR || !canBuildAt(world, mode, x, y, z)) return false;
+  world.setBlock(x, y, z, farmlandId(0));
+  if (mode === "survival") inventory.damageSelected(1);
   return true;
 }
 
@@ -89,6 +100,7 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
  * waterproof ones go in water. Shared by players and the Agent.
  */
 export function hasSupport(world: World, def: BlockDef, x: number, y: number, z: number, target: number): boolean {
+  if (wheatAge(def.id) !== null) return target === AIR && farmlandMoisture(world.getBlock(x, y - 1, z)) !== null;
   if (def.needsSupport) {
     const below = blockById(world.getBlock(x, y - 1, z));
     if (!below.solid || below.transparent) return false;
@@ -123,6 +135,7 @@ export function placeBlock(
   /** Direction the player looks (0-3, as FACING_VECTORS): orients repeaters and doors. */
   look = 0,
 ): boolean {
+  if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT) return false;
   const stack = inventory.selectedStack();
   // Items place nothing, except Lab Table products that place a block (heat block, glow stick, ...).
   const placed = stack ? placedBlockOf(stack.id) : null;

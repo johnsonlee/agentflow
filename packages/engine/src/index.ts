@@ -31,3 +31,5 @@ export * from "./labeffects";
 export * from "./redstone";
 
 export * from "./armor";
+
+export * from "./farming";

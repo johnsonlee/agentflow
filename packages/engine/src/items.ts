@@ -9,7 +9,7 @@ import { ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, LEGACY_COMPOUNDS, LEGACY_ELE
 export const ITEM_ID_BASE = 256;
 export const MAX_STACK = 64;
 
-export type ToolKind = "pickaxe" | "axe" | "shovel" | "sword";
+export type ToolKind = "pickaxe" | "axe" | "shovel" | "sword" | "hoe";
 export type ToolMaterial = "wooden" | "stone" | "iron" | "golden" | "diamond";
 
 export interface ToolSpec {
@@ -58,17 +58,17 @@ export interface ItemDef {
 
 /** Minecraft values: wood speed 2 / 59 uses, stone 4 / 131, iron 6 / 250; Bedrock attack damage. */
 const MATERIALS: Record<ToolMaterial, { tier: number; speed: number; durability: number; attack: Record<ToolKind, number> }> = {
-  wooden: { tier: 1, speed: 2, durability: 59, attack: { sword: 5, axe: 4, pickaxe: 3, shovel: 2 } },
-  stone: { tier: 2, speed: 4, durability: 131, attack: { sword: 6, axe: 5, pickaxe: 4, shovel: 3 } },
-  iron: { tier: 3, speed: 6, durability: 250, attack: { sword: 7, axe: 6, pickaxe: 5, shovel: 4 } },
+  wooden: { tier: 1, speed: 2, durability: 59, attack: { hoe: 1, sword: 5, axe: 4, pickaxe: 3, shovel: 2 } },
+  stone: { tier: 2, speed: 4, durability: 131, attack: { hoe: 1, sword: 6, axe: 5, pickaxe: 4, shovel: 3 } },
+  iron: { tier: 3, speed: 6, durability: 250, attack: { hoe: 1, sword: 7, axe: 6, pickaxe: 5, shovel: 4 } },
   // Bedrock permits one more use than the nominal Java durability (32 / 1561).
-  golden: { tier: 1, speed: 12, durability: 33, attack: { sword: 5, axe: 4, pickaxe: 3, shovel: 2 } },
-  diamond: { tier: 4, speed: 8, durability: 1562, attack: { sword: 8, axe: 7, pickaxe: 6, shovel: 5 } },
+  golden: { tier: 1, speed: 12, durability: 33, attack: { hoe: 1, sword: 5, axe: 4, pickaxe: 3, shovel: 2 } },
+  diamond: { tier: 4, speed: 8, durability: 1562, attack: { hoe: 1, sword: 8, axe: 7, pickaxe: 6, shovel: 5 } },
 };
 
 const MATERIAL_NAMES: Record<ToolMaterial, string> = { wooden: "Wooden", stone: "Stone", iron: "Iron", golden: "Golden", diamond: "Diamond" };
 
-const KIND_NAMES: Record<ToolKind, string> = { pickaxe: "Pickaxe", axe: "Axe", shovel: "Shovel", sword: "Sword" };
+const KIND_NAMES: Record<ToolKind, string> = { pickaxe: "Pickaxe", axe: "Axe", shovel: "Shovel", sword: "Sword", hoe: "Hoe" };
 
 function tool(material: ToolMaterial, kind: ToolKind): Omit<ItemDef, "id"> {
   const m = MATERIALS[material];
@@ -171,6 +171,11 @@ const specs: Omit<ItemDef, "id">[] = [
   ...ADDITIONAL_COMPOUNDS.map(compoundItem),
   // Armor appends after all 428 existing entries: never reinterpret saved item IDs.
   ...(["iron", "golden", "diamond"] as const).flatMap((m) => ARMOR_SLOTS.map((_, i) => armor(m, i))),
+  // Append after the 440 published entries, never expand the legacy tool arrays in place.
+  ...(["wooden", "stone", "iron", "golden", "diamond"] as const).map((m) => tool(m, "hoe")),
+  { ...material("wheat_seeds", "Wheat Seeds"), places: "wheat_0" },
+  material("wheat", "Wheat"),
+  material("bread", "Bread", { hunger: 5, saturation: 6 }),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));
@@ -228,6 +233,7 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
   ["coal_ore", "coal"], ["diamond_ore", "diamond"], ["bookshelf", "book"],
   ["placed_heat_block", "heat_block"], ["placed_underwater_torch", "underwater_torch"], ["placed_glow_stick", "glow_stick"],
   ["redstone_ore", "redstone"],
+  ...BLOCKS.filter((b) => /^wheat_\d$/.test(b.name)).map((b) => [b.name, "wheat_seeds"] as [string, string]),
   ...BLOCKS.filter((b) => b.name.startsWith("redstone_wire_")).map((b) => [b.name, "redstone"] as [string, string]),
   ...BLOCKS.filter((b) => b.name.startsWith("door_")).map((b) => [b.name, b.name.startsWith("door_wooden") ? "wooden_door" : "iron_door"] as [string, string]),
 ]);

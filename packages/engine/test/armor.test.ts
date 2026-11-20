@@ -29,7 +29,7 @@ it("persists held equipment and crafting stacks without repairing malformed armo
 it("preserves all 428 published item IDs and appends twelve armor pieces", () => {
   expect(createHash("sha256").update(JSON.stringify(ITEMS.slice(0, 428).map(({ id, name }) => [id, name])) + "\n").digest("hex"))
     .toBe("dc679c47561b0a4f232b1f40daf5cbc8c51c0b660f9f9062647edbf3dcb28dd2");
-  expect(ITEMS.slice(428).map((i) => i.name)).toEqual(materials.flatMap((m) => kinds.map((k) => `${m}_${k}`)));
+  expect(ITEMS.slice(428, 440).map((i) => i.name)).toEqual(materials.flatMap((m) => kinds.map((k) => `${m}_${k}`)));
 });
 
 for (const [mi, material] of materials.entries()) describe(`${material} armor`, () => {
