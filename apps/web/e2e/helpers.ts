@@ -547,19 +547,19 @@ export async function createWater(page: Page, press: (l: Locator) => Promise<voi
   expect(await countStack(page, "oxygen")).toBe(0);
 }
 
-/** In an open Material Reducer: sand -> 1 silicon + 2 oxygen. */
+/** Candidate Education1.26.33.0 native recipe: sand -> Si33 + O64 + O3. */
 export async function reduceSand(page: Page, press: (l: Locator) => Promise<void>) {
   const inv = page.locator(".inventory-screen");
   await expect(page.getByRole("heading", { name: "Material Reducer" })).toBeVisible();
   await press(inv.locator(`[data-slot="${await slotHolding(page, "sand")}"]`));
   await press(inv.locator('[data-chem-input="0"]'));
   await expect(inv.locator("[data-chem-status]")).toHaveText("Sand reduces to:");
-  await expect(inv.locator(".reducer-output img")).toHaveCount(2);
+  await expect(inv.locator(".reducer-output img")).toHaveCount(3);
   await press(inv.locator('[data-chem-action="reduce"]'));
   await expect(inv.locator('[data-chem-input="0"] img')).toHaveCount(0);
   expect(await countStack(page, "sand")).toBe(0);
-  expect(await countStack(page, "silicon")).toBe(1);
-  expect(await countStack(page, "oxygen")).toBe(2);
+  expect(await countStack(page, "silicon")).toBe(33);
+  expect(await countStack(page, "oxygen")).toBe(67);
 }
 
 /** In an open Lab Table: ammonia + phosphorus -> Super Fertilizer. */

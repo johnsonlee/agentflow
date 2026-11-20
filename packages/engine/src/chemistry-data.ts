@@ -1,3 +1,4 @@
+import { NATIVE_MATERIAL_REDUCTIONS } from "./native-reductions";
 /**
  * Chemistry data for the Education Edition chemistry blocks. All tables are plain data and are only
  * ever read through Maps built from them (never indexed by user strings).
@@ -217,27 +218,20 @@ export const ADDITIONAL_COMPOUNDS: readonly CompoundData[] = [
 
 export const COMPOUNDS: readonly CompoundData[] = [...LEGACY_COMPOUNDS, ...ADDITIONAL_COMPOUNDS];
 
-/** Material Reducer: block/item name -> elements it breaks down into (curated, simplified formulas). */
-export const REDUCTIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonly [string, number]>]> = [
-  ["sand", [["Si", 1], ["O", 2]]],
+/** Unverified app compatibility mappings; neither has an unambiguous native recipe in the candidate data. */
+export const LEGACY_MATERIAL_REDUCTIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonly [string, number]>]> = [
   ["glass", [["Si", 1], ["O", 2]]],
-  ["gravel", [["Si", 1], ["O", 2]]],
-  ["stone", [["Si", 1], ["O", 2]]],
-  ["cobblestone", [["Si", 1], ["O", 2]]],
-  ["dirt", [["Si", 1], ["Al", 1], ["O", 3]]],
-  ["oak_log", [["C", 6], ["H", 10], ["O", 5]]],
-  ["birch_log", [["C", 6], ["H", 10], ["O", 5]]],
-  ["oak_planks", [["C", 6], ["H", 10], ["O", 5]]],
-  ["snow", [["H", 2], ["O", 1]]],
-  ["coal", [["C", 1]]],
   ["charcoal", [["C", 1]]],
-  ["diamond", [["C", 1]]],
-  ["iron_ingot", [["Fe", 1]]],
-  ["iron_ore", [["Fe", 2], ["O", 3]]],
-  ["coal_ore", [["C", 1], ["Si", 1], ["O", 2]]],
-  // Official Chemistry Lab Journal, printed p11 screenshot: C15, O64+6, N8, P7.
-  // Historical guide composition, not a claim of current Education-client parity.
-  ["grass", [["C", 15], ["O", 70], ["N", 8], ["P", 7]]],
+];
+
+/** Active material table: source-native ordered outputs plus explicit legacy compatibility rows.
+ * "?" is the Unknown Element0 material, not a scientific atomic symbol/proton count.
+ */
+export const REDUCTIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonly [string, number]>]> = [
+  ...NATIVE_MATERIAL_REDUCTIONS.map((row) => [row.input, row.output.map(([z, count]) => [
+    z === 0 ? "?" : ELEMENTS.find((element) => element.z === z)!.symbol, count,
+  ] as const)] as const),
+  ...LEGACY_MATERIAL_REDUCTIONS,
 ];
 
 /** Products of the chemistry stations (items, in registry order). */

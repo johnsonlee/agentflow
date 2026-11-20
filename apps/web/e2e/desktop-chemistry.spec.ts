@@ -60,7 +60,7 @@ test.describe("PC browser: Education Edition chemistry", () => {
       ["water_compound", "super_fertilizer", "silicon", "oxygen"].map((n) =>
         window.__craft.game!.inventory.slots.reduce((sum, s) => sum + (s?.id === window.__craft.stackId(n) ? s.count : 0), 0)),
     );
-    expect(counts).toEqual([1, 1, 1, 2]);
+    expect(counts).toEqual([1, 1, 33, 67]);
     expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([]);
   });
 

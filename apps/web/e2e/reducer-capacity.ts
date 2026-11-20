@@ -47,9 +47,10 @@ export async function reducerCapacityRoute(page: Page, info: TestInfo, mobile: b
   expect(await countStack(page, "silicon")).toBe(0); expect(await countStack(page, "oxygen")).toBe(0);
   await expect(page.locator('[data-chem-status]')).toContainText(/room|space|fit/i);
   await snap(page, info, "sand-combined-output-refused-without-loss");
-  await fill(2); const meta = await metadata();
+  await fill(3); const meta = await metadata();
   await press(reduce);
-  expect(await countStack(page, "silicon")).toBe(1); expect(await countStack(page, "oxygen")).toBe(2);
+  expect(await countStack(page, "silicon")).toBe(33); expect(await countStack(page, "oxygen")).toBe(67);
+  expect(await page.evaluate(() => window.__craft.game!.inventory.slots.filter((s) => s?.id === window.__craft.stackId("oxygen")).map((s) => s!.count).sort((a, b) => b - a))).toEqual([64, 3]);
   await expect(input.locator("img")).toHaveCount(0);
   expect(await metadata()).toEqual(meta);
   await snap(page, info, "sand-all-outputs-committed-together");

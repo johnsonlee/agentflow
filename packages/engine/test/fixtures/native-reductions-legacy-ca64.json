@@ -1,0 +1,3927 @@
+{
+  "revision": "ca64bb2dc997e09f99283136debd3649627de6e5",
+  "cases": [
+    {
+      "id": 11,
+      "name": "glass",
+      "kind": "legacy material",
+      "output": [
+        {
+          "id": 297,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 266,
+      "name": "charcoal",
+      "kind": "legacy material",
+      "output": [
+        {
+          "id": 289,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 320,
+      "name": "hydrogen_2",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 284,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 321,
+      "name": "hydrogen_3",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 284,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 322,
+      "name": "helium_3",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 285,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 323,
+      "name": "lithium_6",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 286,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 324,
+      "name": "beryllium_10",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 287,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 325,
+      "name": "boron_10",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 288,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 326,
+      "name": "carbon_13",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 289,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 327,
+      "name": "carbon_14",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 289,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 328,
+      "name": "nitrogen_15",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 290,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 329,
+      "name": "oxygen_17",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 291,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 330,
+      "name": "oxygen_18",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 291,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 331,
+      "name": "fluorine_18",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 292,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 332,
+      "name": "neon_21",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 293,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 333,
+      "name": "neon_22",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 293,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 334,
+      "name": "sodium_22",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 294,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 335,
+      "name": "sodium_24",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 294,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 336,
+      "name": "magnesium_25",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 295,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 337,
+      "name": "magnesium_26",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 295,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 338,
+      "name": "aluminium_26",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 296,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 339,
+      "name": "silicon_29",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 297,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 340,
+      "name": "silicon_30",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 297,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 341,
+      "name": "phosphorus_32",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 298,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 342,
+      "name": "sulfur_33",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 299,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 343,
+      "name": "sulfur_34",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 299,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 344,
+      "name": "sulfur_36",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 299,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 345,
+      "name": "chlorine_37",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 300,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 346,
+      "name": "argon_36",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 301,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 347,
+      "name": "argon_38",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 301,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 348,
+      "name": "potassium_40",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 302,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 349,
+      "name": "potassium_41",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 302,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 350,
+      "name": "calcium_42",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 351,
+      "name": "calcium_43",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 352,
+      "name": "calcium_44",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 353,
+      "name": "calcium_46",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 354,
+      "name": "calcium_48",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 355,
+      "name": "scandium_46",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 304,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 356,
+      "name": "titanium_46",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 305,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 357,
+      "name": "titanium_47",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 305,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 358,
+      "name": "titanium_49",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 305,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 359,
+      "name": "titanium_50",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 305,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 360,
+      "name": "vanadium_50",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 306,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 361,
+      "name": "chromium_50",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 307,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 362,
+      "name": "chromium_53",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 307,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 363,
+      "name": "chromium_54",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 307,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 364,
+      "name": "manganese_54",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 308,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 365,
+      "name": "iron_54",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 366,
+      "name": "iron_57",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 367,
+      "name": "iron_58",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 368,
+      "name": "iron_60",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 369,
+      "name": "cobalt_60",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 310,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 370,
+      "name": "nickel_60",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 311,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 371,
+      "name": "nickel_61",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 311,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 372,
+      "name": "nickel_62",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 311,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 373,
+      "name": "nickel_64",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 311,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 374,
+      "name": "copper_65",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 312,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 375,
+      "name": "zinc_66",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 313,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 376,
+      "name": "zinc_67",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 313,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 377,
+      "name": "zinc_68",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 313,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 378,
+      "name": "zinc_70",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 313,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 379,
+      "name": "gallium_71",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 314,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 380,
+      "name": "germanium_70",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 315,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 381,
+      "name": "germanium_72",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 315,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 382,
+      "name": "germanium_73",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 315,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 383,
+      "name": "germanium_76",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 315,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 384,
+      "name": "arsenic_73",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 316,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 385,
+      "name": "selenium_74",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 317,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 386,
+      "name": "selenium_76",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 317,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 387,
+      "name": "selenium_77",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 317,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 388,
+      "name": "selenium_78",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 317,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 389,
+      "name": "selenium_82",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 317,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 390,
+      "name": "bromine_81",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 318,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 391,
+      "name": "krypton_78",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 319,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 392,
+      "name": "krypton_80",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 319,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 393,
+      "name": "krypton_82",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 319,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 394,
+      "name": "krypton_83",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 319,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 395,
+      "name": "krypton_86",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 319,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 396,
+      "name": "water_compound",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 284,
+          "count": 2
+        },
+        {
+          "id": 291,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 397,
+      "name": "salt",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 294,
+          "count": 1
+        },
+        {
+          "id": 300,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 398,
+      "name": "ammonia",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 290,
+          "count": 1
+        },
+        {
+          "id": 284,
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 399,
+      "name": "hydrogen_peroxide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 284,
+          "count": 2
+        },
+        {
+          "id": 291,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 400,
+      "name": "latex",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 5
+        },
+        {
+          "id": 284,
+          "count": 8
+        }
+      ]
+    },
+    {
+      "id": 401,
+      "name": "glue",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 5
+        },
+        {
+          "id": 284,
+          "count": 5
+        },
+        {
+          "id": 290,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 402,
+      "name": "sodium_hypochlorite",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 294,
+          "count": 1
+        },
+        {
+          "id": 300,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 403,
+      "name": "sugar",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 6
+        },
+        {
+          "id": 284,
+          "count": 12
+        },
+        {
+          "id": 291,
+          "count": 6
+        }
+      ]
+    },
+    {
+      "id": 404,
+      "name": "aluminium_oxide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 296,
+          "count": 2
+        },
+        {
+          "id": 291,
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 405,
+      "name": "benzene",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 6
+        },
+        {
+          "id": 284,
+          "count": 6
+        }
+      ]
+    },
+    {
+      "id": 406,
+      "name": "boron_trioxide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 288,
+          "count": 2
+        },
+        {
+          "id": 291,
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 407,
+      "name": "calcium_bromide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        },
+        {
+          "id": 318,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 408,
+      "name": "calcium_chloride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        },
+        {
+          "id": 300,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 409,
+      "name": "crude_oil",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 9
+        },
+        {
+          "id": 284,
+          "count": 20
+        }
+      ]
+    },
+    {
+      "id": 410,
+      "name": "iron_sulfide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        },
+        {
+          "id": 299,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 411,
+      "name": "lithium_hydride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 286,
+          "count": 1
+        },
+        {
+          "id": 284,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 412,
+      "name": "luminol",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 8
+        },
+        {
+          "id": 284,
+          "count": 7
+        },
+        {
+          "id": 290,
+          "count": 3
+        },
+        {
+          "id": 291,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 413,
+      "name": "magnesium_nitrate",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 295,
+          "count": 1
+        },
+        {
+          "id": 290,
+          "count": 2
+        },
+        {
+          "id": 291,
+          "count": 6
+        }
+      ]
+    },
+    {
+      "id": 414,
+      "name": "magnesium_oxide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 295,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 415,
+      "name": "soap",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 18
+        },
+        {
+          "id": 284,
+          "count": 35
+        },
+        {
+          "id": 294,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 416,
+      "name": "sodium_acetate",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 2
+        },
+        {
+          "id": 284,
+          "count": 3
+        },
+        {
+          "id": 294,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 417,
+      "name": "sodium_fluoride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 294,
+          "count": 1
+        },
+        {
+          "id": 292,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 418,
+      "name": "sodium_hydride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 294,
+          "count": 1
+        },
+        {
+          "id": 284,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 419,
+      "name": "sodium_hydroxide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 294,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 1
+        },
+        {
+          "id": 284,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 420,
+      "name": "sodium_oxide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 294,
+          "count": 2
+        },
+        {
+          "id": 291,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 421,
+      "name": "charcoal_compound",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 7
+        },
+        {
+          "id": 284,
+          "count": 4
+        },
+        {
+          "id": 291,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 427,
+      "name": "polyethylene",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 289,
+          "count": 10
+        },
+        {
+          "id": 284,
+          "count": 20
+        }
+      ]
+    },
+    {
+      "id": 521,
+      "name": "rubidium_87",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 439,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 522,
+      "name": "strontium_84",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 440,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 523,
+      "name": "strontium_86",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 440,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 524,
+      "name": "strontium_87",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 440,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 525,
+      "name": "zirconium_91",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 442,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 526,
+      "name": "zirconium_92",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 442,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 527,
+      "name": "zirconium_94",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 442,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 528,
+      "name": "zirconium_96",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 442,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 529,
+      "name": "molybdenum_92",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 444,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 530,
+      "name": "molybdenum_94",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 444,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 531,
+      "name": "molybdenum_95",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 444,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 532,
+      "name": "molybdenum_96",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 444,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 533,
+      "name": "molybdenum_97",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 444,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 534,
+      "name": "molybdenum_100",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 444,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 535,
+      "name": "technetium_97",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 445,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 536,
+      "name": "technetium_99",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 445,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 537,
+      "name": "ruthenium_96",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 446,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 538,
+      "name": "ruthenium_98",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 446,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 539,
+      "name": "ruthenium_99",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 446,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 540,
+      "name": "ruthenium_100",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 446,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 541,
+      "name": "ruthenium_101",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 446,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 542,
+      "name": "ruthenium_104",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 446,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 543,
+      "name": "palladium_102",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 448,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 544,
+      "name": "palladium_104",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 448,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 545,
+      "name": "palladium_105",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 448,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 546,
+      "name": "palladium_108",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 448,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 547,
+      "name": "palladium_110",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 448,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 548,
+      "name": "silver_109",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 449,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 549,
+      "name": "cadmium_106",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 450,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 550,
+      "name": "cadmium_108",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 450,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 551,
+      "name": "cadmium_110",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 450,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 552,
+      "name": "cadmium_111",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 450,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 553,
+      "name": "cadmium_112",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 450,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 554,
+      "name": "cadmium_113",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 450,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 555,
+      "name": "cadmium_116",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 450,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 556,
+      "name": "indium_113",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 451,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 557,
+      "name": "tin_112",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 558,
+      "name": "tin_114",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 559,
+      "name": "tin_115",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 560,
+      "name": "tin_116",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 561,
+      "name": "tin_117",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 562,
+      "name": "tin_118",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 563,
+      "name": "tin_119",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 564,
+      "name": "tin_122",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 565,
+      "name": "tin_124",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 566,
+      "name": "antimony_123",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 453,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 567,
+      "name": "tellurium_120",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 454,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 568,
+      "name": "tellurium_122",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 454,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 569,
+      "name": "tellurium_123",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 454,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 570,
+      "name": "tellurium_124",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 454,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 571,
+      "name": "tellurium_125",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 454,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 572,
+      "name": "tellurium_126",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 454,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 573,
+      "name": "tellurium_128",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 454,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 574,
+      "name": "xenon_124",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 575,
+      "name": "xenon_126",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 576,
+      "name": "xenon_128",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 577,
+      "name": "xenon_129",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 578,
+      "name": "xenon_130",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 579,
+      "name": "xenon_131",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 580,
+      "name": "xenon_134",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 581,
+      "name": "xenon_136",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 456,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 582,
+      "name": "barium_130",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 583,
+      "name": "barium_132",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 584,
+      "name": "barium_134",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 585,
+      "name": "barium_135",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 586,
+      "name": "barium_136",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 587,
+      "name": "barium_137",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 588,
+      "name": "lanthanum_138",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 459,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 589,
+      "name": "cerium_136",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 460,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 590,
+      "name": "cerium_138",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 460,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 591,
+      "name": "cerium_142",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 460,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 592,
+      "name": "neodymium_143",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 462,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 593,
+      "name": "neodymium_144",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 462,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 594,
+      "name": "neodymium_145",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 462,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 595,
+      "name": "neodymium_146",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 462,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 596,
+      "name": "neodymium_148",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 462,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 597,
+      "name": "neodymium_150",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 462,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 598,
+      "name": "promethium_147",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 463,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 599,
+      "name": "samarium_144",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 464,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 600,
+      "name": "samarium_147",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 464,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 601,
+      "name": "samarium_148",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 464,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 602,
+      "name": "samarium_149",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 464,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 603,
+      "name": "samarium_150",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 464,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 604,
+      "name": "samarium_154",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 464,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 605,
+      "name": "europium_151",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 465,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 606,
+      "name": "gadolinium_152",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 466,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 607,
+      "name": "gadolinium_154",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 466,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 608,
+      "name": "gadolinium_155",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 466,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 609,
+      "name": "gadolinium_156",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 466,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 610,
+      "name": "gadolinium_157",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 466,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 611,
+      "name": "gadolinium_160",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 466,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 612,
+      "name": "dysprosium_156",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 468,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 613,
+      "name": "dysprosium_158",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 468,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 614,
+      "name": "dysprosium_160",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 468,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 615,
+      "name": "dysprosium_161",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 468,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 616,
+      "name": "dysprosium_162",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 468,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 617,
+      "name": "dysprosium_163",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 468,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 618,
+      "name": "erbium_162",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 470,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 619,
+      "name": "erbium_164",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 470,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 620,
+      "name": "erbium_167",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 470,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 621,
+      "name": "erbium_168",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 470,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 622,
+      "name": "erbium_170",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 470,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 623,
+      "name": "ytterbium_168",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 472,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 624,
+      "name": "ytterbium_170",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 472,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 625,
+      "name": "ytterbium_171",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 472,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 626,
+      "name": "ytterbium_172",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 472,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 627,
+      "name": "ytterbium_173",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 472,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 628,
+      "name": "ytterbium_176",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 472,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 629,
+      "name": "lutetium_176",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 473,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 630,
+      "name": "hafnium_174",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 474,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 631,
+      "name": "hafnium_176",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 474,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 632,
+      "name": "hafnium_177",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 474,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 633,
+      "name": "hafnium_178",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 474,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 634,
+      "name": "hafnium_179",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 474,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 635,
+      "name": "tantalum_180",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 475,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 636,
+      "name": "tungsten_180",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 476,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 637,
+      "name": "tungsten_182",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 476,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 638,
+      "name": "tungsten_183",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 476,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 639,
+      "name": "tungsten_186",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 476,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 640,
+      "name": "rhenium_185",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 477,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 641,
+      "name": "osmium_184",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 478,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 642,
+      "name": "osmium_186",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 478,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 643,
+      "name": "osmium_187",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 478,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 644,
+      "name": "osmium_188",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 478,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 645,
+      "name": "osmium_189",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 478,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 646,
+      "name": "osmium_190",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 478,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 647,
+      "name": "iridium_191",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 479,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 648,
+      "name": "platinum_190",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 480,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 649,
+      "name": "platinum_192",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 480,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 650,
+      "name": "platinum_194",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 480,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 651,
+      "name": "platinum_196",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 480,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 652,
+      "name": "platinum_198",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 480,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 653,
+      "name": "mercury_196",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 654,
+      "name": "mercury_198",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 655,
+      "name": "mercury_199",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 656,
+      "name": "mercury_200",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 657,
+      "name": "mercury_201",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 658,
+      "name": "mercury_204",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 659,
+      "name": "thallium_203",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 483,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 660,
+      "name": "lead_204",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 484,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 661,
+      "name": "lead_206",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 484,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 662,
+      "name": "lead_207",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 484,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 663,
+      "name": "polonium_210",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 486,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 664,
+      "name": "radon_211",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 488,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 665,
+      "name": "radon_220",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 488,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 666,
+      "name": "uranium_233",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 494,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 667,
+      "name": "uranium_234",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 494,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 668,
+      "name": "uranium_235",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 494,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 669,
+      "name": "uranium_236",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 494,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 670,
+      "name": "plutonium_239",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 496,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 671,
+      "name": "plutonium_240",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 496,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 672,
+      "name": "plutonium_241",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 496,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 673,
+      "name": "plutonium_242",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 496,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 674,
+      "name": "americium_241",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 497,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 675,
+      "name": "curium_244",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 498,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 676,
+      "name": "ink_compound",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        },
+        {
+          "id": 299,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": 677,
+      "name": "barium_sulfate",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        },
+        {
+          "id": 299,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": 678,
+      "name": "sulfate",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 299,
+          "count": 1
+        },
+        {
+          "id": 291,
+          "count": 4
+        }
+      ]
+    },
+    {
+      "id": 679,
+      "name": "potassium_iodide",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 302,
+          "count": 1
+        },
+        {
+          "id": 455,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 680,
+      "name": "mercuric_chloride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        },
+        {
+          "id": 300,
+          "count": 2
+        }
+      ]
+    },
+    {
+      "id": 681,
+      "name": "potassium_chloride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 302,
+          "count": 1
+        },
+        {
+          "id": 300,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 682,
+      "name": "cerium_chloride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 460,
+          "count": 1
+        },
+        {
+          "id": 300,
+          "count": 3
+        }
+      ]
+    },
+    {
+      "id": 683,
+      "name": "tungsten_chloride",
+      "kind": "compound",
+      "output": [
+        {
+          "id": 476,
+          "count": 1
+        },
+        {
+          "id": 300,
+          "count": 6
+        }
+      ]
+    },
+    {
+      "id": 705,
+      "name": "carbon_11",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 289,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 706,
+      "name": "sulfur_35",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 299,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 707,
+      "name": "potassium_42",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 302,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 708,
+      "name": "potassium_43",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 302,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 709,
+      "name": "calcium_45",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 710,
+      "name": "calcium_47",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 303,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 711,
+      "name": "chromium_51",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 307,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 712,
+      "name": "iron_52",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 713,
+      "name": "iron_55",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 714,
+      "name": "iron_59",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 309,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 715,
+      "name": "cobalt_57",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 310,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 716,
+      "name": "cobalt_58",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 310,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 717,
+      "name": "nickel_59",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 311,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 718,
+      "name": "nickel_63",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 311,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 719,
+      "name": "copper_64",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 312,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 720,
+      "name": "zinc_65",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 313,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 721,
+      "name": "gallium_67",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 314,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 722,
+      "name": "gallium_68",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 314,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 723,
+      "name": "gallium_70",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 314,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 724,
+      "name": "germanium_68",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 315,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 725,
+      "name": "selenium_75",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 317,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 726,
+      "name": "selenium_79",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 317,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 727,
+      "name": "bromine_80",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 318,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 728,
+      "name": "rubidium_86",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 439,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 729,
+      "name": "strontium_85",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 440,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 730,
+      "name": "strontium_89",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 440,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 731,
+      "name": "strontium_90",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 440,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 732,
+      "name": "molybdenum_99",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 444,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 733,
+      "name": "ruthenium_106",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 446,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 734,
+      "name": "indium_111",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 451,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 735,
+      "name": "tin_113",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 452,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 736,
+      "name": "iodine_123",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 455,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 737,
+      "name": "iodine_125",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 455,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 738,
+      "name": "iodine_129",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 455,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 739,
+      "name": "iodine_131",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 455,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 740,
+      "name": "caesium_129",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 457,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 741,
+      "name": "caesium_134",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 457,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 742,
+      "name": "caesium_136",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 457,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 743,
+      "name": "caesium_137",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 457,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 744,
+      "name": "barium_133",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 745,
+      "name": "barium_140",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 458,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 746,
+      "name": "cerium_141",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 460,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 747,
+      "name": "cerium_144",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 460,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 748,
+      "name": "promethium_144",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 463,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 749,
+      "name": "ytterbium_169",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 472,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 750,
+      "name": "gold_198",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 481,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 751,
+      "name": "mercury_197",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 752,
+      "name": "mercury_203",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 482,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 753,
+      "name": "thallium_201",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 483,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 754,
+      "name": "lead_210",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 484,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 755,
+      "name": "bismuth_207",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 485,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 756,
+      "name": "astatine_211",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 487,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 757,
+      "name": "radium_223",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 490,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 758,
+      "name": "radium_224",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 490,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 759,
+      "name": "radium_228",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 490,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 760,
+      "name": "thorium_228",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 492,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 761,
+      "name": "thorium_230",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 492,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 762,
+      "name": "neptunium_239",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 495,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 763,
+      "name": "plutonium_238",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 496,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 764,
+      "name": "curium_243",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 498,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 765,
+      "name": "curium_245",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 498,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 766,
+      "name": "curium_246",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 498,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 767,
+      "name": "curium_248",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 498,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 768,
+      "name": "berkelium_249",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 499,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 769,
+      "name": "californium_249",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 500,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 770,
+      "name": "californium_250",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 500,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 771,
+      "name": "californium_252",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 500,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 772,
+      "name": "mendelevium_256",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 503,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 773,
+      "name": "lawrencium_262",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 505,
+          "count": 1
+        }
+      ]
+    },
+    {
+      "id": 774,
+      "name": "bohrium_269",
+      "kind": "isotope",
+      "output": [
+        {
+          "id": 509,
+          "count": 1
+        }
+      ]
+    }
+  ]
+}

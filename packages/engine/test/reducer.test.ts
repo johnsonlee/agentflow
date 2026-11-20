@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import {
-  BLOCKS, COMPOUNDS, ITEMS, Inventory, REDUCTIONS, blockId, createAgent, giveAgent, maxStackOf,
+  BLOCKS, COMPOUNDS, ITEMS, Inventory, LEGACY_MATERIAL_REDUCTIONS, REDUCTIONS, blockId, createAgent, giveAgent, maxStackOf,
   parseSave, reduceMaterial, sanitizeAgent, sanitizeInventoryPending, serializeSave, stackId, type ItemStack,
 } from "../src";
 
@@ -23,18 +23,11 @@ it("matches the historical Journal p11 grass image, including oxygen split64+6 a
   expect(reduceMaterial(blockId("grass"))).toEqual(expected); // previews must not share mutable counts.
 });
 
-it("preserves all sixteen existing reduction results and compound/isotope semantics", () => {
-  const old: [string, [string, number][]][] = [
-    ["sand", [["silicon", 1], ["oxygen", 2]]], ["glass", [["silicon", 1], ["oxygen", 2]]],
-    ["gravel", [["silicon", 1], ["oxygen", 2]]], ["stone", [["silicon", 1], ["oxygen", 2]]],
-    ["cobblestone", [["silicon", 1], ["oxygen", 2]]], ["dirt", [["silicon", 1], ["aluminium", 1], ["oxygen", 3]]],
-    ["oak_log", [["carbon", 6], ["hydrogen", 10], ["oxygen", 5]]], ["birch_log", [["carbon", 6], ["hydrogen", 10], ["oxygen", 5]]],
-    ["oak_planks", [["carbon", 6], ["hydrogen", 10], ["oxygen", 5]]], ["snow", [["hydrogen", 2], ["oxygen", 1]]],
-    ["coal", [["carbon", 1]]], ["charcoal", [["carbon", 1]]], ["diamond", [["carbon", 1]]], ["iron_ingot", [["iron", 1]]],
-    ["iron_ore", [["iron", 2], ["oxygen", 3]]], ["coal_ore", [["carbon", 1], ["silicon", 1], ["oxygen", 2]]],
-  ];
-  expect(REDUCTIONS.slice(0, 16).map(([name]) => name)).toEqual(old.map(([name]) => name));
-  for (const [name, parts] of old) expect(reduceMaterial(stackId(name))).toEqual(parts.map(([name, count]) => stack(name, count)));
+it("retains explicit unverified glass/charcoal compatibility and compound/isotope semantics", () => {
+  expect(LEGACY_MATERIAL_REDUCTIONS).toEqual([["glass", [["Si", 1], ["O", 2]]], ["charcoal", [["C", 1]]]]);
+  expect(REDUCTIONS).toHaveLength(24);
+  expect(reduceMaterial(stackId("glass"))).toEqual([stack("silicon"), stack("oxygen", 2)]);
+  expect(reduceMaterial(stackId("charcoal"))).toEqual([stack("carbon")]);
   expect(reduceMaterial(stackId("water_compound"))).toEqual([stack("hydrogen", 2), stack("oxygen", 1)]);
   expect(reduceMaterial(stackId("polyethylene"))).toEqual([stack("carbon", 10), stack("hydrogen", 20)]);
   expect(reduceMaterial(stackId("sodium_hypochlorite"))).toEqual([stack("sodium"), stack("chlorine"), stack("oxygen")]);
@@ -56,11 +49,11 @@ it("reserves all outputs jointly, refusing sand with only one empty slot without
   const bag = new Inventory(); for (let i = 0; i < 35; i++) bag.setSlot(i, stack("stone", 64));
   const before = bag.toJSON(), outputs = reduceMaterial(blockId("sand"))!;
   expect(outputs.every((s) => bag.spaceFor(s.id) >= s.count)).toBe(true); // Old UI preflight is unsafe.
-  const trial = Inventory.fromJSON(before); expect(outputs.map((s) => trial.addStack(s))).toEqual([0, 2]);
+  const trial = Inventory.fromJSON(before); expect(outputs.map((s) => trial.addStack(s))).toEqual([0, 64, 3]);
   expect(bag.toJSON()).toEqual(before);
-  bag.setSlot(34, null); const enough = Inventory.fromJSON(bag.toJSON());
-  expect(outputs.map((s) => enough.addStack(s))).toEqual([0, 0]);
-  expect(enough.slots.filter((s) => s?.id !== blockId("stone"))).toEqual([stack("silicon"), stack("oxygen", 2)]);
+  bag.setSlot(34, null); bag.setSlot(33, null); const enough = Inventory.fromJSON(bag.toJSON());
+  expect(outputs.map((s) => enough.addStack(s))).toEqual([0, 0, 0]);
+  expect(enough.slots.filter((s) => s?.id !== blockId("stone"))).toEqual([stack("silicon", 33), stack("oxygen", 64), stack("oxygen", 3)]);
 });
 
 it("detects joint duplicate-oxygen overcommit and preserves exact aggregate counts when capacity suffices", () => {

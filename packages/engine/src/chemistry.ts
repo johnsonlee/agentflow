@@ -1,3 +1,5 @@
+import { elementBlockId } from "./blocks";
+import { NATIVE_MATERIAL_REDUCTIONS } from "./native-reductions";
 /**
  * Education Edition chemistry: Element Constructor, Compound Creator, Material Reducer and Lab Table.
  * Every lookup goes through Maps built from the data tables (never `obj[userString]`).
@@ -82,16 +84,21 @@ export function createCompound(slots: readonly (ItemStack | null)[]): { id: numb
   return c ? { id: stackId(c.name) } : { error: "Those elements don't make a known compound" };
 }
 
+const nativeReductions = new Map(NATIVE_MATERIAL_REDUCTIONS.map((row) => [row.input, row]));
 const reductions = new Map(REDUCTIONS.map(([name, parts]) => [name, parts]));
 const compoundParts = new Map(COMPOUNDS.map((c) => [c.name, c.recipe]));
 
 /**
- * Material Reducer: a block or item breaks into its elements (curated mappings; compounds reduce
- * to their formula). Returns bounded element stacks, or null if it can't be reduced.
+ * Material Reducer: native candidate material rows plus legacy compatibility fallbacks.
+ * Compound formulas and isotope->base fallback remain unverified against native runtime.
+ * Returns bounded ordered stacks, or null if unsupported; Unknown0 is a material, never air.
  */
 export function reduceMaterial(id: number): ItemStack[] | null {
   if (!isKnownId(id)) return null;
   const name = nameOf(id);
+  const native = nativeReductions.get(name);
+  // An equal string is not semantic identity: never consume a chemical atom as a native material block.
+  if (native && (native.inputKind === "block" ? isItem(id) : !isItem(id) || itemById(id).chem !== undefined)) return null;
   const parts = reductions.get(name) ?? compoundParts.get(name);
   if (!parts) {
     // An isotope reduces to its element.
@@ -101,7 +108,7 @@ export function reduceMaterial(id: number): ItemStack[] | null {
   }
   const output: ItemStack[] = [];
   for (const [symbol, count] of parts) {
-    const id = stackId(elementItemName(elementsBySymbol.get(symbol)!));
+    const id = symbol === "?" ? elementBlockId(0) : stackId(elementItemName(elementsBySymbol.get(symbol)!));
     const maximum = maxStackOf(id);
     // Preserve aggregate composition and source order without producing invalid oversized stacks.
     for (let left = count; left > 0; left -= maximum) output.push({ id, count: Math.min(left, maximum) });

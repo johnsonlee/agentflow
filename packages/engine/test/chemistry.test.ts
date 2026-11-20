@@ -108,9 +108,9 @@ describe("Compound Creator", () => {
 describe("Material Reducer", () => {
   it("reduces blocks, items, compounds and isotopes to elements", () => {
     const r = (n: string) => reduceMaterial(id(n))?.map((s) => `${nameOf(s.id)}x${s.count}`);
-    expect(r("sand")).toEqual(["siliconx1", "oxygenx2"]);
-    expect(r("oak_log")).toEqual(["carbonx6", "hydrogenx10", "oxygenx5"]);
-    expect(r("iron_ingot")).toEqual(["ironx1"]);
+    expect(r("sand")).toEqual(["siliconx33", "oxygenx64", "oxygenx3"]);
+    expect(r("oak_log")).toEqual(["carbonx49", "hydrogenx6", "oxygenx44", "nitrogenx1"]);
+    expect(r("iron_ingot")).toEqual(["ironx64", "ironx36"]);
     expect(r("water_compound")).toEqual(["hydrogenx2", "oxygenx1"]);
     expect(r("carbon_14")).toEqual(["carbonx1"]);
     expect(r("crafting_table")).toBeUndefined();
