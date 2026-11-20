@@ -23,9 +23,9 @@ function parseFormula(formula: string): Map<string, number> {
 }
 
 describe("element table", () => {
-  it("has elements 1-36 in order with unique symbols and real isotopes", () => {
-    expect(ELEMENTS.map((e) => e.z)).toEqual(Array.from({ length: 36 }, (_, i) => i + 1));
-    expect(new Set(ELEMENTS.map((e) => e.symbol)).size).toBe(36);
+  it("has elements 1-118 in order with unique symbols and real isotopes", () => {
+    expect(ELEMENTS.map((e) => e.z)).toEqual(Array.from({ length: 118 }, (_, i) => i + 1));
+    expect(new Set(ELEMENTS.map((e) => e.symbol)).size).toBe(118);
     expect(elementByZ(8)).toMatchObject({ symbol: "O", name: "Oxygen", a: 16 });
     expect(elementByZ(26)).toMatchObject({ symbol: "Fe", a: 56 });
     expect(elementByZ(36)).toMatchObject({ symbol: "Kr", a: 84 });
@@ -69,9 +69,9 @@ describe("Element Constructor", () => {
 
   it("refuses invalid combinations with a reason", () => {
     expect(ok(constructElement(0, 0, 0))).toMatch(/at least one proton/);
-    expect(ok(constructElement(37, 48, 37))).toMatch(/Only elements 1-36/);
+    expect(ok(constructElement(119, 48, 119))).toMatch(/Only elements 1-118/);
     expect(ok(constructElement(8, 8, 7))).toMatch(/neutral Oxygen atom needs 8 electrons/);
-    expect(ok(constructElement(8, 20, 8))).toMatch(/Oxygen-28 isn't a known isotope \(neutrons: 8, 9, 10\)/);
+    expect(ok(constructElement(8, 20, 8))).toMatch(/Oxygen-28 isn't in the supported isotope catalogue \(neutrons: 8, 9, 10\)/);
     for (const bad of [-1, 1.5, NaN, Infinity, 141, Number.MAX_VALUE]) {
       expect(ok(constructElement(bad, 0, bad))).toMatch(/^error:/);
       expect(ok(constructElement(8, bad, 8))).toMatch(/^error:/);

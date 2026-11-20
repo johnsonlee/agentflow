@@ -4,7 +4,7 @@
  * arrays keep holding block ids only.
  */
 import { BLOCKS, blockById, blockId } from "./blocks";
-import { COMPOUNDS, ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
+import { ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, LEGACY_COMPOUNDS, LEGACY_ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
 
 export const ITEM_ID_BASE = 256;
 export const MAX_STACK = 64;
@@ -107,26 +107,36 @@ const specs: Omit<ItemDef, "id">[] = [
   { name: "book_and_quill", displayName: "Book and Quill", maxStack: 1, icon: "item_book_and_quill" },
   { name: "written_book", displayName: "Written Book", maxStack: 1, icon: "item_written_book" },
   // Increment 6a: Education Edition chemistry (elements 1-36, isotopes, compounds, lab products).
-  ...ELEMENTS.map((e) => ({
+  ...LEGACY_ELEMENTS.map((e) => ({
     name: elementItemName(e), displayName: e.name, maxStack: MAX_STACK, icon: `item_element_${e.z}_${e.symbol}`,
     chem: { kind: "element" as const, z: e.z, symbol: e.symbol, mass: e.a },
   })),
-  ...ELEMENTS.flatMap((e) => e.isotopes.map((m) => ({
+  ...LEGACY_ELEMENTS.flatMap((e) => e.isotopes.map((m) => ({
     name: isotopeItemName(e, m), displayName: `${e.name}-${m}`, maxStack: MAX_STACK, icon: `item_isotope_${e.z}_${e.symbol}_${m}`,
     chem: { kind: "isotope" as const, z: e.z, symbol: e.symbol, mass: m },
   }))),
-  ...COMPOUNDS.filter((c) => !c.appended).map(compoundItem),
+  ...LEGACY_COMPOUNDS.filter((c) => !c.appended).map(compoundItem),
   ...LAB_PRODUCTS.map((r) => ({
     name: r.product, displayName: r.displayName, maxStack: MAX_STACK, icon: `item_product_${r.product}`, chem: { kind: "product" as const },
     places: PLACED_PRODUCTS.has(r.product) ? `placed_${r.product}` : undefined,
   })),
   // Increment 6b.
-  ...COMPOUNDS.filter((c) => c.appended).map(compoundItem),
+  ...LEGACY_COMPOUNDS.filter((c) => c.appended).map(compoundItem),
   { name: "redstone", displayName: "Redstone Dust", maxStack: MAX_STACK, icon: "item_redstone", places: "redstone_wire_0" },
   { name: "wooden_door", displayName: "Wooden Door", maxStack: MAX_STACK, icon: "item_wooden_door", places: "door_wooden_lower_0_0" },
   { name: "iron_door", displayName: "Iron Door", maxStack: MAX_STACK, icon: "item_iron_door", places: "door_iron_lower_0_0" },
   // Append only: preserve every previous item id in saved inventories.
   ...(["golden", "diamond"] as const).flatMap((m) => TOOL_KINDS.map((k) => tool(m, k))),
+  // Append new chemistry after every legacy item (including tools): never reinterpret old saves.
+  ...ADDITIONAL_ELEMENTS.map((e) => ({
+    name: elementItemName(e), displayName: e.name, maxStack: MAX_STACK, icon: `item_element_${e.z}_${e.symbol}`,
+    chem: { kind: "element" as const, z: e.z, symbol: e.symbol, mass: e.a },
+  })),
+  ...ADDITIONAL_ELEMENTS.flatMap((e) => e.isotopes.map((m) => ({
+    name: isotopeItemName(e, m), displayName: `${e.name}-${m}`, maxStack: MAX_STACK, icon: `item_isotope_${e.z}_${e.symbol}_${m}`,
+    chem: { kind: "isotope" as const, z: e.z, symbol: e.symbol, mass: m },
+  }))),
+  ...ADDITIONAL_COMPOUNDS.map(compoundItem),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));

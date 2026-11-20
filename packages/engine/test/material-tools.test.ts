@@ -15,7 +15,7 @@ it("preserves every existing saved item id and appends the eight new tools", () 
   const old = ITEMS.slice(0, 175).map(({ id, name }) => [id, name]);
   expect(createHash("sha256").update(JSON.stringify(old) + "\n").digest("hex"))
     .toBe("944783e08056612e522e46ee9f4f7e64337e8ecb4fe096eef91acfc65164c152");
-  expect(ITEMS.slice(175).map((i) => i.name)).toEqual(materials.flatMap((m) => kinds.map((k) => `${m}_${k}`)));
+  expect(ITEMS.slice(175, 183).map((i) => i.name)).toEqual(materials.flatMap((m) => kinds.map((k) => `${m}_${k}`)));
 });
 
 it("uses Bedrock attack damage, speed, harvest level and uses before breaking", () => {

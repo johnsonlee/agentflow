@@ -6,7 +6,8 @@ import { COMPOUNDS, ELEMENTS, LAB_REACTIONS, MAX_Z, REDUCTIONS, elementItemName,
 import type { ItemStack } from "./inventory";
 import { ITEMS, isKnownId, itemById, isItem, nameOf, stackId } from "./items";
 
-export const MAX_PARTICLES = 140;
+// Bounded input still covers Oganesson-294 (118 protons + 176 neutrons).
+export const MAX_PARTICLES = 256;
 
 /** A stack count the stations accept: a whole number from 1 to 64 (never 0, negative or NaN). */
 const validCount = (n: number) => Number.isInteger(n) && n >= 1 && n <= 64;
@@ -19,13 +20,13 @@ export function elementByZ(z: number): ElementData | undefined {
 }
 
 /**
- * Element Constructor: protons pick the element (1-36); a neutral atom needs electrons = protons.
- * Neutrons equal to the most abundant isotope give the element; another real isotope gives that
+ * Element Constructor: protons pick the element (1-118); a neutral atom needs electrons = protons.
+ * Neutrons matching the reference isotope give the element; another supported isotope gives that
  * isotope; anything else is refused with the reason.
  */
 export function constructElement(protons: number, neutrons: number, electrons: number): { id: number } | { error: string } {
   const ok = (n: number) => Number.isInteger(n) && n >= 0 && n <= MAX_PARTICLES;
-  if (!ok(protons) || !ok(neutrons) || !ok(electrons)) return { error: "Particle counts must be whole numbers from 0 to 140" };
+  if (!ok(protons) || !ok(neutrons) || !ok(electrons)) return { error: `Particle counts must be whole numbers from 0 to ${MAX_PARTICLES}` };
   const e = elementsByZ.get(protons);
   if (!e) return { error: protons === 0 ? "An element needs at least one proton" : `Only elements 1-${MAX_Z} can be built here` };
   if (electrons !== protons) return { error: `A neutral ${e.name} atom needs ${protons} electron${protons === 1 ? "" : "s"}` };
@@ -33,7 +34,7 @@ export function constructElement(protons: number, neutrons: number, electrons: n
   if (mass === e.a) return { id: stackId(elementItemName(e)) };
   if (e.isotopes.includes(mass)) return { id: stackId(isotopeItemName(e, mass)) };
   const known = [e.a, ...e.isotopes].sort((a, b) => a - b).map((m) => m - protons);
-  return { error: `${e.name}-${mass} isn't a known isotope (neutrons: ${known.join(", ")})` };
+  return { error: `${e.name}-${mass} isn't in the supported isotope catalogue (neutrons: ${known.join(", ")})` };
 }
 
 /** Element symbol of an element item id (isotopes don't count as plain elements), else undefined. */

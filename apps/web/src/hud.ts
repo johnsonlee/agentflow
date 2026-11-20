@@ -1,5 +1,5 @@
 import {
-  HOTBAR_SIZE, INVENTORY_SIZE, ITEMS, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, fuelSeconds,
+  HOTBAR_SIZE, INVENTORY_SIZE, ITEMS, MAX_PARTICLES, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, fuelSeconds,
   isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, toolOf,
   type CraftingGrid, type FurnaceState, type GameMode, type Inventory, type ItemStack,
 } from "@craft/engine";
@@ -471,13 +471,13 @@ export class InventoryScreen {
         const value = el("input", "particle-value");
         value.type = "number";
         value.min = "0";
-        value.max = "140";
+        value.max = String(MAX_PARTICLES);
         value.value = String(p[key]);
         value.setAttribute("aria-label", key);
         value.addEventListener("keydown", (e) => e.stopPropagation());
         value.addEventListener("change", () => {
           const n = Math.round(Number(value.value));
-          p[key] = Number.isFinite(n) ? Math.max(0, Math.min(140, n)) : 0;
+          p[key] = Number.isFinite(n) ? Math.max(0, Math.min(MAX_PARTICLES, n)) : 0;
           this.render();
         });
         const step = (d: number) => {
@@ -485,7 +485,7 @@ export class InventoryScreen {
           b.dataset.step = String(d);
           b.setAttribute("aria-label", `${d < 0 ? "Fewer" : "More"} ${key}`);
           b.addEventListener("click", () => {
-            p[key] = Math.max(0, Math.min(140, p[key] + d));
+            p[key] = Math.max(0, Math.min(MAX_PARTICLES, p[key] + d));
             this.render();
           });
           return b;

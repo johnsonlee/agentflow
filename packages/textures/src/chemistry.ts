@@ -35,6 +35,26 @@ const GLYPHS = new Map<string, readonly string[]>([
   ["T", ["###", ".#.", ".#.", ".#.", ".#."]],
   ["V", ["#.#", "#.#", "#.#", "#.#", ".#."]],
   ["Z", ["###", "..#", ".#.", "#..", "###"]],
+  ["D", ["##.", "#.#", "#.#", "#.#", "##."]],
+  ["E", ["###", "#..", "##.", "#..", "###"]],
+  ["I", ["###", ".#.", ".#.", ".#.", "###"]],
+  ["J", ["..#", "..#", "..#", "#.#", ".#."]],
+  ["Q", [".#.", "#.#", "#.#", ".##", "..#"]],
+  ["R", ["##.", "#.#", "##.", "#.#", "#.#"]],
+  ["U", ["#.#", "#.#", "#.#", "#.#", "###"]],
+  ["W", ["#.#", "#.#", "###", "###", "#.#"]],
+  ["X", ["#.#", "#.#", ".#.", "#.#", "#.#"]],
+  ["Y", ["#.#", "#.#", ".#.", ".#.", ".#."]],
+  ["b", ["#..", "##.", "#.#", "##."]],
+  ["d", ["..#", ".##", "#.#", ".##"]],
+  ["f", [".##", ".#.", "###", ".#."]],
+  ["h", ["#..", "##.", "#.#", "#.#"]],
+  ["k", ["#..", "#.#", "##.", "#.#"]],
+  ["m", ["###", "###", "#.#", "#.#"]],
+  ["p", ["##.", "#.#", "##.", "#.."]],
+  ["t", [".#.", "###", ".#.", ".##"]],
+  ["v", ["#.#", "#.#", "#.#", ".#."]],
+  ["y", ["#.#", ".##", "..#", "##."]],
   ["a", ["##.", ".##", "#.#", "###"]],
   ["c", [".##", "#..", "#..", ".##"]],
   ["e", [".#.", "###", "#..", ".##"]],
@@ -90,7 +110,8 @@ function card(z: number, symbol: string, number: number, isotope: boolean): (t: 
     }
     const ink = hex("#1a1a1a");
     text(t, String(number), 3, 3, isotope ? hex("#7a1010") : ink);
-    if (isotope) for (const [x, y] of [[11, 3], [12, 3], [11, 4], [12, 4]]) t.set(x, y, hex("#d8c21a"));
+    // Keep the isotope marker above the digits: heavy isotope masses have three digits.
+    if (isotope) for (const [x, y] of [[11, 2], [12, 2]]) t.set(x, y, hex("#d8c21a"));
     const w = [...symbol].length * 4 - 1;
     text(t, symbol, Math.floor((S - w) / 2), 8, ink);
     return t;
@@ -173,9 +194,9 @@ const PRODUCTS = new Map<string, (t: Tile) => Tile>([
 
 /** Generator for a chemistry item icon name, or undefined if `name` isn't one. */
 export function chemistryItemTile(name: string): ((t: Tile) => Tile) | undefined {
-  let m = /^item_element_(\d{1,2})_([A-Z][a-z]?)$/.exec(name);
+  let m = /^item_element_(\d{1,3})_([A-Z][a-z]?)$/.exec(name);
   if (m) return card(Number(m[1]), m[2], Number(m[1]), false);
-  m = /^item_isotope_(\d{1,2})_([A-Z][a-z]?)_(\d{1,3})$/.exec(name);
+  m = /^item_isotope_(\d{1,3})_([A-Z][a-z]?)_(\d{1,3})$/.exec(name);
   if (m) return card(Number(m[1]), m[2], Number(m[3]), true);
   m = /^item_compound_([a-z_]{1,40})$/.exec(name);
   if (m) return flask(m[1]);
