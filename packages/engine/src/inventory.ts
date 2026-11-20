@@ -1,4 +1,4 @@
-import { isKnownId, maxStackOf, toolOf } from "./items";
+import { ARMOR_SLOTS, armorOf, maxStackOf, toolOf, type ArmorSlot } from "./items";
 import { sanitizeStack } from "./savecheck";
 
 export const HOTBAR_SIZE = 9;
@@ -8,16 +8,24 @@ export interface ItemStack {
   /** Block id, or item id (>= ITEM_ID_BASE). */
   id: number;
   count: number;
-  /** Uses spent on a tool (absent or 0 = new). */
+  /** Uses spent on a tool or armor (absent or 0 = new). */
   damage?: number;
   /** Book & Quill / Written Book contents. */
   book?: { pages: string[]; title?: string; author?: string };
+}
+
+export interface InventoryData {
+  slots: (ItemStack | null)[];
+  selected: number;
+  /** Optional in older saves; malformed pieces are independently discarded. */
+  equipment?: Partial<Record<ArmorSlot, ItemStack | null>>;
 }
 
 /** Player inventory: slots 0-8 are the hotbar. */
 export class Inventory {
   readonly slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   selected = 0;
+  readonly equipment: Record<ArmorSlot, ItemStack | null> = { head: null, chest: null, legs: null, feet: null };
 
   selectedStack(): ItemStack | null {
     return this.slots[this.selected];
@@ -82,6 +90,38 @@ export class Inventory {
     return false;
   }
 
+  /** Exchanges a cursor stack with a matching equipment slot, without losing either item. */
+  swapEquipment(slot: ArmorSlot, incoming: ItemStack | null): { ok: boolean; stack: ItemStack | null } {
+    if (!ARMOR_SLOTS.includes(slot)) return { ok: false, stack: incoming };
+    const clean = incoming === null ? null : sanitizeStack(incoming);
+    if (incoming !== null && (!clean || clean.count !== 1 || armorOf(clean.id)?.slot !== slot)) return { ok: false, stack: incoming };
+    const previous = this.equipment[slot];
+    this.equipment[slot] = clean;
+    return { ok: true, stack: previous ? { ...previous } : null };
+  }
+
+  /** Equips one inventory piece; any previous piece takes its vacated bag slot, even in a full bag. */
+  equipFromSlot(index: number): boolean {
+    if (!Number.isInteger(index) || index < 0 || index >= INVENTORY_SIZE) return false;
+    const stack = this.slots[index];
+    const armor = armorOf(stack?.id);
+    if (!stack || !armor) return false;
+    const result = this.swapEquipment(armor.slot, stack);
+    if (!result.ok) return false;
+    this.slots[index] = result.stack;
+    return true;
+  }
+
+  /** Moves a piece into the bag only if it fits; a full bag leaves equipment unchanged. */
+  unequip(slot: ArmorSlot): boolean {
+    if (!ARMOR_SLOTS.includes(slot)) return false;
+    const piece = this.equipment[slot];
+    if (!piece || this.spaceFor(piece.id) < 1) return false;
+    if (this.addStack(piece) !== 0) return false;
+    this.equipment[slot] = null;
+    return true;
+  }
+
   /** Removes one item from the selected hotbar slot. Returns the removed block id or null. */
   takeSelected(): number | null {
     const stack = this.slots[this.selected];
@@ -117,12 +157,15 @@ export class Inventory {
     this.slots[b] = t;
   }
 
-  toJSON(): { slots: (ItemStack | null)[]; selected: number } {
-    return { slots: this.slots.map((s) => (s ? { ...s } : null)), selected: this.selected };
+  toJSON(): InventoryData {
+    return {
+      slots: this.slots.map((s) => (s ? { ...s } : null)), selected: this.selected,
+      equipment: Object.fromEntries(ARMOR_SLOTS.map((slot) => [slot, this.equipment[slot] ? { ...this.equipment[slot] } : null])),
+    };
   }
 
   /** Loads a saved inventory. Saves from before items existed load unchanged; unknown ids are dropped. */
-  static fromJSON(data: { slots: (ItemStack | null)[]; selected: number }): Inventory {
+  static fromJSON(data: InventoryData): Inventory {
     const inv = new Inventory();
     if (!data || !Array.isArray(data.slots)) return inv;
     data.slots.slice(0, INVENTORY_SIZE).forEach((s, i) => {
@@ -136,6 +179,14 @@ export class Inventory {
       }
       inv.setSlot(i, stack);
     });
+    // Equipment is optional and own-property-only: prototype keys never resolve to pieces.
+    const equipment = Object.prototype.hasOwnProperty.call(data, "equipment") ? data.equipment : undefined;
+    if (equipment && typeof equipment === "object" && !Array.isArray(equipment) &&
+      (Object.getPrototypeOf(equipment) === Object.prototype || Object.getPrototypeOf(equipment) === null)) {
+      for (const slot of ARMOR_SLOTS) {
+        if (Object.prototype.hasOwnProperty.call(equipment, slot)) inv.swapEquipment(slot, equipment[slot] ?? null);
+      }
+    }
     inv.select(Number.isInteger(data.selected) ? data.selected : 0);
     return inv;
   }

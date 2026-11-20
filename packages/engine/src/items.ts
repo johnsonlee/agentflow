@@ -25,6 +25,17 @@ export interface ToolSpec {
   attack: number;
 }
 
+export const ARMOR_SLOTS = ["head", "chest", "legs", "feet"] as const;
+export type ArmorSlot = typeof ARMOR_SLOTS[number];
+export type ArmorMaterial = "iron" | "golden" | "diamond";
+export interface ArmorSpec {
+  slot: ArmorSlot;
+  material: ArmorMaterial;
+  /** Each point blocks 4% of eligible damage (maximum 20 points). */
+  points: number;
+  durability: number;
+}
+
 export interface ItemDef {
   id: number;
   name: string;
@@ -33,6 +44,7 @@ export interface ItemDef {
   /** Texture tile drawn as the item's icon. */
   icon: string;
   tool?: ToolSpec;
+  armor?: ArmorSpec;
   /** Block this item places (Lab Table products such as the heat block and glow stick). */
   places?: string;
   /** Chemistry: element (atomic number), isotope (plus mass number), compound (formula) or lab product. */
@@ -83,6 +95,26 @@ function compoundItem(c: CompoundData): Omit<ItemDef, "id"> {
 
 /** Lab Table products that are placed as blocks (`placed_<name>`). */
 const PLACED_PRODUCTS = new Set(["heat_block", "underwater_torch", "glow_stick"]);
+
+// Standard armor values. Slots use the same 11/16/15/13 durability factors.
+// Chestplate durability is documented by minecraft.net's Taking Inventory: Chestplate.
+const ARMOR_STATS: Record<ArmorMaterial, { multiplier: number; points: readonly number[] }> = {
+  iron: { multiplier: 15, points: [2, 6, 5, 2] },
+  golden: { multiplier: 7, points: [2, 5, 3, 1] },
+  diamond: { multiplier: 33, points: [3, 8, 6, 3] },
+};
+const ARMOR_KINDS = ["helmet", "chestplate", "leggings", "boots"] as const;
+const ARMOR_DURABILITY_FACTORS = [11, 16, 15, 13] as const;
+const ARMOR_KIND_NAMES = ["Helmet", "Chestplate", "Leggings", "Boots"] as const;
+function armor(material: ArmorMaterial, index: number): Omit<ItemDef, "id"> {
+  const stats = ARMOR_STATS[material];
+  const name = `${material}_${ARMOR_KINDS[index]}`;
+  return {
+    name, displayName: `${MATERIAL_NAMES[material]} ${ARMOR_KIND_NAMES[index]}`,
+    maxStack: 1, icon: `item_${name}`,
+    armor: { slot: ARMOR_SLOTS[index], material, points: stats.points[index], durability: ARMOR_DURABILITY_FACTORS[index] * stats.multiplier },
+  };
+}
 
 const specs: Omit<ItemDef, "id">[] = [
   { name: "stick", displayName: "Stick", maxStack: MAX_STACK, icon: "item_stick" },
@@ -137,6 +169,8 @@ const specs: Omit<ItemDef, "id">[] = [
     chem: { kind: "isotope" as const, z: e.z, symbol: e.symbol, mass: m },
   }))),
   ...ADDITIONAL_COMPOUNDS.map(compoundItem),
+  // Armor appends after all 428 existing entries: never reinterpret saved item IDs.
+  ...(["iron", "golden", "diamond"] as const).flatMap((m) => ARMOR_SLOTS.map((_, i) => armor(m, i))),
 ];
 
 export const ITEMS: readonly ItemDef[] = specs.map((s, i) => ({ ...s, id: ITEM_ID_BASE + i }));
@@ -239,4 +273,16 @@ export function toolOf(id: number | undefined | null): ToolSpec | null {
 /** Texture tiles used by item icons. */
 export function itemTextureNames(): string[] {
   return ITEMS.map((i) => i.icon);
+}
+
+/** Armor metadata, or null for a non-armor/unknown id. */
+export function armorOf(id: number | null | undefined): ArmorSpec | null {
+  return typeof id === "number" && Number.isInteger(id) ? ITEMS[id - ITEM_ID_BASE]?.armor ?? null : null;
+}
+
+/** Uses before breaking for a tool or armor item. */
+export function durabilityOf(id: number | null | undefined): number | null {
+  if (typeof id !== "number" || !Number.isInteger(id)) return null;
+  const item = ITEMS[id - ITEM_ID_BASE];
+  return item?.tool?.durability ?? item?.armor?.durability ?? null;
 }

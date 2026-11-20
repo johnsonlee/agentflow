@@ -427,3 +427,17 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .chem-status[data-chem-status="error"] { color: #8a1c1c; }
 .reducer-output { grid-template-columns: repeat(3, var(--slot)); min-height: var(--slot); }
 .chem-action { flex: 0; min-width: 120px; }
+
+/* Armor shares the inventory cursor and sits above the survival health row. */
+.armor-meter { display: flex; width: calc(var(--slot) * 9); max-width: 100%; gap: 1px; }
+.armor-meter[hidden] { display: none; }
+.armor-point { width: 16px; height: 12px; font-size: 12px; line-height: 12px; text-align: center; text-shadow: 1px 1px #000; }
+.armor-point.full { color: #e9e9e9; }
+.armor-point.half { color: #929292; }
+.armor-point.empty { color: #333; }
+.equipment-section { display: flex; flex-direction: column; align-items: center; gap: 5px; }
+.equipment-heading { font-size: 12px; }
+.equipment-slots { display: flex; justify-content: center; gap: 8px; }
+.equipment-column { display: flex; flex-direction: column; align-items: center; gap: 3px; }
+.equipment-label, .equipment-empty { font-size: 10px; color: #343434; }
+.equipment-empty { pointer-events: none; }

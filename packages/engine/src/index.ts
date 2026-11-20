@@ -29,3 +29,5 @@ export * from "./chemistry-data";
 export * from "./chemistry";
 export * from "./labeffects";
 export * from "./redstone";
+
+export * from "./armor";

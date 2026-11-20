@@ -126,3 +126,24 @@ for (const material of ["wooden", "stone", "iron", "golden", "diamond"]) {
     ITEM_TILE_GENERATORS[`item_${material}_${kind}`] = toolTile(material, kind);
   }
 }
+
+/** Original armor silhouettes: a visor, shoulder plate, split leggings and paired boots. */
+const ARMOR_MASKS: Record<string, Mask> = {
+  helmet: (x, y) => x >= 3 && x <= 12 && y >= 3 && y <= 12 &&
+    (y <= 6 || x <= 5 || x >= 10) && !(y === 3 && (x === 3 || x === 12)),
+  chestplate: (x, y) => y >= 2 && y <= 13 &&
+    (y <= 6 ? x >= 1 && x <= 14 && !(x >= 6 && x <= 9 && y <= 4) : x >= 4 && x <= 11),
+  leggings: (x, y) => x >= 3 && x <= 12 && y >= 2 && y <= 13 &&
+    (y <= 5 || x <= 6 || x >= 9),
+  boots: (x, y) => y >= 5 && y <= 13 &&
+    ((x >= 3 && x <= 6) || (x >= 9 && x <= 12) || (y >= 11 && (x === 2 || x === 13))),
+};
+for (const material of ["iron", "golden", "diamond"]) {
+  for (const kind of ["helmet", "chestplate", "leggings", "boots"]) {
+    ITEM_TILE_GENERATORS[`item_${material}_${kind}`] = (t) => {
+      t.fill(() => null);
+      paint(t, ARMOR_MASKS[kind], HEADS[material]);
+      return t;
+    };
+  }
+}

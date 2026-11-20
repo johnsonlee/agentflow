@@ -1,7 +1,7 @@
 import {
-  AIR, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  AIR, ARMOR_SLOTS, applyArmorDamage, BLOCKS, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
-  serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
+  sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
@@ -215,6 +215,7 @@ export class Game {
     window.addEventListener("resize", () => this.resize());
     window.addEventListener("pagehide", () => this.save());
     this.resize();
+    if (this.inventoryScreen.restorePending(this.inventory, this.mode, sanitizeInventoryPending(save?.inventoryPending))) this.suspendInput();
 
     if (this.portfolio.dropped > 0) this.loadErrors.push(`${this.portfolio.dropped} damaged portfolio photos`);
     for (const err of this.loadErrors) this.hud.message(`Dropped damaged saved data: ${err}`);
@@ -286,6 +287,7 @@ export class Game {
         timeOfDay: this.timeOfDay,
         player: { position: { ...this.body.position }, yaw: this.body.yaw, pitch: this.body.pitch, flying: this.body.flying },
         inventory: this.inventory.toJSON(),
+        inventoryPending: this.inventoryScreen.pendingItems(),
         edits: this.world.exportEdits(),
         npcs: this.mobs.exportNpcs(),
         hunger: { ...this.hunger },
@@ -354,7 +356,7 @@ export class Game {
       }, dt);
       this.updateFall(wasOnGround);
       if (this.mode === "survival") this.updateHunger(input.sprint, wasOnGround, dt);
-      if (this.body.position.y < -20) this.hurt(MAX_HEALTH);
+      if (this.body.position.y < -20) this.hurt(MAX_HEALTH, "void");
       if (this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
       const light = skyAt(this.timeOfDay).light;
       // Hostile mobs ignore creative players (as in Minecraft).
@@ -747,7 +749,7 @@ export class Game {
     }
     const change = tickHunger(this.hunger, dt, this.health, MAX_HEALTH);
     if (change > 0) this.health = Math.min(MAX_HEALTH, this.health + change);
-    else if (change < 0) this.hurt(-change);
+    else if (change < 0) this.hurt(-change, "starvation");
   }
 
   private wearTool(uses: number): void {
@@ -768,13 +770,18 @@ export class Game {
       const distance = this.fallStart - y;
       this.fallStart = null;
       const damage = Math.floor(distance - 3);
-      if (damage > 0) this.hurt(damage);
+      if (damage > 0) this.hurt(damage, "fall");
     }
   }
 
-  private hurt(amount: number): void {
-    if (this.mode === "creative" && this.body.position.y > -20) return;
-    this.health = Math.max(0, this.health - amount);
+  private hurt(amount: number, kind: "melee" | "fall" | "starvation" | "void" = "melee"): void {
+    if (!Number.isFinite(amount) || amount <= 0 || (this.mode === "creative" && kind !== "void")) return;
+    const worn = ARMOR_SLOTS.map((slot) => [slot, this.inventory.equipment[slot]?.id] as const);
+    const damage = applyArmorDamage(this.inventory, amount, kind);
+    for (const [slot, id] of worn) {
+      if (id !== undefined && !this.inventory.equipment[slot]) this.hud.message(`${displayNameOf(id)} broke`);
+    }
+    this.health = Math.max(0, this.health - damage);
     this.hud.flashDamage();
     if (this.health === 0 || this.body.position.y < -20) {
       this.dead = true;
@@ -822,8 +829,7 @@ export class Game {
 
   private toggleInventory(): void {
     if (this.inventoryScreen.open) {
-      this.inventoryScreen.hide();
-      this.resumeInput();
+      if (this.inventoryScreen.hide()) this.resumeInput();
     } else {
       this.openInventory("inventory");
     }

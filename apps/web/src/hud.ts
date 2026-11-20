@@ -1,7 +1,7 @@
 import {
-  HOTBAR_SIZE, INVENTORY_SIZE, ITEMS, MAX_PARTICLES, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, fuelSeconds,
-  isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, toolOf,
-  type CraftingGrid, type FurnaceState, type GameMode, type Inventory, type ItemStack,
+  HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, fuelSeconds,
+  isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial,
+  type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
@@ -30,6 +30,7 @@ export class Hud {
   private readonly slots: HTMLElement[] = [];
   private readonly hearts = el("div", "hearts");
   private readonly hunger = el("div", "hunger");
+  private readonly armor = el("div", "armor-meter");
   private readonly itemName = el("div", "item-name");
   private readonly debug = el("pre", "debug");
   private readonly log = el("div", "chat-log");
@@ -60,11 +61,16 @@ export class Hud {
     const stats = el("div", "stats");
     this.hunger.setAttribute("aria-label", "Hunger");
     stats.append(this.hearts, this.hunger);
-    bottom.append(this.itemName, stats, this.hotbar);
+    this.armor.setAttribute("role", "meter");
+    this.armor.setAttribute("aria-label", "Armor protection");
+    this.armor.setAttribute("aria-valuemin", "0");
+    this.armor.setAttribute("aria-valuemax", "20");
+    bottom.append(this.itemName, this.armor, stats, this.hotbar);
     if (touch) {
       const more = el("button", "slot slot-more", "•••");
       more.setAttribute("aria-label", "Open inventory");
-      more.addEventListener("pointerdown", (e) => {
+      more.addEventListener("pointerdown", (e) => e.stopPropagation());
+      more.addEventListener("click", (e) => {
         e.stopPropagation();
         callbacks.onOpenInventory();
       });
@@ -109,7 +115,7 @@ export class Hud {
   }
 
   update(inventory: Inventory, mode: GameMode, health: number, food: number, dt: number): void {
-    const signature = JSON.stringify([inventory.slots.slice(0, HOTBAR_SIZE), inventory.selected, mode, health, food]);
+    const signature = JSON.stringify([inventory.slots.slice(0, HOTBAR_SIZE), inventory.selected, mode, health, food, inventory.equipment]);
     if (signature !== this.lastSignature) {
       const selectedChanged = this.lastSignature === "" || JSON.parse(this.lastSignature)[1] !== inventory.selected;
       this.lastSignature = signature;
@@ -128,6 +134,17 @@ export class Hud {
           if (bar) slot.appendChild(bar);
         }
       });
+      const protection = armorPoints(inventory);
+      this.armor.hidden = mode !== "survival" || protection === 0;
+      this.armor.dataset.armorPoints = String(protection);
+      this.armor.setAttribute("aria-valuenow", String(protection));
+      this.armor.setAttribute("aria-valuetext", `${protection} of 20 armor points`);
+      this.armor.replaceChildren(...Array.from({ length: 10 }, (_, i) => {
+        const points = protection - i * 2;
+        const icon = el("span", `armor-point ${points >= 2 ? "full" : points === 1 ? "half" : "empty"}`, "◆");
+        icon.setAttribute("aria-hidden", "true");
+        return icon;
+      }));
       this.hearts.hidden = mode !== "survival";
       // Minecraft's hunger bar: 10 drumsticks, right-aligned, emptying from the left.
       this.hunger.hidden = mode !== "survival";
@@ -140,7 +157,7 @@ export class Hud {
       );
       this.hearts.replaceChildren(
         ...Array.from({ length: 10 }, (_, i) => {
-          const hp = health - i * 2;
+          const hp = Math.ceil(health) - i * 2;
           return el("span", `heart ${hp >= 2 ? "full" : hp === 1 ? "half" : "empty"}`);
         }),
       );
@@ -242,6 +259,9 @@ export class InventoryScreen {
   private flameFill: HTMLElement | null = null;
   private chem: ChemistryKind | null = null;
   private tab: PaletteTab = "blocks";
+  private closeHint = "";
+  private recovery: ItemStack[] = [];
+  private recovering = false;
   /** Element Constructor settings (kept between openings, like Education Edition's sliders). */
   private readonly particles = { protons: 1, neutrons: 0, electrons: 1 };
 
@@ -276,8 +296,27 @@ export class InventoryScreen {
             : mode === "survival" ? 2 : 0;
     this.grid = new Array(this.width * this.width).fill(null);
     this.cursor = null;
+    this.closeHint = "";
+    this.recovery = [];
+    this.recovering = false;
     this.render();
     this.root.hidden = false;
+    this.panel.scrollTop = 0;
+  }
+
+  /** Saved grid/cursor contents are recovered without recreating a potentially missing station. */
+  restorePending(inventory: Inventory, mode: GameMode, stacks: ItemStack[]): boolean {
+    if (stacks.length === 0) return false;
+    this.show(inventory, mode);
+    this.recovery = structuredClone(stacks);
+    this.recovering = true;
+    this.render();
+    return true;
+  }
+
+  /** A detached save snapshot; saving never moves items out of the live screen. */
+  pendingItems(): ItemStack[] {
+    return structuredClone([...this.recovery, ...this.grid, this.cursor].filter((stack): stack is ItemStack => stack !== null));
   }
 
   /** True when the screen has a work area (crafting grid or chemistry station): the palette fills the cursor. */
@@ -286,14 +325,25 @@ export class InventoryScreen {
   }
 
   /** Closes the screen, returning crafting-grid and cursor items to the inventory. */
-  hide(): void {
+  hide(): boolean {
     if (this.inventory) {
-      for (const stack of [...this.grid, this.cursor]) if (stack) this.inventory.addStack(stack);
+      const returning = this.pendingItems();
+      // Check the entire return first: a full bag must not delete held armor or crafting ingredients.
+      const trial = Inventory.fromJSON(this.inventory.toJSON());
+      if (returning.some((stack) => trial.addStack(stack) > 0)) {
+        this.closeHint = "Inventory full. Make room for held and crafting items before closing.";
+        this.render();
+        return false;
+      }
+      for (const stack of returning) this.inventory.addStack(stack);
     }
     this.grid = [];
     this.cursor = null;
     this.furnace = null;
+    this.recovery = [];
+    this.recovering = false;
     this.root.hidden = true;
+    return true;
   }
 
   /** Called every frame while open: a furnace keeps smelting, so redraw its slots and gauges. */
@@ -319,11 +369,13 @@ export class InventoryScreen {
     header.append(close);
     const parts: HTMLElement[] = [header];
 
-    if (this.chem) parts.push(this.chemistrySection());
+    if (this.recovering) parts.push(this.recoverySection());
+    else if (this.chem) parts.push(this.chemistrySection());
     else if (this.width > 0) parts.push(this.craftingSection());
     if (this.furnace) parts.push(this.furnaceSection());
+    if (this.kind === "inventory") parts.push(this.equipmentSection());
 
-    if (mode === "creative" && !this.furnace) {
+    if (mode === "creative" && !this.furnace && !this.recovering) {
       const tabs = el("div", "palette-tabs");
       for (const [tab, label] of PALETTE_TABS) {
         const b = el("button", `mc-button small palette-tab${tab === this.tab ? " active" : ""}`, label);
@@ -349,7 +401,7 @@ export class InventoryScreen {
       }
       parts.push(grid);
     }
-    if (mode === "survival" || this.working || this.furnace) {
+    if (mode === "survival" || this.working || this.furnace || this.recovering) {
       const backpack = el("div", "item-grid");
       for (let i = HOTBAR_SIZE; i < INVENTORY_SIZE; i++) backpack.appendChild(this.slotCell(i));
       parts.push(backpack);
@@ -372,15 +424,80 @@ export class InventoryScreen {
       cursor.append(el("span", "", "Holding:"), img, el("span", "", `${displayNameOf(this.cursor.id)} ×${this.cursor.count}`));
     }
     parts.push(cursor);
-    const hint = this.chem
+    const hint = this.recovering
+      ? "Recover saved held items into the bag or equip matching armor. Make room before closing; crafting and new item pickup resume afterward."
+      : this.chem
       ? CHEMISTRY_HINTS.get(this.chem)!
       : this.furnace
       ? "Tap a slot to pick items up, then tap the furnace's top slot (to smelt) or bottom slot (fuel). Tap the result to collect it."
       : mode === "creative" && !this.working
-        ? "Pick a block to put it in the selected hotbar slot. Tap a hotbar slot to select it."
+        ? "Pick an item for the hotbar. To wear armor, select it, then tap its matching empty armor slot. Tap worn armor to remove it."
         : "Tap a slot to pick items up, tap another slot to put them down. Crafting cells take one item per tap.";
     parts.push(el("p", "hint", hint));
+    if (this.closeHint) {
+      const status = el("p", "hint inventory-status", this.closeHint);
+      status.setAttribute("role", "status");
+      parts.push(status);
+    }
     this.panel.replaceChildren(...parts);
+  }
+
+  private recoverySection(): HTMLElement {
+    const section = el("section", "recovery-section");
+    section.setAttribute("aria-label", "Saved held items");
+    section.appendChild(el("h3", "", "Saved held items"));
+    const slots = el("div", "item-grid");
+    this.recovery.forEach((stack, index) => {
+      const cell = this.cell(stack.id, stack.count, displayNameOf(stack.id));
+      cell.dataset.recovery = String(index);
+      const bar = durabilityBar(stack);
+      if (bar) cell.appendChild(bar);
+      cell.addEventListener("click", () => {
+        if (this.cursor) return;
+        this.cursor = this.recovery.splice(index, 1)[0];
+        this.render();
+      });
+      slots.appendChild(cell);
+    });
+    section.appendChild(slots);
+    return section;
+  }
+
+  /** Equipment exchanges use the same cursor as the backpack, keeping occupied-slot swaps atomic. */
+  private equipmentSection(): HTMLElement {
+    const section = el("section", "equipment-section");
+    section.setAttribute("aria-label", "Armor equipment");
+    const labels: Record<ArmorSlot, string> = { head: "Head", chest: "Chest", legs: "Legs", feet: "Feet" };
+    const heading = el("div", "equipment-heading", `Armor · ${armorPoints(this.inventory!)} / 20`);
+    const slots = el("div", "equipment-slots");
+    for (const slot of ARMOR_SLOTS) {
+      const worn = this.inventory!.equipment[slot];
+      const label = labels[slot];
+      const column = el("div", "equipment-column");
+      const cell = this.cell(worn?.id ?? null, 0, worn ? displayNameOf(worn.id) : `${label} armor`);
+      cell.dataset.equipment = slot;
+      cell.setAttribute("aria-label", `${label} armor${worn ? `: ${displayNameOf(worn.id)}` : ": empty"}`);
+      if (worn) {
+        const bar = durabilityBar(worn);
+        if (bar) cell.appendChild(bar);
+      } else cell.appendChild(el("span", "equipment-empty", label));
+      cell.addEventListener("click", () => {
+        let incoming = this.cursor;
+        if (this.recovering && !incoming) return;
+        // Creative palette picks remain hotbar picks. An empty equipment slot can copy selected armor.
+        if (!incoming && !worn && this.mode === "creative") {
+          const selected = this.inventory!.selectedStack();
+          if (selected && armorOf(selected.id)?.slot === slot) incoming = { ...selected, count: 1 };
+        }
+        const result = this.inventory!.swapEquipment(slot, incoming);
+        if (result.ok) this.cursor = result.stack;
+        this.render();
+      });
+      column.append(cell, el("span", "equipment-label", label));
+      slots.appendChild(column);
+    }
+    section.append(heading, slots);
+    return section;
   }
 
   private craftingSection(): HTMLElement {
@@ -605,7 +722,9 @@ export class InventoryScreen {
     const bar = stack ? durabilityBar(stack) : null;
     if (bar) cell.appendChild(bar);
     cell.addEventListener("click", () => {
-      if (this.mode === "creative" && !this.working && !this.furnace) {
+      if (this.recovering && !this.cursor) {
+        return;
+      } else if (this.mode === "creative" && !this.working && !this.furnace && !this.cursor) {
         if (index < HOTBAR_SIZE) inventory.select(index);
       } else if (this.cursor) {
         const current = inventory.slots[index];
@@ -651,17 +770,17 @@ const CHEMISTRY_HINTS = new Map<ChemistryKind, string>([
   ["lab_table", "Put ingredients in (one per tap), then tap the result to take the product."],
 ]);
 
-/** Minecraft-style wear bar under a damaged tool's icon (none for new tools and non-tools). */
+/** Wear bar shared by damaged tools and armor (none for undamaged or non-durable items). */
 function durabilityBar(stack: ItemStack): HTMLElement | null {
-  const tool = toolOf(stack.id);
-  if (!tool || !stack.damage) return null;
-  const left = 1 - stack.damage / tool.durability;
+  const durability = durabilityOf(stack.id);
+  if (durability === null || !stack.damage) return null;
+  const left = 1 - stack.damage / durability;
   const bar = el("span", "durability");
   const fill = el("span", "durability-fill");
   fill.style.width = `${Math.round(left * 100)}%`;
   fill.style.background = `hsl(${Math.round(left * 120)}, 90%, 45%)`;
   bar.appendChild(fill);
-  bar.dataset.durability = String(tool.durability - stack.damage);
+  bar.dataset.durability = String(durability - stack.damage);
   return bar;
 }
 

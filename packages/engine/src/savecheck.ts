@@ -7,7 +7,7 @@ import { AGENT_SLOTS, type AgentState } from "./agent";
 import { CHALKBOARD_SIZES, type Chalkboard, type ChalkboardSize } from "./chalkboard";
 import type { HungerState } from "./hunger";
 import type { ItemStack } from "./inventory";
-import { baseStackId, isKnownId, maxStackOf, toolOf } from "./items";
+import { armorOf, baseStackId, durabilityOf, isKnownId, maxStackOf } from "./items";
 import { MAX_FOOD } from "./hunger";
 import type { FurnaceState } from "./smelting";
 
@@ -30,9 +30,29 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   const s: ItemStack = { id: base, count };
   // Tool wear: an integer below the tool's durability (anything else is dropped, i.e. a new tool).
   const damage = own(raw, "damage");
-  const tool = toolOf(id);
-  if (tool && int(damage, 1, tool.durability - 1)) s.damage = damage;
+  const durability = durabilityOf(id);
+  // New armor is strict: invalid wear must not silently repair damaged equipped pieces.
+  if (armorOf(id) && damage !== undefined && !int(damage, 0, durability! - 1)) return null;
+  if (durability !== null && int(damage, 1, durability - 1)) s.damage = damage;
   return s;
+}
+
+/** The inventory UI owns at most nine crafting cells and one held stack. */
+export function sanitizeInventoryPending(raw: unknown): ItemStack[] {
+  if (!Array.isArray(raw)) return [];
+  const result: ItemStack[] = [];
+  for (const value of raw.slice(0, 10)) {
+    const stack = sanitizeStack(value);
+    if (!stack || !isObj(value)) continue;
+    const book = own(value, "book");
+    if (isObj(book) && Array.isArray(own(book, "pages"))) {
+      stack.book = { pages: (own(book, "pages") as unknown[]).slice(0, 50).map((p) => String(p).slice(0, 256)) };
+      if (typeof own(book, "title") === "string") stack.book.title = (own(book, "title") as string).slice(0, 32);
+      if (typeof own(book, "author") === "string") stack.book.author = (own(book, "author") as string).slice(0, 32);
+    }
+    result.push(stack);
+  }
+  return result;
 }
 
 /** A saved Agent, or null if any field is invalid. */

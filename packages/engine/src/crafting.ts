@@ -1,4 +1,4 @@
-import { stackId, type ToolMaterial } from "./items";
+import { stackId, type ArmorMaterial, type ToolMaterial } from "./items";
 import type { ItemStack } from "./inventory";
 
 export interface Recipe {
@@ -24,6 +24,17 @@ function toolRecipes(material: ToolMaterial, head: string): Recipe[] {
   ];
 }
 
+/** Standard shaped armor recipes; all can be translated within the crafting grid. */
+function armorRecipes(material: ArmorMaterial, head: string): Recipe[] {
+  const key = { "#": head };
+  return [
+    { id: `${material}_helmet`, pattern: ["###", "# #"], key, result: [`${material}_helmet`, 1] },
+    { id: `${material}_chestplate`, pattern: ["# #", "###", "###"], key, result: [`${material}_chestplate`, 1] },
+    { id: `${material}_leggings`, pattern: ["###", "# #", "# #"], key, result: [`${material}_leggings`, 1] },
+    { id: `${material}_boots`, pattern: ["# #", "# #"], key, result: [`${material}_boots`, 1] },
+  ];
+}
+
 /**
  * Recipes for the blocks and items this game models. Dyes are not modelled, so a few
  * recipes substitute blocks (see `note`).
@@ -35,6 +46,9 @@ export const RECIPES: readonly Recipe[] = [
   ...toolRecipes("iron", "iron_ingot"),
   ...toolRecipes("golden", "gold_ingot"),
   ...toolRecipes("diamond", "diamond"),
+  ...armorRecipes("iron", "iron_ingot"),
+  ...armorRecipes("golden", "gold_ingot"),
+  ...armorRecipes("diamond", "diamond"),
   { id: "torch", pattern: ["C", "|"], key: { C: "coal", "|": "stick" }, result: ["torch", 4] },
   { id: "torch_from_charcoal", pattern: ["C", "|"], key: { C: "charcoal", "|": "stick" }, result: ["torch", 4] },
   { id: "ink_sac", ingredients: ["coal"], result: ["ink_sac", 1], note: "Minecraft gets ink sacs from squids (not modelled)" },

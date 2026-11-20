@@ -1,5 +1,6 @@
 import type { BlockEdit } from "./world";
-import type { ItemStack } from "./inventory";
+import type { InventoryData, ItemStack } from "./inventory";
+import { sanitizeInventoryPending } from "./savecheck";
 import type { GameMode } from "./rules";
 import { clampPosition, type Vec3 } from "./math";
 import type { HungerState } from "./hunger";
@@ -18,7 +19,9 @@ export interface SaveData {
   timeOfDay: number;
   /** `position` is null when a damaged save had none (the game then uses the spawn point). */
   player: { position: Vec3 | null; yaw: number; pitch: number; flying: boolean };
-  inventory: { slots: (ItemStack | null)[]; selected: number };
+  inventory: InventoryData;
+  /** Held/crafting stacks, recovered through the inventory UI after loading. */
+  inventoryPending?: ItemStack[];
   edits: BlockEdit[];
   /** Game rules (optional for older saves; both default to true). */
   gamerules?: { doMobSpawning: boolean; doDaylightCycle: boolean };
@@ -94,9 +97,11 @@ export function parseSave(text: string): SaveData {
       flying: bool(own(player, "flying"), false),
     },
     inventory: {
-      slots: Array.isArray(own(inventory, "slots")) ? (own(inventory, "slots") as (ItemStack | null)[]) : [],
+      slots: Array.isArray(own(inventory, "slots")) ? (own(inventory, "slots") as InventoryData["slots"]) : [],
       selected: Number.isInteger(own(inventory, "selected")) ? (own(inventory, "selected") as number) : 0,
+      ...(isObj(own(inventory, "equipment")) ? { equipment: own(inventory, "equipment") as InventoryData["equipment"] } : {}),
     },
+    inventoryPending: sanitizeInventoryPending(own(raw, "inventoryPending")),
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true) },
   };
