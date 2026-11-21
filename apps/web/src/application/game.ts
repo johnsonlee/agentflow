@@ -1,5 +1,5 @@
 import {
-  LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
+  cloneStack, freshStack, inspectGlowState, isGlowStickId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
   BalloonStore, balloonColorOf, raycastBalloons, combineReleaseAttempts, type ReleaseAttempt,
   SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
@@ -7,7 +7,7 @@ import {
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type AgentCommand,
+  type AgentState, type CodeProgram, giveAgent, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
@@ -24,6 +24,7 @@ import { WorldDropsView } from "../rendering/worldDropsView";
 import { SnowballProjectilesView } from "../rendering/snowballProjectilesView";
 import { LeashView } from "../rendering/leash-view";
 import { BalloonView } from "../rendering/balloonView";
+import { GlowStickView } from "../rendering/glow-stick-view";
 
 export const SAVE_KEY = "craft.save.v1";
 const REACH = 5;
@@ -75,6 +76,7 @@ export class Game {
   get recentSnowballImpacts(): readonly SnowballImpact[] { return structuredClone(this.snowballImpacts); }
   readonly balloons: BalloonStore;
   private readonly balloonView: BalloonView;
+  private readonly glowStickView: GlowStickView;
   private readonly balloonOriginalRaw: string | null;
   private balloonTarget: { key: number; distance: number } | null = null;
   get targetBalloon(): { key: number; distance: number } | null { return this.balloonTarget ? { ...this.balloonTarget } : null; }
@@ -90,6 +92,7 @@ export class Game {
   private keepInventory = false;
   private recoveryOriginal: string | null = null;
   private recoverySections: string[] = [];
+  private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
   private stopped = false;
   private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
   private readonly handleResize = () => { if (!this.stopped) this.resize(); };
@@ -187,6 +190,7 @@ export class Game {
     this.root.appendChild(canvas);
 
     const save = options.save;
+    this.markGlowRecovery(save);
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
@@ -215,6 +219,7 @@ export class Game {
       (mob) => this.balloons.protectsMob(mob.id));
     this.leashView = new LeashView(this.renderer.scene);
     this.balloonView = new BalloonView(this.renderer.scene);
+    this.glowStickView = new GlowStickView(this.root, atlas);
     const creatures = sanitizeMobState(save?.mobs);
     if (creatures.present) this.mobs.restore(creatures.data, this.mobLoot);
     else for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
@@ -258,8 +263,9 @@ export class Game {
       onCamera: () => this.takePhoto(),
       onPortfolio: () => this.togglePortfolio(),
       onCodeBuilder: () => this.openCodeBuilder(),
+      onShakeGlow: () => { this.tryShakeSelectedGlow(); },
     }, options.touch);
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack));
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.itemsNeedRecovery);
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob) => this.mobs.refresh(mob));
@@ -274,6 +280,7 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    for (const issue of save?.glowOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     if (this.leashes.loadIssues) this.loadErrors.push("Damaged leashes (original save preserved)");
     if (this.balloons.loadIssues) this.loadErrors.push("Damaged balloons (original save preserved)");
     if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
@@ -346,7 +353,7 @@ export class Game {
     this.runner?.stop(); this.keyboard.dispose(); this.farming.dispose();
     this.snowballProjectilesView.dispose(); this.snowballProjectiles.dispose();
     this.leashView.dispose(); this.leashes.dispose();
-    this.balloonView.dispose(); this.balloons.dispose();
+    this.balloonView.dispose(); this.balloons.dispose(); this.glowStickView.dispose();
     this.worldDropsView.dispose(); this.worldDrops.dispose(); this.mobs.dispose();
     this.agentView.dispose(); this.chalkViews.dispose();
     this.root.remove(); this.renderer.dispose();
@@ -404,6 +411,7 @@ export class Game {
 
   private tryDeathTransfer(): boolean {
     if (this.ownershipBusy || !this.deathState) return false;
+    if (this.itemsNeedRecovery) { this.deathError = "Saved items need repair. Export a backup before respawning."; return false; }
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -555,7 +563,7 @@ export class Game {
   }
 
   private dropStack(stack: ItemStack): boolean {
-    if (this.ownershipBusy) return false;
+    if (this.ownershipBusy || this.itemsNeedRecovery) return false;
     const dir = lookDirection(this.body.yaw, 0);
     return this.worldDrops.spawnBatch([structuredClone(stack)], {
       x: this.body.position.x + dir.x * .4, y: this.body.position.y + 1, z: this.body.position.z + dir.z * .4,
@@ -598,7 +606,7 @@ export class Game {
     }
 
     this.clock += dt;
-    const active = !this.paused && !this.dead && !this.screenOpen();
+    const active = !this.paused && !this.dead && !this.screenOpen() && !this.itemsNeedRecovery;
     const frames = [this.keyboard.poll()];
     if (this.touch) frames.push(this.touch.poll());
     const input = mergeFrames(frames);
@@ -648,14 +656,14 @@ export class Game {
       this.eatTimer = 0;
     }
     this.lastPos = { x: this.body.position.x, z: this.body.position.z };
-    if (!this.paused) {
+    if (!this.paused && !this.itemsNeedRecovery) {
       this.worldDrops.update(dt);
       if (!this.dead && !this.screenOpen()) this.worldDrops.tryPickup(this.body.position, (stack) => this.inventory.addStack(stack));
       this.stepAgent(dt);
     }
     this.agentView.update(dt, AGENT_STEP_SECONDS, this.clock);
     // Furnaces keep smelting while the world runs, even with their screen closed.
-    if (!this.paused) {
+    if (!this.paused && !this.itemsNeedRecovery) {
       // Pressure plates under the player and mobs, then redstone ticks (10 per second).
       const feet = (p: { x: number; y: number; z: number }) => `${Math.floor(p.x)},${Math.floor(p.y + 0.05)},${Math.floor(p.z)}`;
       this.redstone.updatePlates(new Set([feet(this.body.position), ...this.mobs.mobs.map((m) => feet(m.position))]));
@@ -676,7 +684,8 @@ export class Game {
 
     const underwater = blockAtEyes((x, y, z) => this.world.getBlock(x, y, z), this.body) === "water";
     this.hud.setUnderwater(underwater);
-    this.hud.update(this.inventory, this.mode, this.health, this.hunger.food, dt);
+    this.hud.update(this.inventory, this.mode, this.health, this.hunger.food, dt, active && !this.ownershipBusy);
+    this.glowStickView.update(this.inventory.selectedStack(), !this.paused && !this.dead && !this.screenOpen());
     this.renderer.setSelection(this.target, this.breakProgress);
     // A held glow stick lights the area around the player (Education Edition).
     this.heldLight = this.inventory.selectedStack()?.id === GLOW_STICK ? HELD_GLOW_LIGHT : 0;
@@ -692,7 +701,7 @@ export class Game {
   }
 
   private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
-    if (this.ownershipBusy) return;
+    if (this.ownershipBusy || this.itemsNeedRecovery) return;
     const eye = { x: this.body.position.x, y: this.body.position.y + EYE_HEIGHT, z: this.body.position.z };
     const dir = lookDirection(this.body.yaw, this.body.pitch);
     const targetable = (id: number) => id !== AIR && blockById(id).shape !== "liquid";
@@ -773,6 +782,9 @@ export class Game {
       this.hud.message(ok ? (held?.id === LEAD ? "Lead attached" : "Lead released") : "No Lead action is available for that creature here");
       return;
     }
+    if (place && held && isGlowStickId(held.id) && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc") {
+      this.tryShakeSelectedGlow(); return;
+    }
     if (this.mobTarget) {
       this.target = null;
       this.breakProgress = 0;
@@ -847,6 +859,12 @@ export class Game {
       return;
     }
 
+    // Ordinary use shakes a colored/stateful stick. Old green block placement stays available.
+    if (place && held && isGlowStickId(held.id) && this.placeCooldown === 0 &&
+        (!t || held.id !== GLOW_STICK || Object.prototype.hasOwnProperty.call(held, "glow"))) {
+      this.tryShakeSelectedGlow(); return;
+    }
+
     // Interactive blocks above keep priority; otherwise a snowball also throws into empty sky.
     if (place && held?.id === SNOWBALL && this.placeCooldown === 0) { this.throwSnowball(); return; }
 
@@ -914,8 +932,31 @@ export class Game {
     if (pick && t && this.mode === "creative") {
       // Hidden world states (including element cubes) pick their established inventory identity.
       const canonical = baseStackId(t.id);
-      if (isKnownId(canonical) && (isItem(canonical) || tryBlockById(canonical)?.creative)) this.inventory.pick(canonical);
+      if (isKnownId(canonical) && (isItem(canonical) || tryBlockById(canonical)?.creative)) this.inventory.pick(canonical, t.id === blockId("placed_glow_stick"));
     }
+  }
+
+  /** Retain the exact stored envelope before any item loader can repair it. */
+  private markGlowRecovery(save: Pick<SaveData, "glowOwnershipIssues"> | undefined): void {
+    if (!save?.glowOwnershipIssues?.length) return;
+    this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.itemsNeedRecovery) this.recoverySections.push("saved items");
+  }
+
+  /** A single input edge commits one complete per-unit activation before its visual response. */
+  tryShakeSelectedGlow(): boolean {
+    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.itemsNeedRecovery || this.stopped) return false;
+    const result = this.inventory.activateSelectedGlow();
+    if (!result.ok) {
+      if (result.reason !== "not-glow") this.hud.message(result.reason === "needs-room"
+        ? "Make room for the remaining glow sticks before shaking one."
+        : result.reason === "already-active" ? "This glow stick is already glowing." : "These items need attention before they can be used.");
+      return false;
+    }
+    this.placeCooldown = .25; this.breakProgress = 0; this.breakKey = "";
+    this.glowStickView.update(this.inventory.selectedStack(), true); this.glowStickView.shake();
+    this.hud.message("Glow stick shaken");
+    return true;
   }
 
   /** One use edge allocates a consumed projectile owner before removing its source item. */
@@ -973,7 +1014,7 @@ export class Game {
 
   /** /agent tp: brings the Agent next to the player. */
   teleportAgent(): boolean {
-    if (this.ownershipBusy) return false;
+    if (this.ownershipBusy || this.itemsNeedRecovery) return false;
     const next = this.agentNearPlayer();
     if (!next) return false;
     Object.assign(this.agent, { x: next.x, y: next.y, z: next.z, facing: next.facing });
@@ -990,13 +1031,15 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
+    if (this.itemsNeedRecovery) return "Saved items need repair. Export a backup before moving items";
     if (this.ownershipBusy) return "Items are being transferred. Retry giving them afterward";
     if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
     if (!held) return "Select a stack in your hotbar first";
     // Creative has unlimited blocks: give a full stack without taking any.
-    const count = this.mode === "creative" ? maxStackOf(held.id) : held.count;
-    const left = giveAgent(this.agent, { ...held, count });
+    const count = this.mode === "creative" ? stackLimit(held) : held.count;
+    if (count < 1 || inspectGlowState(held).kind === "invalid") return "These items need attention before they can be moved";
+    const left = giveAgent(this.agent, cloneStack(held, count));
     const given = count - left;
     if (this.mode === "survival") {
       held.count = left;
@@ -1007,7 +1050,7 @@ export class Game {
 
   /** Starts a Code Builder program (stopping any running one). Invalid programs are refused with a message. */
   runProgram(program: CodeProgram): boolean {
-    if (this.dead) return false;
+    if (this.dead || this.itemsNeedRecovery) return false;
     this.runner?.stop();
     this.runner = null;
     const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true);
@@ -1255,6 +1298,7 @@ export class Game {
     if (this.dead || this.ownershipBusy) return;
     this.suspendInput();
     const furnace = kind === "furnace" && this.openFurnace ? (this.furnaces.get(this.openFurnace) ?? null) : null;
+    if (this.itemsNeedRecovery && this.inventoryScreen.resumePending()) return;
     this.inventoryScreen.show(this.inventory, this.mode, kind, furnace);
   }
 
@@ -1319,6 +1363,7 @@ export class Game {
 
   /** Executes a chat line; returns the feedback shown to the player. */
   runChat(text: string): string {
+    if (this.itemsNeedRecovery && text.startsWith("/")) return "Saved items need repair. Export a backup before using commands";
     if (this.dead) return "Respawn before using commands";
     if (this.ownershipBusy) return "Items are being transferred. Retry the command afterward";
     if (!text.startsWith("/")) {
@@ -1451,9 +1496,9 @@ export class Game {
   private starterInventory(): Inventory {
     const inv = new Inventory();
     if (this.mode === "creative") {
-      ["grass", "dirt", "stone", "cobblestone", "oak_planks", "oak_log", "glass", "bricks", "glowstone"].forEach((n, i) =>
-        inv.setSlot(i, { id: blockId(n), count: 1 }),
-      );
+      ["grass", "dirt", "stone", "cobblestone", "oak_planks", "oak_log", "glass", "bricks", "glowstone"].forEach((n, i) => {
+        if (!inv.setSlot(i, freshStack(blockId(n)))) throw new Error("Starter inventory could not be created");
+      });
     }
     return inv;
   }

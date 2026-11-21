@@ -667,9 +667,15 @@ export function countBlocksNear(page: Page, at: { x: number; y: number; z: numbe
   }, [at, names, r] as const);
 }
 
-/** Survival kit for the lab products. Slots: 0 super fertilizer, 1 ice bomb, 2 heat block, 3 underwater torch, 4 glow stick, 5 torch. */
+/** Survival kit: five actual grants plus two preowned metadata-less legacy green sticks.
+ * The legacy fixture preserves the old placed/light compatibility route; fresh activation is tested separately.
+ * Slots: 0 super fertilizer, 1 ice bomb, 2 heat block, 3 underwater torch, 4 legacy green, 5 torch. */
 export async function giveLabProducts(page: Page) {
-  for (const c of ["super_fertilizer 2", "ice_bomb 2", "heat_block", "underwater_torch", "glow_stick 2", "torch"]) await command(page, `/give ${c}`);
+  for (const c of ["super_fertilizer 2", "ice_bomb 2", "heat_block", "underwater_torch"]) await command(page, `/give ${c}`);
+  expect(await page.evaluate(() => window.__craft.game!.inventory.slots[4])).toBeNull();
+  await page.evaluate(() => { window.__craft.game!.inventory.slots[4] = { id: window.__craft.stackId("glow_stick"), count: 2 }; });
+  await command(page, "/give torch");
+  expect(await page.evaluate(() => window.__craft.game!.inventory.slots[4])).toEqual({ id: await page.evaluate(() => window.__craft.stackId("glow_stick")), count: 2 });
   expect(await countStack(page, "glow_stick")).toBe(2);
 }
 
@@ -726,7 +732,7 @@ export async function labProductEffects(page: Page, use: (slot: number, yaw: num
   await expect.poll(() => page.evaluate((p) => window.__craft.game!.world.getBlock(p.x, p.y, p.z), wet)).toBe(await page.evaluate(() => window.__craft.blockId("placed_underwater_torch")));
   expect(await page.evaluate((p) => window.__craft.game!.world.getLight(p.x, p.y + 1, p.z) & 15, wet)).toBe(13);
 
-  // Glow stick: held, it lights the player's surroundings; placed, it emits block light.
+  // Legacy green compatibility: held, it lights the player's surroundings; placed, it emits block light.
   expect(await page.evaluate(() => window.__craft.game!.heldLight)).toBe(0);
   const lit = await use(4, -Math.PI / 4);
   await expect.poll(() => page.evaluate(() => window.__craft.game!.heldLight)).toBe(10);

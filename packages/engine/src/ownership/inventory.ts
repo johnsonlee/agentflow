@@ -1,5 +1,6 @@
-import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, maxStackOf, toolOf, type ArmorSlot } from "../catalog/items";
-import { cloneStack, stacksCompatible } from "./stack";
+import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, stackId, toolOf, type ArmorSlot } from "../catalog/items";
+import { cloneStack, hasCloneableBookMetadata, insertStackIntoSlots, planGlowActivation, spaceForStackInSlots, stackLimit, stacksCompatible } from "./stack";
+import { freshStack, inspectGlowState, type GlowActivationResult, type GlowStickState } from "./glow-stick-state";
 import { sanitizeStack } from "../persistence/savecheck";
 
 export const HOTBAR_SIZE = 9;
@@ -13,6 +14,8 @@ export interface ItemStack {
   damage?: number;
   /** Book & Quill / Written Book contents. */
   book?: { pages: string[]; title?: string; author?: string };
+  /** Optional application-owned shake activation. Absence preserves legacy saves. */
+  glow?: GlowStickState;
 }
 
 export interface InventoryData {
@@ -42,7 +45,7 @@ export class Inventory {
 
   /** Adds items, filling existing stacks first. Returns the number that did not fit. */
   add(id: number, count = 1): number {
-    return this.addStack({ id, count });
+    return this.addStack(freshStack(id, count));
   }
 
   /**
@@ -50,31 +53,15 @@ export class Inventory {
    * Returns the number of items that did not fit.
    */
   addStack(stack: ItemStack): number {
-    if (!isKnownId(stack.id)) return stack.count;
-    stack = { ...cloneStack(stack), id: baseStackId(stack.id) };
-    const max = maxStackOf(stack.id);
-    let left = stack.count;
-    if (max > 1) {
-      for (const s of this.slots) {
-        if (left === 0) break;
-        if (s && stacksCompatible(s, stack) && s.count < max) {
-          const n = Math.min(max - s.count, left);
-          s.count += n;
-          left -= n;
-        }
-      }
-    }
-    for (let i = 0; i < this.slots.length && left > 0; i++) {
-      if (!this.slots[i]) {
-        const n = Math.min(max, left);
-        const s: ItemStack = { id: stack.id, count: n };
-        if (stack.damage) s.damage = stack.damage;
-        if (stack.book) s.book = { ...stack.book, pages: [...stack.book.pages] };
-        this.slots[i] = s;
-        left -= n;
-      }
-    }
-    return left;
+    return insertStackIntoSlots(this.slots, stack);
+  }
+
+  /** One synchronous ownership commit. UI/clock/callbacks are deliberately absent. */
+  activateSelectedGlow(): GlowActivationResult {
+    const plan = planGlowActivation(this.slots, this.selected);
+    if (!plan.ok) return plan;
+    for (let index = 0; index < this.slots.length; index++) this.slots[index] = plan.slots[index];
+    return { ok: true, kind: "activated", color: plan.color };
   }
 
   /**
@@ -135,28 +122,32 @@ export class Inventory {
   }
 
   /** Creative pick: puts a block in the hotbar, reusing a slot that already holds it. */
-  pick(id: number): void {
+  pick(id: number, legacy = false): void {
     if (!isKnownId(id)) return;
     id = baseStackId(id);
-    const existing = this.slots.findIndex((s, i) => i < HOTBAR_SIZE && s?.id === id);
+    // Only an explicit old placed-green block pick creates its legacy item owner.
+    const desired = legacy && id === stackId("glow_stick") ? { id, count: 1 } : freshStack(id);
+    const existing = this.slots.findIndex((stack, index) => index < HOTBAR_SIZE && stack !== null && stacksCompatible(stack, desired));
     if (existing >= 0) {
       this.selected = existing;
       return;
     }
-    this.slots[this.selected] = { id, count: 1 };
+    this.slots[this.selected] = desired;
   }
 
-  setSlot(slot: number, stack: ItemStack | null): void {
+  /** Refusal leaves both owners unchanged. Callers must check true before debiting a cursor/source. */
+  setSlot(slot: number, stack: ItemStack | null): boolean {
+    if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_SIZE) return false;
+    if (stack && (!isKnownId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
+      || inspectGlowState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))) return false;
     this.slots[slot] = stack ? { ...cloneStack(stack), id: baseStackId(stack.id) } : null;
+    return true;
   }
 
-  /** How many more of `id` could be added to the inventory. */
-  spaceFor(id: number): number {
-    if (!isKnownId(id)) return 0;
-    id = baseStackId(id);
-    const max = maxStackOf(id);
-    return this.slots.reduce((n, s) => n + (!s ? max : s.id === id && max > 1 ? max - s.count : 0), 0);
-  }
+  /** Legacy ID-only capacity remains a metadata-less query. Stateful callers use spaceForStack. */
+  spaceFor(id: number): number { return this.spaceForStack({ id, count: 1 }); }
+
+  spaceForStack(stack: ItemStack): number { return spaceForStackInSlots(this.slots, stack); }
 
   swap(a: number, b: number): void {
     const t = this.slots[a];

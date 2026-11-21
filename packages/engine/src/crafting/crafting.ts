@@ -1,3 +1,4 @@
+import { freshStack } from "../ownership/glow-stick-state";
 import { BALLOON_COLORS } from "../catalog/balloon-colors";
 import { DYE_COLORS } from "../catalog/dyes";
 import { GLOW_STICK_COLORS } from "../catalog/glow-stick-colors";
@@ -187,7 +188,7 @@ export function matchRecipe(grid: CraftingGrid, width: number): { recipe: Recipe
   if (cells.length === 0) return null;
   for (const recipe of RECIPES) {
     const ok = recipe.pattern ? shapedMatches(recipe, cells) : shapelessMatches(recipe, grid);
-    if (ok) return { recipe, result: { id: stackId(recipe.result[0]), count: recipe.result[1] } };
+    if (ok) return { recipe, result: freshStack(stackId(recipe.result[0]), recipe.result[1]) };
   }
   return null;
 }

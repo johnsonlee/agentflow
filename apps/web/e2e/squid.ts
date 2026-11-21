@@ -66,7 +66,16 @@ async function harness(page: Page, info: TestInfo, mobile: boolean, route: strin
     const tentacles: { index: number; rotation: number[] }[] = [];
     model?.traverse(o => { if (o.userData.tentacle !== undefined) tentacles.push({ index: o.userData.tentacle, rotation: [o.rotation.x, o.rotation.y, o.rotation.z] }); });
     const water = m ? [.1, .4, .85].map(f => g.world.getLoadedBlock(Math.floor(m.position.x), Math.floor(m.position.y + .95 * f), Math.floor(m.position.z)) ?? null) : null;
+    const agent = structuredClone(g.agent);
+    const [fx, fz] = [[0, 1], [-1, 0], [0, -1], [1, 0]][agent.facing];
+    const directions = { forward: [fx, 0, fz], back: [-fx, 0, -fz], left: [fz, 0, -fx], right: [-fz, 0, fx], up: [0, 1, 0], down: [0, -1, 0] };
+    const agentTargets = Object.entries(directions).map(([direction, [dx, dy, dz]]) => {
+      const x = agent.x + dx, y = agent.y + dy, z = agent.z + dz;
+      return { direction, x, y, z, loadedId: g.world.getLoadedBlock(x, y, z) ?? null,
+        headLoadedId: g.world.getLoadedBlock(x, y + 1, z) ?? null, supportLoadedId: g.world.getLoadedBlock(x, y - 1, z) ?? null };
+    });
     return { at: performance.now(), player: structuredClone(g.body), playerHealth: g.health, dead: g.dead, target: g.targetMob?.id ?? null,
+      agent, agentTargets, programRunning: g.programRunning, paused: g.paused, areaReady: g.renderer.isAreaReady(2),
       mob, water, bodyCells, tentacles, biome: m ? g.world.generator.biomeAt(Math.floor(m.position.x), Math.floor(m.position.z)) : null,
       spawning: g.mobs.spawning, animalCount: g.mobs.animalCount(), squidCount: g.mobs.squidCount(),
       inventory: structuredClone(g.inventory.slots), drops: structuredClone(g.worldDrops.records),
@@ -187,6 +196,27 @@ async function harness(page: Page, info: TestInfo, mobile: boolean, route: strin
   return { observations, errors, press, inv, slotOf, empty, openInventory, closeInventory, select, use, pause, saveQuit, resume, state, alive, playerNear, playerKill, summon, inkGround, pickupInk, swimEvidence, record, finish };
 }
 
+/** Second-kill-only raw fixture: separate from the wide swimming aquarium and natural ocean.
+ * Two water layers are required by the production whole-body summon margin. The surrounding
+ * platform ends at base+3, leaving a dry unobstructed Agent navigation plane at that height. */
+async function prepareSecondAgentWell(page: Page, origin: { x: number; z: number; floor: number }) {
+  return page.evaluate(o => {
+    const g = window.__craft.game!, x = Math.floor(o.x) + 20, z = Math.floor(o.z), base = o.floor;
+    const solid = window.__craft.blockId("bedrock"), water = window.__craft.blockId("water");
+    for (let dx = -4; dx <= 5; dx++) for (let dz = -4; dz <= 5; dz++) {
+      g.world.setBlock(x + dx, base, z + dz, solid);
+      for (let y = base + 1; y <= base + 2; y++)
+        g.world.setBlock(x + dx, y, z + dz, dx >= 0 && dx <= 1 && dz >= 0 && dz <= 1 ? water : solid);
+      for (let y = base + 3; y <= base + 11; y++) g.world.setBlock(x + dx, y, z + dz, 0);
+    }
+    const cells = [];
+    for (let dx = -4; dx <= 5; dx++) for (let dz = -4; dz <= 5; dz++)
+      for (let y = base; y <= base + 11; y++) cells.push({ x: x + dx, y, z: z + dz, id: g.world.getLoadedBlock(x + dx, y, z + dz) ?? null });
+    return { x, z, base, agentFeet: base + 3, approach: { x: x + .5, y: base + 3, z: z + 3.5 }, cells,
+      qualification: "Disclosed second-Agent mechanics well: 2x2 horizontal cells, two vertical water layers, solid floor and two-high surrounding platform; no actor or outcome state assigned." };
+  }, origin);
+}
+
 /** Aquarium mechanics: full-bag WorldDrops are independent from receiver refusal. Real base random
  * roll1..3 is retained as observed, never rerolled. A second genuine Agent kill supplies dye if needed. */
 export async function squidAquariumRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -271,17 +301,50 @@ export async function squidAquariumRoute(page: Page, info: TestInfo, mobile: boo
     result.book = book;
     expect(book?.book).toEqual(expect.objectContaining({ title: "Ocean field notes", author: "Player", pages: ["Ordinary squid ink acquired from a living swimming actor."] }));
     // Always a second genuine kill through the Code Builder Agent, regardless of the first roll.
-    await command(page, `/tp ${origin.x} ${origin.y} ${origin.z + 5}`);
+    const agentWell = await prepareSecondAgentWell(page, origin);
+    result.agentWell = agentWell;
+    f.observations.push({ kind: "second-Agent-raw-terrain-fixture-ACK", agentWell });
+    await command(page, `/tp ${agentWell.approach.x} ${agentWell.approach.y} ${agentWell.approach.z}`);
+    await page.waitForFunction(() => window.__craft.game!.renderer.isAreaReady(2), undefined, { timeout: 60_000 });
+    const expectedSpawn = { x: agentWell.x + .5, y: agentWell.base + 1.2, z: agentWell.z + .5 };
+    const expectedBox = bodyBox(expectedSpawn, .95, .95), summonClearance = [];
+    for (let x = Math.floor(expectedBox.minX); x <= Math.floor(expectedBox.maxX - 1e-6); x++)
+      for (let y = Math.floor(expectedBox.minY - .15); y <= Math.floor(expectedBox.maxY + .15); y++)
+        for (let z = Math.floor(expectedBox.minZ); z <= Math.floor(expectedBox.maxZ - 1e-6); z++)
+          summonClearance.push(agentWell.cells.find(cell => cell.x === x && cell.y === y && cell.z === z) ?? { x, y, z, id: null });
+    f.observations.push({ kind: "second-Agent-raw-well-ordinary-command-clearance", expectedSpawn, summonClearance });
+    expect(summonClearance.length).toBeGreaterThan(0); expect(summonClearance.every(cell => cell.id === blockId("water"))).toBe(true);
     const agentId = await f.summon();
     const agentAttempts: unknown[] = [];
     result = { ...result, bookSave, book, agentId, agentAttempts, stage: "actual-agent-programs" };
+    const initialState = await f.state(agentId), initialMob = initialState.mob!;
+    // Independent loaded-cell readback verifies the actual ordinary summon, without repositioning it.
+    const missing: { x: number; y: number; z: number }[] = [];
+    const get = (x: number, y: number, z: number) => {
+      const cell = initialState.bodyCells.find(cell => cell.x === x && cell.y === y && cell.z === z);
+      if (cell?.id === undefined || cell.id === null) { missing.push({ x, y, z }); return blockId("stone"); }
+      return cell.id;
+    };
+    const box = bodyBox(initialMob.position, .95, .95), bodyWater = [];
+    for (let x = Math.floor(box.minX); x <= Math.floor(box.maxX - 1e-6); x++)
+      for (let y = Math.floor(box.minY); y <= Math.floor(box.maxY - 1e-6); y++)
+        for (let z = Math.floor(box.minZ); z <= Math.floor(box.maxZ - 1e-6); z++) bodyWater.push({ x, y, z, id: get(x, y, z) });
+    const collides = boxCollides(get, box);
+    result.agentWellSummon = { initialState, bodyWater, missing, collides };
+    f.observations.push({ kind: "second-Agent-actual-summon-loaded-water-geometry", evidence: result.agentWellSummon });
+    expect(missing).toEqual([]); expect(initialState.bodyCells.every(cell => cell.id !== null)).toBe(true);
+    expect(bodyWater.every(cell => cell.id === blockId("water"))).toBe(true); expect(collides).toBe(false);
+    expect(initialMob.position.x).toBeGreaterThanOrEqual(agentWell.x + .475);
+    expect(initialMob.position.x).toBeLessThanOrEqual(agentWell.x + 2 - .475);
+    expect(initialMob.position.z).toBeGreaterThanOrEqual(agentWell.z + .475);
+    expect(initialMob.position.z).toBeLessThanOrEqual(agentWell.z + 2 - .475);
+    await command(page, `/tp ${Math.floor(initialMob.position.x) + 2.5} ${agentWell.agentFeet} ${Math.floor(initialMob.position.z) + .5}`);
+    await look(page, 0, 0); await command(page, "/agent tp");
+    result.agentStart = await f.state(agentId); // Read-only ACK of the one actual initial teleport.
     for (let attempt = 0; attempt < 12 && await f.alive(agentId); attempt++) {
       const attemptEvidence: Record<string, unknown> = { attempt, before: await f.state(agentId) };
       agentAttempts.push(attemptEvidence); f.observations.push({ kind: "actual-agent-program-attempt", evidence: attemptEvidence });
       try {
-      const m = (await f.state(agentId)).mob!;
-      await command(page, `/tp ${Math.floor(m.position.x) + 2.5} ${m.position.y} ${Math.floor(m.position.z) + .5}`);
-      await look(page, 0, 0); await command(page, "/agent tp");
       if (mobile) await f.press(page.getByRole("button", { name: "Code Builder", exact: true })); else await page.keyboard.press("KeyK");
       await expect(page.locator(".code-screen")).toBeVisible(); await f.press(page.getByRole("button", { name: "New", exact: true }));
       const relative = await page.evaluate(i => {
@@ -289,15 +352,24 @@ export async function squidAquariumRoute(page: Page, info: TestInfo, mobile: boo
         const dx = Math.floor(m.position.x) - a.x, dz = Math.floor(m.position.z) - a.z;
         const [fx, fz] = [[0, 1], [-1, 0], [0, -1], [1, 0]][a.facing];
         const dirs = { forward: [fx, fz], back: [-fx, -fz], left: [fz, -fx], right: [-fz, fx] };
-        const direction = dx === 0 && dz === 0 ? (m.position.y > a.y ? "up" : "down")
-          : Object.entries(dirs).find(([, [x, z]]) => x === dx && z === dz)?.[0];
+        const dy = m.position.y - a.y;
+        const horizontalDirection = Object.entries(dirs).find(([, [x, z]]) => x === dx && z === dz)?.[0];
+        const verticalDirection = dy > 0 ? "up" : "down";
+        // Match the production floor-XZ and strict height predicate at the observed decision.
+        const direction = dx === 0 && dz === 0
+          ? (Math.abs(dy - (verticalDirection === "up" ? 1 : -1)) < 1.5 ? verticalDirection : undefined)
+          : (horizontalDirection && Math.abs(dy) < 1.5 ? horizontalDirection : undefined);
         const desired = Math.abs(dx) >= Math.abs(dz) ? [Math.sign(dx), 0] : [0, Math.sign(dz)];
-        const moveDirection = Math.abs(m.position.y - a.y) >= 1.5 ? (m.position.y > a.y ? "up" : "down")
-          : Object.entries(dirs).find(([, [x, z]]) => x === desired[0] && z === desired[1])?.[0] ?? "up";
-        return { agent: structuredClone(a), mob: structuredClone(m), dx, dz, direction, moveDirection };
+        // Align XZ on the clear platform plane before any vertical step. Once directly above
+        // the well, the existing down-attack height predicate can reach its two water layers.
+        const moveDirection = dx !== 0 || dz !== 0
+          ? Object.entries(dirs).find(([, [x, z]]) => x === desired[0] && z === desired[1])?.[0] ?? "up"
+          : (m.position.y > a.y ? "up" : "down");
+        return { agent: structuredClone(a), mob: structuredClone(m), dx, dy, dz, direction, moveDirection };
       }, agentId);
-      // Editor pauses actor simulation. Navigate the real Agent one cell toward the observed cell,
-      // or attack the actually adjacent cell. No Agent or mob coordinate is assigned by the fixture.
+      // Editor pauses actor simulation. Retain actual Agent navigation across attempts; attack only
+      // when the observed cell meets production geometry. The moving actor can still leave the cell.
+      // No Agent/mob outcome or coordinate is assigned by the fixture.
       const operation = relative.direction ? "attack" : "move";
       const direction = relative.direction ?? relative.moveDirection;
       Object.assign(attemptEvidence, { relative, operation, direction });
@@ -328,7 +400,7 @@ export async function squidAquariumRoute(page: Page, info: TestInfo, mobile: boo
     expect(await countStack(page, "black_dye")).toBe(1); expect(await countStack(page, "ink_sac")).toBe(roll + secondRoll - 2);
     await f.select("written_book"); await f.use(); await expect(page.locator(".book-title")).toHaveText("Ocean field notes");
     await f.press(page.getByRole("button", { name: "Done", exact: true }));
-    result = { origin, id, living, restoredLiving, liveSave, roll, ground, pendingSave, bookSave, book, agentId, agentAttempts, secondRoll, secondAcquiredBeforePickup, agentGround, finalSave, conservation: { genuineInk: roll + secondRoll, bookConsumed: 1, dyeConsumed: 1, remainingInk: roll + secondRoll - 2 }, stage: "complete" };
+    result = { origin, id, living, restoredLiving, liveSave, roll, ground, pendingSave, bookSave, book, agentWell, agentWellSummon: result.agentWellSummon, agentId, agentAttempts, secondRoll, secondAcquiredBeforePickup, agentGround, finalSave, conservation: { genuineInk: roll + secondRoll, bookConsumed: 1, dyeConsumed: 1, remainingInk: roll + secondRoll - 2 }, stage: "complete" };
   } catch (error) { originalFailure = error; result.failure = String(error); throw error; }
   finally { await f.finish(result, originalFailure); }
 }

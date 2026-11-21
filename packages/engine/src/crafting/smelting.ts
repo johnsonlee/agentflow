@@ -3,7 +3,10 @@
  * fuel is consumed only when the previous one has burnt out and there is something to smelt.
  */
 import type { ItemStack } from "../ownership/inventory";
-import { maxStackOf, stackId } from "../catalog/items";
+import { isKnownId, stackId } from "../catalog/items";
+
+import { cloneStack, hasCloneableBookMetadata, stackLimit, stacksCompatible } from "../ownership/stack";
+import { freshStack, inspectGlowState } from "../ownership/glow-stick-state";
 
 export const SMELT_SECONDS = 10;
 
@@ -69,6 +72,9 @@ function resetProgress(f: FurnaceState): void {
 
 /** Transfers input ownership unchanged and returns the previous owner to the caller. */
 export function setFurnaceInput(f: FurnaceState, incoming: ItemStack | null): ItemStack | null {
+  // Returning an invalid incoming owner unchanged lets the cursor retain it transactionally.
+  if (incoming && (!isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count < 1
+    || inspectGlowState(incoming).kind === "invalid" || !hasCloneableBookMetadata(incoming) || incoming.count > stackLimit(incoming))) return incoming;
   const previous = f.input;
   // Removing and reinserting between simulation frames must also forfeit partial work.
   if (previous?.id !== incoming?.id) resetProgress(f);
@@ -80,7 +86,8 @@ function canSmelt(f: FurnaceState): boolean {
   if (!f.input) return false;
   const result = smeltResult(f.input.id);
   if (result === null) return false;
-  return !f.output || (f.output.id === result && f.output.count < maxStackOf(result));
+  const produced = freshStack(result);
+  return !f.output || (stacksCompatible(f.output, produced) && f.output.count < stackLimit(produced));
 }
 
 function take(stack: ItemStack | null): ItemStack | null {
@@ -112,7 +119,7 @@ export function tickFurnace(f: FurnaceState, dt: number): void {
         f.progress += step / SMELT_SECONDS;
         if (f.progress >= 1 - 1e-9) {
           const result = smeltResult(f.input!.id)!;
-          f.output = f.output ? { ...f.output, count: f.output.count + 1 } : { id: result, count: 1 };
+          f.output = f.output ? cloneStack(f.output, f.output.count + 1) : freshStack(result);
           f.input = take(f.input);
           resetProgress(f);
         }
@@ -129,5 +136,5 @@ export function tickFurnace(f: FurnaceState, dt: number): void {
 
 /** Everything held in a furnace, e.g. to return to the player when it is broken. */
 export function furnaceContents(f: FurnaceState): ItemStack[] {
-  return [f.input, f.fuel, f.output].filter((s): s is ItemStack => s !== null);
+  return [f.input, f.fuel, f.output].filter((s): s is ItemStack => s !== null).map(stack => cloneStack(stack));
 }

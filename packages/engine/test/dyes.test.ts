@@ -82,7 +82,7 @@ it("crafts the existing green glow stick from six distinct polyethylene cells in
   const names = ["polyethylene", "hydrogen_peroxide", "polyethylene", "polyethylene", "green_dye", "polyethylene", "polyethylene", "luminol", "polyethylene"];
   const grid = names.map((name) => stack(name, 3));
   const oldGlow = stackId("underwater_torch") + 1; expect(stackId("glow_stick")).toBe(oldGlow);
-  expect(craftOnce(grid, 3)).toEqual({ id: oldGlow, count: 1 }); expect(grid.every((s) => s.count === 2)).toBe(true);
+  expect(craftOnce(grid, 3)).toEqual({ id: oldGlow, count: 1, glow: { state: "inactive" } }); expect(grid.every((s) => s.count === 2)).toBe(true);
   for (const index of [0, 2, 3, 5, 6, 8]) {
     const missing: CraftingGrid = names.map((name) => stack(name)); missing[index] = null; const before = structuredClone(missing);
     expect(craftOnce(missing, 3)).toBeNull(); expect(missing).toEqual(before);

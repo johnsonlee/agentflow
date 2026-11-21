@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
-  matchRecipe,
+  matchRecipe, freshStack,
   BLOCKS, COMPOUNDS, ELEMENTS, Inventory, ITEMS, LAB_REACTIONS, REDUCTIONS, addExhaustion, constructElement, createCompound,
   displayNameOf, elementByZ, isKnownId, itemById, labReaction, nameOf, createHunger, reduceMaterial, sanitizeStack, stackId,
 } from "../src/index";
@@ -169,7 +169,7 @@ describe("glow stick crafting (review 0ee9512d)", () => {
     expect(ok(createCompound(stacks(["carbon", 10], ["hydrogen", 20])))).toBe("polyethylene");
     const P = { id: id("polyethylene"), count: 1 };
     const grid = [P, { id: id("hydrogen_peroxide"), count: 1 }, P, P, { id: id("green_dye"), count: 1 }, P, P, { id: id("luminol"), count: 1 }, P];
-    expect(matchRecipe(grid, 3)?.result).toEqual({ id: id("glow_stick"), count: 1 });
+    expect(matchRecipe(grid, 3)?.result).toEqual(freshStack(id("glow_stick")));
     expect(matchRecipe([P, null, P, P, { id: id("hydrogen_peroxide"), count: 1 }, P, null, P, null], 3)).toBeNull();
   });
 

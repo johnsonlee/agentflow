@@ -3,6 +3,7 @@
  * field is type-checked using own properties only (keys like "__proto__" or "constructor" never
  * resolve to built-ins). Invalid entries are dropped and counted; nothing here throws.
  */
+import { inspectGlowState } from "../ownership/glow-stick-state";
 import { BLOCK_ID_LIMIT } from "../core/ids";
 import { isKnownBlockId } from "../catalog/blocks";
 import { AGENT_SLOTS, type AgentState } from "../automation/agent";
@@ -29,7 +30,10 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   // Hidden state blocks (powered dust, a pressed button, an open door half...) become their base item.
   const base = baseStackId(id);
   if (!int(count, 1, maxStackOf(base))) return null;
+  const glow = inspectGlowState(raw);
+  if (glow.kind === "invalid") return null;
   const s: ItemStack = { id: base, count };
+  if (glow.kind === "inactive" || glow.kind === "active") s.glow = { state: glow.kind };
   // Tool wear: an integer below the tool's durability (anything else is dropped, i.e. a new tool).
   const damage = own(raw, "damage");
   const durability = durabilityOf(id);

@@ -8,12 +8,12 @@ import { bodyBox } from "../simulation/physics";
  * (it can't build or break in Deny areas).
  */
 import type { DropSink } from "../ownership/world-drops";
-import { cloneStack, stacksCompatible } from "../ownership/stack";
+import { cloneStack, insertStackIntoSlots } from "../ownership/stack";
 import { blockDrops } from "../simulation/farming";
 import { AIR, tryBlockById, blockById, isSolid } from "../catalog/blocks";
 import { FACING_DIRS } from "../education/chalkboard";
 import type { ItemStack } from "../ownership/inventory";
-import { baseStackId, isKnownId, maxStackOf, placedBlockOf } from "../catalog/items";
+import { isKnownId, placedBlockOf } from "../catalog/items";
 import { doorPartner, orientedPlacement } from "../simulation/redstone";
 import { WORLD_HEIGHT } from "../world/chunk";
 import { WORLD_BORDER, type Vec3 } from "../core/math";
@@ -131,26 +131,12 @@ export function agentStep(agent: AgentState, dir: AgentDirection): readonly [num
   }
 }
 
+import { freshStack } from "../ownership/glow-stick-state";
+
 const copyStack = cloneStack;
 
 function addToAgent(agent: AgentState, stack: ItemStack): number {
-  if (!Number.isSafeInteger(stack.count) || stack.count <= 0) return 0;
-  if (!isKnownId(stack.id)) return stack.count;
-  stack = { ...stack, id: baseStackId(stack.id) };
-  const max = maxStackOf(stack.id);
-  let left = stack.count;
-  // Durable items and books do not merge, and even ordinary stacks obey their item limit.
-  for (const s of agent.slots) if (max > 1 && left > 0 && s && stacksCompatible(s, stack) && s.count < max) {
-    const n = Math.min(max - s.count, left);
-    s.count += n;
-    left -= n;
-  }
-  for (let i = 0; i < agent.slots.length && left > 0; i++) if (!agent.slots[i]) {
-    const n = Math.min(max, left);
-    agent.slots[i] = copyStack(stack, n);
-    left -= n;
-  }
-  return left;
+  return insertStackIntoSlots(agent.slots, stack);
 }
 
 /** Executes one Agent command against the world. */
@@ -179,6 +165,8 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (here !== AIR && !tryBlockById(here)?.replaceable && tryBlockById(here)?.shape !== "liquid") return { ok: false, message: "Something is in the way" };
       const stack = agent.slots[agent.selected];
       // Blocks, and items that place a block (redstone dust, doors, lab products).
+      // Stateful glow has no block metadata owner. Refuse before world writes or source debit.
+      if (stack && Object.prototype.hasOwnProperty.call(stack, "glow")) return { ok: false, message: "Stateful glow sticks cannot be placed" };
       const placed = stack ? placedBlockOf(stack.id) : null;
       if (!stack || placed === null) return { ok: false, message: "No block in the selected slot" };
       // Education Edition: the Agent obeys Allow/Deny like a survival player.
@@ -288,6 +276,6 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
 export function giveAgent(agent: AgentState, stack: ItemStack): number;
 export function giveAgent(agent: AgentState, id: number, count: number): number;
 export function giveAgent(agent: AgentState, stackOrId: ItemStack | number, count?: number): number {
-  return addToAgent(agent, typeof stackOrId === "number" ? { id: stackOrId, count: count ?? 0 } : stackOrId);
+  return addToAgent(agent, typeof stackOrId === "number" ? freshStack(stackOrId, count ?? 0) : stackOrId);
 }
 

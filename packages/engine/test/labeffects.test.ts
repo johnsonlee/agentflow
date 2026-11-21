@@ -81,8 +81,15 @@ describe("heat block", () => {
   });
 });
 
-describe("underwater torch and glow stick", () => {
-  it("the underwater torch and glow stick go in water; an ordinary torch doesn't", () => {
+/** Preserved pre-activation green item ownership; newly granted explicit state refuses placement. */
+const legacyGreen = () => {
+  const inv = new Inventory();
+  inv.addStack({ id: stackId("glow_stick"), count: 5 });
+  return inv;
+};
+
+describe("underwater torch and legacy green glow stick", () => {
+  it("the underwater torch and legacy green glow stick go in water; an ordinary torch doesn't", () => {
     const world = flat();
     for (const x of [0, 2, 4]) world.setBlock(x, 51, 0, B("water"));
     expect(placeBlock(world, holding("torch"), "survival", 0, 51, 0, far)).toBe(false);
@@ -91,14 +98,14 @@ describe("underwater torch and glow stick", () => {
     expect(placeBlock(world, inv, "survival", 2, 51, 0, far)).toBe(true);
     expect(nameOf(world.getBlock(2, 51, 0))).toBe("placed_underwater_torch");
     expect(inv.slots[0]!.count).toBe(4);
-    expect(placeBlock(world, holding("glow_stick"), "survival", 4, 51, 0, far)).toBe(true);
+    expect(placeBlock(world, legacyGreen(), "survival", 4, 51, 0, far)).toBe(true);
     expect(nameOf(world.getBlock(4, 51, 0))).toBe("placed_glow_stick");
   });
 
-  it("both emit block light that reaches neighbours", () => {
+  it("underwater torch and legacy green emit block light that reaches neighbours", () => {
     const world = flat();
     placeBlock(world, holding("underwater_torch"), "creative", 0, 51, 0, far);
-    placeBlock(world, holding("glow_stick"), "creative", 8, 51, 0, far);
+    placeBlock(world, legacyGreen(), "creative", 8, 51, 0, far);
     expect(world.getLight(1, 51, 0) & 15).toBe(13);
     expect(world.getLight(9, 51, 0) & 15).toBe(9);
     expect(blockById(B("placed_glow_stick")).waterproof).toBe(true);

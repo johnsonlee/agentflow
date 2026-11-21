@@ -1,10 +1,11 @@
 import {
   HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
-  isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
+  cloneStack, freshStack, inspectGlowState, isGlowStickId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
   type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
+import { addToCursor, canReceiveStack, exchangeBagCursor, exchangeOneWithCell } from "./inventory-transfers";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -21,6 +22,7 @@ export interface HudCallbacks {
   onCamera(): void;
   onPortfolio(): void;
   onCodeBuilder(): void;
+  onShakeGlow(): void;
 }
 
 /** In-game overlay: crosshair, hotbar, hearts, item name, debug info and chat log. */
@@ -39,6 +41,8 @@ export class Hud {
   private readonly cameraFlash = el("div", "camera-flash");
   private itemNameTimer = 0;
   private lastSignature = "";
+  private selectedSignature = "";
+  private readonly shakeGlow = el("button", "mc-button glow-shake-button", "Shake");
 
   constructor(
     container: HTMLElement,
@@ -109,24 +113,39 @@ export class Hud {
       top.append(code, camera, portfolio, chat, pause);
       this.root.appendChild(top);
     }
+    this.shakeGlow.hidden = true; this.shakeGlow.setAttribute("aria-label", "Shake selected glow stick");
+    this.shakeGlow.addEventListener("pointerdown", e => e.stopPropagation());
+    this.shakeGlow.addEventListener("keydown", e => {
+      // Keep native button activation local; gameplay shortcuts must reach the window input.
+      if (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter") e.stopPropagation();
+    });
+    this.shakeGlow.addEventListener("click", e => { e.stopPropagation(); callbacks.onShakeGlow(); });
+    bottom.prepend(this.shakeGlow);
     this.root.appendChild(bottom);
     this.debug.hidden = true;
     container.appendChild(this.root);
   }
 
-  update(inventory: Inventory, mode: GameMode, health: number, food: number, dt: number): void {
+  update(inventory: Inventory, mode: GameMode, health: number, food: number, dt: number, glowEnabled = true): void {
+    const held = inventory.selectedStack(), glow = held && isGlowStickId(held.id) ? inspectGlowState(held) : null;
+    this.shakeGlow.hidden = glow === null;
+    this.shakeGlow.disabled = !glowEnabled || glow?.kind === "active" || glow?.kind === "invalid";
+    this.shakeGlow.textContent = glow?.kind === "active" ? "Glowing" : "Shake";
     const signature = JSON.stringify([inventory.slots.slice(0, HOTBAR_SIZE), inventory.selected, mode, health, food, inventory.equipment]);
     if (signature !== this.lastSignature) {
-      const selectedChanged = this.lastSignature === "" || JSON.parse(this.lastSignature)[1] !== inventory.selected;
+      const selected = JSON.stringify([inventory.selected, inventory.selectedStack()]);
+      const selectedChanged = selected !== this.selectedSignature; this.selectedSignature = selected;
       this.lastSignature = signature;
       this.slots.forEach((slot, i) => {
         const stack = inventory.slots[i];
         slot.classList.toggle("selected", i === inventory.selected);
-        slot.replaceChildren();
+        slot.replaceChildren(); slot.title = "Empty"; slot.setAttribute("aria-label", "Empty");
         if (stack) {
           const img = el("img");
           img.src = blockIcon(this.atlas, stack.id);
-          img.alt = displayNameOf(stack.id);
+          img.alt = stackLabel(stack);
+          slot.title = stackTooltip(stack);
+          slot.setAttribute("aria-label", stackLabel(stack));
           img.draggable = false;
           slot.appendChild(img);
           if (mode === "survival" && stack.count > 1) slot.appendChild(el("span", "count", String(stack.count)));
@@ -162,7 +181,7 @@ export class Hud {
         }),
       );
       const stack = inventory.selectedStack();
-      if (selectedChanged && stack) this.showItemName(displayNameOf(stack.id));
+      if (selectedChanged && stack) this.showItemName(stackLabel(stack));
     }
     if (this.itemNameTimer > 0) {
       this.itemNameTimer -= dt;
@@ -230,6 +249,17 @@ export function tooltipOf(id: number): string {
   return `${name} (lab product)`;
 }
 
+
+/** State follows the owned stack through every inventory view. */
+export function stackLabel(stack: ItemStack): string {
+  if (!isGlowStickId(stack.id)) return displayNameOf(stack.id);
+  const state = inspectGlowState(stack);
+  return `${displayNameOf(stack.id)} — ${state.kind === "active" ? "Glowing" : state.kind === "invalid" ? "Unavailable" : "Ready to shake"}`;
+}
+export function stackTooltip(stack: ItemStack): string {
+  return isGlowStickId(stack.id) ? stackLabel(stack) : tooltipOf(stack.id);
+}
+
 type PaletteTab = "blocks" | "elements" | "compounds";
 const PALETTE_TABS: readonly (readonly [PaletteTab, string])[] = [["blocks", "Blocks & Items"], ["elements", "Elements"], ["compounds", "Compounds"]];
 
@@ -272,12 +302,19 @@ export class InventoryScreen {
     private readonly atlas: TextureAtlas,
     private readonly onClose: () => void,
     private readonly onDropHeld?: (stack: ItemStack) => boolean,
+    private readonly canMoveItems: () => boolean = () => true,
   ) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
     this.root.addEventListener("pointerdown", (e) => {
       if (e.target === this.root) this.onClose();
     });
+    this.root.addEventListener("click", e => {
+      if (!this.canMoveItems() && !(e.target as Element).closest(".close-button")) {
+        e.preventDefault(); e.stopImmediatePropagation();
+        this.closeHint = "Saved items need repair. Export a backup before moving items."; this.render();
+      }
+    }, true);
     container.appendChild(this.root);
   }
 
@@ -350,6 +387,7 @@ export class InventoryScreen {
 
   /** Closes the screen, returning crafting-grid and cursor items to the inventory. */
   hide(): boolean {
+    if (!this.canMoveItems()) { this.root.hidden = true; return true; }
     if (this.inventory) {
       const returning = this.pendingItems();
       // Check the entire return first: a full bag must not delete held armor or crafting ingredients.
@@ -438,7 +476,7 @@ export class InventoryScreen {
               }
               inventory.addStack(this.cursor);
             }
-            this.cursor = { id: def.id, count: maxStackOf(def.id) };
+            this.cursor = freshStack(def.id, maxStackOf(def.id));
           } else inventory.pick(def.id);
           this.render();
         });
@@ -466,7 +504,7 @@ export class InventoryScreen {
       const img = el("img");
       img.src = blockIcon(this.atlas, this.cursor.id);
       img.alt = "";
-      cursor.append(el("span", "", "Holding:"), img, el("span", "", `${displayNameOf(this.cursor.id)} ×${this.cursor.count}`));
+      cursor.append(el("span", "", "Holding:"), img, el("span", "", `${stackLabel(this.cursor)} ×${this.cursor.count}`));
     }
     parts.push(cursor);
     const hint = this.recovering
@@ -493,7 +531,7 @@ export class InventoryScreen {
     section.appendChild(el("h3", "", "Saved held items"));
     const slots = el("div", "item-grid");
     this.recovery.forEach((stack, index) => {
-      const cell = this.cell(stack.id, stack.count, displayNameOf(stack.id));
+      const cell = this.cell(stack.id, stack.count, displayNameOf(stack.id), stack);
       cell.dataset.recovery = String(index);
       const bar = durabilityBar(stack);
       if (bar) cell.appendChild(bar);
@@ -532,7 +570,7 @@ export class InventoryScreen {
         // Creative palette picks remain hotbar picks. An empty equipment slot can copy selected armor.
         if (!incoming && !worn && this.mode === "creative") {
           const selected = this.inventory!.selectedStack();
-          if (selected && armorOf(selected.id)?.slot === slot) incoming = { ...selected, count: 1 };
+          if (selected && armorOf(selected.id)?.slot === slot) incoming = cloneStack(selected, 1);
         }
         const result = this.inventory!.swapEquipment(slot, incoming);
         if (result.ok) this.cursor = result.stack;
@@ -549,32 +587,26 @@ export class InventoryScreen {
     const section = el("div", "crafting");
     const grid = el("div", `item-grid craft-grid craft-${this.width}`);
     this.grid.forEach((stack, i) => {
-      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : "Empty");
+      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : "Empty", stack);
       cell.dataset.craft = String(i);
       cell.addEventListener("click", () => {
         const current = this.grid[i];
-        if (this.cursor && (!current || current.id === this.cursor.id) && (current?.count ?? 0) < maxStackOf(this.cursor.id)) {
-          this.grid[i] = { ...this.cursor, count: (current?.count ?? 0) + 1 };
-          this.cursor.count--;
-          if (this.cursor.count <= 0) this.cursor = null;
-        } else if (!this.cursor && current) {
-          this.cursor = current;
-          this.grid[i] = null;
-        }
+        const transfer = exchangeOneWithCell(this.cursor, current);
+        if (transfer.ok) { this.cursor = transfer.cursor; this.grid[i] = transfer.cell; }
         this.render();
       });
       grid.appendChild(cell);
     });
     const match = matchRecipe(this.grid, this.width);
-    const result = this.cell(match?.result.id ?? null, match?.result.count ?? 0, match ? displayNameOf(match.result.id) : "No recipe");
+    const result = this.cell(match?.result.id ?? null, match?.result.count ?? 0, match ? displayNameOf(match.result.id) : "No recipe", match?.result);
     result.classList.add("craft-result");
     result.dataset.craftResult = "";
     result.addEventListener("click", () => {
       const preview = matchRecipe(this.grid, this.width);
       if (!preview) return;
-      if (this.cursor && (this.cursor.id !== preview.result.id || this.cursor.count + preview.result.count > maxStackOf(preview.result.id))) return;
+      if (!canReceiveStack(this.cursor, preview.result)) return;
       const crafted = craftOnce(this.grid, this.width)!;
-      this.cursor = this.cursor ? { id: crafted.id, count: this.cursor.count + crafted.count } : crafted;
+      this.cursor = addToCursor(this.cursor, crafted);
       this.render();
     });
     section.append(grid, el("span", "craft-arrow", "➜"), result);
@@ -584,18 +616,12 @@ export class InventoryScreen {
   /** One item per tap into a station input cell (or pick the cell up), like a crafting cell. */
   private inputCell(i: number, empty: string): HTMLElement {
     const stack = this.grid[i];
-    const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : empty);
+    const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : empty, stack);
     cell.dataset.chemInput = String(i);
     cell.addEventListener("click", () => {
       const current = this.grid[i];
-      if (this.cursor && (!current || current.id === this.cursor.id) && (current?.count ?? 0) < maxStackOf(this.cursor.id)) {
-        this.grid[i] = { ...this.cursor, count: (current?.count ?? 0) + 1 };
-        this.cursor.count--;
-        if (this.cursor.count <= 0) this.cursor = null;
-      } else if (!this.cursor && current) {
-        this.cursor = current;
-        this.grid[i] = null;
-      }
+      const transfer = exchangeOneWithCell(this.cursor, current);
+      if (transfer.ok) { this.cursor = transfer.cursor; this.grid[i] = transfer.cell; }
       this.render();
     });
     return cell;
@@ -604,14 +630,15 @@ export class InventoryScreen {
   /** A result cell: tap to take one product onto the cursor (stacking with the same item). */
   private resultCell(result: { id: number } | { error: string }, onTake: () => void): HTMLElement[] {
     const id = "id" in result ? result.id : null;
-    const cell = this.cell(id, 0, id !== null ? displayNameOf(id) : "No result");
+    const cell = this.cell(id, 0, id !== null ? displayNameOf(id) : "No result", id !== null ? freshStack(id) : null);
     cell.classList.add("craft-result");
     cell.dataset.chemResult = "";
     cell.addEventListener("click", () => {
       if (id === null) return;
-      if (this.cursor && (this.cursor.id !== id || this.cursor.count >= maxStackOf(id))) return;
+      const product = freshStack(id);
+      if (!canReceiveStack(this.cursor, product)) return;
       onTake();
-      this.cursor = this.cursor ? { id, count: this.cursor.count + 1 } : { id, count: 1 };
+      this.cursor = addToCursor(this.cursor, product);
       this.render();
     });
     const status = el("p", "chem-status", "id" in result ? tooltipOf(result.id) : result.error);
@@ -624,7 +651,7 @@ export class InventoryScreen {
     const section = el("section", "element-lookup");
     section.setAttribute("aria-label", "Inspect owned element");
     const stack = this.lookup;
-    const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : "Inspect element");
+    const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : "Inspect element", stack);
     cell.dataset.elementLookup = "";
     cell.setAttribute("aria-label", `Inspect owned element: ${stack ? displayNameOf(stack.id) : "empty"}`);
     if (!stack) cell.appendChild(el("span", "equipment-empty", "Inspect"));
@@ -772,7 +799,7 @@ export class InventoryScreen {
     this.furnaceSignature = JSON.stringify([f.input, f.fuel, f.output]);
     const slot = (key: "input" | "fuel" | "output", empty: string) => {
       const stack = f[key];
-      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : empty);
+      const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : empty, stack);
       cell.dataset.furnace = key;
       cell.addEventListener("click", () => {
         const current = f[key];
@@ -781,15 +808,15 @@ export class InventoryScreen {
           if (current && !cursor) {
             this.cursor = current;
             f.output = null;
-          } else if (current && cursor && cursor.id === current.id && cursor.count + current.count <= maxStackOf(current.id)) {
+          } else if (current && cursor && canReceiveStack(cursor, current)) {
             cursor.count += current.count;
             f.output = null;
           }
         } else if (cursor) {
           // Only fuels go in the fuel slot.
           if (key === "fuel" && fuelSeconds(cursor.id) === 0) return;
-          if (current && current.id === cursor.id && maxStackOf(current.id) > 1) {
-            const n = Math.min(maxStackOf(current.id) - current.count, cursor.count);
+          if (current && stacksCompatible(current, cursor) && stackLimit(current) > 1) {
+            const n = Math.min(stackLimit(current) - current.count, cursor.count);
             current.count += n;
             cursor.count -= n;
             if (cursor.count <= 0) this.cursor = null;
@@ -835,7 +862,7 @@ export class InventoryScreen {
     const inventory = this.inventory!;
     const stack = inventory.slots[index];
     const showCount = this.mode === "survival" || this.working;
-    const cell = this.cell(stack?.id ?? null, showCount ? (stack?.count ?? 0) : 0, stack ? displayNameOf(stack.id) : "Empty");
+    const cell = this.cell(stack?.id ?? null, showCount ? (stack?.count ?? 0) : 0, stack ? displayNameOf(stack.id) : "Empty", stack);
     cell.dataset.slot = String(index);
     const bar = stack ? durabilityBar(stack) : null;
     if (bar) cell.appendChild(bar);
@@ -844,20 +871,10 @@ export class InventoryScreen {
         return;
       } else if (this.mode === "creative" && !this.working && !this.furnace && !this.cursor) {
         if (index < HOTBAR_SIZE) inventory.select(index);
-      } else if (this.cursor) {
-        const current = inventory.slots[index];
-        if (current && current.id === this.cursor.id && maxStackOf(current.id) > 1) {
-          const n = Math.min(maxStackOf(current.id) - current.count, this.cursor.count);
-          current.count += n;
-          this.cursor.count -= n;
-          if (this.cursor.count <= 0) this.cursor = null;
-        } else {
-          inventory.setSlot(index, this.cursor);
-          this.cursor = current ? { ...current } : null;
-        }
-      } else if (stack) {
-        this.cursor = { ...stack };
-        inventory.setSlot(index, null);
+      } else if (this.cursor || stack) {
+        const transfer = exchangeBagCursor(inventory, index, this.cursor);
+        if (transfer.ok) this.cursor = transfer.cursor;
+        else this.closeHint = "Those items cannot be moved together.";
       } else if (index < HOTBAR_SIZE) {
         inventory.select(index);
       }
@@ -866,9 +883,13 @@ export class InventoryScreen {
     return cell;
   }
 
-  private cell(id: number | null, count: number, title: string): HTMLElement {
+  private cell(id: number | null, count: number, title: string, stack?: ItemStack | null): HTMLElement {
     const cell = el("button", "item-cell");
-    cell.title = id !== null ? tooltipOf(id) : title;
+    cell.title = stack ? stackTooltip(stack) : id !== null ? tooltipOf(id) : title;
+    if (stack && isGlowStickId(stack.id)) {
+      const state = inspectGlowState(stack); cell.dataset.glowState = state.kind === "active" ? "active" : "ready";
+      cell.setAttribute("aria-label", stackLabel(stack));
+    }
     if (id !== null) {
       const img = el("img");
       img.src = blockIcon(this.atlas, id);

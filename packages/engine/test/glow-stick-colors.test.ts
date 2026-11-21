@@ -4,7 +4,7 @@ import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import {
   AIR, BLOCKS, ITEMS, RECIPES, GLOW_STICK_COLORS, Inventory, PlayerDeathTransfer, World, WorldDrops,
-  blockId, cloneStack, craftOnce, createAgent, giveAgent, itemById, matchRecipe, maxStackOf, parseSave,
+  blockId, cloneStack, craftOnce, freshStack, createAgent, giveAgent, itemById, matchRecipe, maxStackOf, parseSave,
   placeBlock, placedBlockOf, runAgentCommand, sanitizeAgent, sanitizeInventoryPending, sanitizeStack,
   serializeSave, stackId, stacksCompatible, validatePlayerDeathOwnership, type CraftingGrid, type ItemStack, type PlayerDeathState,
 } from "../src/index";
@@ -50,7 +50,7 @@ it("retains all537 old item definitions,307 blocks,128 recipes and exact old gre
 
 it("crafts each matching color from the nine Journal cells with exactly six polyethylene and provisional output1", () => {
   for (const color of GLOW_STICK_COLORS) {
-    const cells = grid(color.dye, 2), before = structuredClone(cells), result = st(color.itemName);
+    const cells = grid(color.dye, 2), before = structuredClone(cells), result = freshStack(stackId(color.itemName));
     expect(cells.filter(s => s!.id === stackId("polyethylene"))).toHaveLength(6);
     expect(matchRecipe(cells, 3)?.recipe.id).toBe(color.itemName); expect(matchRecipe(cells, 3)?.result).toEqual(result); expect(cells).toEqual(before);
     expect(craftOnce(cells, 3)).toEqual(result); expect(cells).toEqual(grid(color.dye));
@@ -58,7 +58,7 @@ it("crafts each matching color from the nine Journal cells with exactly six poly
     if (color.color !== "green") expect(RECIPES.find(r => r.id === color.itemName)?.note).toContain("output count provisional");
   }
   const red = grid("red_dye"), blue = grid("blue_dye");
-  expect(craftOnce(red, 3)).toEqual(st("red_glow_stick")); expect(craftOnce(blue, 3)).toEqual(st("blue_glow_stick"));
+  expect(craftOnce(red, 3)).toEqual(freshStack(stackId("red_glow_stick"))); expect(craftOnce(blue, 3)).toEqual(freshStack(stackId("blue_glow_stick")));
 });
 
 it("refuses missing polyethylene, swapped chemistry, unsupported dyes and compact2x2 without consuming inputs", () => {
@@ -97,17 +97,17 @@ it("preserves Agent source on refused batches and partial world pickup leaves ex
   const w = new World(1);
   for (const color of GLOW_STICK_COLORS) {
     const robot = createAgent(0, 1, 0), output = craftOnce(grid(color.dye), 3)!;
-    expect(giveAgent(robot, { ...output, count: 65 })).toBe(0); expect(robot.slots.slice(0, 2)).toEqual([st(color.itemName, 64), st(color.itemName)]);
+    expect(giveAgent(robot, { ...output, count: 65 })).toBe(0); expect(robot.slots.slice(0, 2)).toEqual([freshStack(stackId(color.itemName), 64), freshStack(stackId(color.itemName))]);
     const before = structuredClone(robot); expect(runAgentCommand(w, robot, { op: "drop", slot: 0, quantity: 2 }, { worldDrop: () => null }).ok).toBe(false); expect(robot).toEqual(before);
     const drops = new WorldDrops(floor); expect(runAgentCommand(w, robot, { op: "drop", slot: 0, quantity: 2 }, { worldDrop: drops.planSpawnBatch.bind(drops) }).ok).toBe(true);
-    expect(robot.slots[0]).toEqual(st(color.itemName, 62)); expect(drops.records.map(r => r.stack)).toEqual([st(color.itemName, 2)]);
+    expect(robot.slots[0]).toEqual(freshStack(stackId(color.itemName), 62)); expect(drops.records.map(r => r.stack)).toEqual([freshStack(stackId(color.itemName), 2)]);
     const savedDrops = drops.toJSON(); savedDrops.records[0].pickupDelaySeconds = 0;
     const loaded = new WorldDrops(floor, savedDrops), bag = full(), position = savedDrops.records[0].position;
-    expect(loaded.tryPickup(position, s => bag.addStack(s))).toBe(0); expect(loaded.records[0].stack).toEqual(st(color.itemName, 2));
-    bag.setSlot(0, st(color.itemName, 63)); expect(loaded.tryPickup(position, s => bag.addStack(s))).toBe(1); expect(bag.slots[0]).toEqual(st(color.itemName, 64)); expect(loaded.records[0].stack).toEqual(st(color.itemName));
+    expect(loaded.tryPickup(position, s => bag.addStack(s))).toBe(0); expect(loaded.records[0].stack).toEqual(freshStack(stackId(color.itemName), 2));
+    bag.setSlot(0, freshStack(stackId(color.itemName), 63)); expect(loaded.tryPickup(position, s => bag.addStack(s))).toBe(1); expect(bag.slots[0]).toEqual(freshStack(stackId(color.itemName), 64)); expect(loaded.records[0].stack).toEqual(freshStack(stackId(color.itemName)));
     bag.setSlot(1, null); expect(loaded.tryPickup(position, s => bag.addStack(s))).toBe(1); expect(loaded.records).toEqual([]); expect(loaded.tryPickup(position, s => bag.addStack(s))).toBe(0);
     const parsed = parseSave(serializeSave({ ...saveBase, inventory: bag.toJSON(), agent: robot, worldDrops: loaded.toJSON() }));
-    expect(sanitizeAgent(parsed.agent)!.slots.slice(0, 2)).toEqual([st(color.itemName, 62), st(color.itemName)]); expect(Inventory.fromJSON(parsed.inventory).slots.slice(0, 2)).toEqual([st(color.itemName, 64), st(color.itemName)]);
+    expect(sanitizeAgent(parsed.agent)!.slots.slice(0, 2)).toEqual([freshStack(stackId(color.itemName), 62), freshStack(stackId(color.itemName))]); expect(Inventory.fromJSON(parsed.inventory).slots.slice(0, 2)).toEqual([freshStack(stackId(color.itemName), 64), freshStack(stackId(color.itemName))]);
   }
 });
 

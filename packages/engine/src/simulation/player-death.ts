@@ -34,7 +34,7 @@ export function sanitizePlayerState(raw: unknown): SanitizedPlayerState {
 
 /** Validate without repairing/truncating owned metadata; a rejected stack remains at its source. */
 function ownedStack(raw: unknown): ItemStack | null {
-  if (!plain(raw) || Object.keys(raw).some(key => !["id", "count", "damage", "book"].includes(key))) return null;
+  if (!plain(raw) || Object.keys(raw).some(key => !["id", "count", "damage", "book", "glow"].includes(key))) return null;
   const id = own(raw, "id"), count = own(raw, "count"), damage = own(raw, "damage"), book = own(raw, "book");
   const clean = sanitizeStack(raw);
   if (!clean || id === AIR || clean.id !== id || clean.count !== count) return null;

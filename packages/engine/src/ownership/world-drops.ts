@@ -1,10 +1,11 @@
 import { AIR } from "../catalog/blocks";
 import type { ItemStack } from "./inventory";
-import { baseStackId, durabilityOf, isKnownId, maxStackOf } from "../catalog/items";
+import { baseStackId, durabilityOf, isKnownId } from "../catalog/items";
 import { WORLD_BORDER, type Vec3 } from "../core/math";
 import { bodyBox, boxCollides, GRAVITY, moveAxis, TERMINAL_VELOCITY } from "../simulation/physics";
 import { sanitizeStack } from "../persistence/savecheck";
-import { cloneStack, stacksCompatible } from "./stack";
+import { cloneStack, stackLimit, stacksCompatible } from "./stack";
+import { inspectGlowState } from "./glow-stick-state";
 import { WORLD_HEIGHT } from "../world/chunk";
 import type { World } from "../world/world";
 
@@ -31,7 +32,10 @@ function validStack(raw: unknown, bulk = false): ItemStack | null {
   if (typeof id !== "number" || id === AIR || !isKnownId(id) || !Number.isSafeInteger(count) || (count as number) <= 0) return null;
   const durability = durabilityOf(id);
   if (damage !== undefined && (!Number.isInteger(damage) || (damage as number) < 0 || durability === null || (damage as number) >= durability)) return null;
-  if (!bulk && (count as number) > maxStackOf(baseStackId(id))) return null;
+  // Inspect ORIGINAL ownership before normalizing count for sanitation. Active bulk must not
+  // become multiple valid singletons through the count1 validation shortcut.
+  if (inspectGlowState(raw, bulk).kind === "invalid") return null;
+  if (!bulk && (count as number) > stackLimit(raw as unknown as ItemStack)) return null;
   const clean = sanitizeStack({ ...raw, count: 1 });
   if (!clean) return null;
   const book = own(raw, "book");
@@ -82,7 +86,7 @@ export class WorldDrops {
     const clean: ItemStack[] = []; let needed = 0;
     for (const s of stacks) {
       const stack = validStack(s, true); if (!stack) return null;
-      needed += Math.ceil(stack.count / maxStackOf(stack.id)); if (!Number.isSafeInteger(needed)) return null;
+      needed += Math.ceil(stack.count / stackLimit(stack)); if (!Number.isSafeInteger(needed)) return null;
       clean.push(stack);
     }
     // Allocation refusal is explicit and leaves the source owner intact; never truncate a suffix.
@@ -93,7 +97,7 @@ export class WorldDrops {
       used = true;
       const records: DroppedItemRecord[] = []; let key = this.nextKey;
       for (const s of clean) for (let left = s.count; left > 0;) {
-        const n = Math.min(left, maxStackOf(s.id)); left -= n;
+        const n = Math.min(left, stackLimit(s)); left -= n;
         records.push({ key: key++, stack: cloneStack(s, n), position: { ...p }, velocity: { ...v }, ageSeconds: 0, pickupDelaySeconds: WORLD_DROP_PROFILE.pickupDelay });
       }
       for (const r of records) this.items.set(r.key, r);
@@ -134,7 +138,7 @@ export class WorldDrops {
       const a = active[i]; if (!this.items.has(a.key)) continue;
       for (let j = i + 1; j < active.length; j++) {
         const b = active[j]; if (!this.items.has(b.key) || !stacksCompatible(a.stack, b.stack) || Math.hypot(a.position.x - b.position.x, a.position.y - b.position.y, a.position.z - b.position.z) > WORLD_DROP_PROFILE.mergeRadius) continue;
-        const n = Math.min(maxStackOf(a.stack.id) - a.stack.count, b.stack.count); if (n <= 0) continue;
+        const n = Math.min(stackLimit(a.stack) - a.stack.count, b.stack.count); if (n <= 0) continue;
         a.stack.count += n; b.stack.count -= n;
         a.ageSeconds = b.ageSeconds = Math.max(a.ageSeconds, b.ageSeconds);
         a.pickupDelaySeconds = b.pickupDelaySeconds = Math.max(a.pickupDelaySeconds, b.pickupDelaySeconds);

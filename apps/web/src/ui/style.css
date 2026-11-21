@@ -464,3 +464,22 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .resource-packs-screen .panel > * { flex-shrink: 0; min-width: 0; max-width: 100%; }
 .pack-current, .resource-packs-screen h3, .pack-status { overflow-wrap: anywhere; }
 .resource-packs-screen button:disabled { opacity: .6; cursor: wait; }
+
+/* Selected glow-stick feedback uses the existing icon; it owns no item or light. */
+.glow-shake-button { min-width: 88px; min-height: 36px; padding: 6px 14px; touch-action: manipulation; }
+.glow-shake-button[hidden], .held-glow-stick[hidden] { display: none; }
+.held-glow-stick {
+  position: absolute; right: 20px; bottom: max(160px, calc(env(safe-area-inset-bottom) + 140px));
+  display: flex; flex-direction: column; align-items: center; gap: 6px; width: 116px;
+  pointer-events: none; color: #fff; font-size: 12px; text-align: center; text-shadow: 2px 2px #222;
+}
+.held-glow-stick img { width: 64px; height: 64px; image-rendering: pixelated; transform: rotate(-24deg); }
+.held-glow-stick[data-glow-state="active"] img { filter: drop-shadow(0 0 7px var(--glow-color)) drop-shadow(0 0 15px var(--glow-color)); }
+.held-glow-stick.shake img { animation: shake-glow-stick .42s ease-in-out; }
+@keyframes shake-glow-stick { 0%, 100% { transform: rotate(-24deg); } 20%, 60% { transform: rotate(-46deg) translateY(-5px); } 40%, 80% { transform: rotate(4deg) translateY(3px); } }
+@media (max-width: 620px), (max-height: 500px) {
+  .held-glow-stick { width: 88px; right: 14px; top: 68px; bottom: auto; font-size: 11px; }
+  .held-glow-stick img { width: 42px; height: 42px; }
+  .glow-shake-button { min-height: 32px; padding: 4px 10px; }
+}
+@media (prefers-reduced-motion: reduce) { .held-glow-stick.shake img { animation: none; } }

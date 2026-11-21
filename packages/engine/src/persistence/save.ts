@@ -1,3 +1,4 @@
+import { inspectGlowState } from "../ownership/glow-stick-state";
 import { sanitizePlayerState, validatePlayerDeathOwnership, type PlayerStateData } from "../simulation/player-death";
 import type { BalloonsData } from "../ownership/balloons";
 import type { LeashData } from "../ownership/leashes";
@@ -36,6 +37,8 @@ export interface SaveData {
   playerState?: PlayerStateData;
   /** Derived read-only diagnostic, never trusted from serialized JSON or written by the game. */
   playerStateOwnershipInvalid?: boolean;
+  /** Derived from RAW owners before repair, never trusted from serialized JSON or written. */
+  glowOwnershipIssues?: GlowOwnershipIssue[];
   /** Education Edition NPCs placed in the world (optional for older saves). */
   npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
   /** Survival hunger (optional for older saves; defaults to full). */
@@ -63,7 +66,8 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  return JSON.stringify({ version: SAVE_VERSION, ...data });
+  const { glowOwnershipIssues: _derivedIssues, ...owned } = data;
+  return JSON.stringify({ version: SAVE_VERSION, ...owned });
 }
 
 type Obj = Record<string, unknown>;
@@ -71,6 +75,81 @@ const isObj = (v: unknown): v is Obj =>
   typeof v === "object" && v !== null && !Array.isArray(v) && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
 const own = (o: Obj, k: string): unknown => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+export interface GlowOwnershipIssue { path: string; reason: string }
+
+/** Scan raw owners before sanitizeInventoryPending/fromJSON/Agent/furnace loaders can drop state.
+ * This produces diagnostics only; Game must preserve the original raw text and block overwrite. */
+export function diagnoseRawGlowOwnership(raw: unknown): GlowOwnershipIssue[] {
+  const issues: GlowOwnershipIssue[] = [];
+  if (!isObj(raw)) return issues;
+  const check = (value: unknown, path: string, supported = true) => {
+    if (typeof value !== "object" || value === null || !("glow" in value)) return;
+    const state = inspectGlowState(value);
+    if (state.kind === "invalid") issues.push({ path, reason: state.reason });
+    else if (!supported) issues.push({ path, reason: "stateful glow owner would be discarded or is unsupported" });
+  };
+  // A malformed known owner container is itself a recovery issue. Do not search arbitrary
+  // descendants for glow: preserve the entire original envelope even when its contents are opaque.
+  const object = (value: unknown, path: string, optional = true): Obj | null => {
+    if (value === undefined && optional) return null;
+    if (!isObj(value)) { issues.push({ path, reason: "invalid owned-item envelope; expected plain object" }); return null; }
+    return value;
+  };
+  const array = (value: unknown, path: string, optional = true): unknown[] | null => {
+    if (value === undefined && optional) return null;
+    if (!Array.isArray(value)) { issues.push({ path, reason: "invalid owned-item container; expected array" }); return null; }
+    return value;
+  };
+  const list = (value: unknown, path: string, limit: number, envelope = true, supported = true, optional = true) => {
+    array(value, path, optional)?.forEach((stack, index) => check(stack, `${path}[${index}]`, envelope && supported && index < limit));
+  };
+  const integer = (value: unknown, low = -1e7, high = 1e7) => typeof value === "number" && Number.isInteger(value) && value >= low && value <= high;
+  const number = (value: unknown, low: number, high: number) => typeof value === "number" && Number.isFinite(value) && value >= low && value <= high;
+  const inventory = object(own(raw, "inventory"), "inventory");
+  if (inventory) {
+    list(own(inventory, "slots"), "inventory.slots", 36);
+    const equipment = object(own(inventory, "equipment"), "inventory.equipment");
+    if (equipment) for (const key of Object.keys(equipment))
+      check(own(equipment, key), `inventory.equipment.${key}`, false); // Glow is never armor.
+  }
+  list(own(raw, "inventoryPending"), "inventoryPending", 10);
+  const agent = object(own(raw, "agent"), "agent");
+  if (agent) {
+    const valid = integer(own(agent, "x")) && integer(own(agent, "y"), 0, 1000) && integer(own(agent, "z"))
+      && integer(own(agent, "facing"), 0, 3) && integer(own(agent, "selected"), 0, 26);
+    if (!valid) issues.push({ path: "agent", reason: "invalid owned-item Agent envelope" });
+    list(own(agent, "slots"), "agent.slots", 27, valid, true, false);
+  }
+  const furnaceCoordinates = new Map<string, number>();
+  array(own(raw, "furnaces"), "furnaces")?.forEach((value, index) => {
+    const furnace = object(value, `furnaces[${index}]`, false); if (!furnace) return;
+    const state = object(own(furnace, "state"), `furnaces[${index}].state`, false); if (!state) return;
+    if (integer(own(furnace, "x")) && integer(own(furnace, "y"), 0, 1000) && integer(own(furnace, "z"))) {
+      // Game keys loaded furnace owners by coordinates. A later same-key entry must not
+      // silently replace an earlier owned state, even when the later entry is empty.
+      const key = JSON.stringify([own(furnace, "x"), own(furnace, "y"), own(furnace, "z")]);
+      const first = furnaceCoordinates.get(key);
+      if (first !== undefined) issues.push({ path: `furnaces[${index}]`, reason: `duplicate owned-item furnace coordinates; first owner at furnaces[${first}]` });
+      else furnaceCoordinates.set(key, index);
+    }
+    const valid = integer(own(furnace, "x")) && integer(own(furnace, "y"), 0, 1000) && integer(own(furnace, "z"))
+      && number(own(state, "burnLeft"), 0, 1000) && number(own(state, "burnTotal"), 0, 1000) && number(own(state, "progress"), 0, 1);
+    if (!valid) issues.push({ path: `furnaces[${index}]`, reason: "invalid owned-item furnace envelope" });
+    for (const key of ["input", "fuel", "output"]) check(own(state, key), `furnaces[${index}].state.${key}`, valid);
+  });
+  const drops = object(own(raw, "worldDrops"), "worldDrops");
+  if (drops) array(own(drops, "records"), "worldDrops.records", false)?.forEach((value, index) => {
+    const record = object(value, `worldDrops.records[${index}]`, false);
+    if (record) check(own(record, "stack"), `worldDrops.records[${index}].stack`);
+  });
+  const mobs = object(own(raw, "mobs"), "mobs");
+  if (mobs) array(own(mobs, "records"), "mobs.records", false)?.forEach((value, index) => {
+    const record = object(value, `mobs.records[${index}]`, false);
+    if (record) list(own(record, "pendingLoot"), `mobs.records[${index}].pendingLoot`, Infinity, true, false);
+  }); // Existing mob loot tables never produce glow; do not relax their allowlists.
+  return issues;
+}
 
 /**
  * Parses a save and rebuilds it field by field with strict, own-property checks. A save is
@@ -92,6 +171,8 @@ export function parseSave(text: string): SaveData {
   const seed = own(raw, "seed");
   if (!finite(seed)) throw new Error("Malformed save data: missing seed");
 
+  // Must precede sanitizeInventoryPending and all downstream owner loaders.
+  const glowOwnershipIssues = diagnoseRawGlowOwnership(raw);
   const name = own(raw, "name");
   const mode = own(raw, "mode");
   const time = own(raw, "timeOfDay");
@@ -128,6 +209,7 @@ export function parseSave(text: string): SaveData {
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
+  if (glowOwnershipIssues.length) save.glowOwnershipIssues = glowOwnershipIssues;
   // Optional sections: passed through for their own sanitizers.
   for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs", "leashes", "playerState", "snowballProjectiles", "balloons"] as const) {
     const v = own(raw, key);
