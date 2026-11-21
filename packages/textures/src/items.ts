@@ -177,3 +177,6 @@ ITEM_TILE_GENERATORS.item_glowstone_dust = (t) => {
   t.set(6, 9, hex("#fff4bd")); t.set(10, 6, hex("#ffed95"));
   return t;
 };
+
+/** Original shaded snowball sprite; no imported game media. */
+ITEM_TILE_GENERATORS.item_snowball = lump(["#e1edf4", "#c0d6e4", "#ffffff"].map(hex), ROUND);

@@ -142,7 +142,7 @@ describe("procedural textures", () => {
 
   it("appends an original visible glowstone powder sprite without changing all 808 older tiles", () => {
     expect(legacyGlowstoneTextures.names).toHaveLength(808);
-    const names = [...new Set([...textureNames(), ...itemTextureNames()])];
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_snowball");
     expect(names).toHaveLength(809);
     expect(names.filter(n => !legacyGlowstoneTextures.names.includes(n))).toEqual(["item_glowstone_dust"]);
     const hash = createHash("sha256");
@@ -158,6 +158,18 @@ describe("procedural textures", () => {
     const atlas = buildAtlas(names);
     expect(atlas.tiles.size).toBe(809);
     expect(Buffer.from(atlas.tilePixels("item_glowstone_dust")).equals(Buffer.from(dust))).toBe(true);
+  });
+
+  it("appends a distinct original snowball icon while retaining every published atlas key", () => {
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])];
+    expect(names).toHaveLength(810); expect(names.at(-1)).toBe("item_snowball");
+    expect(hasItemTile("item_snowball")).toBe(true);
+    const snowball = generateTile("item_snowball");
+    expect(snowball.some((channel, i) => i % 4 === 3 && channel === 255)).toBe(true);
+    expect(snowball.some((channel, i) => i % 4 === 3 && channel === 0)).toBe(true);
+    expect(Buffer.from(snowball).equals(Buffer.from(generateTile("item_glowstone_dust")))).toBe(false);
+    const atlas = buildAtlas(names);
+    expect(atlas.tiles.size).toBe(810); expect(atlas.tilePixels("item_snowball")).toEqual(snowball);
   });
 
   it("grass side has a green top fringe over dirt", () => {

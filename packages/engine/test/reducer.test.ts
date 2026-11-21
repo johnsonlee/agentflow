@@ -25,7 +25,7 @@ it("matches the historical Journal p11 grass image, including oxygen split64+6 a
 
 it("retains explicit unverified glass/charcoal compatibility and compound/isotope semantics", () => {
   expect(LEGACY_MATERIAL_REDUCTIONS).toEqual([["glass", [["Si", 1], ["O", 2]]], ["charcoal", [["C", 1]]]]);
-  expect(REDUCTIONS).toHaveLength(25);
+  expect(REDUCTIONS).toHaveLength(26); // 24 native-source rows plus the two retained legacy entries.
   expect(reduceMaterial(stackId("glass"))).toEqual([stack("silicon"), stack("oxygen", 2)]);
   expect(reduceMaterial(stackId("charcoal"))).toEqual([stack("carbon")]);
   expect(reduceMaterial(stackId("water_compound"))).toEqual([stack("hydrogen", 2), stack("oxygen", 1)]);

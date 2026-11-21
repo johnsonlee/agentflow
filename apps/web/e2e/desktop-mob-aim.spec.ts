@@ -25,7 +25,7 @@ test("PC: every supported mob has a finite camera aim and actual crosshair targe
       for (const mob of g.mobs.mobs) {
         if (mob.id === mobId) {
           mob.position = { x: p.x, y: p.y, z: p.z - 2.5 };
-          mob.velocity = { x: 0, y: 0, z: 0 }; mob.thinkTimer = 30;
+          mob.velocity = { x: 0, y: 0, z: 0 }; mob.walking = false; mob.hurtTimer = 0; mob.thinkTimer = 30;
         } else mob.position = { x: p.x + 40, y: p.y, z: p.z + 40 };
       }
     }, id!);
@@ -44,6 +44,8 @@ test("PC: every supported mob has a finite camera aim and actual crosshair targe
     const aimed = await read();
     const stop = await trackMob(page, id!);
     try {
+      // A disclosed position shift makes the tracking helper update the actual ray, without injecting its result.
+      await page.evaluate(mobId => { const mob = window.__craft.game!.mobs.mobs.find(m => m.id === mobId)!; mob.position.x += .4; }, id!);
       await frames(page, 4);
       await expect.poll(async () => (await read()).targeted).toBe(id);
       const tracked = await read(); expect(tracked.finite).toBe(true);
@@ -52,7 +54,7 @@ test("PC: every supported mob has a finite camera aim and actual crosshair targe
     } finally { await stop(); }
   }
   await fs.writeFile(info.outputPath("finite-mob-aim.json"), JSON.stringify({
-    fixture: "Actual summon commands; isolated live actors and clear pad; camera-helper observation, no raycast/hit output injection",
+    fixture: "Actual summon commands; isolated initially stationary live actors, one explicit tracking position shift and clear pad; camera-helper observation, no raycast/hit output injection",
     observations, errors,
   }, null, 2));
   expect(observations).toHaveLength(Object.keys(MOB_SPECS).length);

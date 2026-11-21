@@ -193,6 +193,8 @@ const specs: Omit<ItemDef, "id">[] = [
   ...DYE_COLORS.map(({ name, displayName }) => material(`${name}_dye`, `${displayName} Dye`)),
   // Append after all535 published items; saved glowstone blocks retain their existing block ID.
   material("glowstone_dust", "Glowstone Dust"),
+  // Application stack bound pending direct current Education runtime verification.
+  { name: "snowball", displayName: "Snowball", maxStack: 16, icon: "item_snowball" },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
@@ -256,7 +258,7 @@ export function foodOf(id: number | undefined | null): ItemDef["food"] | null {
 const BLOCK_ITEM_DROPS = new Map<string, string>([
   ["coal_ore", "coal"], ["diamond_ore", "diamond"], ["bookshelf", "book"],
   ["placed_heat_block", "heat_block"], ["placed_underwater_torch", "underwater_torch"], ["placed_glow_stick", "glow_stick"],
-  ["redstone_ore", "redstone"], ["glowstone", "glowstone_dust"],
+  ["redstone_ore", "redstone"], ["glowstone", "glowstone_dust"], ["snow", "snowball"],
   ...ELEMENTS.map((e) => [`element_${e.z}`, elementItemName(e)] as [string, string]),
   ...BLOCKS.filter((b) => /^wheat_\d$/.test(b.name)).map((b) => [b.name, "wheat_seeds"] as [string, string]),
   ...BLOCKS.filter((b) => b.name.startsWith("redstone_wire_")).map((b) => [b.name, "redstone"] as [string, string]),
@@ -266,6 +268,9 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
 // Keep dropOf/baseStackId as canonical identities; zero is a quantity, never the air item.
 const BLOCK_DROP_COUNTS = new Map<string, number>([
   ["bookshelf", 3], ["glass", 0],
+  // Four-ball harvest is an application rule pending direct current Education runtime proof.
+  // Agent destroy shares these quantities with its existing tool-independent harvest semantics.
+  ["snow", 4],
   ...DYE_COLORS.map(({ name }) => [`${name}_stained_glass`, 0] as [string, number]),
 ]);
 

@@ -36,8 +36,8 @@ it("matches all22 independently retained raw candidate recipe output lists and p
   }
 });
 
-it("exposes the actual active25-row table and preserves ordered duplicate-element stacks", () => {
-  expect(REDUCTIONS).toHaveLength(25); expect(new Set(REDUCTIONS.map(([name]) => name)).size).toBe(25);
+it("exposes the actual active26-row table and preserves ordered duplicate-element stacks", () => {
+  expect(REDUCTIONS).toHaveLength(26); expect(new Set(REDUCTIONS.map(([name]) => name)).size).toBe(26);
   expect(LEGACY_MATERIAL_REDUCTIONS.map(([name]) => name)).toEqual(["glass", "charcoal"]);
   const symbols = new Map(ITEMS.filter((i) => i.chem?.kind === "element").map((i) => [i.chem!.symbol, i.id]));
   for (const [name, parts] of REDUCTIONS) expect(reduceMaterial(stackId(name))).toEqual(parts.map(([symbol, count]) => ({ id: symbol === "?" ? 32768 : symbols.get(symbol)!, count })));

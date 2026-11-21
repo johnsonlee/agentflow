@@ -40,6 +40,7 @@ export async function resourcePacksRoute(page: Page, info: TestInfo, mobile: boo
   };
   const pixels = (key: string) => page.evaluate(k => { const t = window.__craft.atlas.sourceTile(k); return { width: t.width, height: t.height, rgba: [...t.rgba] }; }, key);
   const state = () => page.evaluate(() => ({ selected: window.__craft.texturePack, tileSize: window.__craft.atlas.tileSize, report: window.__craft.atlas.report }));
+  const totalTextureCount = await page.evaluate(() => window.__craft.atlas.tiles.size);
   const original = { stone: await pixels("stone"), iron: await pixels("item_iron_ingot") };
   const touchScrollEvidence: unknown[] = [];
   const fingerScroll = async (locator: Locator) => {
@@ -69,7 +70,7 @@ export async function resourcePacksRoute(page: Page, info: TestInfo, mobile: boo
   await choose("authored-a.json", bytesA); await expect(page.getByRole("button", { name: "Use pack", exact: true })).toBeVisible();
   expect((await state()).selected).toBeNull(); await checkUntouched();
   await press(page.getByRole("button", { name: "Use pack", exact: true }));
-  await expect(page.locator(".pack-current")).toHaveText("Current: Authored Corners A"); await expect(page.locator(".pack-coverage")).toContainText("2 of 809 textures replaced; 807 use original");
+  await expect(page.locator(".pack-current")).toHaveText("Current: Authored Corners A"); await expect(page.locator(".pack-coverage")).toContainText(`2 of ${totalTextureCount} textures replaced; ${totalTextureCount - 2} use original`);
   const selectedA = await state(); expect(selectedA.selected?.contentSha256).toBe(createHash("sha256").update(bytesA).digest("hex")); expect(selectedA.tileSize).toBe(32);
   expect(await pixels("stone")).toEqual({ width: 16, height: 16, rgba: [...Buffer.from(a.tiles[0].rgbaBase64, "base64")] });
   expect(await pixels("item_iron_ingot")).toEqual({ width: 32, height: 32, rgba: [...Buffer.from(a.tiles[1].rgbaBase64, "base64")] });

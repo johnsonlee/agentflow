@@ -44,6 +44,7 @@ const NO_HARVEST_PENALTY = 5 / 1.5;
 
 /** Whether breaking the block with this tool (null = hand) yields a drop. */
 export function canHarvest(id: number, tool: ToolSpec | null): boolean {
+  if (id === blockId("snow")) return tool?.kind === "shovel";
   const tier = blockById(id).harvestTier;
   if (!tier) return true;
   return tool !== null && tool.kind === "pickaxe" && tool.tier >= tier;

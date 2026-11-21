@@ -93,7 +93,7 @@ export const RECIPES: readonly Recipe[] = [
   { id: "oak_planks_from_birch", ingredients: ["birch_log"], result: ["oak_planks", 4], note: "Minecraft yields birch planks" },
   { id: "crafting_table", pattern: ["##", "##"], key: { "#": "oak_planks" }, result: ["crafting_table", 1] },
   { id: "bookshelf", pattern: ["###", "BBB", "###"], key: { "#": "oak_planks", B: "book" }, result: ["bookshelf", 1], note: "Oak-plank subset; native broader plank-tag membership is not modeled" },
-  { id: "snow_block", pattern: ["##", "##"], key: { "#": "snow" }, result: ["snow", 1], note: "Minecraft uses snowballs" },
+  { id: "snow_block", pattern: ["##", "##"], key: { "#": "snowball" }, result: ["snow", 1] },
   ...DYE_RECIPES,
   // Official 2019 dye article teaches white wool + dye; exact current Education counts are unverified.
   ...DYE_COLORS.filter((c) => c.name !== "white").map(({ name }) => ({
