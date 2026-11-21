@@ -1,3 +1,4 @@
+import { inspectSparklerState } from "../ownership/sparkler-state";
 /**
  * Strict, total sanitizers for the optional save sections. Saves are user-editable JSON, so every
  * field is type-checked using own properties only (keys like "__proto__" or "constructor" never
@@ -30,10 +31,13 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   // Hidden state blocks (powered dust, a pressed button, an open door half...) become their base item.
   const base = baseStackId(id);
   if (!int(count, 1, maxStackOf(base))) return null;
+  const sparkler = inspectSparklerState(raw);
+  if (sparkler.kind === "invalid") return null;
   const glow = inspectGlowState(raw);
   if (glow.kind === "invalid") return null;
   const s: ItemStack = { id: base, count };
   if (glow.kind === "inactive" || glow.kind === "active") s.glow = { state: glow.kind };
+  if (sparkler.kind === "inactive" || sparkler.kind === "active") s.sparkler = { state: sparkler.kind };
   // Tool wear: an integer below the tool's durability (anything else is dropped, i.e. a new tool).
   const damage = own(raw, "damage");
   const durability = durabilityOf(id);

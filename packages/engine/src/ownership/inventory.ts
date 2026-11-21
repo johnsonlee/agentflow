@@ -1,6 +1,8 @@
+import { inspectItemState } from "./item-state";
+import { isSparklerId, type SparklerState, type SparklerActivationResult } from "./sparkler-state";
 import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, stackId, toolOf, type ArmorSlot } from "../catalog/items";
-import { cloneStack, hasCloneableBookMetadata, insertStackIntoSlots, planGlowActivation, spaceForStackInSlots, stackLimit, stacksCompatible } from "./stack";
-import { freshStack, inspectGlowState, type GlowActivationResult, type GlowStickState } from "./glow-stick-state";
+import { cloneStack, hasCloneableBookMetadata, insertStackIntoSlots, planGlowActivation, planSparklerActivation, spaceForStackInSlots, stackLimit, stacksCompatible } from "./stack";
+import { freshStack, type GlowActivationResult, type GlowStickState } from "./glow-stick-state";
 import { sanitizeStack } from "../persistence/savecheck";
 
 export const HOTBAR_SIZE = 9;
@@ -16,11 +18,15 @@ export interface ItemStack {
   book?: { pages: string[]; title?: string; author?: string };
   /** Optional application-owned shake activation. Absence preserves legacy saves. */
   glow?: GlowStickState;
+  /** Optional untimed application Sparkler activation, distinct from Glow. */
+  sparkler?: SparklerState;
 }
 
 export interface InventoryData {
   slots: (ItemStack | null)[];
   selected: number;
+  /** Initially bounded to Sparkler products; absent legacy saves mean empty. */
+  offhand?: ItemStack | null;
   /** Optional in older saves; malformed pieces are independently discarded. */
   equipment?: Partial<Record<ArmorSlot, ItemStack | null>>;
 }
@@ -29,6 +35,7 @@ export interface InventoryData {
 export class Inventory {
   readonly slots: (ItemStack | null)[] = new Array(INVENTORY_SIZE).fill(null);
   selected = 0;
+  offhand: ItemStack | null = null;
   readonly equipment: Record<ArmorSlot, ItemStack | null> = { head: null, chest: null, legs: null, feet: null };
 
   selectedStack(): ItemStack | null {
@@ -61,6 +68,43 @@ export class Inventory {
     const plan = planGlowActivation(this.slots, this.selected);
     if (!plan.ok) return plan;
     for (let index = 0; index < this.slots.length; index++) this.slots[index] = plan.slots[index];
+    return { ok: true, kind: "activated", color: plan.color };
+  }
+
+  /** Offhand accepts Sparklers only; refusal leaves both owners unchanged. */
+  setOffhand(stack: ItemStack | null): boolean {
+    if (stack && (!isSparklerId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
+      || inspectItemState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))) return false;
+    this.offhand = stack ? cloneStack(stack) : null;
+    return true;
+  }
+
+  swapSelectedOffhand(): boolean {
+    if (!Number.isInteger(this.selected) || this.selected < 0 || this.selected >= HOTBAR_SIZE) return false;
+    const main = this.selectedStack(), off = this.offhand;
+    const valid = (stack: ItemStack | null) => stack === null || isSparklerId(stack.id) && Number.isSafeInteger(stack.count)
+      && stack.count >= 1 && stack.count <= stackLimit(stack) && inspectItemState(stack).kind !== "invalid" && hasCloneableBookMetadata(stack);
+    if (!valid(main) || !valid(off)) return false;
+    this.slots[this.selected] = off ? cloneStack(off) : null;
+    this.offhand = main ? cloneStack(main) : null;
+    return true;
+  }
+
+  activateSelectedSparkler(): SparklerActivationResult {
+    if (!Number.isInteger(this.selected) || this.selected < 0 || this.selected >= HOTBAR_SIZE) return { ok: false, reason: "invalid-state" };
+    const plan = planSparklerActivation(this.slots, this.selectedStack(), this.selected);
+    if (!plan.ok) return plan;
+    for (let i = 0; i < this.slots.length; i++) this.slots[i] = i === this.selected ? plan.active : plan.slots[i];
+    return { ok: true, kind: "activated", color: plan.color };
+  }
+
+  activateOffhandSparkler(): SparklerActivationResult {
+    if (!Number.isInteger(this.selected) || this.selected < 0 || this.selected >= HOTBAR_SIZE) return { ok: false, reason: "invalid-state" };
+    const plan = planSparklerActivation(this.slots, this.offhand, this.selected);
+    if (!plan.ok) return plan;
+    // The selected main-hand owner is never debited, merged into, replaced or activated here.
+    for (let i = 0; i < this.slots.length; i++) if (i !== this.selected) this.slots[i] = plan.slots[i];
+    this.offhand = plan.active;
     return { ok: true, kind: "activated", color: plan.color };
   }
 
@@ -139,7 +183,7 @@ export class Inventory {
   setSlot(slot: number, stack: ItemStack | null): boolean {
     if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_SIZE) return false;
     if (stack && (!isKnownId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
-      || inspectGlowState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))) return false;
+      || inspectItemState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))) return false;
     this.slots[slot] = stack ? { ...cloneStack(stack), id: baseStackId(stack.id) } : null;
     return true;
   }
@@ -158,6 +202,7 @@ export class Inventory {
   toJSON(): InventoryData {
     return {
       slots: this.slots.map((s) => (s ? cloneStack(s) : null)), selected: this.selected,
+      ...(this.offhand ? { offhand: cloneStack(this.offhand) } : {}),
       equipment: Object.fromEntries(ARMOR_SLOTS.map((slot) => [slot, this.equipment[slot] ? cloneStack(this.equipment[slot]!) : null])),
     };
   }
@@ -179,6 +224,10 @@ export class Inventory {
       for (const slot of ARMOR_SLOTS) {
         if (Object.prototype.hasOwnProperty.call(equipment, slot)) inv.swapEquipment(slot, equipment[slot] ?? null);
       }
+    }
+    if (Object.prototype.hasOwnProperty.call(data, "offhand")) {
+      const stack = data.offhand === null ? null : sanitizeStack(data.offhand);
+      if (data.offhand === null || stack) inv.setOffhand(stack);
     }
     inv.select(Number.isInteger(data.selected) ? data.selected : 0);
     return inv;

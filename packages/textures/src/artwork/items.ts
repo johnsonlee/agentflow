@@ -1,4 +1,5 @@
 import { BALLOON_ITEM_GENERATORS } from "./balloons";
+import { SPARKLER_ITEM_GENERATORS } from "./sparklers";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "../atlas/pixels";
 import { FARMING_ITEM_GENERATORS } from "./farming";
 import { REDSTONE_ITEM_GENERATORS } from "./redstone";
@@ -213,3 +214,6 @@ ITEM_TILE_GENERATORS.item_lead = (t) => {
 
 // Append original balloon icon generators without changing existing seeds or pixels.
 Object.assign(ITEM_TILE_GENERATORS, BALLOON_ITEM_GENERATORS);
+
+// Append stateful sparkler sprites without changing any previous tile generator.
+Object.assign(ITEM_TILE_GENERATORS, SPARKLER_ITEM_GENERATORS);

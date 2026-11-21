@@ -1,3 +1,5 @@
+import { inspectSparklerState, isSparklerId } from "../ownership/sparkler-state";
+import { sanitizeStack } from "./savecheck";
 import { inspectGlowState } from "../ownership/glow-stick-state";
 import { sanitizePlayerState, validatePlayerDeathOwnership, type PlayerStateData } from "../simulation/player-death";
 import type { BalloonsData } from "../ownership/balloons";
@@ -39,6 +41,8 @@ export interface SaveData {
   playerStateOwnershipInvalid?: boolean;
   /** Derived from RAW owners before repair, never trusted from serialized JSON or written. */
   glowOwnershipIssues?: GlowOwnershipIssue[];
+  /** Raw Sparkler/offhand diagnostics before any owner repair; caller preserves original text. */
+  sparklerOwnershipIssues?: GlowOwnershipIssue[];
   /** Education Edition NPCs placed in the world (optional for older saves). */
   npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
   /** Survival hunger (optional for older saves; defaults to full). */
@@ -66,7 +70,7 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { glowOwnershipIssues: _derivedIssues, ...owned } = data;
+  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, ...owned } = data;
   return JSON.stringify({ version: SAVE_VERSION, ...owned });
 }
 
@@ -80,14 +84,17 @@ export interface GlowOwnershipIssue { path: string; reason: string }
 
 /** Scan raw owners before sanitizeInventoryPending/fromJSON/Agent/furnace loaders can drop state.
  * This produces diagnostics only; Game must preserve the original raw text and block overwrite. */
-export function diagnoseRawGlowOwnership(raw: unknown): GlowOwnershipIssue[] {
+function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"): GlowOwnershipIssue[] {
   const issues: GlowOwnershipIssue[] = [];
   if (!isObj(raw)) return issues;
   const check = (value: unknown, path: string, supported = true) => {
-    if (typeof value !== "object" || value === null || !("glow" in value)) return;
-    const state = inspectGlowState(value);
+    if (typeof value !== "object" || value === null) return;
+    // New Sparkler identities require recovery even when their legacy metadata is absent.
+    const legacySparkler = field === "sparkler" && isObj(value) && typeof own(value, "id") === "number" && isSparklerId(own(value, "id") as number);
+    if (!(field in value) && !legacySparkler) return;
+    const state = field === "glow" ? inspectGlowState(value) : inspectSparklerState(value);
     if (state.kind === "invalid") issues.push({ path, reason: state.reason });
-    else if (!supported) issues.push({ path, reason: "stateful glow owner would be discarded or is unsupported" });
+    else if (!supported) issues.push({ path, reason: `stateful ${field} owner would be discarded or is unsupported` });
   };
   // A malformed known owner container is itself a recovery issue. Do not search arbitrary
   // descendants for glow: preserve the entire original envelope even when its contents are opaque.
@@ -109,6 +116,14 @@ export function diagnoseRawGlowOwnership(raw: unknown): GlowOwnershipIssue[] {
   const inventory = object(own(raw, "inventory"), "inventory");
   if (inventory) {
     list(own(inventory, "slots"), "inventory.slots", 36);
+    if (field === "sparkler" && Object.prototype.hasOwnProperty.call(inventory, "offhand")) {
+      const rawOffhand = own(inventory, "offhand");
+      if (rawOffhand !== null) {
+        const clean = sanitizeStack(rawOffhand);
+        if (!clean || !isSparklerId(clean.id)) issues.push({ path: "inventory.offhand", reason: "invalid or unsupported offhand owner" });
+        else check(rawOffhand, "inventory.offhand");
+      }
+    }
     const equipment = object(own(inventory, "equipment"), "inventory.equipment");
     if (equipment) for (const key of Object.keys(equipment))
       check(own(equipment, key), `inventory.equipment.${key}`, false); // Glow is never armor.
@@ -116,6 +131,8 @@ export function diagnoseRawGlowOwnership(raw: unknown): GlowOwnershipIssue[] {
   list(own(raw, "inventoryPending"), "inventoryPending", 10);
   const agent = object(own(raw, "agent"), "agent");
   if (agent) {
+    if (field === "sparkler" && Object.prototype.hasOwnProperty.call(agent, "offhand"))
+      issues.push({ path: "agent.offhand", reason: "Agent offhand is an unsupported owner" });
     const valid = integer(own(agent, "x")) && integer(own(agent, "y"), 0, 1000) && integer(own(agent, "z"))
       && integer(own(agent, "facing"), 0, 3) && integer(own(agent, "selected"), 0, 26);
     if (!valid) issues.push({ path: "agent", reason: "invalid owned-item Agent envelope" });
@@ -151,6 +168,9 @@ export function diagnoseRawGlowOwnership(raw: unknown): GlowOwnershipIssue[] {
   return issues;
 }
 
+export function diagnoseRawGlowOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "glow"); }
+export function diagnoseRawSparklerOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "sparkler"); }
+
 /**
  * Parses a save and rebuilds it field by field with strict, own-property checks. A save is
  * rejected (with a clear message) only if it isn't JSON, has an unsupported version or has no
@@ -173,6 +193,7 @@ export function parseSave(text: string): SaveData {
 
   // Must precede sanitizeInventoryPending and all downstream owner loaders.
   const glowOwnershipIssues = diagnoseRawGlowOwnership(raw);
+  const sparklerOwnershipIssues = diagnoseRawSparklerOwnership(raw);
   const name = own(raw, "name");
   const mode = own(raw, "mode");
   const time = own(raw, "timeOfDay");
@@ -202,6 +223,7 @@ export function parseSave(text: string): SaveData {
     inventory: {
       slots: Array.isArray(own(inventory, "slots")) ? (own(inventory, "slots") as InventoryData["slots"]) : [],
       selected: Number.isInteger(own(inventory, "selected")) ? (own(inventory, "selected") as number) : 0,
+      ...(Object.prototype.hasOwnProperty.call(inventory, "offhand") ? { offhand: own(inventory, "offhand") as InventoryData["offhand"] } : {}),
       ...(isObj(own(inventory, "equipment")) ? { equipment: own(inventory, "equipment") as InventoryData["equipment"] } : {}),
     },
     inventoryPending: sanitizeInventoryPending(own(raw, "inventoryPending")),
@@ -210,6 +232,7 @@ export function parseSave(text: string): SaveData {
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
   if (glowOwnershipIssues.length) save.glowOwnershipIssues = glowOwnershipIssues;
+  if (sparklerOwnershipIssues.length) save.sparklerOwnershipIssues = sparklerOwnershipIssues;
   // Optional sections: passed through for their own sanitizers.
   for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs", "leashes", "playerState", "snowballProjectiles", "balloons"] as const) {
     const v = own(raw, key);

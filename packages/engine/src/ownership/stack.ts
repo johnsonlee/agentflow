@@ -1,10 +1,12 @@
+import { inspectItemState } from "./item-state";
+import { inspectSparklerState, sparklerColor, type SparklerActivationResult } from "./sparkler-state";
 import type { ItemStack } from "./inventory";
 import { baseStackId, isKnownId, maxStackOf } from "../catalog/items";
 import { glowStickColor, inspectGlowState, type GlowActivationResult } from "./glow-stick-state";
 
 /** Detached ownership snapshot; never shares editable book pages or glow state with another owner. */
 export function cloneStack(stack: ItemStack, count = stack.count): ItemStack {
-  return { ...stack, count, ...(stack.book ? { book: { ...stack.book, pages: [...stack.book.pages] } } : {}), ...(stack.glow ? { glow: { ...stack.glow } } : {}) };
+  return { ...stack, count, ...(stack.book ? { book: { ...stack.book, pages: [...stack.book.pages] } } : {}), ...(stack.glow ? { glow: { ...stack.glow } } : {}), ...(stack.sparkler ? { sparkler: { ...stack.sparkler } } : {}) };
 }
 
 /** Structural guard for supported book metadata before detached ownership cloning.
@@ -27,7 +29,7 @@ export function hasCloneableBookMetadata(stack: ItemStack): boolean {
 /** Zero wear and absent wear are equivalent; every supported book field participates. */
 export function stacksCompatible(a: ItemStack, b: ItemStack): boolean {
   if (!hasCloneableBookMetadata(a) || !hasCloneableBookMetadata(b)) return false;
-  const aGlow = inspectGlowState(a, true), bGlow = inspectGlowState(b, true);
+  const aGlow = inspectItemState(a, true), bGlow = inspectItemState(b, true);
   if (aGlow.kind === "invalid" || bGlow.kind === "invalid" || aGlow.kind !== bGlow.kind) return false;
   return a.id === b.id && (a.damage ?? 0) === (b.damage ?? 0) &&
     (a.book === undefined && b.book === undefined || a.book !== undefined && b.book !== undefined &&
@@ -36,7 +38,7 @@ export function stacksCompatible(a: ItemStack, b: ItemStack): boolean {
 
 /** Metadata-aware capacity; maxStackOf(id) remains the unchanged registry limit. */
 export function stackLimit(stack: ItemStack): number {
-  const glow = inspectGlowState(stack, true);
+  const glow = inspectItemState(stack, true);
   return glow.kind === "invalid" ? 0 : glow.kind === "active" ? 1 : maxStackOf(stack.id);
 }
 
@@ -44,7 +46,7 @@ export function stackLimit(stack: ItemStack): number {
  * Callers requiring all-or-nothing must pass detached trial slots and commit only on zero remainder. */
 export function insertStackIntoSlots(slots: (ItemStack | null)[], incoming: ItemStack, excludedIndex = -1): number {
   if (!isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count <= 0
-    || inspectGlowState(incoming, true).kind === "invalid" || !hasCloneableBookMetadata(incoming)) return incoming.count;
+    || inspectItemState(incoming, true).kind === "invalid" || !hasCloneableBookMetadata(incoming)) return incoming.count;
   const stack = { ...cloneStack(incoming), id: baseStackId(incoming.id) };
   const limit = stackLimit(stack);
   let left = stack.count;
@@ -65,7 +67,7 @@ export function insertStackIntoSlots(slots: (ItemStack | null)[], incoming: Item
 /** Capacity of a concrete incoming state, matching insertStackIntoSlots without mutation. */
 export function spaceForStackInSlots(slots: readonly (ItemStack | null)[], incoming: ItemStack): number {
   if (!isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count <= 0
-    || inspectGlowState(incoming, true).kind === "invalid" || !hasCloneableBookMetadata(incoming)) return 0;
+    || inspectItemState(incoming, true).kind === "invalid" || !hasCloneableBookMetadata(incoming)) return 0;
   const stack = { ...cloneStack(incoming), id: baseStackId(incoming.id) }, limit = stackLimit(stack);
   return slots.reduce((total, current) => total + (!current ? limit
     : limit > 1 && stacksCompatible(current, stack) ? Math.max(0, limit - current.count) : 0), 0);
@@ -89,11 +91,32 @@ export function planGlowActivation(slots: readonly (ItemStack | null)[], selecte
     return { ok: false, reason: "invalid-state" };
   // Do not silently repair unrelated malformed owners while cloning/committing the trial.
   for (const stack of slots) if (stack && (!isKnownId(stack.id) || !Number.isSafeInteger(stack.count)
-    || stack.count < 1 || !hasCloneableBookMetadata(stack) || inspectGlowState(stack).kind === "invalid" || stack.count > stackLimit(stack)))
+    || stack.count < 1 || !hasCloneableBookMetadata(stack) || inspectItemState(stack).kind === "invalid" || stack.count > stackLimit(stack)))
     return { ok: false, reason: "invalid-state" };
   const trial = slots.map(stack => stack ? cloneStack(stack) : null);
   trial[selected] = { ...cloneStack(source, 1), glow: { state: "active" } };
   if (source.count > 1 && insertStackIntoSlots(trial, cloneStack(source, source.count - 1), selected) !== 0)
     return { ok: false, reason: "needs-room" };
   return { ok: true, kind: "activated", color, slots: trial };
+}
+
+export type SparklerActivationPlan = Exclude<SparklerActivationResult, { ok: true }>
+  | { ok: true; kind: "activated"; color: string; slots: (ItemStack | null)[]; active: ItemStack };
+/** Detached complete plan. Excluded cell is the selected main owner in either hand's action. */
+export function planSparklerActivation(slots: readonly (ItemStack | null)[], source: ItemStack | null, excludedIndex: number): SparklerActivationPlan {
+  if (!Number.isInteger(excludedIndex) || excludedIndex < 0 || excludedIndex >= slots.length) return { ok: false, reason: "invalid-state" };
+  if (!source) return { ok: false, reason: "not-sparkler" };
+  if (!Number.isSafeInteger(source.count) || source.count < 1 || source.count > stackLimit(source) || !hasCloneableBookMetadata(source))
+    return { ok: false, reason: "invalid-state" };
+  const state = inspectSparklerState(source), color = sparklerColor(source.id);
+  if (state.kind === "invalid" || inspectItemState(source).kind === "invalid") return { ok: false, reason: "invalid-state" };
+  if (color === null) return { ok: false, reason: "not-sparkler" };
+  if (state.kind === "active") return { ok: false, reason: "already-active" };
+  for (const stack of slots) if (stack && (!isKnownId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
+    || !hasCloneableBookMetadata(stack) || inspectItemState(stack).kind === "invalid" || stack.count > stackLimit(stack)))
+    return { ok: false, reason: "invalid-state" };
+  const trial = slots.map(stack => stack ? cloneStack(stack) : null);
+  if (source.count > 1 && insertStackIntoSlots(trial, cloneStack(source, source.count - 1), excludedIndex) !== 0)
+    return { ok: false, reason: "needs-room" };
+  return { ok: true, kind: "activated", color, slots: trial, active: { ...cloneStack(source, 1), sparkler: { state: "active" } } };
 }

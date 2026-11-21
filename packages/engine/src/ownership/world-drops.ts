@@ -5,7 +5,7 @@ import { WORLD_BORDER, type Vec3 } from "../core/math";
 import { bodyBox, boxCollides, GRAVITY, moveAxis, TERMINAL_VELOCITY } from "../simulation/physics";
 import { sanitizeStack } from "../persistence/savecheck";
 import { cloneStack, stackLimit, stacksCompatible } from "./stack";
-import { inspectGlowState } from "./glow-stick-state";
+import { inspectItemState } from "./item-state";
 import { WORLD_HEIGHT } from "../world/chunk";
 import type { World } from "../world/world";
 
@@ -34,7 +34,7 @@ function validStack(raw: unknown, bulk = false): ItemStack | null {
   if (damage !== undefined && (!Number.isInteger(damage) || (damage as number) < 0 || durability === null || (damage as number) >= durability)) return null;
   // Inspect ORIGINAL ownership before normalizing count for sanitation. Active bulk must not
   // become multiple valid singletons through the count1 validation shortcut.
-  if (inspectGlowState(raw, bulk).kind === "invalid") return null;
+  if (inspectItemState(raw, bulk).kind === "invalid") return null;
   if (!bulk && (count as number) > stackLimit(raw as unknown as ItemStack)) return null;
   const clean = sanitizeStack({ ...raw, count: 1 });
   if (!clean) return null;

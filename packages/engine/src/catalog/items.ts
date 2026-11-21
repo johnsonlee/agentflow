@@ -3,6 +3,7 @@
  * {@link ITEM_ID_BASE}, so one numeric id space covers inventory stacks while chunk
  * arrays keep holding block ids only.
  */
+import { SPARKLER_COLORS } from "./sparkler-colors";
 import { BALLOON_COLORS } from "./balloon-colors";
 import { DYE_COLORS } from "./dyes";
 import { GLOW_STICK_COLORS } from "./glow-stick-colors";
@@ -208,6 +209,10 @@ const specs: Omit<ItemDef, "id">[] = [
   // Append16 flat products; stack64 is an application choice pending native verification.
   ...BALLOON_COLORS.map(({ itemName, displayName, icon }) => ({
     name: itemName, displayName, maxStack: MAX_STACK, icon, chem: { kind: "product" as const },
+  })),
+  // Append five application sparkler identities after the complete568-item prefix.
+  ...SPARKLER_COLORS.map(({ itemName, displayName, iconInactive }) => ({
+    name: itemName, displayName, maxStack: MAX_STACK, icon: iconInactive, chem: { kind: "product" as const },
   })),
 ];
 

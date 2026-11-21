@@ -1,4 +1,4 @@
-import { blockById, isItem, itemById } from "@craft/engine";
+import { blockById, isItem, itemById, inspectSparklerState, isSparklerId, SPARKLER_COLORS, sparklerColor, type ItemStack } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
 const cache = new WeakMap<TextureAtlas, Map<string, string>>();
@@ -33,10 +33,12 @@ function face(ctx: CanvasRenderingContext2D, img: HTMLCanvasElement, m: [number,
  * Inventory icon for a stack id as a data URL: an isometric cube for blocks, or a flat sprite
  * for plants and items (sticks, tools).
  */
-export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
+export function blockIcon(atlas: TextureAtlas, id: number, size = 64, stack?: ItemStack): string {
   let icons = cache.get(atlas);
   if (!icons) { icons = new Map(); cache.set(atlas, icons); }
-  const key = `${id}:${size}`;
+  const activeIcon = stack && isSparklerId(id) && inspectSparklerState(stack).kind === "active"
+    ? SPARKLER_COLORS.find(color => color.color === sparklerColor(id))?.iconActive : undefined;
+  const key = `${id}:${size}${activeIcon ? `:${activeIcon}` : ""}`;
   const cached = icons.get(key);
   if (cached) return cached;
   const canvas = document.createElement("canvas");
@@ -59,7 +61,7 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
     ctx.fillStyle = "#f2f2ea";
     for (let i = 0; i < 3; i++) ctx.fillRect(x + 7, y + 8 + i * 6, (w - 14) * (1 - i * 0.25), 2);
   } else if (!def) {
-    ctx.drawImage(tileCanvas(atlas, itemById(id).icon), 0, 0, size, size);
+    ctx.drawImage(tileCanvas(atlas, activeIcon ?? itemById(id).icon), 0, 0, size, size);
   } else if (def.shape === "cross" || def.shape === "torch") {
     ctx.drawImage(tileCanvas(atlas, def.faces.side), size * 0.1, size * 0.1, size * 0.8, size * 0.8);
   } else if (def.shape === "fence") {

@@ -1,5 +1,5 @@
 import {
-  cloneStack, freshStack, inspectGlowState, isGlowStickId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
+  cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
   BalloonStore, balloonColorOf, raycastBalloons, combineReleaseAttempts, type ReleaseAttempt,
   SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
@@ -24,6 +24,7 @@ import { WorldDropsView } from "../rendering/worldDropsView";
 import { SnowballProjectilesView } from "../rendering/snowballProjectilesView";
 import { LeashView } from "../rendering/leash-view";
 import { BalloonView } from "../rendering/balloonView";
+import { SparklerView } from "../rendering/sparkler-view";
 import { GlowStickView } from "../rendering/glow-stick-view";
 
 export const SAVE_KEY = "craft.save.v1";
@@ -77,6 +78,7 @@ export class Game {
   readonly balloons: BalloonStore;
   private readonly balloonView: BalloonView;
   private readonly glowStickView: GlowStickView;
+  private readonly sparklerView: SparklerView;
   private readonly balloonOriginalRaw: string | null;
   private balloonTarget: { key: number; distance: number } | null = null;
   get targetBalloon(): { key: number; distance: number } | null { return this.balloonTarget ? { ...this.balloonTarget } : null; }
@@ -190,7 +192,7 @@ export class Game {
     this.root.appendChild(canvas);
 
     const save = options.save;
-    this.markGlowRecovery(save);
+    this.markGlowRecovery(save); this.markSparklerRecovery(save);
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
@@ -220,6 +222,7 @@ export class Game {
     this.leashView = new LeashView(this.renderer.scene);
     this.balloonView = new BalloonView(this.renderer.scene);
     this.glowStickView = new GlowStickView(this.root, atlas);
+    this.sparklerView = new SparklerView(this.root, atlas);
     const creatures = sanitizeMobState(save?.mobs);
     if (creatures.present) this.mobs.restore(creatures.data, this.mobLoot);
     else for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
@@ -264,6 +267,8 @@ export class Game {
       onPortfolio: () => this.togglePortfolio(),
       onCodeBuilder: () => this.openCodeBuilder(),
       onShakeGlow: () => { this.tryShakeSelectedGlow(); },
+      onLightSparkler: offhand => { this.tryLightSparkler(offhand); },
+      onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
     this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.itemsNeedRecovery);
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
@@ -281,6 +286,7 @@ export class Game {
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
     for (const issue of save?.glowOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for (const issue of save?.sparklerOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     if (this.leashes.loadIssues) this.loadErrors.push("Damaged leashes (original save preserved)");
     if (this.balloons.loadIssues) this.loadErrors.push("Damaged balloons (original save preserved)");
     if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
@@ -314,7 +320,7 @@ export class Game {
     if (this.dead) {
       this.inventoryScreen.freezeForDeath(); this.suspendInput();
       if (this.deathState?.phase === "complete" && !this.deathState.keepInventory &&
-          (this.inventory.slots.some(Boolean) || ARMOR_SLOTS.some(slot => this.inventory.equipment[slot]) || this.inventoryScreen.pendingItems().length > 0)) {
+          (this.inventory.slots.some(Boolean) || this.inventory.offhand !== null || ARMOR_SLOTS.some(slot => this.inventory.equipment[slot]) || this.inventoryScreen.pendingItems().length > 0)) {
         this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("player state");
         this.loadErrors.push("Completed death still owns player items (original save preserved)");
       }
@@ -353,7 +359,7 @@ export class Game {
     this.runner?.stop(); this.keyboard.dispose(); this.farming.dispose();
     this.snowballProjectilesView.dispose(); this.snowballProjectiles.dispose();
     this.leashView.dispose(); this.leashes.dispose();
-    this.balloonView.dispose(); this.balloons.dispose(); this.glowStickView.dispose();
+    this.balloonView.dispose(); this.balloons.dispose(); this.glowStickView.dispose(); this.sparklerView.dispose();
     this.worldDropsView.dispose(); this.worldDrops.dispose(); this.mobs.dispose();
     this.agentView.dispose(); this.chalkViews.dispose();
     this.root.remove(); this.renderer.dispose();
@@ -686,6 +692,7 @@ export class Game {
     this.hud.setUnderwater(underwater);
     this.hud.update(this.inventory, this.mode, this.health, this.hunger.food, dt, active && !this.ownershipBusy);
     this.glowStickView.update(this.inventory.selectedStack(), !this.paused && !this.dead && !this.screenOpen());
+    this.sparklerView.update(this.inventory.selectedStack(), this.inventory.offhand, !this.paused && !this.dead && !this.screenOpen() && !this.itemsNeedRecovery);
     this.renderer.setSelection(this.target, this.breakProgress);
     // A held glow stick lights the area around the player (Education Edition).
     this.heldLight = this.inventory.selectedStack()?.id === GLOW_STICK ? HELD_GLOW_LIGHT : 0;
@@ -771,7 +778,7 @@ export class Game {
       this.hud.message(ok ? "Balloon attached" : "Cannot attach another balloon to that creature here");
       return;
     }
-    if (place && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc" && (held?.id === LEAD || !held)) {
+    if (place && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc" && (held?.id === LEAD || !held && (!this.inventory.offhand || this.leashes.records.some(record => record.targetMobId === this.mobTarget!.id)))) {
       const mob = this.mobTarget;
       const keys = this.leashes.records.filter(r => r.targetMobId === mob.id).map(r => r.key);
       const withinReach = Math.hypot(mob.position.x - this.body.position.x, mob.position.y - this.body.position.y, mob.position.z - this.body.position.z) <= LEASH_PROFILE.attachReach;
@@ -784,6 +791,10 @@ export class Game {
     }
     if (place && held && isGlowStickId(held.id) && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc") {
       this.tryShakeSelectedGlow(); return;
+    }
+    if (place && this.placeCooldown === 0 && this.mobTarget?.kind !== "npc" && this.mobTarget &&
+        (held && isSparklerId(held.id) || !held && this.inventory.offhand)) {
+      this.tryLightSparkler(!held); return;
     }
     if (this.mobTarget) {
       this.target = null;
@@ -877,7 +888,8 @@ export class Game {
     }
 
     // Held blocks still place normally; only a Lead or an empty hand selects the fence tether action.
-    if (place && t?.id === OAK_FENCE && this.placeCooldown === 0 && (held?.id === LEAD || !held)) {
+    if (place && t?.id === OAK_FENCE && this.placeCooldown === 0 && (held?.id === LEAD || !held &&
+        (!this.inventory.offhand || this.leashes.records.some(record => record.phase === "active" && record.anchor.kind === "player") || this.fenceLeashKeys(t.x, t.y, t.z).length > 0))) {
       const context = this.leashContext();
       const playerKeys = this.leashes.records.filter(r => r.phase === "active" && r.anchor.kind === "player").map(r => r.key);
       const fenceKeys = this.fenceLeashKeys(t.x, t.y, t.z);
@@ -889,6 +901,10 @@ export class Game {
       const refusal = !withinReach && (playerKeys.length > 0 || fenceKeys.length > 0) ? "Move closer to tie or release Leads"
         : playerKeys.length > 0 || (!held && fenceKeys.length > 0) ? "Could not tie or release Leads" : "There are no Leads to tie or release here";
       this.placeCooldown = .25; this.hud.message(ok ? (playerKeys.length ? "Leads tied to fence" : "Leads released") : refusal); return;
+    }
+
+    if (place && this.placeCooldown === 0 && (held && isSparklerId(held.id) || !held && this.inventory.offhand)) {
+      this.tryLightSparkler(!held); return;
     }
 
     // Hoe use precedes generic placement; authorization and successful-use wear are engine-owned.
@@ -941,6 +957,34 @@ export class Game {
     if (!save?.glowOwnershipIssues?.length) return;
     this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
     if (!this.itemsNeedRecovery) this.recoverySections.push("saved items");
+  }
+
+  /** Diagnose raw sparkler/offhand ownership before any item loader can repair it. */
+  private markSparklerRecovery(save: Pick<SaveData, "sparklerOwnershipIssues"> | undefined): void {
+    if (!save?.sparklerOwnershipIssues?.length) return;
+    this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.itemsNeedRecovery) this.recoverySections.push("saved items");
+  }
+
+  trySwapOffhand(): boolean {
+    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.itemsNeedRecovery || this.stopped) return false;
+    if (!this.inventory.swapSelectedOffhand()) { this.hud.message("Select a sparkler or an empty hotbar slot before swapping the offhand."); return false; }
+    return true;
+  }
+
+  /** One explicit hand is activated; the other owner is never implicitly changed. */
+  tryLightSparkler(offhand = false): boolean {
+    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.itemsNeedRecovery || this.stopped) return false;
+    const result = offhand ? this.inventory.activateOffhandSparkler() : this.inventory.activateSelectedSparkler();
+    if (!result.ok) {
+      if (result.reason !== "not-sparkler") this.hud.message(result.reason === "needs-room"
+        ? "Make room in the bag for the remaining sparklers before lighting one."
+        : result.reason === "already-active" ? "This sparkler is already lit." : "These items need attention before they can be used.");
+      return false;
+    }
+    this.placeCooldown = .25; this.breakProgress = 0; this.breakKey = "";
+    this.sparklerView.update(this.inventory.selectedStack(), this.inventory.offhand, true);
+    this.hud.message(offhand ? "Offhand sparkler lit" : "Sparkler lit"); return true;
   }
 
   /** A single input edge commits one complete per-unit activation before its visual response. */
@@ -1038,7 +1082,7 @@ export class Game {
     if (!held) return "Select a stack in your hotbar first";
     // Creative has unlimited blocks: give a full stack without taking any.
     const count = this.mode === "creative" ? stackLimit(held) : held.count;
-    if (count < 1 || inspectGlowState(held).kind === "invalid") return "These items need attention before they can be moved";
+    if (count < 1 || inspectGlowState(held).kind === "invalid" || inspectSparklerState(held).kind === "invalid") return "These items need attention before they can be moved";
     const left = giveAgent(this.agent, cloneStack(held, count));
     const given = count - left;
     if (this.mode === "survival") {

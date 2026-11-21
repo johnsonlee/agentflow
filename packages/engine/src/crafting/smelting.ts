@@ -6,7 +6,8 @@ import type { ItemStack } from "../ownership/inventory";
 import { isKnownId, stackId } from "../catalog/items";
 
 import { cloneStack, hasCloneableBookMetadata, stackLimit, stacksCompatible } from "../ownership/stack";
-import { freshStack, inspectGlowState } from "../ownership/glow-stick-state";
+import { freshStack } from "../ownership/glow-stick-state";
+import { inspectItemState } from "../ownership/item-state";
 
 export const SMELT_SECONDS = 10;
 
@@ -74,7 +75,7 @@ function resetProgress(f: FurnaceState): void {
 export function setFurnaceInput(f: FurnaceState, incoming: ItemStack | null): ItemStack | null {
   // Returning an invalid incoming owner unchanged lets the cursor retain it transactionally.
   if (incoming && (!isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count < 1
-    || inspectGlowState(incoming).kind === "invalid" || !hasCloneableBookMetadata(incoming) || incoming.count > stackLimit(incoming))) return incoming;
+    || inspectItemState(incoming).kind === "invalid" || !hasCloneableBookMetadata(incoming) || incoming.count > stackLimit(incoming))) return incoming;
   const previous = f.input;
   // Removing and reinserting between simulation frames must also forfeit partial work.
   if (previous?.id !== incoming?.id) resetProgress(f);

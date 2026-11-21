@@ -1,3 +1,4 @@
+import { isSparklerId } from "../ownership/sparkler-state";
 import { AIR } from "../catalog/blocks";
 import { INVENTORY_SIZE, type Inventory, type ItemStack } from "../ownership/inventory";
 import { ARMOR_SLOTS, armorOf, durabilityOf } from "../catalog/items";
@@ -34,7 +35,7 @@ export function sanitizePlayerState(raw: unknown): SanitizedPlayerState {
 
 /** Validate without repairing/truncating owned metadata; a rejected stack remains at its source. */
 function ownedStack(raw: unknown): ItemStack | null {
-  if (!plain(raw) || Object.keys(raw).some(key => !["id", "count", "damage", "book", "glow"].includes(key))) return null;
+  if (!plain(raw) || Object.keys(raw).some(key => !["id", "count", "damage", "book", "glow", "sparkler"].includes(key))) return null;
   const id = own(raw, "id"), count = own(raw, "count"), damage = own(raw, "damage"), book = own(raw, "book");
   const clean = sanitizeStack(raw);
   if (!clean || id === AIR || clean.id !== id || clean.count !== count) return null;
@@ -60,6 +61,12 @@ function deathOwnedStacks(rawInventory: unknown, rawPending: unknown): ItemStack
     for (const slot of slots) {
       if (slot === null) continue;
       const clean = ownedStack(slot); if (!clean) return null; stacks.push(clean);
+    }
+    if (Object.prototype.hasOwnProperty.call(rawInventory, "offhand")) {
+      const offhand = own(rawInventory, "offhand");
+      if (offhand !== null) {
+        const clean = ownedStack(offhand); if (!clean || !isSparklerId(clean.id)) return null; stacks.push(clean);
+      }
     }
     if (equipment !== undefined) for (const slot of ARMOR_SLOTS) {
       const piece = own(equipment as Record<string, unknown>, slot); if (piece === undefined || piece === null) continue;
@@ -87,7 +94,7 @@ export class PlayerDeathTransfer {
     if (death.phase === "complete") return true;
     this.transferring = true;
     try {
-      const stacks = deathOwnedStacks({ slots: inventory.slots, equipment: inventory.equipment }, pending);
+      const stacks = deathOwnedStacks({ slots: inventory.slots, equipment: inventory.equipment, ...(inventory.offhand ? { offhand: inventory.offhand } : {}) }, pending);
       if (!stacks) return false;
       if (death.keepInventory) { death.phase = "complete"; return true; }
       try {
@@ -96,6 +103,7 @@ export class PlayerDeathTransfer {
       } catch { return false; }
       // Reservation succeeded in full. These assignments and the caller's reset cannot return items.
       inventory.slots.fill(null);
+      inventory.offhand = null;
       for (const slot of ARMOR_SLOTS) inventory.equipment[slot] = null;
       death.phase = "complete";
       clearPending();

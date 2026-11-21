@@ -166,7 +166,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const stack = agent.slots[agent.selected];
       // Blocks, and items that place a block (redstone dust, doors, lab products).
       // Stateful glow has no block metadata owner. Refuse before world writes or source debit.
-      if (stack && Object.prototype.hasOwnProperty.call(stack, "glow")) return { ok: false, message: "Stateful glow sticks cannot be placed" };
+      if (stack && (Object.prototype.hasOwnProperty.call(stack, "glow") || Object.prototype.hasOwnProperty.call(stack, "sparkler"))) return { ok: false, message: "Stateful Glow sticks and Sparklers cannot be placed" };
       const placed = stack ? placedBlockOf(stack.id) : null;
       if (!stack || placed === null) return { ok: false, message: "No block in the selected slot" };
       // Education Edition: the Agent obeys Allow/Deny like a survival player.

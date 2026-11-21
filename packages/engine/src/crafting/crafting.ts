@@ -1,3 +1,4 @@
+import { SPARKLER_COLORS } from "../catalog/sparkler-colors";
 import { freshStack } from "../ownership/glow-stick-state";
 import { BALLOON_COLORS } from "../catalog/balloon-colors";
 import { DYE_COLORS } from "../catalog/dyes";
@@ -148,6 +149,10 @@ export const RECIPES: readonly Recipe[] = [
     id: itemName, pattern: ["LDL", "LHL", "LRL"],
     key: { L: "latex", D: dye, H: "helium", R: "lead_rope" }, result: [itemName, 1],
     note: "Journal pattern; output1 and canonical helium-4 only are application choices; native isotope acceptance unverified",
+  })),
+  ...SPARKLER_COLORS.map(({ itemName, compound }): Recipe => ({
+    id: itemName, pattern: ["C", "M", "S"], key: { C: compound, M: "magnesium", S: "stick" }, result: [itemName, 1],
+    note: "Journal vertical chloride/magnesium/stick shape; output1 is an application choice",
   })),
 ];
 

@@ -483,3 +483,21 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
   .glow-shake-button { min-height: 32px; padding: 4px 10px; }
 }
 @media (prefers-reduced-motion: reduce) { .held-glow-stick.shake img { animation: none; } }
+
+/* Sparkler visuals are bounded presentation; item state remains in inventory owners. */
+.sparkler-actions { display:flex; flex-wrap:wrap; align-items:center; justify-content:center; gap:6px; max-width:420px; margin:0 auto 5px; pointer-events:auto; }
+.sparkler-action { min-height:36px; padding:5px 10px; touch-action:manipulation; }
+.sparkler-action[hidden] { display:none; }
+.offhand-name { width:100%; color:#f4f4e8; text-shadow:1px 2px #111; text-align:center; font-size:12px; }
+.offhand-name:empty { display:none; }
+.offhand-section { display:flex; flex-wrap:wrap; align-items:center; gap:8px; margin:8px 0; }
+.offhand-section .hint { margin:0; }
+.held-sparklers { position:absolute; inset:0; pointer-events:none; z-index:2; }
+.held-sparkler { position:absolute; right:22px; bottom:168px; width:108px; text-align:center; color:#fff; text-shadow:1px 2px #111; font-size:12px; }
+.held-sparkler.offhand { right:auto; left:22px; }
+.held-sparkler img { display:block; width:72px; height:72px; image-rendering:pixelated; margin:auto; }
+.sparkler-state { display:block; }
+.sparkler-spark { position:absolute; left:54px; top:16px; width:3px; height:3px; background:var(--spark-color); box-shadow:0 0 4px var(--spark-color); animation:sparkler-puff .72s linear infinite; animation-delay:var(--spark-delay); }
+@keyframes sparkler-puff { from { transform:translate(0,0); opacity:1; } to { transform:translate(var(--spark-x),var(--spark-y)); opacity:0; } }
+@media (max-width:620px), (max-height:500px) { .sparkler-actions { gap:4px; max-width:330px; } .sparkler-action { min-height:32px; padding:4px 7px; font-size:12px; } .held-sparkler { top:70px; bottom:auto; right:12px; width:86px; } .held-sparkler.offhand { left:12px; } .held-sparkler img { width:48px; height:48px; } .sparkler-spark { left:43px; top:10px; } }
+@media (prefers-reduced-motion:reduce) { .sparkler-spark { animation:none; display:none; } }

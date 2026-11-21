@@ -1,6 +1,6 @@
 import {
   HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
-  cloneStack, freshStack, inspectGlowState, isGlowStickId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
+  cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
   type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
@@ -23,6 +23,8 @@ export interface HudCallbacks {
   onPortfolio(): void;
   onCodeBuilder(): void;
   onShakeGlow(): void;
+  onLightSparkler(offhand: boolean): void;
+  onSwapOffhand(): void;
 }
 
 /** In-game overlay: crosshair, hotbar, hearts, item name, debug info and chat log. */
@@ -43,6 +45,11 @@ export class Hud {
   private lastSignature = "";
   private selectedSignature = "";
   private readonly shakeGlow = el("button", "mc-button glow-shake-button", "Shake");
+
+  private readonly lightSparkler = el("button", "mc-button sparkler-action", "Light");
+  private readonly lightOffhand = el("button", "mc-button sparkler-action", "Light offhand");
+  private readonly swapOffhand = el("button", "mc-button sparkler-action", "Swap offhand");
+  private readonly offhandName = el("div", "offhand-name");
 
   constructor(
     container: HTMLElement,
@@ -120,7 +127,20 @@ export class Hud {
       if (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter") e.stopPropagation();
     });
     this.shakeGlow.addEventListener("click", e => { e.stopPropagation(); callbacks.onShakeGlow(); });
-    bottom.prepend(this.shakeGlow);
+    const sparklerActions = el("div", "sparkler-actions");
+    for (const [button, name, action] of [
+      [this.lightSparkler, "Light selected sparkler", () => callbacks.onLightSparkler(false)],
+      [this.lightOffhand, "Light offhand sparkler", () => callbacks.onLightSparkler(true)],
+      [this.swapOffhand, "Swap selected item with offhand", () => callbacks.onSwapOffhand()],
+    ] as const) {
+      button.setAttribute("aria-label", name); button.hidden = true;
+      button.addEventListener("pointerdown", e => e.stopPropagation());
+      button.addEventListener("keydown", e => { if (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter") e.stopPropagation(); });
+      button.addEventListener("click", e => { e.stopPropagation(); action(); });
+      sparklerActions.appendChild(button);
+    }
+    sparklerActions.appendChild(this.offhandName);
+    bottom.prepend(this.shakeGlow, sparklerActions);
     this.root.appendChild(bottom);
     this.debug.hidden = true;
     container.appendChild(this.root);
@@ -131,7 +151,18 @@ export class Hud {
     this.shakeGlow.hidden = glow === null;
     this.shakeGlow.disabled = !glowEnabled || glow?.kind === "active" || glow?.kind === "invalid";
     this.shakeGlow.textContent = glow?.kind === "active" ? "Glowing" : "Shake";
-    const signature = JSON.stringify([inventory.slots.slice(0, HOTBAR_SIZE), inventory.selected, mode, health, food, inventory.equipment]);
+    const mainSparkler = held && isSparklerId(held.id) ? inspectSparklerState(held) : null;
+    const offhand = inventory.offhand, offSparkler = offhand ? inspectSparklerState(offhand) : null;
+    this.lightSparkler.hidden = mainSparkler === null;
+    this.lightSparkler.disabled = !glowEnabled || mainSparkler?.kind === "active" || mainSparkler?.kind === "invalid";
+    this.lightSparkler.textContent = mainSparkler?.kind === "active" ? "Lit" : "Light";
+    this.lightOffhand.hidden = !offhand;
+    this.lightOffhand.disabled = !glowEnabled || offSparkler?.kind === "active" || offSparkler?.kind === "invalid";
+    this.lightOffhand.textContent = offSparkler?.kind === "active" ? "Offhand lit" : "Light offhand";
+    this.swapOffhand.hidden = !offhand && mainSparkler === null;
+    this.swapOffhand.disabled = !glowEnabled || !!held && !isSparklerId(held.id);
+    this.offhandName.textContent = offhand ? `Offhand: ${stackLabel(offhand)}` : "";
+    const signature = JSON.stringify([inventory.offhand, inventory.slots.slice(0, HOTBAR_SIZE), inventory.selected, mode, health, food, inventory.equipment]);
     if (signature !== this.lastSignature) {
       const selected = JSON.stringify([inventory.selected, inventory.selectedStack()]);
       const selectedChanged = selected !== this.selectedSignature; this.selectedSignature = selected;
@@ -142,7 +173,7 @@ export class Hud {
         slot.replaceChildren(); slot.title = "Empty"; slot.setAttribute("aria-label", "Empty");
         if (stack) {
           const img = el("img");
-          img.src = blockIcon(this.atlas, stack.id);
+          img.src = blockIcon(this.atlas, stack.id, 64, stack);
           img.alt = stackLabel(stack);
           slot.title = stackTooltip(stack);
           slot.setAttribute("aria-label", stackLabel(stack));
@@ -252,12 +283,16 @@ export function tooltipOf(id: number): string {
 
 /** State follows the owned stack through every inventory view. */
 export function stackLabel(stack: ItemStack): string {
+  if (isSparklerId(stack.id)) {
+    const state = inspectSparklerState(stack);
+    return `${displayNameOf(stack.id)} — ${state.kind === "active" ? "Lit" : state.kind === "invalid" ? "Unavailable" : "Ready to light"}`;
+  }
   if (!isGlowStickId(stack.id)) return displayNameOf(stack.id);
   const state = inspectGlowState(stack);
   return `${displayNameOf(stack.id)} — ${state.kind === "active" ? "Glowing" : state.kind === "invalid" ? "Unavailable" : "Ready to shake"}`;
 }
 export function stackTooltip(stack: ItemStack): string {
-  return isGlowStickId(stack.id) ? stackLabel(stack) : tooltipOf(stack.id);
+  return isGlowStickId(stack.id) || isSparklerId(stack.id) ? stackLabel(stack) : tooltipOf(stack.id);
 }
 
 type PaletteTab = "blocks" | "elements" | "compounds";
@@ -445,7 +480,7 @@ export class InventoryScreen {
     else if (this.chem) parts.push(this.chemistrySection());
     else if (this.width > 0) parts.push(this.craftingSection());
     if (this.furnace) parts.push(this.furnaceSection());
-    if (this.kind === "inventory") parts.push(this.equipmentSection());
+    if (this.kind === "inventory") parts.push(this.equipmentSection(), this.offhandSection());
 
     if (mode === "creative" && !this.furnace && !this.recovering) {
       const tabs = el("div", "palette-tabs");
@@ -502,7 +537,7 @@ export class InventoryScreen {
     cursor.dataset.testid = "cursor";
     if (this.cursor) {
       const img = el("img");
-      img.src = blockIcon(this.atlas, this.cursor.id);
+      img.src = blockIcon(this.atlas, this.cursor.id, 64, this.cursor);
       img.alt = "";
       cursor.append(el("span", "", "Holding:"), img, el("span", "", `${stackLabel(this.cursor)} ×${this.cursor.count}`));
     }
@@ -543,6 +578,28 @@ export class InventoryScreen {
       slots.appendChild(cell);
     });
     section.appendChild(slots);
+    return section;
+  }
+
+  /** Offhand is a real owner; refuse incompatible cursor items before any debit. */
+  private offhandSection(): HTMLElement {
+    const inventory = this.inventory!, section = el("section", "offhand-section");
+    section.setAttribute("aria-label", "Sparkler offhand");
+    const current = inventory.offhand;
+    const cell = this.cell(current?.id ?? null, current?.count ?? 0, "Empty offhand", current);
+    cell.dataset.offhand = ""; cell.setAttribute("aria-label", current ? `Offhand: ${stackLabel(current)}` : "Empty offhand — sparklers only");
+    cell.addEventListener("click", () => {
+      const previous = inventory.offhand ? cloneStack(inventory.offhand) : null;
+      if (inventory.setOffhand(this.cursor)) this.cursor = previous;
+      else this.closeHint = "Only sparklers can be held in the offhand. Move other items into the bag.";
+      this.render();
+    });
+    const swap = el("button", "mc-button", "Swap selected item with offhand"); swap.dataset.swapOffhand = "";
+    swap.addEventListener("click", () => {
+      if (!inventory.swapSelectedOffhand()) this.closeHint = "Select a sparkler or an empty hotbar slot before swapping the offhand.";
+      this.render();
+    });
+    section.append(el("p", "hint", "Offhand · sparklers only"), cell, swap);
     return section;
   }
 
@@ -886,13 +943,17 @@ export class InventoryScreen {
   private cell(id: number | null, count: number, title: string, stack?: ItemStack | null): HTMLElement {
     const cell = el("button", "item-cell");
     cell.title = stack ? stackTooltip(stack) : id !== null ? tooltipOf(id) : title;
+    if (stack && isSparklerId(stack.id)) {
+      cell.dataset.sparklerState = inspectSparklerState(stack).kind === "active" ? "active" : "ready";
+      cell.setAttribute("aria-label", stackLabel(stack));
+    }
     if (stack && isGlowStickId(stack.id)) {
       const state = inspectGlowState(stack); cell.dataset.glowState = state.kind === "active" ? "active" : "ready";
       cell.setAttribute("aria-label", stackLabel(stack));
     }
     if (id !== null) {
       const img = el("img");
-      img.src = blockIcon(this.atlas, id);
+      img.src = blockIcon(this.atlas, id, 64, stack ?? undefined);
       img.alt = title;
       img.draggable = false;
       cell.appendChild(img);

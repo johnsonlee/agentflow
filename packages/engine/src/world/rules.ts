@@ -162,7 +162,7 @@ export function placeBlock(
   // Items place nothing, except Lab Table products that place a block (heat block, glow stick, ...).
   // Explicit activation state has no block-owned representation; preserve the held unit.
   // Metadata-less legacy green retains its existing placement behavior.
-  if (stack && Object.prototype.hasOwnProperty.call(stack, "glow")) return false;
+  if (stack && (Object.prototype.hasOwnProperty.call(stack, "glow") || Object.prototype.hasOwnProperty.call(stack, "sparkler"))) return false;
   const placed = stack ? placedBlockOf(stack.id) : null;
   if (!stack || placed === null) return false;
   const target = world.getBlock(x, y, z);

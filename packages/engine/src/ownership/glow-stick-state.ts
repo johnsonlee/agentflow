@@ -1,3 +1,4 @@
+import { isSparklerId } from "./sparkler-state";
 import { GLOW_STICK_COLORS } from "../catalog/glow-stick-colors";
 import { maxStackOf, stackId } from "../catalog/items";
 import type { ItemStack } from "./inventory";
@@ -24,6 +25,7 @@ export function glowStickColor(id: number): string | null { return colorsById.ge
 export function inspectGlowState(raw: unknown, bulk = false): GlowInspection {
   try {
     if (!plain(raw)) return { kind: "invalid", reason: "non-plain stack" };
+    if (own(raw, "glow") && own(raw, "sparkler")) return { kind: "invalid", reason: "both activation fields" };
     const glowId = typeof raw.id === "number" && isGlowStickId(raw.id);
     if (!own(raw, "glow")) return { kind: glowId ? "legacy" : "none" };
     if (!glowId) return { kind: "invalid", reason: "glow on another item" };
@@ -40,5 +42,5 @@ export function inspectGlowState(raw: unknown, bulk = false): GlowInspection {
 
 /** Creation boundary only. Loaders/transfers must use cloneStack and preserve absence/state. */
 export function freshStack(id: number, count = 1): ItemStack {
-  return { id, count, ...(isGlowStickId(id) ? { glow: { state: "inactive" as const } } : {}) };
+  return { id, count, ...(isGlowStickId(id) ? { glow: { state: "inactive" as const } } : {}), ...(isSparklerId(id) ? { sparkler: { state: "inactive" as const } } : {}) };
 }

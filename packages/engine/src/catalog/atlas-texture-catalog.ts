@@ -849,5 +849,15 @@ export const ATLAS_TEXTURE_CATALOG: readonly string[] = Object.freeze([
   "item_brown_balloon",
   "item_green_balloon",
   "item_red_balloon",
-  "item_black_balloon"
+  "item_black_balloon",
+  "item_orange_sparkler",
+  "item_orange_sparkler_lit",
+  "item_blue_sparkler",
+  "item_blue_sparkler_lit",
+  "item_red_sparkler",
+  "item_red_sparkler_lit",
+  "item_purple_sparkler",
+  "item_purple_sparkler_lit",
+  "item_green_sparkler",
+  "item_green_sparkler_lit"
 ]);
