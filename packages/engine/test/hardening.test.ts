@@ -136,7 +136,7 @@ describe("review 8d7fc44b: every chat command, the save's top level and the port
           if (parsed.type === "gamemode") expect(["creative", "survival"], line).toContain(parsed.mode);
           if (parsed.type === "time") expect(Number.isFinite(parsed.timeOfDay), line).toBe(true);
           if (parsed.type === "give") expect(isKnownId(parsed.id), line).toBe(true);
-          if (parsed.type === "summon") expect(["pig", "sheep", "chicken", "npc", "zombie"], line).toContain(parsed.kind);
+          if (parsed.type === "summon") expect(["pig", "sheep", "chicken", "npc", "zombie", "spider"], line).toContain(parsed.kind);
           if (parsed.type === "gamerule") expect(["doMobSpawning", "doDaylightCycle", "keepInventory"], line).toContain(parsed.rule);
           if (parsed.type === "tp") expect([parsed.x, parsed.y, parsed.z].every(Number.isFinite), line).toBe(true);
           // /code takes a free word; it is only ever compared against validated program triggers.

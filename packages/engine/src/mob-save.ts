@@ -1,4 +1,4 @@
-import { MOB_SPECS, createMob, type Mob, type MobKind } from "./entities";
+import { SPIDER, MOB_SPECS, createMob, type Mob, type MobKind } from "./entities";
 import type { ItemStack } from "./inventory";
 import { WORLD_BORDER, type Vec3 } from "./math";
 import { sanitizePendingMobLoot } from "./mob-loot";
@@ -17,6 +17,7 @@ export interface MobSnapshot {
   walking: boolean;
   hurtTimer: number;
   attackTimer?: number;
+  spiderAngerSeconds?: number;
   burnTimer?: number;
   burning?: boolean;
   detourTimer?: number;
@@ -46,6 +47,11 @@ function readMob(raw: unknown): MobSnapshot | null {
   for (const field of optionalTimers) {
     const value = own(raw, field);
     if (value !== undefined) { if (!finite(value)) return null; result[field] = value; }
+  }
+  if (Object.prototype.hasOwnProperty.call(raw, "spiderAngerSeconds")) {
+    const anger = own(raw, "spiderAngerSeconds");
+    if (kind !== "spider" || !finite(anger) || anger < 0 || anger > SPIDER.angerDuration) return null;
+    result.spiderAngerSeconds = anger;
   }
   const burning = own(raw, "burning"), detourSign = own(raw, "detourSign");
   if (burning !== undefined) { if (typeof burning !== "boolean") return null; result.burning = burning; }
@@ -93,7 +99,7 @@ export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[]): MobSnapshot {
     health: mob.kind === "npc" && mob.health === Infinity ? "invulnerable" : mob.health, onGround: mob.onGround, thinkTimer: mob.thinkTimer,
     walking: mob.walking, hurtTimer: mob.hurtTimer,
   };
-  for (const field of [...optionalTimers, "burning", "detourSign"] as const) if (mob[field] !== undefined) raw[field] = mob[field];
+  for (const field of [...optionalTimers, "spiderAngerSeconds", "burning", "detourSign"] as const) if (mob[field] !== undefined) raw[field] = mob[field];
   if (mob.kind === "npc") { raw.name = mob.name ?? "NPC"; raw.dialogue = mob.dialogue ?? ""; }
   if (pendingLoot !== undefined) raw.pendingLoot = pendingLoot;
   const result = readMob(raw);
@@ -108,6 +114,6 @@ export function restoreMobSnapshot(snapshot: MobSnapshot): Mob {
   const mob = createMob(saved.id, saved.kind, saved.position, { yaw: saved.yaw, name: saved.name, dialogue: saved.dialogue });
   mob.velocity = { ...saved.velocity }; mob.health = saved.health === "invulnerable" ? Infinity : saved.health;
   mob.onGround = saved.onGround; mob.thinkTimer = saved.thinkTimer; mob.walking = saved.walking; mob.hurtTimer = saved.hurtTimer;
-  for (const field of [...optionalTimers, "burning", "detourSign"] as const) if (saved[field] !== undefined) (mob as unknown as Record<string, unknown>)[field] = saved[field];
+  for (const field of [...optionalTimers, "spiderAngerSeconds", "burning", "detourSign"] as const) if (saved[field] !== undefined) (mob as unknown as Record<string, unknown>)[field] = saved[field];
   return mob;
 }

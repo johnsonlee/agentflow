@@ -5,7 +5,7 @@ import type { Vec3 } from "./math";
 import { cloneStack } from "./stack";
 import type { DropSink } from "./world-drops";
 
-/** Source bounds: candidate Education1.26.33.0 pig/chicken/main-zombie loot tables.
+/** Source bounds: candidate Education1.26.33.0 pig/chicken/main-zombie/Spider loot tables.
  * Uniform inclusive integers are this application's sampling model, not measured native RNG.
  */
 function countBetween(min: number, max: number, rand: () => number): number {
@@ -14,7 +14,7 @@ function countBetween(min: number, max: number, rand: () => number): number {
   return Math.min(max, min + Math.floor(Math.max(0, Math.min(1, value)) * (max - min + 1)));
 }
 
-/** Current unenchanted base loot only: no fire meat conversion, rare/equipment or sheep-state parity. */
+/** Current unenchanted base loot only: no fire meat conversion, rare/equipment, conditional Spider Eye, looting or sheep-state parity. */
 export function mobDrops(kind: MobKind, rand: () => number = Math.random): ItemStack[] {
   const spec = MOB_SPECS[kind];
   const stacks: ItemStack[] = [];
@@ -22,7 +22,7 @@ export function mobDrops(kind: MobKind, rand: () => number = Math.random): ItemS
     if (!entry) continue;
     const [name, fixed] = entry;
     const count = kind === "pig" && index === 0 ? countBetween(1, 3, rand)
-      : (kind === "zombie" && index === 0 || kind === "chicken" && index === 1) ? countBetween(0, 2, rand)
+      : ((kind === "zombie" || kind === "spider") && index === 0 || kind === "chicken" && index === 1) ? countBetween(0, 2, rand)
       : fixed;
     if (count > 0) stacks.push({ id: stackId(name), count });
   }

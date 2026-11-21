@@ -200,6 +200,8 @@ const specs: Omit<ItemDef, "id">[] = [
   ...GLOW_STICK_COLORS.filter(({ color }) => color !== "green").map(({ itemName, displayName, icon }) => ({
     name: itemName, displayName, maxStack: MAX_STACK, icon, chem: { kind: "product" as const },
   })),
+  // App stack bound64; retained loot text establishes string identity/count, not native stack size.
+  { name: "string", displayName: "String", maxStack: MAX_STACK, icon: "item_string" },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

@@ -132,6 +132,10 @@ export const RECIPES: readonly Recipe[] = [
     key: { P: "polyethylene", H: "hydrogen_peroxide", D: dye, L: "luminol" }, result: [itemName, 1] as [string, number],
     note: "Color identity and Journal grid; output count provisional, activation/lifetime/current Education behavior unverified",
   })),
+  // Education1.26.33 retained vanilla_1.21.40 recipe: four strings -> white wool.
+  // Native JSON omits result count; output1 is the application default, not a measured native quantity.
+  { id: "string_to_wool", pattern: ["##", "##"], key: { "#": "string" }, result: ["white_wool", 1],
+    note: "Four-cell shape and canonical white from retained Education recipe; output1 application default" },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

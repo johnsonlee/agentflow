@@ -503,7 +503,7 @@ export class Game {
       // Hostile mobs ignore creative players (as in Minecraft).
       const target = this.mode === "survival" ? this.body.position : null;
       if (!this.dead) this.mobs.update(dt, this.body.position, light, this.clock, target, (light - 0.2) / 0.8);
-      if (!this.dead && target) this.takeMobHits(dt);
+      if (!this.dead && target) this.takeMobHits(dt, (light - 0.2) / 0.8);
       if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt);
       if (!this.dead && !this.screenOpen()) {
         const impacts = this.snowballProjectiles.update(dt, this.mobs.mobs.filter(m => m.health > 0).map(m => ({ id: m.id, box: bodyBox(m.position, MOB_SPECS[m.kind].width, MOB_SPECS[m.kind].height) })));
@@ -926,11 +926,11 @@ export class Game {
     this.furnaces.delete(furnaceKey(t.x, t.y, t.z));
   }
 
-  /** Zombies in reach hit the player (3 damage, 1 s cooldown) and knock them back. */
-  private takeMobHits(dt: number): void {
+  /** Aggressive mobs in reach apply their per-kind damage and knockback. */
+  private takeMobHits(dt: number, daylight: number): void {
     for (const mob of this.mobs.mobs) {
       if (this.dead) break;
-      const damage = mobAttack(mob, this.body.position, dt);
+      const damage = mobAttack(mob, this.body.position, dt, this.mobs.effectiveLight(mob, daylight));
       if (damage === 0 || this.dead) continue;
       const kb = knockbackFrom(mob, this.body.position);
       this.body.velocity = { x: this.body.velocity.x + kb.x, y: Math.max(this.body.velocity.y, kb.y), z: this.body.velocity.z + kb.z };

@@ -180,3 +180,18 @@ ITEM_TILE_GENERATORS.item_glowstone_dust = (t) => {
 
 /** Original shaded snowball sprite; no imported game media. */
 ITEM_TILE_GENERATORS.item_snowball = lump(["#e1edf4", "#c0d6e4", "#ffffff"].map(hex), ROUND);
+
+/** Original loose coil of string, drawn here; no native image payload. */
+ITEM_TILE_GENERATORS.item_string = (t) => {
+  t.fill(() => null);
+  // Three overlapping loops and a trailing strand make the flat icon readable at16px.
+  const loops: Mask = (x, y) => {
+    const a = Math.hypot((x - 7) * .95, (y - 7) * 1.35);
+    const b = Math.hypot((x - 8) * 1.1, (y - 9) * 1.55);
+    const c = Math.hypot((x - 7) * 1.3, (y - 5) * 1.65);
+    return (a >= 3.4 && a <= 4.8) || (b >= 3.2 && b <= 4.7) ||
+      (c >= 2.5 && c <= 3.8) || (y === 12 && x >= 3 && x <= 9) || (x === 3 && y >= 11 && y <= 13);
+  };
+  paint(t, loops, ["#e8e6da", "#fffdf2", "#c2c3bc"].map(hex));
+  return t;
+};

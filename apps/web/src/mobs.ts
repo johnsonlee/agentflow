@@ -1,7 +1,7 @@
 import * as THREE from "three";
 import {
   MOB_SPECS, PASSIVE_MOBS, PATHFINDING, SEA_LEVEL, onBlockChangedNear, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
-  raycastMob, skyDarken, skyOf, stackId, stepMob, mobSnapshot, restoreMobSnapshot,
+  raycastMob, skyDarken, skyOf, blockLightOf, stackId, stepMob, mobSnapshot, restoreMobSnapshot,
   type MobStateData, type MobLootResolver,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
@@ -13,10 +13,21 @@ interface Part {
   color: string;
   /** Leg index for walk animation (pivot at the top of the part). */
   leg?: number;
-  face?: "pig" | "sheep" | "chicken" | "npc" | "zombie";
+  face?: "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider";
 }
 
 const MODELS: Record<MobKind, Part[]> = {
+  // Original procedural model: a low dark body, eight independently animated legs and red eyes.
+  // Ground walking only; native climbing, leaping and model/texture parity remain unimplemented.
+  spider: [
+    { size: [0.65, 0.48, 0.7], at: [0, 0.58, 0.3], color: "#302a30" },
+    { size: [0.46, 0.35, 0.36], at: [0, 0.55, -0.2], color: "#383038" },
+    { size: [0.5, 0.42, 0.42], at: [0, 0.55, -0.54], color: "#292329", face: "spider" },
+    ...[-0.4, -0.13, 0.14, 0.41].flatMap((z, i): Part[] => [
+      { size: [0.5, 0.13, 0.13], at: [-0.47, 0.35, z], color: "#3f353f", leg: i % 2 },
+      { size: [0.5, 0.13, 0.13], at: [0.47, 0.35, z], color: "#3f353f", leg: (i + 1) % 2 },
+    ]),
+  ],
   pig: [
     { size: [0.62, 0.5, 0.9], at: [0, 0.6, 0.05], color: "#eda3a1" },
     { size: [0.5, 0.5, 0.5], at: [0, 0.75, -0.6], color: "#eda3a1", face: "pig" },
@@ -101,6 +112,8 @@ function faceTexture(color: string, face: NonNullable<Part["face"]>): THREE.Text
     ctx.fillRect(3, 4, 2, 2);
     ctx.fillStyle = "#7a4a33";
     ctx.fillRect(2, 6, 4, 1);
+  } else if (face === "spider") {
+    for (const [x, y] of [[1, 2], [3, 2], [5, 2], [6, 2], [2, 4], [5, 4], [1, 5], [6, 5]]) px(x, y, "#eb3042");
   } else if (face === "zombie") {
     ctx.fillStyle = "#1d2e17";
     ctx.fillRect(1, 3, 2, 1);
@@ -290,7 +303,7 @@ export class MobManager {
         continue;
       }
       // Only simulate mobs in loaded terrain near the player.
-      if (dist < 64) stepMob(get, mob, dt, this.rand, target, this.pathBudget);
+      if (dist < 64) stepMob(get, mob, dt, this.rand, target, this.pathBudget, this.effectiveLight(mob, daylight));
       // Zombies burn under open sky by day.
       const head = this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
       if (burnInDaylight(mob, skyOf(head), darken, dt)) {
@@ -315,6 +328,14 @@ export class MobManager {
         }
       });
     }
+  }
+
+  /** Application mapping of packed block/sky light to the Spider brightness threshold.
+   * Both chase planning and player damage use this same sample; native light calibration is open. */
+  effectiveLight(mob: Mob, daylight: number): number {
+    const p = mob.position;
+    const packed = this.world.getLight(Math.floor(p.x), Math.floor(p.y + MOB_SPECS[mob.kind].height * .8), Math.floor(p.z));
+    return Math.max(0, Math.min(15, Math.max(blockLightOf(packed), skyOf(packed) - skyDarken(daylight))));
   }
 
   /** Nearest mob hit by a ray within maxDistance. */

@@ -4,7 +4,7 @@ import { clampPosition, type Vec3 } from "./math";
 import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
 import { PathSearch, type PathBudget, type PathNode } from "./pathfind";
 
-export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie";
+export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider";
 
 export interface MobSpec {
   kind: MobKind;
@@ -30,9 +30,11 @@ export const MOB_SPECS: Record<MobKind, MobSpec> = {
   npc: { kind: "npc", displayName: "NPC", width: 0.6, height: 1.9, maxHealth: Infinity, speed: 0 },
   // Minecraft zombie: 20 HP, 3 damage (Normal difficulty), drops rotten flesh.
   zombie: { kind: "zombie", displayName: "Zombie", width: 0.6, height: 1.95, maxHealth: 20, speed: 2.3, drop: ["rotten_flesh", 1], hostile: true },
+  // Retained Education text: HP16/body1.4x.9. Speed is an application ground-walking model.
+  spider: { kind: "spider", displayName: "Spider", width: 1.4, height: 0.9, maxHealth: 16, speed: 2.4, drop: ["string", 1], hostile: true },
 };
 
-export const HOSTILE_MOBS: readonly MobKind[] = ["zombie"];
+export const HOSTILE_MOBS: readonly MobKind[] = ["zombie", "spider"];
 
 /** Zombie behaviour constants (Minecraft-like). */
 export const ZOMBIE = {
@@ -49,6 +51,23 @@ export const ZOMBIE = {
   /** Damage per second while burning in daylight. */
   burnDamage: 1,
 } as const;
+
+/** Bounded summon-only Spider model. Damage2 matches later retained Education components;
+ * earlier components say3. Distances, speed, cooldown, knockback and fixed anger10 are application
+ * choices, not active-pack/difficulty/brightness calibration. Climbing/leaping remain unsupported.
+ */
+export const SPIDER = {
+  followRange: 16, reach: 1.6, damage: 2, attackCooldown: 1,
+  knockback: 5, knockbackUp: 4, angerDuration: 10,
+} as const;
+
+/** Local integer light normalized to0..1 approximates the retained brightness<.49 predicate. */
+export function mobIsAggressive(mob: Mob, effectiveLight = 0): boolean {
+  if (mob.kind === "spider") return (mob.spiderAngerSeconds ?? 0) > 0 || effectiveLight / MAX_LIGHT < 0.49;
+  return MOB_SPECS[mob.kind].hostile === true;
+}
+
+const combatProfile = (mob: Mob) => mob.kind === "spider" ? SPIDER : ZOMBIE;
 
 export const PASSIVE_MOBS: readonly MobKind[] = ["pig", "sheep", "chicken"];
 
@@ -68,6 +87,8 @@ export interface Mob {
   hurtTimer: number;
   /** Seconds until a hostile mob can hit again. */
   attackTimer?: number;
+  /** Fixed application provocation timer; absent means0 on legacy Spider snapshots. */
+  spiderAngerSeconds?: number;
   /** Burning in daylight (seconds accumulated towards the next fire damage). */
   burnTimer?: number;
   burning?: boolean;
@@ -96,6 +117,7 @@ export function createMob(id: number, kind: MobKind, position: Vec3, extra: Part
     velocity: { x: 0, y: 0, z: 0 },
     yaw: extra.yaw ?? 0,
     health: MOB_SPECS[kind].maxHealth,
+    ...(kind === "spider" ? { spiderAngerSeconds: 0 } : {}),
     onGround: false,
     thinkTimer: 0,
     walking: false,
@@ -140,9 +162,11 @@ export function stepMob(
   rand: () => number,
   target: Vec3 | null = null,
   budget?: PathBudget,
+  effectiveLight = 0,
 ): void {
   const { n, h } = substeps(dt);
-  const chasing = planChase(getBlock, mob, n * h, target, budget);
+  if (mob.kind === "spider") mob.spiderAngerSeconds = Math.max(0, (mob.spiderAngerSeconds ?? 0) - n * h);
+  const chasing = planChase(getBlock, mob, n * h, target, budget, effectiveLight);
   for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing);
   clampPosition(mob.position);
 }
@@ -152,10 +176,10 @@ export function stepMob(
  * the target moves), and falls back to steering around an obstacle when it makes no progress.
  * Returns true while chasing.
  */
-function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | null, budget?: PathBudget): boolean {
-  const spec = MOB_SPECS[mob.kind];
+function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | null, budget?: PathBudget, effectiveLight = 0): boolean {
+  const profile = combatProfile(mob);
   const p = mob.position;
-  if (!spec.hostile || !target || Math.hypot(target.x - p.x, target.z - p.z) > ZOMBIE.followRange) {
+  if (!mobIsAggressive(mob, effectiveLight) || !target || Math.hypot(target.x - p.x, target.z - p.z) > profile.followRange) {
     mob.path = undefined;
     mob.search = undefined;
     return false;
@@ -169,7 +193,7 @@ function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | n
     // A new situation resets the back-off; repeated failures search with smaller caps.
     if (playerMoved) mob.failCount = 0;
     const cap = PATHFINDING.maxNodes >> Math.min(mob.failCount ?? 0, 2);
-    mob.search = PathSearch.start(getBlock, p, target, { height: 2, radius: ZOMBIE.followRange, maxNodes: cap }) ?? undefined;
+    mob.search = PathSearch.start(getBlock, p, target, { height: mob.kind === "spider" ? 1 : 2, radius: profile.followRange, maxNodes: cap }) ?? undefined;
     mob.pathGoal = { ...target };
     if (!mob.search) {
       mob.path = [];
@@ -213,7 +237,7 @@ function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | n
   let yaw = Math.atan2(-(aimX - p.x), -(aimZ - p.z));
 
   // Fallback steer-around: if it hasn't got closer for a second, sidestep for a moment.
-  const stuck = Math.hypot(mob.velocity.x, mob.velocity.z) < 0.2 && toTarget > ZOMBIE.reach;
+  const stuck = Math.hypot(mob.velocity.x, mob.velocity.z) < 0.2 && toTarget > profile.reach;
   mob.stuckTimer = stuck ? (mob.stuckTimer ?? 0) + dt : 0;
   if (mob.stuckTimer > 1) {
     mob.stuckTimer = 0;
@@ -225,7 +249,7 @@ function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | n
     yaw += (Math.PI / 2) * (mob.detourSign ?? 1);
   }
   mob.yaw = yaw;
-  mob.walking = toTarget > ZOMBIE.reach * 0.6;
+  mob.walking = toTarget > profile.reach * 0.6;
   mob.thinkTimer = 0.5;
   return true;
 }
@@ -283,6 +307,11 @@ function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => nu
 /** Applies damage; returns true if the mob died. NPCs are invulnerable. */
 export function damageMob(mob: Mob, amount: number, fromYaw: number): boolean {
   if (!Number.isFinite(MOB_SPECS[mob.kind].maxHealth)) return false;
+  // Both accepted player and Agent hits provoke this application Spider toward the player.
+  if (mob.kind === "spider") {
+    if (!Number.isFinite(amount) || amount <= 0 || mob.health <= 0) return false;
+    mob.spiderAngerSeconds = SPIDER.angerDuration;
+  }
   mob.health -= amount;
   mob.hurtTimer = 3;
   mob.thinkTimer = 0;
@@ -321,22 +350,24 @@ export function raycastMob(origin: Vec3, direction: Vec3, mob: Mob, maxDistance:
  * Melee: advances the mob's attack cooldown and returns the damage dealt to a player at `player`
  * (feet position) this step, or 0. Only hostile mobs attack.
  */
-export function mobAttack(mob: Mob, player: Vec3, dt: number): number {
-  if (!MOB_SPECS[mob.kind].hostile) return 0;
+export function mobAttack(mob: Mob, player: Vec3, dt: number, effectiveLight = 0): number {
+  if (!mobIsAggressive(mob, effectiveLight)) return 0;
+  const profile = combatProfile(mob);
   mob.attackTimer = Math.max(0, (mob.attackTimer ?? 0) - dt);
   const horizontal = Math.hypot(player.x - mob.position.x, player.z - mob.position.z);
   const vertical = Math.abs(player.y - mob.position.y);
-  if (mob.attackTimer > 0 || horizontal > ZOMBIE.reach || vertical > 1.5) return 0;
-  mob.attackTimer = ZOMBIE.attackCooldown;
-  return ZOMBIE.damage;
+  if (mob.attackTimer > 0 || horizontal > profile.reach || vertical > 1.5) return 0;
+  mob.attackTimer = profile.attackCooldown;
+  return profile.damage;
 }
 
 /** Knockback velocity for a player hit by `mob` (away from it, slightly upwards). */
 export function knockbackFrom(mob: Mob, player: Vec3): Vec3 {
+  const profile = combatProfile(mob);
   const dx = player.x - mob.position.x;
   const dz = player.z - mob.position.z;
   const len = Math.hypot(dx, dz) || 1;
-  return { x: (dx / len) * ZOMBIE.knockback, y: ZOMBIE.knockbackUp, z: (dz / len) * ZOMBIE.knockback };
+  return { x: (dx / len) * profile.knockback, y: profile.knockbackUp, z: (dz / len) * profile.knockback };
 }
 
 /**
