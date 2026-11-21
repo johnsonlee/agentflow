@@ -1,6 +1,6 @@
 import {
   HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
-  isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial,
+  isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
   type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
@@ -776,13 +776,15 @@ export class InventoryScreen {
             current.count += n;
             cursor.count -= n;
             if (cursor.count <= 0) this.cursor = null;
+          } else if (key === "input") {
+            this.cursor = setFurnaceInput(f, cursor);
           } else {
-            f[key] = cursor;
+            f.fuel = cursor;
             this.cursor = current;
           }
         } else if (current) {
-          this.cursor = current;
-          f[key] = null;
+          if (key === "input") this.cursor = setFurnaceInput(f, null);
+          else { this.cursor = current; f.fuel = null; }
         }
         this.render();
       });

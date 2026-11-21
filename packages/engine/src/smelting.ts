@@ -1,5 +1,5 @@
 /**
- * Furnace smelting with Minecraft rules: one item every 10 s while fuel burns. A new piece of
+ * Furnace smelting uses the existing application model: one item every 10 s while fuel burns. A new piece of
  * fuel is consumed only when the previous one has burnt out and there is something to smelt.
  */
 import type { ItemStack } from "./inventory";
@@ -54,10 +54,26 @@ export interface FurnaceState {
   burnTotal: number;
   /** Smelting progress of the current item, 0..1. */
   progress: number;
+  /** Input ID that earned nonzero progress; absent in legacy saves and idle furnaces. */
+  progressInputId?: number;
 }
 
 export function createFurnace(): FurnaceState {
   return { input: null, fuel: null, output: null, burnLeft: 0, burnTotal: 0, progress: 0 };
+}
+
+function resetProgress(f: FurnaceState): void {
+  f.progress = 0;
+  delete f.progressInputId;
+}
+
+/** Transfers input ownership unchanged and returns the previous owner to the caller. */
+export function setFurnaceInput(f: FurnaceState, incoming: ItemStack | null): ItemStack | null {
+  const previous = f.input;
+  // Removing and reinserting between simulation frames must also forfeit partial work.
+  if (previous?.id !== incoming?.id) resetProgress(f);
+  f.input = incoming;
+  return previous;
 }
 
 function canSmelt(f: FurnaceState): boolean {
@@ -75,6 +91,12 @@ function take(stack: ItemStack | null): ItemStack | null {
 
 /** Advances a furnace by `dt` seconds (in steps, so long gaps catch up correctly). */
 export function tickFurnace(f: FurnaceState, dt: number): void {
+  if (!Number.isFinite(dt) || dt <= 0) return;
+  if (f.progress > 0) {
+    const id = f.input?.id;
+    if (id === undefined || smeltResult(id) === null || (f.progressInputId !== undefined && f.progressInputId !== id)) resetProgress(f);
+    else f.progressInputId = id; // Legacy unbound progress belongs to its current valid input.
+  } else delete f.progressInputId;
   let left = dt;
   while (left > 0) {
     const step = Math.min(left, 0.25);
@@ -86,19 +108,21 @@ export function tickFurnace(f: FurnaceState, dt: number): void {
     if (f.burnLeft > 0) {
       f.burnLeft = Math.max(0, f.burnLeft - step);
       if (canSmelt(f)) {
+        f.progressInputId = f.input!.id;
         f.progress += step / SMELT_SECONDS;
         if (f.progress >= 1 - 1e-9) {
           const result = smeltResult(f.input!.id)!;
           f.output = f.output ? { ...f.output, count: f.output.count + 1 } : { id: result, count: 1 };
           f.input = take(f.input);
-          f.progress = 0;
+          resetProgress(f);
         }
       } else {
-        f.progress = 0;
+        resetProgress(f);
       }
     } else {
-      // Minecraft: progress falls back when the fire goes out.
+      // The existing application model loses progress when the fire goes out.
       f.progress = Math.max(0, f.progress - (2 * step) / SMELT_SECONDS);
+      if (f.progress === 0) delete f.progressInputId;
     }
   }
 }

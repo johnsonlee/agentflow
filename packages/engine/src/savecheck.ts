@@ -11,7 +11,7 @@ import type { HungerState } from "./hunger";
 import type { ItemStack } from "./inventory";
 import { armorOf, baseStackId, durabilityOf, isKnownId, maxStackOf } from "./items";
 import { MAX_FOOD } from "./hunger";
-import type { FurnaceState } from "./smelting";
+import { smeltResult, type FurnaceState } from "./smelting";
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj =>
@@ -112,13 +112,18 @@ export function sanitizeFurnaces(raw: unknown): { furnaces: Array<{ x: number; y
         dropped++;
         continue;
       }
-      furnaces.push({
-        x: own(f, "x") as number, y: own(f, "y") as number, z: own(f, "z") as number,
-        state: {
-          input: sanitizeStack(own(st, "input")), fuel: sanitizeStack(own(st, "fuel")), output: sanitizeStack(own(st, "output")),
-          burnLeft: own(st, "burnLeft") as number, burnTotal: own(st, "burnTotal") as number, progress: own(st, "progress") as number,
-        },
-      });
+      const state: FurnaceState = {
+        input: sanitizeStack(own(st, "input")), fuel: sanitizeStack(own(st, "fuel")), output: sanitizeStack(own(st, "output")),
+        burnLeft: own(st, "burnLeft") as number, burnTotal: own(st, "burnTotal") as number, progress: own(st, "progress") as number,
+      };
+      if (state.progress > 0) {
+        const marker = own(st, "progressInputId"), id = state.input?.id;
+        // Old saves cannot identify a previous input: retain legitimate work on the current one.
+        // A corrupt explicit binding repairs only work progress, never the owned contents or fire.
+        if (id === undefined || smeltResult(id) === null || (marker !== undefined && marker !== id)) state.progress = 0;
+        else if (marker !== undefined) state.progressInputId = id; // Keep unmarked legacy saves structurally unchanged until their next tick.
+      }
+      furnaces.push({ x: own(f, "x") as number, y: own(f, "y") as number, z: own(f, "z") as number, state });
     }
   } catch {
     dropped++;
