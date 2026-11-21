@@ -1,5 +1,6 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs";
+import { bodyBox, boxCollides, WORLD_DROP_PROFILE } from "@craft/engine";
 import path from "node:path";
 
 export interface PlayerState {
@@ -68,12 +69,46 @@ export async function collectWorldDrops(page: Page, _mobile = false) {
         && g.inventory.spaceFor(r.stack.id) > 0) ?? null;
     }, origin);
     if (!next) break;
-    await command(page, `/tp ${next.position.x} ${next.position.y + .1} ${next.position.z}`);
+    // A falling narrow item can land below the ledge that catches the wider player body.
+    // Wait for this live owner to settle, then find a supported, collision-free player pose.
+    await page.waitForFunction((key) => {
+      const r = window.__craft.game!.worldDrops.records.find(r => r.key === key);
+      return !r || r.pickupDelaySeconds === 0 && Math.abs(r.velocity.y) < 1e-4 && Math.hypot(r.velocity.x, r.velocity.z) < .05;
+    }, next.key, { timeout: 20_000 });
+    const snapshot = await page.evaluate((key) => {
+      const g = window.__craft.game!, record = g.worldDrops.records.find(r => r.key === key);
+      if (!record) return null;
+      const blocks: Record<string, number | null> = {};
+      for (let x = Math.floor(record.position.x) - 2; x <= Math.floor(record.position.x) + 2; x++)
+        for (let z = Math.floor(record.position.z) - 2; z <= Math.floor(record.position.z) + 2; z++)
+          for (let y = Math.floor(record.position.y) - 1; y <= Math.floor(record.position.y) + 3; y++)
+            blocks[`${x},${y},${z}`] = g.world.getLoadedBlock(x, y, z) ?? null;
+      return { record, blocks, player: structuredClone(g.body), paused: g.paused, dead: g.dead };
+    }, next.key);
+    if (!snapshot) continue;
+    // Use the actual engine body/collision boxes and unchanged pickup radius, with unloaded cells blocked.
+    const get = (x: number, y: number, z: number) => snapshot.blocks[`${x},${y},${z}`] ?? 1;
+    const offsets = [0, -.15, .15, -.3, .3, -.45, .45, -.6, .6];
+    const candidates = offsets.flatMap(x => offsets.map(z => ({ x, z })))
+      .filter(p => Math.hypot(p.x, .1, p.z) < WORLD_DROP_PROFILE.pickupRadius)
+      .sort((a, b) => Math.hypot(a.x, a.z) - Math.hypot(b.x, b.z));
+    const pose = candidates.map(d => ({ x: snapshot.record.position.x + d.x, y: snapshot.record.position.y + .1, z: snapshot.record.position.z + d.z }))
+      .find(p => !boxCollides(get, bodyBox(p)) && boxCollides(get, bodyBox({ ...p, y: p.y - .2 })));
+    if (!pose) throw new Error(`No reachable player-body ground-pickup pose: ${JSON.stringify(snapshot)}`);
+    await command(page, `/tp ${pose.x} ${pose.y} ${pose.z}`);
     moved = true;
-    await page.waitForFunction(({ key, count }) => {
-      const record = window.__craft.game!.worldDrops.records.find((r) => r.key === key);
-      return !record || record.stack.count < count;
-    }, { key: next.key, count: next.stack.count }, { timeout: 20_000 });
+    try {
+      await page.waitForFunction(({ key, count }) => {
+        const record = window.__craft.game!.worldDrops.records.find((r) => r.key === key);
+        return !record || record.stack.count < count;
+      }, { key: snapshot.record.key, count: snapshot.record.stack.count }, { timeout: 20_000 });
+    } catch (error) {
+      const actual = await page.evaluate(() => {
+        const g = window.__craft.game!;
+        return { player: structuredClone(g.body), records: g.worldDrops.records, paused: g.paused, dead: g.dead };
+      });
+      throw new Error(`Ground pickup did not transfer ownership: ${JSON.stringify({ pose, snapshot, actual })}`, { cause: error });
+    }
     if (trip === 63) throw new Error("Ground pickup regression exceeded its bounded trip fixture");
   }
   if (moved) {
