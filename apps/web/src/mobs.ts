@@ -210,6 +210,15 @@ export class MobManager {
   private seed = 12345;
   private readonly rand = () => ((this.seed = (this.seed * 16807) % 2147483647) / 2147483647);
 
+  private currentBodyLoaded(mob: Mob): boolean {
+    const spec = MOB_SPECS[mob.kind], box = bodyBox(mob.position, spec.width, spec.height);
+    for (let x = Math.floor(box.minX) - 1; x <= Math.floor(box.maxX) + 1; x++)
+      for (let y = Math.floor(box.minY) - 1; y <= Math.floor(box.maxY) + 1; y++)
+        for (let z = Math.floor(box.minZ) - 1; z <= Math.floor(box.maxZ) + 1; z++)
+          if (this.world.getLoadedBlock(x, y, z) === undefined) return false;
+    return true;
+  }
+
   constructor(
     private readonly world: World,
     private readonly scene: THREE.Scene,
@@ -218,6 +227,8 @@ export class MobManager {
     private readonly protectsOwnedMob: (mob: Mob) => boolean = () => false,
     private readonly ownershipBusy: () => boolean = () => false,
     private readonly movementBias: (mob: Mob) => Vec3 = () => ({ x: 0, y: 0, z: 0 }),
+    private readonly externalAcceleration: (mob: Mob) => Vec3 = () => ({ x: 0, y: 0, z: 0 }),
+    private readonly loadedOnlyPhysics: (mob: Mob) => boolean = () => false,
   ) {
     // Opening (or closing) a shelter near the player or a zombie ends that zombie's path back-off.
     this.unsubscribeBlock = world.onBlockChanged((x, y, z) => onBlockChangedNear(this.mobs, x, y, z, this.lastPlayer));
@@ -314,8 +325,14 @@ export class MobManager {
         this.die(mob, "void");
         continue;
       }
-      // Only simulate mobs in loaded terrain near the player.
-      if (dist < 64) stepMob(get, mob, dt, this.rand, target, this.pathBudget, this.effectiveLight(mob, daylight), this.movementBias(mob));
+      const loadedOnly = this.loadedOnlyPhysics(mob);
+      if (loadedOnly && !this.currentBodyLoaded(mob)) continue;
+      // Balloon-owned actors never generate cells to satisfy a suspended tether. Unknown cells
+      // remain a conservative collision boundary; ordinary unowned actor behavior stays unchanged.
+      const physicsGet = loadedOnly
+        ? (x: number, y: number, z: number) => this.world.getLoadedBlock(x, y, z) ?? blockId("stone")
+        : get;
+      if (dist < 64) stepMob(physicsGet, mob, dt, this.rand, target, this.pathBudget, this.effectiveLight(mob, daylight), this.movementBias(mob), this.externalAcceleration(mob));
       // Zombies burn under open sky by day.
       const head = this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
       if (burnInDaylight(mob, skyOf(head), darken, dt)) {

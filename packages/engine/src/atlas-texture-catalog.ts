@@ -833,5 +833,21 @@ export const ATLAS_TEXTURE_CATALOG: readonly string[] = Object.freeze([
   "material_reducer_top",
   "material_reducer_bottom",
   "lab_table_top",
-  "lab_table_bottom"
+  "lab_table_bottom",
+  "item_white_balloon",
+  "item_orange_balloon",
+  "item_magenta_balloon",
+  "item_light_blue_balloon",
+  "item_yellow_balloon",
+  "item_lime_balloon",
+  "item_pink_balloon",
+  "item_gray_balloon",
+  "item_light_gray_balloon",
+  "item_cyan_balloon",
+  "item_purple_balloon",
+  "item_blue_balloon",
+  "item_brown_balloon",
+  "item_green_balloon",
+  "item_red_balloon",
+  "item_black_balloon"
 ]);

@@ -3,6 +3,7 @@
  * {@link ITEM_ID_BASE}, so one numeric id space covers inventory stacks while chunk
  * arrays keep holding block ids only.
  */
+import { BALLOON_COLORS } from "./balloon-colors";
 import { DYE_COLORS } from "./dyes";
 import { GLOW_STICK_COLORS } from "./glow-stick-colors";
 import { ADDITIONAL_GUIDE_ISOTOPES } from "./education-isotopes";
@@ -204,6 +205,10 @@ const specs: Omit<ItemDef, "id">[] = [
   { name: "string", displayName: "String", maxStack: MAX_STACK, icon: "item_string" },
   // Application stack bound64; modern retained recipe identity/count, not native stack calibration.
   { name: "lead_rope", displayName: "Lead", maxStack: MAX_STACK, icon: "item_lead" },
+  // Append16 flat products; stack64 is an application choice pending native verification.
+  ...BALLOON_COLORS.map(({ itemName, displayName, icon }) => ({
+    name: itemName, displayName, maxStack: MAX_STACK, icon, chem: { kind: "product" as const },
+  })),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

@@ -10,9 +10,9 @@ import legacyGlassTextures from "./fixtures/legacy-textures-96.json";
 import legacyGlowstoneTextures from "./fixtures/legacy-textures-0f9.json";
 import { STAINED_GLASS_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
 
-// Historical pixel/UV assertions below keep their exact prior key sets. Full833 is tested separately.
+// Historical pixel/UV assertions retain the exact first825 keys. Full catalog is tested separately.
 const stationKeys = new Set(STATION_FACE_KEYS);
-const historical825Names = () => allAtlasTextureNames().filter(key => !stationKeys.has(key));
+const historical825Names = () => allAtlasTextureNames().slice(0, 825);
 
 const addedGlowKeys = new Set(GLOW_STICK_COLORS.filter(color => color.color !== "green").map(color => color.icon));
 

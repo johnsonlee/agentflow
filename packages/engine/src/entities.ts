@@ -164,11 +164,12 @@ export function stepMob(
   budget?: PathBudget,
   effectiveLight = 0,
   movementBias: Vec3 = { x: 0, y: 0, z: 0 },
+  externalAcceleration: Vec3 = { x: 0, y: 0, z: 0 },
 ): void {
   const { n, h } = substeps(dt);
   if (mob.kind === "spider") mob.spiderAngerSeconds = Math.max(0, (mob.spiderAngerSeconds ?? 0) - n * h);
   const chasing = planChase(getBlock, mob, n * h, target, budget, effectiveLight);
-  for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing, movementBias);
+  for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing, movementBias, externalAcceleration);
   clampPosition(mob.position);
 }
 
@@ -255,7 +256,7 @@ function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | n
   return true;
 }
 
-function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => number, chasing: boolean, movementBias: Vec3): void {
+function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => number, chasing: boolean, movementBias: Vec3, externalAcceleration: Vec3): void {
   const spec = MOB_SPECS[mob.kind];
   const p = mob.position;
   const v = mob.velocity;
@@ -283,15 +284,24 @@ function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => nu
   v.x += (wishX - v.x) * blend;
   v.z += (wishZ - v.z) * blend;
 
+  // External forces are bounded application acceleration (blocks/s²), separate from walking bias.
+  const force = (a: number) => Number.isFinite(a) ? Math.max(-64, Math.min(64, a)) : 0;
+  const ax = force(externalAcceleration.x), ay = force(externalAcceleration.y), az = force(externalAcceleration.z);
+  if (ax !== 0) v.x += ax * dt;
+  if (az !== 0) v.z += az * dt;
+
   const inWater = getBlock(Math.floor(p.x), Math.floor(p.y + spec.height * 0.4), Math.floor(p.z)) === WATER;
   // Vertical displacement uses the average of old and new velocity (exact under constant gravity).
   const v0 = v.y;
   if (inWater) {
     // Bob on the surface like Minecraft animals.
     v.y = Math.min(v.y + 20 * dt, 2);
-  } else {
+  } else if (ay === 0) {
     v.y = Math.max(v.y - GRAVITY * dt, mob.kind === "chicken" ? -3 : -TERMINAL_VELOCITY);
+  } else {
+    v.y = Math.min(TERMINAL_VELOCITY, Math.max(v.y + (ay - GRAVITY) * dt, mob.kind === "chicken" ? -3 : -TERMINAL_VELOCITY));
   }
+  if (inWater && ay !== 0) v.y = Math.min(TERMINAL_VELOCITY, Math.max(-TERMINAL_VELOCITY, v.y + ay * dt));
   const vyMove = (v0 + v.y) / 2;
 
   const blockedX = moveAxis(getBlock, p, "x", v.x * dt, spec.width, spec.height);

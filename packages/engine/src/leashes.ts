@@ -149,14 +149,14 @@ export class LeashStore {
       return true;
     } catch { return false; } finally { this.locked = false; }
   }
-  beginRelease(keys: readonly number[], ctx: LeashContext): ReleaseAttempt {
+  beginRelease(keys: readonly number[], ctx: LeashContext, reserveEmpty = false): ReleaseAttempt {
     // Busy MUST NOT be interpreted as an unowned source by any destruction adapter.
     if (!this.available()) return { kind: "refused", reason: "Leash ownership is busy, damaged or closed" };
     this.locked = true;
     try {
       this.initialReferences(ctx);
       if (this.issues || keys.length > LEASH_PROFILE.maxRecords || new Set(keys).size !== keys.length || keys.some(k => !safe(k))) return { kind: "refused", reason: "Invalid leash release source" };
-      if (!keys.length) return { kind: "none" };
+      if (!keys.length && !reserveEmpty) return { kind: "none" };
       const selected = keys.map(k => this.owners.get(k));
       if (selected.some(o => !o || !o.referencesChecked || o.record.phase === "active" && !o.fenceChecked)) return { kind: "refused", reason: "Missing or unresolved leash source" };
       const owners = selected as Owned[];

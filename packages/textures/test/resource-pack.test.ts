@@ -1,11 +1,10 @@
-import { allAtlasTextureNames, STATION_FACE_KEYS } from "@craft/engine";
+import { allAtlasTextureNames } from "@craft/engine";
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { GLOW_STICK_COLORS, itemTextureNames, textureNames } from "@craft/engine";
 import { MAX_PACK_BYTES, MAX_PACK_NAME_LENGTH, buildAtlas, generateTile, parseLocalTexturePack, sha256Hex, type SourceTile } from "../src";
-// Historical pixel/UV assertions below keep their exact prior key sets. Full833 is tested separately.
-const stationKeys = new Set(STATION_FACE_KEYS);
-const historical825Names = () => allAtlasTextureNames().filter(key => !stationKeys.has(key));
+// Historical pixel/UV assertions retain the exact first825 keys. Full catalog is tested separately.
+const historical825Names = () => allAtlasTextureNames().slice(0, 825);
 
 const addedGlowKeys = new Set(GLOW_STICK_COLORS.filter(color => color.color !== "green").map(color => color.icon));
 const hash = (data: Uint8Array | Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");

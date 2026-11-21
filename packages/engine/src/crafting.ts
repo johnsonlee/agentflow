@@ -1,3 +1,4 @@
+import { BALLOON_COLORS } from "./balloon-colors";
 import { DYE_COLORS } from "./dyes";
 import { GLOW_STICK_COLORS } from "./glow-stick-colors";
 import { BLOCKS } from "./blocks";
@@ -142,6 +143,11 @@ export const RECIPES: readonly Recipe[] = [
   // Older retained variants require four strings plus slime; active pack selection remains unverified.
   { id: "lead", pattern: ["~~ ", "~~ ", "  ~"], key: { "~": "string" }, result: ["lead_rope", 2],
     note: "Selected retained modern five-string variant; older slime recipe differs, active native binding unverified" },
+  ...BALLOON_COLORS.map(({ itemName, dye }): Recipe => ({
+    id: itemName, pattern: ["LDL", "LHL", "LRL"],
+    key: { L: "latex", D: dye, H: "helium", R: "lead_rope" }, result: [itemName, 1],
+    note: "Journal pattern; output1 and canonical helium-4 only are application choices; native isotope acceptance unverified",
+  })),
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

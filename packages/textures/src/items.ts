@@ -1,3 +1,4 @@
+import { BALLOON_ITEM_GENERATORS } from "./balloons";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 import { FARMING_ITEM_GENERATORS } from "./farming";
 import { REDSTONE_ITEM_GENERATORS } from "./redstone";
@@ -209,3 +210,6 @@ ITEM_TILE_GENERATORS.item_lead = (t) => {
   t.set(9, 9, hex("#e9ca92"));
   return t;
 };
+
+// Append original balloon icon generators without changing existing seeds or pixels.
+Object.assign(ITEM_TILE_GENERATORS, BALLOON_ITEM_GENERATORS);
