@@ -6,9 +6,9 @@ import baseline from "./fixtures/bottles-0d75051.json";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("preserves all860 published tile pixels and UVs while appending two whole bottle icons", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
-  expect(names).toHaveLength(862); expect(names.slice(0, 860)).toEqual(baseline.names);
-  expect(names.slice(860)).toEqual(["item_glass_bottle", "item_water_bottle"]);
-  expect(new Set(names).size).toBe(862);
+  expect(names).toHaveLength(867); expect(names.slice(0, 860)).toEqual(baseline.names);
+  expect(names.slice(860, 862)).toEqual(["item_glass_bottle", "item_water_bottle"]);
+  expect(new Set(names).size).toBe(867);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];
@@ -17,7 +17,7 @@ it("preserves all860 published tile pixels and UVs while appending two whole bot
     expect(atlas.uv(name), name).toEqual(old.uv);
   }
   const added = new Set<string>();
-  for (const key of names.slice(860)) {
+  for (const key of names.slice(860, 862)) {
     const pixels = generateTile(key); expect(hasItemTile(key)).toBe(true); expect(pixels).toHaveLength(1024);
     expect(pixels).toEqual(generateTile(key));
     expect(Object.values(baseline.tiles).some(tile => tile.rgbaSHA256 === hash(pixels))).toBe(false);

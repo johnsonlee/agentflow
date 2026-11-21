@@ -6,6 +6,7 @@ import {
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
 
+import { buildCowModel } from "../rendering/cow-model";
 import { buildSquidModel, animateSquidModel } from "../rendering/squid-model";
 import { isNaturalSquidSpawnEligible } from "./squid-habitat";
 
@@ -19,7 +20,7 @@ interface Part {
   face?: "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider";
 }
 
-const MODELS: Record<Exclude<MobKind, "squid">, Part[]> = {
+const MODELS: Record<Exclude<MobKind, "squid" | "cow">, Part[]> = {
   // Original procedural model: a low dark body, eight independently animated legs and red eyes.
   // Ground walking only; native climbing, leaping and model/texture parity remain unimplemented.
   spider: [
@@ -137,6 +138,7 @@ function faceTexture(color: string, face: NonNullable<Part["face"]>): THREE.Text
 
 function buildModel(mob: Mob): THREE.Group {
   if (mob.kind === "squid") return buildSquidModel();
+  if (mob.kind === "cow") return buildCowModel();
   const group = new THREE.Group();
   for (const part of MODELS[mob.kind]) {
     const side = new THREE.MeshBasicMaterial({ map: partTexture(part.color) });
@@ -191,6 +193,9 @@ export interface SavedNpc {
 }
 
 const MAX_ANIMALS = 12;
+/** Application cap and independent spawn stream, not calibrated native population weights. */
+const MAX_COWS = 4;
+const LEGACY_LAND_ANIMALS = PASSIVE_MOBS.filter(kind => kind !== "cow");
 const MAX_HOSTILES = 8;
 /** Application ocean population cap; native population scheduling is uncalibrated. */
 const MAX_SQUID = 4;
@@ -216,6 +221,8 @@ export class MobManager {
   private seed = 12345;
   private readonly rand = () => ((this.seed = (this.seed * 16807) % 2147483647) / 2147483647);
   /** Separate application stream: aquatic attempts/steering never consume land-mob randomness. */
+  private cowSeed = 314159;
+  private readonly cowRand = () => ((this.cowSeed = (this.cowSeed * 16807) % 2147483647) / 2147483647);
   private aquaticSeed = 8675309;
   private readonly aquaticRand = () => ((this.aquaticSeed = (this.aquaticSeed * 16807) % 2147483647) / 2147483647);
 
@@ -320,6 +327,7 @@ export class MobManager {
         this.spawnNear(player);
         this.spawnHostileNear(player, darken);
         this.spawnSquidNear(player);
+        this.spawnCowNear(player, daylight);
       }
     }
     const order = this.mobs.length > 0 ? [...this.mobs.slice(this.rotation % this.mobs.length), ...this.mobs.slice(0, this.rotation % this.mobs.length)] : [];
@@ -345,7 +353,7 @@ export class MobManager {
       const physicsGet = loadedOnly
         ? (x: number, y: number, z: number) => this.world.getLoadedBlock(x, y, z) ?? (mob.kind === "squid" ? -1 : blockId("stone"))
         : get;
-      const stepped = dist < 64 ? stepMob(physicsGet, mob, dt, mob.kind === "squid" ? this.aquaticRand : this.rand, target, this.pathBudget, mob.kind === "squid" ? 0 : this.effectiveLight(mob, daylight), this.movementBias(mob), this.externalAcceleration(mob)) : false;
+      const stepped = dist < 64 ? stepMob(physicsGet, mob, dt, mob.kind === "squid" ? this.aquaticRand : mob.kind === "cow" ? this.cowRand : this.rand, target, this.pathBudget, mob.kind === "squid" ? 0 : this.effectiveLight(mob, daylight), this.movementBias(mob), this.externalAcceleration(mob)) : false;
       if (mob.kind === "squid" && stepped === false) continue;
       if (mob.kind === "squid") {
         const exposureDamage = squidBreathDamage(mob);
@@ -481,6 +489,31 @@ export class MobManager {
       .map((m) => ({ x: m.position.x, y: m.position.y, z: m.position.z, yaw: m.yaw, name: m.name ?? "NPC", dialogue: m.dialogue ?? "" }));
   }
 
+  /** Grass/daylight approximation using an isolated stream; no native biome/weight calibration. */
+  private spawnCowNear(player: Vec3, daylight: number): void {
+    if (this.nextId >= Number.MAX_SAFE_INTEGER || this.animalCount() >= MAX_ANIMALS || this.mobs.filter(m => m.kind === "cow").length >= MAX_COWS) return;
+    const get = (x: number, y: number, z: number) => this.world.getLoadedBlock(x, y, z);
+    for (let attempt = 0; attempt < 3; attempt++) {
+      const angle = this.cowRand() * Math.PI * 2, radius = 14 + this.cowRand() * 22;
+      const x = Math.floor(player.x + Math.cos(angle) * radius), z = Math.floor(player.z + Math.sin(angle) * radius), h = this.world.generator.heightAt(x, z);
+      if (h <= SEA_LEVEL || get(x, h, z) !== blockId("grass")) continue;
+      const packed = this.world.getLight(x, h + 1, z), brightness = Math.max(blockLightOf(packed), skyOf(packed) - skyDarken(daylight));
+      if (brightness < 7 || brightness > 15) continue;
+      const herd = 2 + Math.floor(this.cowRand() * 2), spec = MOB_SPECS.cow;
+      let spawned = false;
+      for (let i = 0; i < herd && this.animalCount() < MAX_ANIMALS && this.mobs.filter(m => m.kind === "cow").length < MAX_COWS && this.nextId < Number.MAX_SAFE_INTEGER; i++) {
+        const at = { x: x + .5 + i * 1.1, y: h + 1.05, z: z + .5 }, box = bodyBox(at, spec.width, spec.height);
+        if (get(Math.floor(at.x), h, Math.floor(at.z)) !== blockId("grass")) continue;
+        let loaded = true;
+        for (let bx = Math.floor(box.minX); bx <= Math.floor(box.maxX); bx++) for (let by = h; by <= Math.ceil(box.maxY); by++) for (let bz = Math.floor(box.minZ); bz <= Math.floor(box.maxZ); bz++) if (get(bx, by, bz) === undefined) loaded = false;
+        if (!loaded || boxCollides((bx, by, bz) => get(bx, by, bz) ?? blockId("stone"), box)) continue;
+        if (this.mobs.some(m => { const other = bodyBox(m.position, MOB_SPECS[m.kind].width, MOB_SPECS[m.kind].height); return box.minX < other.maxX && box.maxX > other.minX && box.minY < other.maxY && box.maxY > other.minY && box.minZ < other.maxZ && box.maxZ > other.minZ; })) continue;
+        this.spawn("cow", at, { yaw: this.cowRand() * Math.PI * 2 }); spawned = true;
+      }
+      if (spawned) return;
+    }
+  }
+
   private spawnNear(player: Vec3): void {
     if (this.nextId >= Number.MAX_SAFE_INTEGER) return;
     if (this.animalCount() >= MAX_ANIMALS) return;
@@ -492,7 +525,7 @@ export class MobManager {
     const h = this.world.generator.heightAt(x, z);
     if (h <= SEA_LEVEL || this.world.getBlock(x, h, z) !== grass) return;
     if (this.world.getBlock(x, h + 1, z) !== 0 && this.world.getBlock(x, h + 1, z) !== blockId("tall_grass")) return;
-    const kind = PASSIVE_MOBS[Math.floor(this.rand() * PASSIVE_MOBS.length)];
+    const kind = LEGACY_LAND_ANIMALS[Math.floor(this.rand() * LEGACY_LAND_ANIMALS.length)];
     const herd = 2 + Math.floor(this.rand() * 2);
     const spec = MOB_SPECS[kind];
     const get = (bx: number, by: number, bz: number) => this.world.getBlock(bx, by, bz);

@@ -57,7 +57,10 @@ export async function waterDrinkingRoute(page: Page, info: TestInfo, mobile: boo
     try {
       await down(); await waitProgress(.45);
       if (mobile) { await tapWithViewHeld(page.locator('.hotbar [data-slot="3"]'), 119); await tapWithViewHeld(page.locator('.hotbar [data-slot="1"]'), 120); }
-      else { await page.keyboard.press("Digit4"); await page.keyboard.press("Digit2"); }
+      else {
+        await page.keyboard.press("Digit4"); await page.waitForFunction(() => window.__craft.game!.inventory.selected === 3);
+        await page.keyboard.press("Digit2"); await page.waitForFunction(() => window.__craft.game!.inventory.selected === 1);
+      }
       expect(await page.evaluate(() => window.__craft.game!.inventory.selected)).toBe(1); expect(await elapsed() ?? 0).toBeLessThan(.45); expect(await counts()).toEqual({ empty: 2, water: 1 });
     } finally { await up(); }
     if (mobile) {

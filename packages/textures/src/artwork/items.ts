@@ -1,3 +1,4 @@
+import { MILK_ITEM_GENERATORS } from "./milk-items";
 import { BOTTLE_ITEM_GENERATORS } from "./bottles";
 import { BALLOON_ITEM_GENERATORS } from "./balloons";
 import { SPARKLER_ITEM_GENERATORS } from "./sparklers";
@@ -236,3 +237,6 @@ ITEM_TILE_GENERATORS.item_spider_eye = (t) => {
 
 // Append the two whole-container sprites without altering earlier generators.
 Object.assign(ITEM_TILE_GENERATORS, BOTTLE_ITEM_GENERATORS);
+
+// Append original Cow resource and pail icons without changing earlier generators.
+Object.assign(ITEM_TILE_GENERATORS, MILK_ITEM_GENERATORS);

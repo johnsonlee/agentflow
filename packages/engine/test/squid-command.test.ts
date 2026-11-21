@@ -8,7 +8,7 @@ describe("adult ordinary squid summon command", () => {
   });
   it("keeps unsupported glow squid refused and advertises the actual added kind", () => {
     expect(parseCommand("/summon glow_squid").type).toBe("error");
-    expect(COMMAND_HELP.join(" ")).toContain("spider|squid|npc");
-    expect(parseCommand("/summon")).toEqual({ type: "error", message: "Usage: /summon <pig|sheep|chicken|zombie|spider|squid|npc> [name]" });
+    expect(COMMAND_HELP.join(" ")).toContain("spider|squid|cow|npc");
+    expect(parseCommand("/summon")).toEqual({ type: "error", message: "Usage: /summon <pig|sheep|chicken|zombie|spider|squid|cow|npc> [name]" });
   });
 });

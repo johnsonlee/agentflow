@@ -1,3 +1,4 @@
+import { isAdultCow } from "../simulation/cows";
 import { blockId } from "../catalog/blocks";
 import { WORLD_HEIGHT } from "../world/chunk";
 import { MOB_SPECS, type Mob } from "../simulation/entities";
@@ -33,7 +34,7 @@ const position = (v: unknown): v is Vec3 => plain(v) && exact(v, ["x", "y", "z"]
 const coordinate = (v: unknown): v is { x: number; y: number; z: number } => plain(v) && ["x", "y", "z"].every(k => Number.isInteger(v[k])) && Math.abs(v.x as number) <= WORLD_BORDER && Math.abs(v.z as number) <= WORLD_BORDER && (v.y as number) >= 0 && (v.y as number) < WORLD_HEIGHT;
 const copyPosition = (p: Vec3): Vec3 => ({ x: p.x, y: p.y, z: p.z });
 const copyRecord = (r: LeashRecord): LeashRecord => ({ ...r, anchor: { ...r.anchor }, lastPosition: copyPosition(r.lastPosition) });
-const supported = (m: Mob) => m.kind === "pig" || m.kind === "sheep" || m.kind === "chicken";
+const supported = (m: Mob) => m.kind === "pig" || m.kind === "sheep" || m.kind === "chicken" || isAdultCow(m);
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
 const matches = (ctx: LeashContext, id: number) => ctx.mobs.filter(m => m.id === id);
 const living = (mob: Mob) => supported(mob) && finite(mob.health) && mob.health > 0 && mob.health <= MOB_SPECS[mob.kind].maxHealth && position(mob.position);

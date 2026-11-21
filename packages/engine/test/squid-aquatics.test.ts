@@ -20,7 +20,7 @@ function advance(mob: Mob, seconds: number, get = aquarium, bias = zero, acceler
 }
 it("preserves the original six MobSpecs byte projection and existing passive/hostile classifications", () => {
   const baseline = JSON.parse(readFileSync(new URL("./fixtures/balloon-baseline-ebab.json", import.meta.url), "utf8"));
-  const old = Object.fromEntries(Object.entries(MOB_SPECS).filter(([kind]) => kind !== "squid"));
+  const old = Object.fromEntries(Object.entries(MOB_SPECS).slice(0,6));
   expect(createHash("sha256").update(JSON.stringify(old) + "\n").digest("hex")).toBe(baseline.mobSpecsSHA256);
   expect(MOB_SPECS.squid).toMatchObject({ width: .95, height: .95, maxHealth: 10 });
 });

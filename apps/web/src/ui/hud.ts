@@ -349,6 +349,7 @@ export class InventoryScreen {
     private readonly onClose: () => void,
     private readonly onDropHeld?: (stack: ItemStack) => boolean,
     private readonly canMoveItems: () => boolean = () => true,
+    private readonly recoveryNotice: () => string = () => "Saved items need repair. Export a backup before moving items.",
   ) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
@@ -358,7 +359,7 @@ export class InventoryScreen {
     this.root.addEventListener("click", e => {
       if (!this.canMoveItems() && !(e.target as Element).closest(".close-button")) {
         e.preventDefault(); e.stopImmediatePropagation();
-        this.closeHint = "Saved items need repair. Export a backup before moving items."; this.render();
+        this.closeHint = this.recoveryNotice(); this.render();
       }
     }, true);
     container.appendChild(this.root);

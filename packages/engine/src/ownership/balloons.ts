@@ -1,3 +1,4 @@
+import { isAdultCow } from "../simulation/cows";
 import { balloonColorOf } from "../catalog/balloon-colors";
 import { blockById, blockId } from "../catalog/blocks";
 import { BLOCK_COLLISION_ORIGIN_BELOW } from "../catalog/block-geometry";
@@ -37,7 +38,7 @@ const copy = (p: Vec3): Vec3 => ({ x: p.x, y: p.y, z: p.z });
 const copyRecord = (r: BalloonRecord): BalloonRecord => ({ ...r, target: { ...r.target }, position: copy(r.position), velocity: copy(r.velocity), lastAnchor: copy(r.lastAnchor) });
 const same = (a: Vec3, b: Vec3) => a.x === b.x && a.y === b.y && a.z === b.z;
 const distance = (a: Vec3, b: Vec3) => Math.hypot(a.x - b.x, a.y - b.y, a.z - b.z);
-const supported = (m: Mob) => m.kind === "pig" || m.kind === "sheep" || m.kind === "chicken";
+const supported = (m: Mob) => m.kind === "pig" || m.kind === "sheep" || m.kind === "chicken" || isAdultCow(m);
 const living = (m: Mob) => supported(m) && finite(m.health) && m.health > 0 && m.health <= MOB_SPECS[m.kind].maxHealth && position(m.position);
 const matches = (ctx: LeashContext, id: number) => ctx.mobs.filter(m => m.id === id);
 const loaded = (ctx: LeashContext, p: Vec3) => ctx.getLoadedBlock(Math.floor(p.x), Math.floor(p.y), Math.floor(p.z)) !== undefined;

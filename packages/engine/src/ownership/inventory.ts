@@ -1,3 +1,4 @@
+import { planMilkFill, inspectBucketOwner, type MilkFillResult } from "./buckets";
 import { planBottleFill, planBottleDrink, inspectBottleOwner, type BottleFillResult, type BottleDrinkResult } from "./bottles";
 import { inspectItemState } from "./item-state";
 import { isSparklerId, type SparklerState, type SparklerActivationResult } from "./sparkler-state";
@@ -88,6 +89,23 @@ export class Inventory {
       return { ok: false, reason: "invalid-state" };
     this.slots[plan.index] = plan.replacement;
     return { ok: true };
+  }
+
+  /** Caller verifies a live reachable adult Cow without a pending death; no animal is consumed. */
+  fillSelectedMilkBucket(): MilkFillResult {
+    const slots=this.slots, selected=this.selected;
+    // Every cell is a destination in this detached-plan commit. Refuse accessors and locked
+    // data cells before any write, including unrelated late cells that could otherwise throw.
+    const writableDestinations=()=>Array.isArray(slots)&&slots.length===INVENTORY_SIZE&&Array.from({length:INVENTORY_SIZE},(_,index)=>{
+      const descriptor=Object.getOwnPropertyDescriptor(slots,String(index));
+      return !!descriptor&&"value" in descriptor&&descriptor.writable===true;
+    }).every(Boolean);
+    if(!writableDestinations())return {ok:false,reason:"invalid-state"};
+    const plan=planMilkFill(slots,selected);
+    if(!plan.ok)return plan;
+    if(this.selected!==plan.index||this.slots!==slots||slots[plan.index]!==plan.source||plan.source.count!==plan.sourceCount||inspectBucketOwner(plan.source).kind==="invalid"||!writableDestinations())return {ok:false,reason:"invalid-state"};
+    for(let index=0;index<slots.length;index++)slots[index]=plan.slots[index];
+    return {ok:true};
   }
 
   /** Offhand accepts Sparklers only; refusal leaves both owners unchanged. */

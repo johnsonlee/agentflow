@@ -4,7 +4,7 @@ import {
   SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
-  WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, createPlayerStatus, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
+  MILK_DRINK_SECONDS, finishMilkDrink, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, createPlayerStatus, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, loadPrograms, startProgram, type AgentCommand,
@@ -41,6 +41,8 @@ const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
 
 const GLASS_BOTTLE = stackId("glass_bottle");
 const WATER_BOTTLE = stackId("water_bottle");
+const EMPTY_BUCKET = stackId("bucket");
+const MILK_BUCKET = stackId("milk_bucket");
 const WATER = blockId("water");
 const SNOWBALL = stackId("snowball");
 const LEAD = stackId("lead_rope");
@@ -98,7 +100,7 @@ export class Game {
   private recoveryOriginal: string | null = null;
   private recoverySections: string[] = [];
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("player status"); }
+  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows"); }
   private stopped = false;
   private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
   private readonly handleResize = () => { if (!this.stopped) this.resize(); };
@@ -134,7 +136,7 @@ export class Game {
   /** Seconds the use button has been held on food. */
   private eatTimer = 0;
   /** Ephemeral, exact-owner use progress; it is never part of the saved world. */
-  private drinkOwner: { slot: number; source: ItemStack; count: number; mode: GameMode; elapsed: number } | null = null;
+  private drinkOwner: { slot: number; source: ItemStack; id: number; count: number; mode: GameMode; elapsed: number } | null = null;
   private readonly handleDrinkMouseRelease = (e: MouseEvent) => { if (e.button === 2) this.cancelDrinking(); };
   private readonly handleDrinkPointerRelease = (e: PointerEvent) => this.endDrinkPointer(e);
   private readonly handleDrinkWheel = (e: WheelEvent) => { if (e.deltaY !== 0) this.cancelDrinking(); };
@@ -205,7 +207,7 @@ export class Game {
     this.root.appendChild(canvas);
 
     const save = options.save;
-    this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.restorePlayerStatus(save);
+    this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
@@ -273,7 +275,7 @@ export class Game {
     this.keyboard = new KeyboardMouseInput(canvas, { mouseButtons: !options.touch });
     this.touch = options.touch ? new TouchControls(canvas, this.root) : null;
     this.hud = new Hud(this.root, atlas, {
-      onSelectSlot: (slot) => { if (!this.dead && !this.actionsNeedRecovery) this.selectHotbar(slot); },
+      onSelectSlot: (slot) => this.selectHudHotbar(slot),
       onOpenInventory: () => this.toggleInventory(),
       onPause: () => this.pause(),
       onChat: () => this.openChat(),
@@ -284,7 +286,8 @@ export class Game {
       onLightSparkler: offhand => { this.tryLightSparkler(offhand); },
       onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.actionsNeedRecovery);
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.actionsNeedRecovery, () => this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
+      ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob) => this.mobs.refresh(mob));
@@ -302,6 +305,8 @@ export class Game {
     for (const issue of save?.glowOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.sparklerOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.bottleOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for (const issue of save?.bucketOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    if (save?.cowStateInvalid) this.loadErrors.push("Damaged adult cows (original save preserved)");
     if (this.leashes.loadIssues) this.loadErrors.push("Damaged leashes (original save preserved)");
     if (this.balloons.loadIssues) this.loadErrors.push("Damaged balloons (original save preserved)");
     if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
@@ -450,7 +455,7 @@ export class Game {
 
   private tryDeathTransfer(): boolean {
     if (this.ownershipBusy || !this.deathState) return false;
-    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
+    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -766,7 +771,7 @@ export class Game {
       (!mobHit || balloonHit.distance < mobHit.distance) ? balloonHit : null;
     const held = this.inventory.selectedStack();
     const stationTarget = this.target !== null && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE || CHEMISTRY_STATIONS.has(this.target.id) || chalkboardSizeOf(this.target.id) !== null);
-    const drinking = using && held?.id === WATER_BOTTLE && !this.mobTarget && !this.balloonTarget && !stationTarget;
+    const drinking = using && (held?.id === WATER_BOTTLE || held?.id === MILK_BUCKET) && !this.mobTarget && !this.balloonTarget && !stationTarget;
     if (!drinking) this.cancelDrinking();
     if (place && this.placeCooldown === 0 && held?.id === GLASS_BOTTLE) {
       // Normal outline/break targeting keeps ignoring liquids. This separate physical ray uses
@@ -815,7 +820,7 @@ export class Game {
     }
     if (drinking) {
       this.breakProgress = 0; this.eatTimer = 0;
-      this.drinkSelectedWater(dt);
+      this.drinkSelectedContainer(dt);
       return;
     }
     const usesBlock = this.target !== null && !this.mobTarget && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE);
@@ -830,6 +835,20 @@ export class Game {
       return;
     }
     this.eatTimer = 0;
+    if (place && this.placeCooldown === 0 && held?.id === EMPTY_BUCKET && this.mobTarget?.kind === "cow") {
+      const cow = this.mobTarget;
+      const validCow = isAdultCow(cow) && Number.isSafeInteger(cow.id) && cow.id > 0 && Number.isFinite(cow.health) && cow.health > 0 && cow.health <= MOB_SPECS.cow.maxHealth && [cow.position.x, cow.position.y, cow.position.z].every(Number.isFinite) &&
+        this.mobs.mobs.includes(cow) && this.mobs.mobs.filter(m => m.id === cow.id).length === 1 && mobHit?.mob === cow && Number.isFinite(mobHit.distance) && mobHit.distance >= 0 && mobHit.distance <= REACH;
+      this.placeCooldown = .25; this.breakProgress = 0; this.eatTimer = 0;
+      if (!validCow) this.hud.message("Only a healthy adult cow can be milked.");
+      else if (this.mobLoot.exportPending(cow) !== undefined) this.hud.message("This cow's drops need attention before it can be milked.");
+      else {
+        const result = this.inventory.fillSelectedMilkBucket();
+        this.hud.message(result.ok ? "Milked the adult cow." : result.reason === "no-room" ? "Make room for a Milk Bucket before milking." : "These buckets need attention before they can be filled.");
+      }
+      // This bounded model does not consume, injure or exhaust the adult cow.
+      return;
+    }
     // A non-NPC actor does not consume the use edge: snowballs can be aimed at supported mobs.
     if (place && held?.id === SNOWBALL && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc") {
       this.throwSnowball(); return;
@@ -945,7 +964,7 @@ export class Game {
       const ok = t?.id === OAK_FENCE && this.balloons.attachFromInventory(this.inventory, this.mode,
         { kind: "fence", x: t.x, y: t.y, z: t.z }, this.leashContext());
       this.placeCooldown = .25;
-      this.hud.message(ok ? "Balloon tied to fence" : "Aim at a pig, sheep, chicken or oak fence to attach a balloon");
+      this.hud.message(ok ? "Balloon tied to fence" : "Aim at a pig, sheep, chicken, adult cow or oak fence to attach a balloon");
       return;
     }
 
@@ -1020,24 +1039,32 @@ export class Game {
     if (e.type === "pointercancel" || e.pointerType !== "mouse") this.cancelDrinking();
   }
 
+  private selectHudHotbar(slot: number): void {
+    // Saved-item recovery keeps HUD selection available for inspecting disabled actions.
+    // This changes only the live selected index; all ownership/write guards stay in force.
+    if (this.dead || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows")) return;
+    this.selectHotbar(slot);
+  }
+
   private selectHotbar(slot: number): void {
     this.cancelDrinking();
     this.inventory.select(slot);
   }
 
-  /** The held duration and finite-container behavior are application choices, not native calibration. */
-  private drinkSelectedWater(dt: number): void {
+  /** Held duration and finite-container behavior are application choices, not native calibration. */
+  private drinkSelectedContainer(dt: number): void {
     const slot = this.inventory.selected, source = this.inventory.selectedStack();
-    if (!Number.isFinite(dt) || dt <= 0 || !source || source.id !== WATER_BOTTLE) { this.cancelDrinking(); return; }
-    if (!this.drinkOwner || this.drinkOwner.slot !== slot || this.drinkOwner.source !== source || this.drinkOwner.count !== source.count || this.drinkOwner.mode !== this.mode) {
-      this.drinkOwner = { slot, source, count: source.count, mode: this.mode, elapsed: 0 };
-      this.hud.message("Keep holding to drink water.");
+    if (!Number.isFinite(dt) || dt <= 0 || !source || source.id !== WATER_BOTTLE && source.id !== MILK_BUCKET) { this.cancelDrinking(); return; }
+    const milk = source.id === MILK_BUCKET;
+    if (!this.drinkOwner || this.drinkOwner.slot !== slot || this.drinkOwner.source !== source || this.drinkOwner.id !== source.id || this.drinkOwner.count !== source.count || this.drinkOwner.mode !== this.mode) {
+      this.drinkOwner = { slot, source, id: source.id, count: source.count, mode: this.mode, elapsed: 0 };
+      this.hud.message(milk ? "Keep holding to drink milk." : "Keep holding to drink water.");
     }
     this.drinkOwner.elapsed += dt;
-    if (this.drinkOwner.elapsed + 1e-10 < WATER_DRINK_SECONDS) return;
-    const result = this.inventory.drinkSelectedWaterBottle();
+    if (this.drinkOwner.elapsed + 1e-10 < (milk ? MILK_DRINK_SECONDS : WATER_DRINK_SECONDS)) return;
+    const ok = milk ? finishMilkDrink(this.inventory, this.playerStatus) : this.inventory.drinkSelectedWaterBottle().ok;
     this.cancelDrinking();
-    this.hud.message(result.ok ? "Drank water; the Glass Bottle is empty." : "This bottle needs attention before it can be used.");
+    this.hud.message(milk ? ok ? "Drank milk; active effects cleared and the Bucket is empty." : "This milk needs attention before it can be used." : ok ? "Drank water; the Glass Bottle is empty." : "This bottle needs attention before it can be used.");
   }
 
   /** Diagnose the raw section before sanitation can erase malformed timed state. */
@@ -1068,6 +1095,18 @@ export class Game {
   private markGlowRecovery(save: Pick<SaveData, "glowOwnershipIssues"> | undefined): void {
     if (!save?.glowOwnershipIssues?.length) return;
     this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.itemsNeedRecovery) this.recoverySections.push("saved items");
+  }
+
+  private markCowRecovery(save: Pick<SaveData, "cowStateInvalid"> | undefined): void {
+    if (!save?.cowStateInvalid) return;
+    this.cancelDrinking(); this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.recoverySections.includes("adult cows")) this.recoverySections.push("adult cows");
+  }
+
+  private markBucketRecovery(save: Pick<SaveData, "bucketOwnershipIssues"> | undefined): void {
+    if (!save?.bucketOwnershipIssues?.length) return;
+    this.cancelDrinking(); this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
     if (!this.itemsNeedRecovery) this.recoverySections.push("saved items");
   }
 
@@ -1194,7 +1233,7 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
-    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
+    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
     if (this.ownershipBusy) return "Items are being transferred. Retry giving them afterward";
     if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
@@ -1532,7 +1571,7 @@ export class Game {
   /** Executes a chat line; returns the feedback shown to the player. */
   runChat(text: string): string {
     if (this.actionsNeedRecovery && text.startsWith("/")) {
-      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
+      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
       this.hud.message(reply);
       return reply;
     }

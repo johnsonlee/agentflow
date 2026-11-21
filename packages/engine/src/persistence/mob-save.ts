@@ -1,3 +1,4 @@
+import { isCowState, type CowState } from "../simulation/cows";
 import { createSquidState, SQUID, type SquidState } from "../simulation/aquatics";
 import { SPIDER, MOB_SPECS, createMob, type Mob, type MobKind } from "../simulation/entities";
 import type { ItemStack } from "../ownership/inventory";
@@ -6,6 +7,7 @@ import { sanitizePendingMobLoot, isMobLootCause, type MobLootCause } from "../si
 
 /** JSON-safe semantic state. Native path-search objects and derived graph caches are never saved. */
 export interface MobSnapshot {
+  cowState?: CowState;
   squidState?: SquidState;
   id: number;
   kind: MobKind;
@@ -48,6 +50,11 @@ function readMob(raw: unknown): MobSnapshot | null {
   const spec = MOB_SPECS[kind as MobKind];
   if (kind === "npc" ? health !== "invulnerable" : !finite(health) || health <= 0 || health > spec.maxHealth) return null;
   const result: MobSnapshot = { id, kind: kind as MobKind, position: { ...position }, velocity: { ...velocity }, yaw, health: health as MobSnapshot["health"], onGround, thinkTimer, walking, hurtTimer };
+  if(kind === "cow"){
+    const allowed=["id","kind","position","velocity","yaw","health","onGround","thinkTimer","walking","hurtTimer","attackTimer","burnTimer","burning","detourTimer","detourSign","stuckTimer","cowState","pendingLoot","pendingLootCause"];
+    if(Reflect.ownKeys(raw).some(key=>typeof key!=="string"||!allowed.includes(key))||!isCowState(own(raw,"cowState")))return null;
+    result.cowState={lifeStage:"adult"};
+  }else if(Object.prototype.hasOwnProperty.call(raw,"cowState"))return null;
   for (const field of optionalTimers) {
     const value = own(raw, field);
     if (value !== undefined) { if (!finite(value)) return null; result[field] = value; }
@@ -85,6 +92,24 @@ function readMob(raw: unknown): MobSnapshot | null {
   return result;
 }
 
+/** New Cow corruption is diagnosed before regular Mob sanitation, without changing legacy
+ * malformed non-Cow recovery policy. Missing opaque envelopes cannot identify a Cow by guess. */
+export function diagnoseRawCowState(raw:unknown):boolean {
+  if(raw===undefined)return false;
+  try {
+    const known=(v:unknown):v is Record<string,unknown>=>plain(v)&&(own(v,"kind")==="cow"||Object.prototype.hasOwnProperty.call(v,"cowState"));
+    if(!plain(raw))return false;const records=own(raw,"records");
+    if(!Array.isArray(records))return known(raw)||known(records);
+    const cows=records.filter(known);if(cows.length===0)return false;
+    if(cows.some(cow=>readMob(cow)===null))return true;
+    const seen=new Map<number,boolean>();let max=0;
+    for(const r of records){if(!plain(r))continue;const id=own(r,"id");if(typeof id!=="number"||!Number.isSafeInteger(id))continue;
+      if(seen.has(id)&&(known(r)||seen.get(id)))return true;seen.set(id,known(r));max=Math.max(max,id);
+    }
+    const next=own(raw,"nextId");return typeof next!=="number"||!Number.isSafeInteger(next)||next<=max||next>Number.MAX_SAFE_INTEGER;
+  }catch{return true;}
+}
+
 /** No valid-record cap: every record is read, duplicate/malformed owners are counted explicitly. */
 export function sanitizeMobState(raw: unknown): SanitizedMobState {
   const data: MobStateData = { nextId: 1, records: [] }, present = raw !== undefined;
@@ -116,6 +141,7 @@ export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[], pendingLootCaus
   };
   for (const field of [...optionalTimers, "spiderAngerSeconds", "burning", "detourSign"] as const) if (mob[field] !== undefined) raw[field] = mob[field];
   if (mob.squidState !== undefined) raw.squidState = mob.squidState;
+  if (mob.cowState !== undefined) raw.cowState = mob.cowState;
   if (mob.kind === "npc") { raw.name = mob.name ?? "NPC"; raw.dialogue = mob.dialogue ?? ""; }
   if (pendingLoot !== undefined) raw.pendingLoot = pendingLoot;
   if (pendingLootCause !== undefined) raw.pendingLootCause = pendingLootCause;
@@ -129,6 +155,7 @@ export function restoreMobSnapshot(snapshot: MobSnapshot): Mob {
   const saved = readMob(snapshot);
   if (!saved) throw new Error("Cannot restore invalid mob snapshot");
   const mob = createMob(saved.id, saved.kind, saved.position, { yaw: saved.yaw, name: saved.name, dialogue: saved.dialogue });
+  if (saved.cowState) mob.cowState = { ...saved.cowState };
   if (saved.squidState) mob.squidState = { ...saved.squidState, swimDirection: { ...saved.squidState.swimDirection } };
   mob.velocity = { ...saved.velocity }; mob.health = saved.health === "invulnerable" ? Infinity : saved.health;
   mob.onGround = saved.onGround; mob.thinkTimer = saved.thinkTimer; mob.walking = saved.walking; mob.hurtTimer = saved.hurtTimer;

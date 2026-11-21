@@ -1,3 +1,4 @@
+import { COW, createCowState, type CowState } from "./cows";
 import { createSquidState, stepSquid, type SquidState } from "./aquatics";
 import { blockById, blockId, isOpaque, isSolid } from "../catalog/blocks";
 import { MAX_LIGHT, blockLightOf, skyOf } from "../world/light";
@@ -5,7 +6,7 @@ import { clampPosition, type Vec3 } from "../core/math";
 import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
 import { PathSearch, type PathBudget, type PathNode } from "../automation/pathfind";
 
-export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider" | "squid";
+export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider" | "squid" | "cow";
 
 export interface MobSpec {
   kind: MobKind;
@@ -35,6 +36,7 @@ export const MOB_SPECS: Record<MobKind, MobSpec> = {
   spider: { kind: "spider", displayName: "Spider", width: 1.4, height: 0.9, maxHealth: 16, speed: 2.4, drop: ["string", 1], hostile: true },
   // Selected retained .95 adult source variant; active-pack binding is unresolved.
   squid: { kind: "squid", displayName: "Squid", width: 0.95, height: 0.95, maxHealth: 10, speed: 0, drop: ["ink_sac", 1] },
+  cow: { kind: "cow", displayName: "Cow", width: COW.width, height: COW.height, maxHealth: COW.health, speed: COW.speed, drop: ["leather", 1], extraDrop: ["raw_beef", 2] },
 };
 
 export const AQUATIC_MOBS: readonly MobKind[] = ["squid"];
@@ -74,9 +76,11 @@ export function mobIsAggressive(mob: Mob, effectiveLight = 0): boolean {
 
 const combatProfile = (mob: Mob) => mob.kind === "spider" ? SPIDER : ZOMBIE;
 
-export const PASSIVE_MOBS: readonly MobKind[] = ["pig", "sheep", "chicken"];
+export const PASSIVE_MOBS: readonly MobKind[] = ["pig", "sheep", "chicken", "cow"];
 
 export interface Mob {
+  /** New supported Cow subset is explicitly adult; no baby/aging/breeding is synthesized. */
+  cowState?: CowState;
   /** Application aquatic state, present only for adult ordinary squid. */
   squidState?: SquidState;
   id: number;
@@ -126,6 +130,7 @@ export function createMob(id: number, kind: MobKind, position: Vec3, extra: Part
     health: MOB_SPECS[kind].maxHealth,
     ...(kind === "spider" ? { spiderAngerSeconds: 0 } : {}),
     ...(kind === "squid" ? { squidState: createSquidState() } : {}),
+    ...(kind === "cow" ? { cowState: createCowState() } : {}),
     onGround: false,
     thinkTimer: 0,
     walking: false,

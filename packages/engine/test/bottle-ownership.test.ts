@@ -11,7 +11,7 @@ describe("whole glass/water bottle ownership",()=>{
     expect(JSON.parse(JSON.stringify(BLOCKS))).toEqual(baseline.blocks);
     expect(JSON.parse(JSON.stringify(RECIPES.slice(0,165)))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,860)).toEqual(baseline.names);
-    expect(ITEMS.slice(-2).map(i=>[i.id,i.name,i.maxStack])).toEqual([[830,"glass_bottle",64],[831,"water_bottle",1]]);
+    expect(ITEMS.slice(574,576).map(i=>[i.id,i.name,i.maxStack])).toEqual([[830,"glass_bottle",64],[831,"water_bottle",1]]);
     expect(bottleKind(830)).toBe("empty");expect(bottleKind(831)).toBe("water");expect(bottleKind(stackId("spider_eye"))).toBeNull();
   });
   it("crafts three bottles from the retained width3 glass V only",()=>{

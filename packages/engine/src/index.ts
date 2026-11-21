@@ -81,3 +81,7 @@ export * from "./simulation/status-effects";
 export * from "./simulation/meal";
 
 export * from "./ownership/bottles";
+
+export * from "./simulation/cows";
+export * from "./simulation/milk";
+export * from "./ownership/buckets";

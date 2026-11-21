@@ -158,6 +158,8 @@ export const RECIPES: readonly Recipe[] = [
   })),
   // Retained candidate Education1.26.33 vanilla glass_bottle recipe: three-glass V -> three bottles.
   { id: "glass_bottle", pattern: ["G G", " G "], key: { G: "glass" }, result: ["glass_bottle", 3] },
+  // Retained Education bucket recipe: three iron ingots in a width-three V.
+  { id: "bucket", pattern: ["I I", " I "], key: { I: "iron_ingot" }, result: ["bucket", 1] },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

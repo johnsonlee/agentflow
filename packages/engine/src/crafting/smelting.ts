@@ -24,6 +24,7 @@ export const SMELTING_RECIPES: Readonly<Record<string, string>> = {
   birch_log: "charcoal",
   raw_porkchop: "cooked_porkchop",
   raw_chicken: "cooked_chicken",
+  raw_beef: "cooked_beef",
 };
 
 /** Burn time in seconds (Minecraft: coal smelts 8 items, planks and logs 1.5, a stick 0.5). */

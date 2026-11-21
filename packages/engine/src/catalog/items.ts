@@ -219,6 +219,12 @@ const specs: Omit<ItemDef, "id">[] = [
   // Whole-container identities; empty64/water1 are explicit application bounds pending native calibration.
   material("glass_bottle", "Glass Bottle"),
   { name: "water_bottle", displayName: "Water Bottle", maxStack: 1, icon: "item_water_bottle" },
+  // Whole empty/milk bucket bounds and numeric saturation are explicit application choices.
+  { name: "bucket", displayName: "Bucket", maxStack: 16, icon: "item_bucket" },
+  { name: "milk_bucket", displayName: "Milk Bucket", maxStack: 1, icon: "item_milk_bucket" },
+  material("raw_beef", "Raw Beef", { hunger: 3, saturation: 1.8 }),
+  material("cooked_beef", "Steak", { hunger: 8, saturation: 12.8 }),
+  material("leather", "Leather"),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
