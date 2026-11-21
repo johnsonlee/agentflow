@@ -1,4 +1,5 @@
 import { DYE_COLORS } from "./dyes";
+import { GLOW_STICK_COLORS } from "./glow-stick-colors";
 import { BLOCKS } from "./blocks";
 import { stackId, type ArmorMaterial, type ToolMaterial } from "./items";
 import type { ItemStack } from "./inventory";
@@ -125,6 +126,12 @@ export const RECIPES: readonly Recipe[] = [
     note: "Existing green item only; output count provisional, activation/lifetime/current Education behavior unverified" },
   // Replace the former gold-ore placeholder: candidate1.26.33.0 vanilla/1.20.10 agree on four dust.
   { id: "glowstone", pattern: ["##", "##"], key: { "#": "glowstone_dust" }, result: ["glowstone", 1] },
+  // Journal p9 grid and retained color identities; output1 is provisional, not native count evidence.
+  ...GLOW_STICK_COLORS.filter(({ color }) => color !== "green").map(({ itemName, dye }) => ({
+    id: itemName, pattern: ["PHP", "PDP", "PLP"],
+    key: { P: "polyethylene", H: "hydrogen_peroxide", D: dye, L: "luminol" }, result: [itemName, 1] as [string, number],
+    note: "Color identity and Journal grid; output count provisional, activation/lifetime/current Education behavior unverified",
+  })),
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

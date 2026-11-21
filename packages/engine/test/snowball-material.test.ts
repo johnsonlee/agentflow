@@ -16,11 +16,12 @@ const full = () => { const b = new Inventory(); for (let i = 0; i < 36; i++) b.s
 
 it("appends item537 with application stack16 and retains all307 block identities", () => {
   expect([baseline.blocks, baseline.items, baseline.recipes, baseline.nativeRows]).toEqual([307, 536, 128, 23]);
-  expect(ITEMS).toHaveLength(537); expect(BLOCKS).toHaveLength(307);
+  expect(ITEMS.slice(0, 537)).toHaveLength(537); // New13color entries append after this frozen prefix.
+  expect(BLOCKS).toHaveLength(307);
   expect(digest(BLOCKS)).toBe(baseline.blockDefsSHA256);
   expect(digest(ITEMS.slice(0, 536))).toBe(baseline.itemDefsSHA256);
-  expect(RECIPES.map((r) => r.id)).toEqual(baseline.recipeIDs);
-  expect(digest(RECIPES.filter((r) => r.id !== "snow_block"))).toBe(baseline.other127RecipesSHA256);
+  expect(RECIPES.slice(0, 128).map((r) => r.id)).toEqual(baseline.recipeIDs);
+  expect(digest(RECIPES.slice(0, 128).filter((r) => r.id !== "snow_block"))).toBe(baseline.other127RecipesSHA256);
   expect(digest(NATIVE_MATERIAL_REDUCTIONS.slice(0, 23))).toBe(baseline.nativeRowsSHA256);
   expect(itemById(792)).toEqual({ name: "snowball", displayName: "Snowball", maxStack: 16, icon: "item_snowball", id: 792 });
   expect(ITEMS[535].name).toBe("glowstone_dust");
@@ -64,7 +65,7 @@ it("stages one complete world batch with external metadata and wears only after 
 });
 
 it("crafts the existing snow_block ID from a real2x2 snowball grid, consuming only its four cells", () => {
-  expect(RECIPES).toHaveLength(128);
+  expect(RECIPES.slice(0, 128)).toHaveLength(128);
   expect(RECIPES.find((r) => r.id === "snow_block")).toEqual({ id: "snow_block", pattern: ["##", "##"], key: { "#": "snowball" }, result: ["snow", 1] });
   const grid: CraftingGrid = Array.from({ length: 4 }, () => st("snowball", 2));
   expect(matchRecipe(grid, 2)?.recipe.id).toBe("snow_block"); expect(craftOnce(grid, 2)).toEqual(st("snow"));

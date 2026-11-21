@@ -50,7 +50,7 @@ export async function dyeRoute(page: Page, info: TestInfo, mobile: boolean) {
   expect(await countStack(page, "poppy")).toBe(2);
   expect(await countStack(page, "dandelion")).toBe(1);
   await snap(page, info, "dye-flowers-harvested");
-  for (const ingredient of ["crafting_table", "white_wool 2", "white_dye", "green_dye", "polyethylene 6", "hydrogen_peroxide", "luminol"]) await command(page, `/give ${ingredient}`);
+  for (const ingredient of ["crafting_table", "white_wool 2", "white_dye", "green_dye", "black_dye", "polyethylene 6", "hydrogen_peroxide", "luminol"]) await command(page, `/give ${ingredient}`);
   await select(await slotOf("crafting_table"));
   await look(page, 0, -1.2);
   await target(page); await use();
@@ -92,8 +92,10 @@ export async function dyeRoute(page: Page, info: TestInfo, mobile: boolean) {
   await expect(inv.locator("[data-craft-result] img")).toHaveAttribute("alt", "Glow Stick");
   await press(inv.locator('[data-craft="4"]')); await press(inv.locator(`[data-slot="${await empty()}"]`));
   await put("orange_dye", [4]);
-  // This legacy item is green; other dye colors need separate item identity/behavior support.
-  await expect(inv.locator("[data-craft-result] img")).toHaveCount(0);
+  await expect(inv.locator("[data-craft-result] img")).toHaveAttribute("alt", "Orange Glow Stick");
+  await press(inv.locator('[data-craft="4"]')); await press(inv.locator(`[data-slot="${await empty()}"]`));
+  // Black is a native catalog placeholder, not one of the fourteen supported products.
+  await put("black_dye", [4]); await expect(inv.locator("[data-craft-result] img")).toHaveCount(0);
   await press(inv.locator('[data-craft="4"]')); await press(inv.locator(`[data-slot="${await empty()}"]`));
   await put("green_dye", [4]);
   await inv.locator('[data-craft="0"]').scrollIntoViewIfNeeded();

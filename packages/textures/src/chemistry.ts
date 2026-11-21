@@ -1,3 +1,4 @@
+import { DYE_COLORS, GLOW_STICK_COLORS } from "@craft/engine";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 
 /**
@@ -207,6 +208,19 @@ const PRODUCTS = new Map<string, (t: Tile) => Tile>([
     return t;
   }],
 ]);
+
+// Additional original color sprites. The legacy green generator above stays byte-for-byte unchanged.
+for (const variant of GLOW_STICK_COLORS) {
+  if (variant.color === "green") continue;
+  const palette = DYE_COLORS.find(color => color.name === variant.color)!;
+  const base: Rgb = [...palette.rgb];
+  const highlight: Rgb = [base[0] + (255 - base[0]) * .65, base[1] + (255 - base[1]) * .65, base[2] + (255 - base[2]) * .65];
+  PRODUCTS.set(variant.itemName, t => {
+    t.fill(() => null);
+    for (let i = 0; i < 11; i++) for (const d of [0, 1]) t.set(3 + i, 13 - i + d, i === 0 || i === 10 ? hex("#2b2b2b") : d ? base : highlight);
+    return t;
+  });
+}
 
 /** Generator for a chemistry item icon name, or undefined if `name` isn't one. */
 export function chemistryItemTile(name: string): ((t: Tile) => Tile) | undefined {

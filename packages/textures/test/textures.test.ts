@@ -1,10 +1,13 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
-import { BLOCKS, DYE_COLORS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
+import { BLOCKS, DYE_COLORS, GLOW_STICK_COLORS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
+import glowColorsBaseline from "./fixtures/glow-stick-colors-f64.json";
 import legacyTextures from "./fixtures/legacy-textures-a81.json";
 import legacyGlassTextures from "./fixtures/legacy-textures-96.json";
 import legacyGlowstoneTextures from "./fixtures/legacy-textures-0f9.json";
 import { STAINED_GLASS_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
+
+const addedGlowKeys = new Set(GLOW_STICK_COLORS.filter(color => color.color !== "green").map(color => color.icon));
 
 describe("procedural textures", () => {
   it("provides a texture for every block face", () => {
@@ -142,7 +145,7 @@ describe("procedural textures", () => {
 
   it("appends an original visible glowstone powder sprite without changing all 808 older tiles", () => {
     expect(legacyGlowstoneTextures.names).toHaveLength(808);
-    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_snowball");
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_snowball" && !addedGlowKeys.has(name));
     expect(names).toHaveLength(809);
     expect(names.filter(n => !legacyGlowstoneTextures.names.includes(n))).toEqual(["item_glowstone_dust"]);
     const hash = createHash("sha256");
@@ -161,7 +164,7 @@ describe("procedural textures", () => {
   });
 
   it("appends a distinct original snowball icon while retaining every published atlas key", () => {
-    const names = [...new Set([...textureNames(), ...itemTextureNames()])];
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => !addedGlowKeys.has(name));
     expect(names).toHaveLength(810); expect(names.at(-1)).toBe("item_snowball");
     expect(hasItemTile("item_snowball")).toBe(true);
     const snowball = generateTile("item_snowball");
@@ -170,6 +173,29 @@ describe("procedural textures", () => {
     expect(Buffer.from(snowball).equals(Buffer.from(generateTile("item_glowstone_dust")))).toBe(false);
     const atlas = buildAtlas(names);
     expect(atlas.tiles.size).toBe(810); expect(atlas.tilePixels("item_snowball")).toEqual(snowball);
+  });
+
+  it("appends thirteen distinct original glow colors while preserving all810 prior pixels, names, UVs and layout", () => {
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])];
+    expect(names).toHaveLength(823); expect(addedGlowKeys.size).toBe(13);
+    expect(names.filter(name => !addedGlowKeys.has(name))).toEqual(glowColorsBaseline.names);
+    const previous = buildAtlas(glowColorsBaseline.names), current = buildAtlas(names);
+    expect(createHash("sha256").update(previous.data).digest("hex")).toBe(glowColorsBaseline.atlasRGBA_SHA256);
+    expect([current.width, current.height, current.tileSize]).toEqual([512, 512, 16]);
+    for (const name of glowColorsBaseline.names) {
+      expect(current.tilePixels(name)).toEqual(previous.tilePixels(name));
+      expect(current.uv(name)).toEqual(previous.uv(name));
+    }
+    const hashes = new Set<string>();
+    for (const variant of GLOW_STICK_COLORS) {
+      expect(hasItemTile(variant.icon)).toBe(true);
+      const pixels = generateTile(variant.icon);
+      expect(pixels.some((channel, i) => i % 4 === 3 && channel === 255)).toBe(true);
+      expect(pixels.some((channel, i) => i % 4 === 3 && channel === 0)).toBe(true);
+      hashes.add(createHash("sha256").update(pixels).digest("hex"));
+      expect(current.tilePixels(variant.icon)).toEqual(pixels);
+    }
+    expect(hashes.size).toBe(14);
   });
 
   it("grass side has a green top fringe over dirt", () => {

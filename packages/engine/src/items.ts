@@ -4,6 +4,7 @@
  * arrays keep holding block ids only.
  */
 import { DYE_COLORS } from "./dyes";
+import { GLOW_STICK_COLORS } from "./glow-stick-colors";
 import { ADDITIONAL_GUIDE_ISOTOPES } from "./education-isotopes";
 import { BLOCKS, blockById, blockId, isKnownBlockId, tryBlockById } from "./blocks";
 import { ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, ELEMENTS, LEGACY_COMPOUNDS, LEGACY_ELEMENTS, LAB_PRODUCTS, elementItemName, isotopeItemName, type CompoundData } from "./chemistry-data";
@@ -195,6 +196,10 @@ const specs: Omit<ItemDef, "id">[] = [
   material("glowstone_dust", "Glowstone Dust"),
   // Application stack bound pending direct current Education runtime verification.
   { name: "snowball", displayName: "Snowball", maxStack: 16, icon: "item_snowball" },
+  // Append-only color identities. No new placeable/permanent-light blocks or activation state.
+  ...GLOW_STICK_COLORS.filter(({ color }) => color !== "green").map(({ itemName, displayName, icon }) => ({
+    name: itemName, displayName, maxStack: MAX_STACK, icon, chem: { kind: "product" as const },
+  })),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

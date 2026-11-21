@@ -87,7 +87,7 @@ it("crafts the existing green glow stick from six distinct polyethylene cells in
     const missing: CraftingGrid = names.map((name) => stack(name)); missing[index] = null; const before = structuredClone(missing);
     expect(craftOnce(missing, 3)).toBeNull(); expect(missing).toEqual(before);
   }
-  for (const wrong of ["luminol", "red_dye", "ink_sac"]) {
+  for (const wrong of ["luminol", "black_dye", "light_gray_dye", "ink_sac"]) {
     const bad = names.map((name) => stack(name)); bad[4] = stack(wrong); const before = structuredClone(bad);
     expect(craftOnce(bad, 3)).toBeNull(); expect(bad).toEqual(before);
   }
