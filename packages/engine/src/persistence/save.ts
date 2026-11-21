@@ -1,3 +1,4 @@
+import { inspectBottleOwner, isBottleId } from "../ownership/bottles";
 import { sanitizePlayerStatus, type PlayerStatus } from "../simulation/status-effects";
 import { inspectSparklerState, isSparklerId } from "../ownership/sparkler-state";
 import { sanitizeStack } from "./savecheck";
@@ -44,6 +45,8 @@ export interface SaveData {
   glowOwnershipIssues?: GlowOwnershipIssue[];
   /** Raw Sparkler/offhand diagnostics before any owner repair; caller preserves original text. */
   sparklerOwnershipIssues?: GlowOwnershipIssue[];
+  /** Whole-container diagnostics read before any raw bottle can be repaired/discarded. */
+  bottleOwnershipIssues?: GlowOwnershipIssue[];
   /** Education Edition NPCs placed in the world (optional for older saves). */
   npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
   /** Survival hunger (optional for older saves; defaults to full). */
@@ -75,7 +78,7 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, playerStatusInvalid: _statusInvalid, ...owned } = data;
   const status = sanitizePlayerStatus(owned.playerStatus);
   if (_statusInvalid || status.invalid) throw new Error("Cannot serialize invalid player status");
   if (status.data.poison) owned.playerStatus = status.data; else delete owned.playerStatus;
@@ -92,17 +95,18 @@ export interface GlowOwnershipIssue { path: string; reason: string }
 
 /** Scan raw owners before sanitizeInventoryPending/fromJSON/Agent/furnace loaders can drop state.
  * This produces diagnostics only; Game must preserve the original raw text and block overwrite. */
-function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"): GlowOwnershipIssue[] {
+function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle"): GlowOwnershipIssue[] {
   const issues: GlowOwnershipIssue[] = [];
   if (!isObj(raw)) return issues;
   const check = (value: unknown, path: string, supported = true) => {
     if (typeof value !== "object" || value === null) return;
     // New Sparkler identities require recovery even when their legacy metadata is absent.
     const legacySparkler = field === "sparkler" && isObj(value) && typeof own(value, "id") === "number" && isSparklerId(own(value, "id") as number);
-    if (!(field in value) && !legacySparkler) return;
-    const state = field === "glow" ? inspectGlowState(value) : inspectSparklerState(value);
+    const bottle = field === "bottle" && isObj(value) && typeof own(value,"id") === "number" && isBottleId(own(value,"id") as number);
+    if (field === "bottle" ? !bottle : !(field in value) && !legacySparkler) return;
+    const state = field === "bottle" ? inspectBottleOwner(value) : field === "glow" ? inspectGlowState(value) : inspectSparklerState(value);
     if (state.kind === "invalid") issues.push({ path, reason: state.reason });
-    else if (!supported) issues.push({ path, reason: `stateful ${field} owner would be discarded or is unsupported` });
+    else if (!supported) issues.push({ path, reason: `${field} owner would be discarded or is unsupported` });
   };
   // A malformed known owner container is itself a recovery issue. Do not search arbitrary
   // descendants for glow: preserve the entire original envelope even when its contents are opaque.
@@ -132,6 +136,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
         else check(rawOffhand, "inventory.offhand");
       }
     }
+    if (field === "bottle" && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
     const equipment = object(own(inventory, "equipment"), "inventory.equipment");
     if (equipment) for (const key of Object.keys(equipment))
       check(own(equipment, key), `inventory.equipment.${key}`, false); // Glow is never armor.
@@ -141,6 +146,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   if (agent) {
     if (field === "sparkler" && Object.prototype.hasOwnProperty.call(agent, "offhand"))
       issues.push({ path: "agent.offhand", reason: "Agent offhand is an unsupported owner" });
+    if (field === "bottle") check(own(agent,"offhand"),"agent.offhand",false);
     const valid = integer(own(agent, "x")) && integer(own(agent, "y"), 0, 1000) && integer(own(agent, "z"))
       && integer(own(agent, "facing"), 0, 3) && integer(own(agent, "selected"), 0, 26);
     if (!valid) issues.push({ path: "agent", reason: "invalid owned-item Agent envelope" });
@@ -176,6 +182,8 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   return issues;
 }
 
+export function diagnoseRawBottleOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "bottle"); }
+
 export function diagnoseRawGlowOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "glow"); }
 export function diagnoseRawSparklerOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "sparkler"); }
 
@@ -202,6 +210,7 @@ export function parseSave(text: string): SaveData {
   // Must precede sanitizeInventoryPending and all downstream owner loaders.
   const glowOwnershipIssues = diagnoseRawGlowOwnership(raw);
   const sparklerOwnershipIssues = diagnoseRawSparklerOwnership(raw);
+  const bottleOwnershipIssues = diagnoseRawBottleOwnership(raw);
   const name = own(raw, "name");
   const mode = own(raw, "mode");
   const time = own(raw, "timeOfDay");
@@ -241,6 +250,7 @@ export function parseSave(text: string): SaveData {
   };
   if (glowOwnershipIssues.length) save.glowOwnershipIssues = glowOwnershipIssues;
   if (sparklerOwnershipIssues.length) save.sparklerOwnershipIssues = sparklerOwnershipIssues;
+  if (bottleOwnershipIssues.length) save.bottleOwnershipIssues = bottleOwnershipIssues;
   const status = sanitizePlayerStatus(own(raw, "playerStatus"));
   if (status.invalid) save.playerStatusInvalid = true;
   else if (status.data.poison) save.playerStatus = status.data;

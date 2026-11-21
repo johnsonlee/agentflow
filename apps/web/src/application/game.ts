@@ -39,6 +39,8 @@ const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
   (["element_constructor", "compound_creator", "material_reducer", "lab_table"] as const).map((k) => [blockId(k), k]),
 );
 
+const GLASS_BOTTLE = stackId("glass_bottle");
+const WATER = blockId("water");
 const SNOWBALL = stackId("snowball");
 const LEAD = stackId("lead_rope");
 const OAK_FENCE = blockId("oak_fence");
@@ -195,7 +197,7 @@ export class Game {
     this.root.appendChild(canvas);
 
     const save = options.save;
-    this.markGlowRecovery(save); this.markSparklerRecovery(save); this.restorePlayerStatus(save);
+    this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
@@ -291,6 +293,7 @@ export class Game {
     this.loadErrors = loaded.errors;
     for (const issue of save?.glowOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.sparklerOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for (const issue of save?.bottleOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     if (this.leashes.loadIssues) this.loadErrors.push("Damaged leashes (original save preserved)");
     if (this.balloons.loadIssues) this.loadErrors.push("Damaged balloons (original save preserved)");
     if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
@@ -735,6 +738,22 @@ export class Game {
     const balloonHit = raycastBalloons(eye, dir, this.balloons.records, REACH);
     this.balloonTarget = balloonHit && (!this.target || balloonHit.distance < this.target.distance) &&
       (!mobHit || balloonHit.distance < mobHit.distance) ? balloonHit : null;
+    const held = this.inventory.selectedStack();
+    if (place && this.placeCooldown === 0 && held?.id === GLASS_BOTTLE) {
+      // Normal outline/break targeting keeps ignoring liquids. This separate physical ray uses
+      // the same five-block reach and fence geometry; nearer actors win ties and occlude filling.
+      const water = raycast((x, y, z) => this.world.getBlock(x, y, z), eye, dir, REACH, id => id !== AIR);
+      const actorDistance = Math.min(mobHit?.distance ?? Infinity, balloonHit?.distance ?? Infinity);
+      if (water?.id === WATER && water.distance + 1e-9 < actorDistance) {
+        const result = this.inventory.fillSelectedBottle();
+        this.placeCooldown = .25; this.breakProgress = 0; this.eatTimer = 0;
+        if (result.ok) this.hud.message("Filled a Water Bottle");
+        else if (result.reason === "no-room") this.hud.message("Make room for a Water Bottle before filling one.");
+        else this.hud.message("These bottles need attention before they can be filled.");
+        // World water is deliberately non-consuming in this bounded application model.
+        return;
+      }
+    }
     if (this.balloonTarget) {
       this.target = null; this.mobTarget = null; this.breakProgress = 0;
       const key = this.balloonTarget.key;
@@ -751,7 +770,6 @@ export class Game {
 
     // Eating: hold use (right button, or a touch hold) with food in hand. Using a crafting table,
     // furnace or NPC still takes precedence over eating.
-    const held = this.inventory.selectedStack();
     // Using a chalkboard opens its editor; using a book opens it for writing or reading.
     if (place && this.placeCooldown === 0 && this.target && !this.mobTarget && chalkboardSizeOf(this.target.id)) {
       const board = this.chalkboardAt(this.target.x, this.target.y, this.target.z);
@@ -989,6 +1007,13 @@ export class Game {
   /** Retain the exact stored envelope before any item loader can repair it. */
   private markGlowRecovery(save: Pick<SaveData, "glowOwnershipIssues"> | undefined): void {
     if (!save?.glowOwnershipIssues?.length) return;
+    this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.itemsNeedRecovery) this.recoverySections.push("saved items");
+  }
+
+  /** Preserve malformed whole-container owners before general inventory repair. */
+  private markBottleRecovery(save: Pick<SaveData, "bottleOwnershipIssues"> | undefined): void {
+    if (!save?.bottleOwnershipIssues?.length) return;
     this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
     if (!this.itemsNeedRecovery) this.recoverySections.push("saved items");
   }

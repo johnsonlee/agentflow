@@ -1,3 +1,4 @@
+import { planBottleFill, type BottleFillResult } from "./bottles";
 import { inspectItemState } from "./item-state";
 import { isSparklerId, type SparklerState, type SparklerActivationResult } from "./sparkler-state";
 import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, stackId, toolOf, type ArmorSlot } from "../catalog/items";
@@ -69,6 +70,14 @@ export class Inventory {
     if (!plan.ok) return plan;
     for (let index = 0; index < this.slots.length; index++) this.slots[index] = plan.slots[index];
     return { ok: true, kind: "activated", color: plan.color };
+  }
+
+  /** Caller verifies reachable water/lifecycle; this is one whole-container ownership commit. */
+  fillSelectedBottle(): BottleFillResult {
+    const plan=planBottleFill(this.slots,this.selected);
+    if (!plan.ok) return plan;
+    for(let index=0;index<this.slots.length;index++) this.slots[index]=plan.slots[index];
+    return {ok:true};
   }
 
   /** Offhand accepts Sparklers only; refusal leaves both owners unchanged. */

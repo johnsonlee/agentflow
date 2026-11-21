@@ -79,3 +79,5 @@ export * from "./ownership/item-state";
 
 export * from "./simulation/status-effects";
 export * from "./simulation/meal";
+
+export * from "./ownership/bottles";

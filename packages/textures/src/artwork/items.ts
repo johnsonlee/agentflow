@@ -1,3 +1,4 @@
+import { BOTTLE_ITEM_GENERATORS } from "./bottles";
 import { BALLOON_ITEM_GENERATORS } from "./balloons";
 import { SPARKLER_ITEM_GENERATORS } from "./sparklers";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "../atlas/pixels";
@@ -232,3 +233,6 @@ ITEM_TILE_GENERATORS.item_spider_eye = (t) => {
   t.set(5, 5, hex("#ca8982"));
   return t;
 };
+
+// Append the two whole-container sprites without altering earlier generators.
+Object.assign(ITEM_TILE_GENERATORS, BOTTLE_ITEM_GENERATORS);

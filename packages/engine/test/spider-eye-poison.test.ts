@@ -10,12 +10,12 @@ describe("player-conditional Spider Eye acquisition", () => {
   it("preserves every inherited catalog and recipe prefix exactly", () => {
     expect(JSON.parse(JSON.stringify(ITEMS.slice(0,573)))).toEqual(baseline.items);
     expect(JSON.parse(JSON.stringify(BLOCKS))).toEqual(baseline.blocks);
-    expect(JSON.parse(JSON.stringify(RECIPES))).toEqual(baseline.recipes);
+    expect(JSON.parse(JSON.stringify(RECIPES.slice(0,165)))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,859)).toEqual(baseline.names);
-    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([574,308,165,860]);
+    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([576,308,166,862]);
   });
   it("appends ID829 and samples String before the eligible Eye pool only", () => {
-    expect(ITEMS.at(-1)).toMatchObject({ id: 829, name: "spider_eye", food: { hunger: 2, saturation: 3.2 } });
+    expect(ITEMS[573]).toMatchObject({ id: 829, name: "spider_eye", food: { hunger: 2, saturation: 3.2 } });
     for (const cause of ["agent", "environment"] as const) {
       let calls = 0; expect(mobDrops("spider", () => { calls++; return 1; }, cause)).toEqual([{ id: stackId("string"), count: 2 }]); expect(calls).toBe(1);
     }

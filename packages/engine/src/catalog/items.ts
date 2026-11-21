@@ -216,6 +216,9 @@ const specs: Omit<ItemDef, "id">[] = [
   })),
   // Nutrition2 follows the official Bedrock snippet; saturation3.2/stack64 are application choices.
   material("spider_eye", "Spider Eye", { hunger: 2, saturation: 3.2 }),
+  // Whole-container identities; empty64/water1 are explicit application bounds pending native calibration.
+  material("glass_bottle", "Glass Bottle"),
+  { name: "water_bottle", displayName: "Water Bottle", maxStack: 1, icon: "item_water_bottle" },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

@@ -1,10 +1,12 @@
+import { inspectItemState } from "../ownership/item-state";
+import { hasCloneableBookMetadata, stackLimit } from "../ownership/stack";
 import { SPARKLER_COLORS } from "../catalog/sparkler-colors";
 import { freshStack } from "../ownership/glow-stick-state";
 import { BALLOON_COLORS } from "../catalog/balloon-colors";
 import { DYE_COLORS } from "../catalog/dyes";
 import { GLOW_STICK_COLORS } from "../catalog/glow-stick-colors";
 import { BLOCKS } from "../catalog/blocks";
-import { stackId, type ArmorMaterial, type ToolMaterial } from "../catalog/items";
+import { isKnownId, stackId, type ArmorMaterial, type ToolMaterial } from "../catalog/items";
 import type { ItemStack } from "../ownership/inventory";
 
 export interface Recipe {
@@ -154,6 +156,8 @@ export const RECIPES: readonly Recipe[] = [
     id: itemName, pattern: ["C", "M", "S"], key: { C: compound, M: "magnesium", S: "stick" }, result: [itemName, 1],
     note: "Journal vertical chloride/magnesium/stick shape; output1 is an application choice",
   })),
+  // Retained candidate Education1.26.33 vanilla glass_bottle recipe: three-glass V -> three bottles.
+  { id: "glass_bottle", pattern: ["G G", " G "], key: { G: "glass" }, result: ["glass_bottle", 3] },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];
@@ -189,6 +193,10 @@ function shapelessMatches(recipe: Recipe, grid: CraftingGrid): boolean {
 
 /** Finds the recipe matching a 2x2 (width 2) or 3x3 (width 3) grid. */
 export function matchRecipe(grid: CraftingGrid, width: number): { recipe: Recipe; result: ItemStack } | null {
+  // Matching is also the UI's ownership preview: invalid sources cannot promise an output
+  // that craftOnce must later refuse (or synthesize output from zero/over-limit counts).
+  for (const stack of grid) if (stack !== null && (!stack || !isKnownId(stack.id) || !Number.isSafeInteger(stack.count)
+    || stack.count < 1 || stack.count > stackLimit(stack) || inspectItemState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack))) return null;
   const cells = trim(grid, width);
   if (cells.length === 0) return null;
   for (const recipe of RECIPES) {
