@@ -1,3 +1,4 @@
+import type { DropSink } from "./world-drops";
 import { AIR, tryBlockById, blockById, blockId, isOpaque, type BlockDef } from "./blocks";
 import { WORLD_HEIGHT } from "./chunk";
 import { Inventory, type ItemStack } from "./inventory";
@@ -57,11 +58,11 @@ export function breakTime(mode: GameMode, id: number, tool: ToolSpec | null = nu
 }
 
 /**
- * Breaks a block with the selected hotbar item. In survival the drop goes into the inventory
- * (only if the held tool can harvest it), and a held tool wears by one use, breaking when spent.
+ * Breaks a block with the selected hotbar item. Survival harvests go to the optional world sink
+ * or the legacy inventory receiver, and a held tool wears by one use, breaking when spent.
  * Plants resting on the block are broken too. Returns false if the action is not allowed.
  */
-export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = []): boolean {
+export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink): boolean {
   if (!canBreak(world, mode, x, y, z)) return false;
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
   const tool = toolOf(inventory.selectedStack()?.id);
@@ -69,14 +70,19 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   const drops: ItemStack[] = [...(mode === "survival" ? [
     ...(canHarvest(id, tool) ? blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
   ] : []), ...externalDrops];
-  // No dropped-item entities exist yet: refuse the whole harvest rather than discard overflow.
-  const trial = Inventory.fromJSON(inventory.toJSON());
-  if (drops.some((stack) => trial.addStack(stack) > 0)) return false;
+  // Optional world receiver stages the complete resolved batch before source removal.
+  if (sink) {
+    const batch = sink(drops, { x: x + .5, y: y + .5, z: z + .5 });
+    if (!batch || !batch.commit()) return false;
+  } else {
+    const trial = Inventory.fromJSON(inventory.toJSON());
+    if (drops.some((stack) => trial.addStack(stack) > 0)) return false;
+  }
   const partner = doorPartner(world, x, y, z);
   world.setBlock(x, y, z, AIR);
   if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
   if (supported) world.setBlock(x, y + 1, z, AIR);
-  for (const stack of drops) inventory.addStack(stack);
+  if (!sink) for (const stack of drops) inventory.addStack(stack);
   if (mode === "survival" && tool && blockById(id).hardness > 0) inventory.damageSelected(1);
   return true;
 }

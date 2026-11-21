@@ -64,6 +64,16 @@ export class AgentView {
     this.group.position.y += 0.05 + Math.sin(time * 3) * 0.03;
   }
 
+  dispose(): void {
+    this.group.removeFromParent();
+    this.group.traverse((object) => {
+      if (!(object instanceof THREE.Mesh)) return;
+      object.geometry.dispose();
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) material.dispose();
+    });
+    this.group.clear();
+  }
+
   private apply(): void {
     const e = this.t * this.t * (3 - 2 * this.t);
     this.group.position.lerpVectors(this.from, this.to, e);

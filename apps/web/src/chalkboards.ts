@@ -91,6 +91,15 @@ export class ChalkboardViews {
     this.meshes.delete(key);
   }
 
+  dispose(): void {
+    for (const mesh of this.meshes.values()) {
+      this.scene.remove(mesh); mesh.geometry.dispose();
+      const material = mesh.material as THREE.MeshBasicMaterial;
+      material.map?.dispose(); material.dispose();
+    }
+    this.meshes.clear();
+  }
+
   /** Cells covered, for hit-testing (the blocks in those cells point back to the board). */
   static cells(board: Chalkboard) {
     return chalkboardCells(board);

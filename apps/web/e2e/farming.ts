@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { aimAtTop, blockAt, bringMob, command, countStack, createWorld, look, lookAtCell, newestMob, parkMouse, pressMouse, snap, target, trackMob, waitForTerrain } from "./helpers";
+import { collectWorldDrops, aimAtTop, blockAt, bringMob, command, countStack, createWorld, look, lookAtCell, newestMob, parkMouse, pressMouse, snap, target, trackMob, waitForTerrain } from "./helpers";
 
 /** Stage only terrain, ingredients and hunger; all farming outputs come from gameplay. */
 export async function farmingRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -98,6 +98,7 @@ export async function farmingRoute(page: Page, info: TestInfo, mobile: boolean) 
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, p.x, p.y + 1, p.z)).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
   }
   expect(await countStack(page, "wheat")).toBe(3);
   const harvestedSeeds = await countStack(page, "wheat_seeds");
@@ -140,6 +141,7 @@ export async function farmingRoute(page: Page, info: TestInfo, mobile: boolean) 
   if (mobile) await touch("touchStart"); else await page.mouse.down();
   await expect.poll(() => page.evaluate((id) => window.__craft.game!.mobs.mobs.find((m) => m.id === id)?.health ?? 0, pig)).toBeLessThan(10);
   if (mobile) await touch("touchEnd"); else await page.mouse.up();
+  await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
   await stop();
   const combat = await page.evaluate((id) => ({
     health: window.__craft.game!.mobs.mobs.find((m) => m.id === id)!.health,

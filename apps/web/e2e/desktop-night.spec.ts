@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import {
+import { collectWorldDrops,
   blockAt, blockLight, buildDarkRoom, command, countStack, craftTorches, createWorld, health, look, mobExists, newestMob, parkMouse,
   buildWallAhead, player, pressMouse, settle, snap, target, trackMob,
 } from "./helpers";
@@ -63,6 +63,7 @@ test.describe("PC browser: light and hostile mobs", () => {
     await snap(page, testInfo, "19-zombie-attack");
     for (let i = 0; i < 30 && (await mobExists(page, id)); i++) {
       await pressMouse(page, "left");
+      await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
       await page.waitForTimeout(450);
     }
     await stop();

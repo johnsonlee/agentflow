@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { command, countStack, createWorld, look, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
+import { collectWorldDrops, command, countStack, createWorld, look, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
 /** Ingredients are staged with commands; crafting, equipment, combat and saving use player UI. */
 export async function armorRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -120,6 +120,8 @@ export async function armorRoute(page: Page, info: TestInfo, mobile: boolean) {
   await press(page.locator('[data-palette="drop"]'));
   await press(page.getByRole("button", { name: "▶ Run" }));
   await expect(page.locator(".code-screen")).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__craft.game!.programRunning)).toBe(false);
+  await collectWorldDrops(page); // The Agent drops this owned armor on the ground.
   await expect.poll(() => countStack(page, "iron_chestplate")).toBe(1);
   expect(await page.evaluate(() => window.__craft.game!.inventory.slots[0])).toEqual(saved);
   await open();

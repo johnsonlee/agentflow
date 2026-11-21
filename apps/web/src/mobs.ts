@@ -177,7 +177,10 @@ const MAX_HOSTILES = 8;
 const DESPAWN_DISTANCE = 96;
 
 /** Simulates and renders animals and NPCs. */
+export type MobDeathCause = "player" | "agent" | "sunlight" | "void";
+
 export class MobManager {
+  private readonly unsubscribeBlock: () => void;
   readonly mobs: Mob[] = [];
   private readonly models = new Map<number, THREE.Group>();
   private nextId = 1;
@@ -195,9 +198,10 @@ export class MobManager {
   constructor(
     private readonly world: World,
     private readonly scene: THREE.Scene,
+    private readonly onDeath: (mob: Mob, cause: MobDeathCause) => boolean = () => true,
   ) {
     // Opening (or closing) a shelter near the player or a zombie ends that zombie's path back-off.
-    world.onBlockChanged((x, y, z) => onBlockChangedNear(this.mobs, x, y, z, this.lastPlayer));
+    this.unsubscribeBlock = world.onBlockChanged((x, y, z) => onBlockChangedNear(this.mobs, x, y, z, this.lastPlayer));
   }
 
   spawn(kind: MobKind, position: Vec3, extra: { name?: string; dialogue?: string; yaw?: number } = {}): Mob {
@@ -215,9 +219,7 @@ export class MobManager {
     const model = this.models.get(mob.id);
     if (model) {
       this.scene.remove(model);
-      model.traverse((o) => {
-        if (o instanceof THREE.Mesh) o.geometry.dispose();
-      });
+      disposeModel(model);
       this.models.delete(mob.id);
     }
   }
@@ -225,7 +227,7 @@ export class MobManager {
   /** Rebuilds an NPC's model after its name changes. */
   refresh(mob: Mob): void {
     const old = this.models.get(mob.id);
-    if (old) this.scene.remove(old);
+    if (old) { this.scene.remove(old); disposeModel(old); }
     const model = buildModel(mob);
     this.models.set(mob.id, model);
     this.scene.add(model);
@@ -258,7 +260,7 @@ export class MobManager {
         continue;
       }
       if (mob.position.y < -10) {
-        this.remove(mob);
+        this.die(mob, "void");
         continue;
       }
       // Only simulate mobs in loaded terrain near the player.
@@ -266,7 +268,7 @@ export class MobManager {
       // Zombies burn under open sky by day.
       const head = this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
       if (burnInDaylight(mob, skyOf(head), darken, dt)) {
-        this.remove(mob);
+        this.die(mob, "sunlight");
         continue;
       }
       const model = this.models.get(mob.id)!;
@@ -299,12 +301,22 @@ export class MobManager {
     return best;
   }
 
-  /** Hits a mob; returns the block id it drops if it died, else null. */
-  attack(mob: Mob, damage: number, fromYaw: number): number | null | undefined {
-    if (!damageMob(mob, damage, fromYaw)) return undefined;
-    this.remove(mob);
-    const drop = MOB_SPECS[mob.kind].drop;
-    return drop ? stackId(drop[0]) : null;
+  /** Exactly one world-owned loot batch per actual death; despawn/removal stays loot-free. */
+  private die(mob: Mob, cause: MobDeathCause): boolean {
+    if (!this.mobs.includes(mob)) return false;
+    if (!this.onDeath(mob, cause)) { mob.health = 1; return false; }
+    this.remove(mob); return true;
+  }
+
+  attack(mob: Mob, damage: number, fromYaw: number, cause: "player" | "agent" = "player"): boolean {
+    if (!this.mobs.includes(mob)) return false;
+    if (!damageMob(mob, damage, fromYaw)) return false;
+    return this.die(mob, cause);
+  }
+
+  dispose(): void {
+    this.unsubscribeBlock();
+    for (const mob of [...this.mobs]) this.remove(mob);
   }
 
   animalCount(): number {
@@ -363,4 +375,19 @@ export class MobManager {
       this.spawn(kind, at, { yaw: this.rand() * Math.PI * 2 });
     }
   }
+}
+
+/** Models own their generated textures/materials; repeated material-array references dispose once. */
+function disposeModel(model: THREE.Object3D): void {
+  const materials = new Set<THREE.Material>(); const textures = new Set<THREE.Texture>();
+  model.traverse((object) => {
+    if (object instanceof THREE.Mesh) object.geometry.dispose();
+    if (object instanceof THREE.Mesh || object instanceof THREE.Sprite) {
+      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
+        materials.add(material);
+        const map = (material as THREE.MeshBasicMaterial).map; if (map) textures.add(map);
+      }
+    }
+  });
+  for (const texture of textures) texture.dispose(); for (const material of materials) material.dispose();
 }

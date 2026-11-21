@@ -4,6 +4,8 @@
  * solid blocks, carries a 27-slot inventory, and obeys Allow/Deny/Border like a survival player
  * (it can't build or break in Deny areas).
  */
+import type { DropSink } from "./world-drops";
+import { cloneStack, stacksCompatible } from "./stack";
 import { blockDrops } from "./farming";
 import { AIR, tryBlockById, blockById, isSolid } from "./blocks";
 import { FACING_DIRS } from "./chalkboard";
@@ -29,8 +31,8 @@ export type AgentCommand =
   | { op: "inspect"; dir: AgentDirection }
   | { op: "attack"; dir: AgentDirection }
   | { op: "select"; slot: number }
-  | { op: "drop"; slot: number }
-  | { op: "collect" };
+  | { op: "drop"; slot: number; dir?: AgentDirection; quantity?: number }
+  | { op: "collect"; filterId?: number };
 
 export interface AgentState {
   x: number;
@@ -52,6 +54,11 @@ export interface AgentResult {
 
 /** Hooks into the game for commands that touch mobs or the player. */
 export interface AgentEnv {
+  /** New physical mode; absent preserves legacy direct inventory-transfer behavior. */
+  worldDrop?: DropSink;
+  /** Detached external contents join the same destruction batch, never a second receiver. */
+  destroyContents?(x: number, y: number, z: number): readonly ItemStack[];
+  collect?(agent: AgentState, filterId?: number): number;
   /** Hits a mob in the cell; returns true if one was there. */
   attack?(x: number, y: number, z: number): boolean;
   /** Hands a stack to the player (the Agent's "drop"); returns how many didn't fit. */
@@ -115,9 +122,7 @@ export function agentStep(agent: AgentState, dir: AgentDirection): readonly [num
   }
 }
 
-function copyStack(stack: ItemStack, count = stack.count): ItemStack {
-  return { ...stack, count, ...(stack.book ? { book: { ...stack.book, pages: [...stack.book.pages] } } : {}) };
-}
+const copyStack = cloneStack;
 
 function addToAgent(agent: AgentState, stack: ItemStack): number {
   if (!Number.isSafeInteger(stack.count) || stack.count <= 0) return 0;
@@ -126,8 +131,7 @@ function addToAgent(agent: AgentState, stack: ItemStack): number {
   const max = maxStackOf(stack.id);
   let left = stack.count;
   // Durable items and books do not merge, and even ordinary stacks obey their item limit.
-  for (const s of agent.slots) if (max > 1 && left > 0 && s && s.id === stack.id && s.count < max &&
-    !s.damage && !stack.damage && !s.book && !stack.book) {
+  for (const s of agent.slots) if (max > 1 && left > 0 && s && stacksCompatible(s, stack) && s.count < max) {
     const n = Math.min(max - s.count, left);
     s.count += n;
     left -= n;
@@ -187,15 +191,20 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
       const above = world.getBlock(t.x, t.y + 1, t.z);
       const supported = tryBlockById(above)?.needsSupport === true;
-      const drops = [...blockDrops(id), ...(supported ? blockDrops(above) : [])];
+      const drops = [...blockDrops(id), ...(supported ? blockDrops(above) : []), ...(env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [])];
       const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
-      if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
-      if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
+      if (env.worldDrop) {
+        const batch = env.worldDrop(drops, { x: t.x + .5, y: t.y + .5, z: t.z + .5 });
+        if (!batch || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
+      } else {
+        if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
+        if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
+      }
       const partner = doorPartner(world, t.x, t.y, t.z);
       world.setBlock(t.x, t.y, t.z, AIR);
       if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
       if (supported) world.setBlock(t.x, t.y + 1, t.z, AIR);
-      for (const stack of drops) addToAgent(agent, stack);
+      if (!env.worldDrop) for (const stack of drops) addToAgent(agent, stack);
       env.afterDestroy?.(t.x, t.y, t.z);
       return { ok: true };
     }
@@ -216,16 +225,31 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       agent.selected = cmd.slot;
       return { ok: true };
     case "drop": {
+      if (!Number.isInteger(cmd.slot) || cmd.slot < 0 || cmd.slot >= AGENT_SLOTS ||
+        (cmd.dir !== undefined && !AGENT_DIRECTIONS.includes(cmd.dir)) ||
+        (cmd.quantity !== undefined && (!Number.isSafeInteger(cmd.quantity) || cmd.quantity <= 0))) return { ok: false, message: "Invalid drop command" };
       const stack = agent.slots[cmd.slot];
       if (!stack) return { ok: false, message: "That slot is empty" };
-      if (!env.giveToPlayer) return { ok: false, message: "No player to give it to" };
-      const left = env.giveToPlayer(copyStack(stack));
-      agent.slots[cmd.slot] = left > 0 ? { ...stack, count: left } : null;
+      const amount = Math.min(stack.count, cmd.quantity ?? stack.count);
+      if (env.worldDrop) {
+        const t = target(cmd.dir ?? "forward");
+        const batch = env.worldDrop([copyStack(stack, amount)], { x: t.x + .5, y: t.y + .25, z: t.z + .5 });
+        if (!batch || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
+        agent.slots[cmd.slot] = amount < stack.count ? copyStack(stack, stack.count - amount) : null;
+      } else {
+        if (cmd.dir !== undefined || cmd.quantity !== undefined) return { ok: false, message: "World drops unavailable" };
+        if (!env.giveToPlayer) return { ok: false, message: "No player to give it to" };
+        const left = env.giveToPlayer(copyStack(stack));
+        if (!Number.isInteger(left) || left < 0 || left > stack.count) return { ok: false, message: "Invalid receiver remainder" };
+        agent.slots[cmd.slot] = left > 0 ? copyStack(stack, left) : null;
+      }
       return { ok: true };
     }
-    case "collect":
-      // Items never lie on the ground in this game (drops go straight to an inventory).
-      return { ok: true, value: false, message: "Nothing to collect" };
+    case "collect": {
+      if (cmd.filterId !== undefined && !isKnownId(cmd.filterId)) return { ok: false, message: "Unknown collect item" };
+      const collected = env.collect?.(agent, cmd.filterId) ?? 0;
+      return { ok: true, value: collected > 0, message: collected > 0 ? `Collected ${collected}` : "Nothing to collect" };
+    }
     default:
       // Never reached for validated programs; still a defined result for anything else.
       return { ok: false, message: "Unknown command" };

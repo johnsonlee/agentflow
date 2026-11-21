@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
+import { collectWorldDrops, aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
 /** Raw redstone/glowstone and the world pad are setup; every atom/Unknown output is actually reduced. */
 export async function nativeReductionRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -65,6 +65,7 @@ export async function nativeReductionRoute(page: Page, info: TestInfo, mobile: b
   if (mobile) await touch("touchStart"); else await page.mouse.down();
   await expect.poll(() => blockAt(page, at.x, at.y, at.z)).toBe(0);
   if (mobile) await touch("touchEnd"); else await page.mouse.up();
+  await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
   for (const [name, count] of totals) expect(await countStack(page, name)).toBe(count);
   expect(await page.evaluate(() => window.__craft.game!.inventory.slots.reduce((n, s) => n + (s?.count ?? 0), 0))).toBe(200);
   expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([]);

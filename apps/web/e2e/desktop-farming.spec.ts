@@ -7,7 +7,7 @@ test("PC: craft a hoe, plant and save wheat, fertilize, harvest, bake and eat br
   await farmingRoute(page, info, false);
 });
 
-test("PC: a full bag cannot delete a furnace containing worn armor", async ({ page }, info) => {
+test("PC: full bag furnace harvest preserves ground-owned armor", async ({ page }, info) => {
   test.setTimeout(120_000);
   await furnaceCapacityRoute(page, info, false);
 });

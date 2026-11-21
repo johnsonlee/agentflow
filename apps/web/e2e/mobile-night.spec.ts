@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
+import { collectWorldDrops,
   blockAt, blockLight, buildDarkRoom, buildWallAhead, command, countStack, craftTorches, createWorld, health, look, mobExists, newestMob, player, settle,
   snap, target, trackMob,
 } from "./helpers";
@@ -68,6 +68,7 @@ test.describe("Mobile browser (touch): light and hostile mobs", () => {
     await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * 0.65, y: vp.height * 0.45, id: 12 }] });
     await expect.poll(() => mobExists(page, id), { timeout: 30_000 }).toBe(false);
     await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     await stop();
     await expect(page.locator(".chat-line", { hasText: "Zombie was defeated" })).toHaveCount(1);
     expect(await countStack(page, "rotten_flesh")).toBe(1);

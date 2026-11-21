@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, player, pressMouse, snap, target, waitForTerrain } from "./helpers";
+import { collectWorldDrops, aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, player, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
 export async function elementBlockRoute(page: Page, info: TestInfo, mobile: boolean) {
   const errors = await createWorld(page, { mode: "survival" });
@@ -128,6 +128,7 @@ export async function elementBlockRoute(page: Page, info: TestInfo, mobile: bool
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, p.x, p.y, p.z), { timeout: 20_000 }).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
   }
   for (const atom of atoms) expect(await countStack(page, atom.name)).toBe(atom.count);
   expect(await countStack(page, "element_0")).toBe(1);
@@ -149,11 +150,26 @@ export async function elementBlockRoute(page: Page, info: TestInfo, mobile: bool
     await page.locator(`.cb-block[data-type="${type}"] select[aria-label="Direction"]`).selectOption(dir);
   }
   await press(page.locator('[data-palette="drop"]'));
+  await page.locator('.cb-block[data-type="drop"] select[aria-label="Direction"]').selectOption("down");
+  await press(page.locator('[data-palette="move"]'));
+  await page.locator('.cb-block[data-type="move"] select[aria-label="Direction"]').last().selectOption("down");
+  await press(page.locator('[data-palette="collect"]'));
   await snap(page, info, "agent-high-id-element-program");
   await press(page.getByRole("button", { name: "▶ Run" }));
   await expect.poll(() => page.evaluate(() => window.__craft.game!.programRunning)).toBe(false);
   expect(await page.evaluate(() => (window as unknown as { __elementLog: number[] }).__elementLog)).toEqual([32774, 0]);
   await page.evaluate(() => (window as unknown as { __stopElementLog: () => void }).__stopElementLog());
+  // Run closes Code Builder. The Agent now owns both the destroyed cube and its dropped remainder.
+  await expect(page.locator(".code-screen")).toBeHidden();
+  expect(await page.evaluate(() => window.__craft.game!.agent.slots.filter(Boolean))).toEqual([{ id: await page.evaluate(() => window.__craft.stackId("carbon")), count: 2 }]);
+  expect(await countStack(page, "carbon")).toBe(0);
+  if (mobile) await press(page.getByRole("button", { name: "Code Builder", exact: true })); else await page.keyboard.press("k");
+  await press(page.getByRole("button", { name: "New", exact: true }));
+  await press(page.locator('[data-palette="drop"]'));
+  await press(page.getByRole("button", { name: "▶ Run" }));
+  await expect(page.locator(".code-screen")).toBeHidden();
+  await expect.poll(() => page.evaluate(() => window.__craft.game!.programRunning)).toBe(false);
+  await collectWorldDrops(page); // Actual player pickup after the Agent explicitly drops its collected stack.
   expect(await countStack(page, "carbon")).toBe(2);
   expect(await page.evaluate(() => window.__craft.game!.agent.slots.filter(Boolean))).toEqual([]);
   expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([]);

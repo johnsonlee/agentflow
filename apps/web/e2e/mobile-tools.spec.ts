@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { blockAt, command, countStack, craftWoodenPickaxe, createWorld, look, settle, snap, target } from "./helpers";
+import { collectWorldDrops, blockAt, command, countStack, craftWoodenPickaxe, createWorld, look, settle, snap, target } from "./helpers";
 
 /** Real touch through CDP, released without waiting for the press to be handled (see mobile.spec.ts). */
 async function touch(page: import("@playwright/test").Page) {
@@ -61,6 +61,7 @@ test.describe("Mobile browser (touch): items, tools and tool-based mining", () =
     await finger.down(view.x, view.y);
     await expect.poll(() => blockAt(page, stoneAt.x, stoneAt.y, stoneAt.z), { timeout: 20_000 }).toBe(0);
     await finger.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     await expect.poll(() => countStack(page, "cobblestone")).toBe(1);
     // The pickaxe wore (exactly one use per block is unit-tested; a slow release may start on the block below).
     const pickaxe = (await page.evaluate(() => window.__craft.game!.inventory.slots[3]))!;

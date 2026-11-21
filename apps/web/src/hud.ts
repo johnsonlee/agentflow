@@ -271,6 +271,7 @@ export class InventoryScreen {
     container: HTMLElement,
     private readonly atlas: TextureAtlas,
     private readonly onClose: () => void,
+    private readonly onDropHeld?: (stack: ItemStack) => boolean,
   ) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
@@ -374,6 +375,14 @@ export class InventoryScreen {
     const close = el("button", "close-button", "✕");
     close.setAttribute("aria-label", "Close inventory");
     close.addEventListener("click", () => this.onClose());
+    if (this.onDropHeld) {
+      const drop = el("button", "mc-button", "Drop held item");
+      drop.dataset.dropHeld = ""; drop.disabled = this.cursor === null;
+      drop.addEventListener("click", () => {
+        if (this.cursor && this.onDropHeld!(structuredClone(this.cursor))) { this.cursor = null; this.render(); }
+      });
+      header.append(drop);
+    }
     header.append(close);
     const parts: HTMLElement[] = [header];
 

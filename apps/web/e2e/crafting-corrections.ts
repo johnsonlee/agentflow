@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
+import { collectWorldDrops, aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
 /** Raw shelf/logs/ores/stations are setup; books/planks/new shelf/coal/diamond use real gameplay UI. */
 export async function craftingCorrectionsRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -41,6 +41,7 @@ export async function craftingCorrectionsRoute(page: Page, info: TestInfo, mobil
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, shelf.x, shelf.y, shelf.z)).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
   };
   await breakShelf();
   expect(await countStack(page, "bookshelf")).toBe(0); expect(await countStack(page, "book")).toBe(3);

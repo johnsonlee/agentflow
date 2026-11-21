@@ -103,7 +103,7 @@ function showHelp(): void {
   list.innerHTML = `
     <h3>Computer</h3>
     <p><b>WASD</b> move · <b>Mouse</b> look · <b>Space</b> jump (double-tap to fly in Creative) · <b>Shift</b> sneak / fly down · <b>Ctrl</b> sprint</p>
-    <p><b>Left click</b> break · <b>Right click</b> place · <b>Middle click</b> pick block · <b>1–9 / wheel</b> hotbar</p>
+    <p><b>Left click</b> break · <b>Right click</b> place · <b>Middle click</b> pick block · <b>1–9 / wheel</b> hotbar · <b>Q</b> drop one · <b>Ctrl+Q</b> drop stack</p>
     <p><b>E</b> inventory · <b>C</b> camera · <b>P</b> portfolio · <b>/</b> or <b>T</b> commands · <b>F3</b> debug · <b>Esc</b> pause</p>
     <h3>Touch</h3>
     <p><b>Left joystick</b> move · <b>Drag</b> right side to look · <b>Tap</b> place · <b>Hold</b> break</p>
@@ -147,6 +147,7 @@ function showPause(): void {
   if (!game) return;
   const g = game;
   const close = () => {
+    document.removeEventListener("keydown", onKey);
     s.remove();
     g.resume();
   };
@@ -167,6 +168,7 @@ function showPause(): void {
   });
   const field = el("label", "field");
   field.append(distanceLabel, distance);
+  const saveStatus = el("p", "save-status"); saveStatus.setAttribute("role", "alert");
   const s = overlay(
     "pause-screen",
     el("h2", "", "Game Menu"),
@@ -174,10 +176,13 @@ function showPause(): void {
     modeButton,
     field,
     button("Save & Quit to Title", () => {
-      g.stop();
+      if (!g.stop()) { saveStatus.textContent = g.saveError; return; }
+      document.removeEventListener("keydown", onKey);
       game = null;
       showTitle();
     }),
+    button("Export world backup", () => { g.exportSaveBackup(); saveStatus.textContent = "Backup download requested. Keep the downloaded file before leaving."; }),
+    saveStatus,
   );
   const onKey = (e: KeyboardEvent) => {
     if (e.code === "Escape" && s.isConnected) {
@@ -191,14 +196,15 @@ function showPause(): void {
 function showDeath(): void {
   if (!game) return;
   const g = game;
+  const status = el("p", "save-status"); status.setAttribute("role", "alert");
   const s = overlay("death-screen", el("h2", "", "You died!"), button("Respawn", () => {
     s.remove();
     g.respawn();
   }, "mc-button primary"), button("Title Screen", () => {
-    g.stop();
+    if (!g.stop()) { status.textContent = g.saveError; return; }
     game = null;
     showTitle();
-  }));
+  }), button("Export world backup", () => { g.exportSaveBackup(); status.textContent = "Backup download requested. Keep the downloaded file before leaving."; }), status);
 }
 
 // Test / automation hook: lets end-to-end tests observe and drive the game deterministically.

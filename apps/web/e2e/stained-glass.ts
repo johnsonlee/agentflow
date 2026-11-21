@@ -1,6 +1,6 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs";
-import { aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, player, pressMouse, snap, target, waitForTerrain } from "./helpers";
+import { collectWorldDrops, aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, player, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
 /** Eight clear-glass ingredients and dye are staged; smelting and all stained outputs use UI. */
 export async function stainedGlassRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -117,6 +117,7 @@ export async function stainedGlassRoute(page: Page, info: TestInfo, mobile: bool
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, at.x, at.y, at.z)).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     expect(await countStack(page, "glass")).toBe(0); expect(await countStack(page, "red_stained_glass")).toBe(5);
   };
   await shatter(clear);

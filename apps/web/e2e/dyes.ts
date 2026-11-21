@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
+import { collectWorldDrops, aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
 /** Ingredients/environment are staged; flowers are harvested and all claimed outputs are crafted. */
 export async function dyeRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -45,6 +45,7 @@ export async function dyeRoute(page: Page, info: TestInfo, mobile: boolean) {
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, at.x, at.y, at.z)).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
   }
   expect(await countStack(page, "poppy")).toBe(2);
   expect(await countStack(page, "dandelion")).toBe(1);
@@ -121,6 +122,7 @@ export async function dyeRoute(page: Page, info: TestInfo, mobile: boolean) {
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, at.x, at.y, at.z)).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     expect(await countStack(page, at.name)).toBe(1);
   }
   expect(await countStack(page, "glow_stick")).toBe(1);

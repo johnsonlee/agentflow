@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
+import { collectWorldDrops,
   blockAt, countStack, craftIronPickaxe, createWorld, giveSmeltingKit, look, parkMouse, pressMouse, setFood, settle, smeltIronIngot, snap, target,
 } from "./helpers";
 
@@ -50,6 +50,7 @@ test.describe("PC browser: smelting, iron tools, hunger and food", () => {
     await page.mouse.down();
     await expect.poll(() => blockAt(page, gold.x, gold.y, gold.z), { timeout: 20_000 }).toBe(0);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     await expect.poll(() => countStack(page, "gold_ore")).toBe(1);
     await snap(page, testInfo, "15-mined-gold-ore");
 

@@ -17,7 +17,8 @@ const PALETTE: Array<{ id: string; label: string; kind: "command" | "loop" | "lo
   { id: "destroy", label: "destroy", kind: "command", make: () => ({ type: "command", cmd: { op: "destroy", dir: "forward" } }) },
   { id: "attack", label: "attack", kind: "command", make: () => ({ type: "command", cmd: { op: "attack", dir: "forward" } }) },
   { id: "select", label: "select slot", kind: "command", make: () => ({ type: "command", cmd: { op: "select", slot: 0 } }) },
-  { id: "drop", label: "give me slot", kind: "command", make: () => ({ type: "command", cmd: { op: "drop", slot: 0 } }) },
+  { id: "collect", label: "collect items", kind: "command", make: () => ({ type: "command", cmd: { op: "collect" } }) },
+  { id: "drop", label: "drop slot", kind: "command", make: () => ({ type: "command", cmd: { op: "drop", slot: 0, dir: "forward" } }) },
   { id: "repeat", label: "repeat", kind: "loop", make: () => ({ type: "repeat", times: 4, body: [] }) },
   { id: "until", label: "repeat until detect", kind: "loop", make: () => ({ type: "until", dir: "forward", body: [] }) },
   { id: "if", label: "if detect", kind: "logic", make: () => ({ type: "if", dir: "forward", then: [], else: [] }) },
@@ -253,10 +254,11 @@ export class CodeBuilderScreen {
   private commandFields(cmd: AgentCommand): HTMLElement[] {
     const names: Record<AgentCommand["op"], string> = {
       move: "Agent move", turn: "Agent turn", place: "Agent place", destroy: "Agent destroy", attack: "Agent attack", select: "Agent select slot",
-      drop: "Agent give me slot", detect: "Agent detect", inspect: "Agent inspect", collect: "Agent collect",
+      drop: "Agent drop slot", detect: "Agent detect", inspect: "Agent inspect", collect: "Agent collect",
     };
     const out: HTMLElement[] = [el("span", "", names[cmd.op])];
-    if ("dir" in cmd) out.push(this.dirSelect(cmd.dir, (d) => (cmd.dir = d)));
+    if ("dir" in cmd && cmd.dir !== undefined) out.push(this.dirSelect(cmd.dir, (d) => (cmd.dir = d)));
+    else if (cmd.op === "drop") out.push(this.dirSelect("forward", (d) => (cmd.dir = d)));
     if (cmd.op === "turn") {
       const side = el("select", "cb-select");
       for (const s of ["left", "right"]) side.append(new Option(s, s, false, cmd.side === s));
@@ -274,6 +276,14 @@ export class CodeBuilderScreen {
       slot.addEventListener("keydown", (e) => e.stopPropagation());
       slot.addEventListener("change", () => (cmd.slot = Math.max(1, Math.min(AGENT_SLOTS, Number(slot.value) || 1)) - 1));
       out.push(slot);
+    }
+    if (cmd.op === "drop") {
+      const quantity = el("input", "cb-number"); quantity.type = "number"; quantity.min = "1"; quantity.max = "64";
+      quantity.value = cmd.quantity === undefined ? "" : String(cmd.quantity); quantity.placeholder = "all";
+      quantity.setAttribute("aria-label", "Drop quantity (empty means whole stack)");
+      quantity.addEventListener("keydown", (e) => e.stopPropagation());
+      quantity.addEventListener("change", () => { cmd.quantity = quantity.value === "" ? undefined : Math.max(1, Math.min(64, Math.floor(Number(quantity.value) || 1))); });
+      out.push(quantity);
     }
     return out;
   }

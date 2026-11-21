@@ -52,6 +52,37 @@ export function player(page: Page): Promise<PlayerState> {
   });
 }
 
+/**
+ * Explicit pickup in inherited regressions: uses real chat teleport/automatic pickup, then returns.
+ * Call with gameplay screens closed. New ground-item routes separately test natural walking/touch.
+ * This never creates drops, transfers stacks directly or changes inventory capacity.
+ */
+export async function collectWorldDrops(page: Page, _mobile = false) {
+  const origin = await player(page);
+  let moved = false;
+  for (let trip = 0; trip < 64; trip++) {
+    const next = await page.evaluate((p) => {
+      const g = window.__craft.game!;
+      return g.worldDrops.records.find((r) => r.position.y >= 0
+        && Math.hypot(r.position.x - p.x, r.position.y - p.y, r.position.z - p.z) <= 8
+        && g.inventory.spaceFor(r.stack.id) > 0) ?? null;
+    }, origin);
+    if (!next) break;
+    await command(page, `/tp ${next.position.x} ${next.position.y + .1} ${next.position.z}`);
+    moved = true;
+    await page.waitForFunction(({ key, count }) => {
+      const record = window.__craft.game!.worldDrops.records.find((r) => r.key === key);
+      return !record || record.stack.count < count;
+    }, { key: next.key, count: next.stack.count }, { timeout: 20_000 });
+    if (trip === 63) throw new Error("Ground pickup regression exceeded its bounded trip fixture");
+  }
+  if (moved) {
+    await command(page, `/tp ${origin.x} ${origin.y} ${origin.z}`);
+    await look(page, origin.yaw, origin.pitch);
+    if (origin.onGround && !origin.flying) await page.waitForFunction(() => window.__craft.game!.body.onGround);
+  }
+}
+
 export function look(page: Page, yaw: number, pitch: number) {
   return page.evaluate(([y, p]) => {
     const b = window.__craft.game!.body;

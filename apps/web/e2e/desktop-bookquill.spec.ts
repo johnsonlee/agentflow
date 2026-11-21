@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import {
+import { collectWorldDrops,
   approachMob, blockAt, command, countStack, createWorld, look, mobExists, newestMob, parkMouse, pressMouse, settle, snap, target, trackMob,
 } from "./helpers";
 
@@ -29,6 +29,7 @@ test.describe("PC browser: the survival route to a Book and Quill (review c7d91d
     await page.mouse.down();
     await expect.poll(() => blockAt(page, at.x, at.y, at.z), { timeout: 30_000 }).toBe(0);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     await expect.poll(() => countStack(page, "book")).toBe(3);
 
     // Defeat a chicken with the sword: raw chicken plus a feather.
@@ -42,6 +43,7 @@ test.describe("PC browser: the survival route to a Book and Quill (review c7d91d
     for (let i = 0; i < 10 && (await mobExists(page, id)); i++) {
       expect(await approachMob(page, id)).toBe(true);
       await pressMouse(page, "left");
+      await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
       await page.waitForTimeout(500);
     }
     await stop();

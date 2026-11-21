@@ -1,4 +1,5 @@
 import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, maxStackOf, toolOf, type ArmorSlot } from "./items";
+import { cloneStack, stacksCompatible } from "./stack";
 import { sanitizeStack } from "./savecheck";
 
 export const HOTBAR_SIZE = 9;
@@ -50,13 +51,13 @@ export class Inventory {
    */
   addStack(stack: ItemStack): number {
     if (!isKnownId(stack.id)) return stack.count;
-    stack = { ...stack, id: baseStackId(stack.id) };
+    stack = { ...cloneStack(stack), id: baseStackId(stack.id) };
     const max = maxStackOf(stack.id);
     let left = stack.count;
     if (max > 1) {
       for (const s of this.slots) {
         if (left === 0) break;
-        if (s && s.id === stack.id && s.count < max) {
+        if (s && stacksCompatible(s, stack) && s.count < max) {
           const n = Math.min(max - s.count, left);
           s.count += n;
           left -= n;
@@ -146,7 +147,7 @@ export class Inventory {
   }
 
   setSlot(slot: number, stack: ItemStack | null): void {
-    this.slots[slot] = stack ? { ...stack, id: baseStackId(stack.id) } : null;
+    this.slots[slot] = stack ? { ...cloneStack(stack), id: baseStackId(stack.id) } : null;
   }
 
   /** How many more of `id` could be added to the inventory. */
@@ -165,8 +166,8 @@ export class Inventory {
 
   toJSON(): InventoryData {
     return {
-      slots: this.slots.map((s) => (s ? { ...s } : null)), selected: this.selected,
-      equipment: Object.fromEntries(ARMOR_SLOTS.map((slot) => [slot, this.equipment[slot] ? { ...this.equipment[slot] } : null])),
+      slots: this.slots.map((s) => (s ? cloneStack(s) : null)), selected: this.selected,
+      equipment: Object.fromEntries(ARMOR_SLOTS.map((slot) => [slot, this.equipment[slot] ? cloneStack(this.equipment[slot]!) : null])),
     };
   }
 

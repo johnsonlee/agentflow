@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { approachMob, blockAt, bringMob, command, countItem, createWorld, look, mobExists, newestMob, parkMouse, pressMouse, settle, snap, target, trackMob, waitForTerrain } from "./helpers";
+import { collectWorldDrops, approachMob, blockAt, bringMob, command, countItem, createWorld, look, mobExists, newestMob, parkMouse, pressMouse, settle, snap, target, trackMob, waitForTerrain } from "./helpers";
 
 test.describe("PC browser: crafting, mobs and Education Edition features", () => {
   test("survival crafting: planks in the 2x2 grid, then a crafting table that opens a 3x3 grid", async ({ page }, testInfo) => {
@@ -80,6 +80,7 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     for (let i = 0; i < 10 && (await mobExists(page, id)); i++) {
       expect(await approachMob(page, id)).toBe(true);
       await pressMouse(page, "left");
+      await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
       await page.waitForTimeout(500);
     }
     await stopTracking();
@@ -104,6 +105,7 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
       await bringMob(page, id);
       await page.waitForTimeout(150);
       await pressMouse(page, "left");
+      await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
       await page.waitForTimeout(450);
     }
     await stopTracking();

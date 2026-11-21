@@ -1,5 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
+import { collectWorldDrops, aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
 export async function coloredTorchRoute(page: Page, info: TestInfo, mobile: boolean) {
   const errors = await createWorld(page, { mode: "survival" });
@@ -102,6 +102,7 @@ export async function coloredTorchRoute(page: Page, info: TestInfo, mobile: bool
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, p.x, p.y, p.z)).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
   }
   await command(page, "/time set night");
   const placed = [[-2, 2], [2, 2], [-2, -2], [2, -2]].map(([dx, dz]) => ({ x: pad.x + dx, y: pad.y + 1, z: pad.z + dz }));
@@ -145,6 +146,7 @@ export async function coloredTorchRoute(page: Page, info: TestInfo, mobile: bool
     if (mobile) await touch("touchStart"); else await page.mouse.down();
     await expect.poll(() => blockAt(page, p.x, p.y, p.z)).toBe(0);
     if (mobile) await touch("touchEnd"); else await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     expect(await countStack(page, name)).toBe(1);
   }
   expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([]);

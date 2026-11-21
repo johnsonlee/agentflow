@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { blockAt, createWorld, doubleTapSpace, expectRenderedScene, look, player, settle, snap, target, trackRise, waitForTerrain } from "./helpers";
+import { collectWorldDrops, blockAt, createWorld, doubleTapSpace, expectRenderedScene, look, player, settle, snap, target, trackRise, waitForTerrain } from "./helpers";
 
 test.describe("PC browser", () => {
   test("title screen, world creation and rendered terrain", async ({ page }, testInfo) => {
@@ -114,6 +114,7 @@ test.describe("PC browser", () => {
     await snap(page, testInfo, "06-breaking");
     await expect.poll(() => blockAt(page, hit!.x, hit!.y, hit!.z), { timeout: 10_000 }).toBe(0);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     const count = await page.evaluate(() => window.__craft.game!.inventory.slots.filter(Boolean).length);
     expect(count).toBe(1);
     await expect(page.locator(".hotbar .slot img")).toHaveCount(1);

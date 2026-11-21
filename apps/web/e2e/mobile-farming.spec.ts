@@ -7,7 +7,7 @@ test("Mobile: craft a hoe, plant and save wheat, fertilize, harvest, bake and ea
   await farmingRoute(page, info, true);
 });
 
-test("Mobile: a full bag cannot delete a furnace containing worn armor", async ({ page }, info) => {
+test("Mobile: full bag furnace harvest preserves ground-owned armor", async ({ page }, info) => {
   test.setTimeout(120_000);
   await furnaceCapacityRoute(page, info, true);
 });

@@ -1,3 +1,4 @@
+import { isKnownId } from "./items";
 /**
  * Code Builder (block mode): programs are trees of command blocks and `repeat N` loops, started by
  * "run" or by a chat command. A runner walks the tree with an explicit stack, yielding one Agent
@@ -135,8 +136,8 @@ const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
   ["attack", (c) => isDir(own(c, "dir"))],
   ["turn", (c) => own(c, "side") === "left" || own(c, "side") === "right"],
   ["select", (c) => isSlot(own(c, "slot"))],
-  ["drop", (c) => isSlot(own(c, "slot"))],
-  ["collect", () => true],
+  ["drop", (c) => isSlot(own(c, "slot")) && (own(c, "dir") === undefined || isDir(own(c, "dir"))) && (own(c, "quantity") === undefined || (Number.isSafeInteger(own(c, "quantity")) && (own(c, "quantity") as number) > 0))],
+  ["collect", (c) => own(c, "filterId") === undefined || (typeof own(c, "filterId") === "number" && isKnownId(own(c, "filterId") as number))],
 ]);
 
 /**

@@ -1,5 +1,5 @@
 import {
-  AIR, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  AIR, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
@@ -17,6 +17,7 @@ import { ChalkboardViews } from "./chalkboards";
 import { AgentView } from "./agentView";
 import { CodeBuilderScreen } from "./codeBuilder";
 import { WorldRenderer } from "./renderer";
+import { WorldDropsView } from "./worldDropsView";
 
 export const SAVE_KEY = "craft.save.v1";
 const REACH = 5;
@@ -57,6 +58,21 @@ export interface GameEvents {
 
 /** Owns the world simulation, player, input and HUD for one play session. */
 export class Game {
+  private static activeWriter: Game | null = null;
+  readonly worldDrops: WorldDrops;
+  private readonly worldDropsView: WorldDropsView;
+  saveError = "";
+  private recoveryOriginal: string | null = null;
+  private stopped = false;
+  private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
+  private readonly handleResize = () => { if (!this.stopped) this.resize(); };
+  private readonly handlePageHide = () => { if (Game.activeWriter === this && !this.stopped) this.save(); };
+  private readonly handlePointerLock = () => {
+    if (this.keyboard.pointerLocked) this.hadPointerLock = true;
+    else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
+  };
+  private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
+
   readonly world: World;
   readonly redstone: Redstone;
   readonly body: PlayerBody;
@@ -133,6 +149,7 @@ export class Game {
     options: GameOptions,
     private readonly events: GameEvents,
   ) {
+    Game.activeWriter = this;
     this.root = document.createElement("div");
     this.root.className = "game";
     container.appendChild(this.root);
@@ -145,13 +162,22 @@ export class Game {
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
     this.farming = new FarmingSystem(this.world, save?.farming);
+    this.worldDrops = new WorldDrops(this.world, save?.worldDrops);
+    if (this.worldDrops.loadIssues) this.recoveryOriginal = localStorage.getItem(SAVE_KEY);
     // Redstone: component states are blocks (in the edits); pending ticks are saved separately.
     this.redstone = new Redstone(this.world);
     if (save) this.redstone.restore(sanitizeScheduled(save.redstone), this.world.exportEdits());
     this.mode = save?.mode ?? options.mode;
     this.timeOfDay = save?.timeOfDay ?? 0.05;
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
-    this.mobs = new MobManager(this.world, this.renderer.scene);
+    this.worldDropsView = new WorldDropsView(this.renderer.scene, atlas, this.worldDrops);
+    this.mobs = new MobManager(this.world, this.renderer.scene, (mob) => {
+      const spec = MOB_SPECS[mob.kind];
+      const stacks: ItemStack[] = [spec.drop, spec.extraDrop].filter((s): s is [string, number] => s !== undefined).map(([name, count]) => ({ id: stackId(name), count }));
+      const ok = this.worldDrops.spawnBatch(stacks, { ...mob.position, y: mob.position.y + .3 });
+      if (!ok) this.hud?.message("Could not preserve mob drops; the mob remains in the world");
+      return ok;
+    });
     // Every optional save section is sanitized (strict, own-property checks); bad entries are dropped.
     for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
     this.hunger = sanitizeHunger(save?.hunger) ?? createHunger();
@@ -179,7 +205,7 @@ export class Game {
       onPortfolio: () => this.togglePortfolio(),
       onCodeBuilder: () => this.openCodeBuilder(),
     }, options.touch);
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory());
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack));
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob) => this.mobs.refresh(mob));
@@ -194,6 +220,7 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    if (this.worldDrops.loadIssues) this.loadErrors.push(`${this.worldDrops.loadIssues} damaged world-drop entries`);
     if (boards.dropped + furnaces.dropped > 0) this.loadErrors.push(`${boards.dropped + furnaces.dropped} damaged chalkboard/furnace entries`);
     this.agentView = new AgentView(this.renderer.scene, this.agent);
     this.codeBuilder = new CodeBuilderScreen(
@@ -212,13 +239,10 @@ export class Game {
     canvas.addEventListener("click", () => {
       if (!this.touch && !this.paused && !this.dead) this.keyboard.requestPointerLock();
     });
-    document.addEventListener("pointerlockchange", () => {
-      if (this.keyboard.pointerLocked) this.hadPointerLock = true;
-      else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
-    });
-    window.addEventListener("keydown", (e) => this.onKey(e));
-    window.addEventListener("resize", () => this.resize());
-    window.addEventListener("pagehide", () => this.save());
+    document.addEventListener("pointerlockchange", this.handlePointerLock);
+    window.addEventListener("keydown", this.handleKey);
+    window.addEventListener("resize", this.handleResize);
+    window.addEventListener("pagehide", this.handlePageHide);
     this.resize();
     if (this.inventoryScreen.restorePending(this.inventory, this.mode, sanitizeInventoryPending(save?.inventoryPending))) this.suspendInput();
 
@@ -242,13 +266,30 @@ export class Game {
     requestAnimationFrame(frame);
   }
 
-  stop(): void {
-    this.running = false;
-    this.save();
-    this.keyboard.dispose();
-    this.farming.dispose();
-    this.root.remove();
-    this.renderer.dispose();
+  stop(): boolean {
+    if (this.stopped) return true;
+    if (!this.save()) return false;
+    this.running = false; this.stopped = true;
+    if (Game.activeWriter === this) Game.activeWriter = null;
+    document.removeEventListener("pointerlockchange", this.handlePointerLock);
+    window.removeEventListener("keydown", this.handleKey);
+    window.removeEventListener("resize", this.handleResize);
+    window.removeEventListener("pagehide", this.handlePageHide);
+    this.runner?.stop(); this.keyboard.dispose(); this.farming.dispose();
+    this.worldDropsView.dispose(); this.worldDrops.dispose(); this.mobs.dispose();
+    this.agentView.dispose(); this.chalkViews.dispose();
+    this.root.remove(); this.renderer.dispose();
+    return true;
+  }
+
+  /** Requests a complete-world backup; requesting a download never bypasses failed browser storage. */
+  exportSaveBackup(): void {
+    this.paused = true; this.keyboard.reset();
+    const payload = this.savePayload();
+    const backup = this.recoveryOriginal === null ? payload : JSON.stringify({ ...JSON.parse(payload), recoveryOriginalSave: this.recoveryOriginal });
+    const url = URL.createObjectURL(new Blob([backup], { type: "application/json" }));
+    const link = document.createElement("a"); link.href = url; link.download = `${this.name.replace(/[^a-z0-9_-]/gi, "_") || "world"}.json`;
+    link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
   }
 
   pause(): void {
@@ -284,9 +325,8 @@ export class Game {
     if (!this.touch) this.keyboard.requestPointerLock();
   }
 
-  save(): void {
-    try {
-      localStorage.setItem(SAVE_KEY, serializeSave({
+  private savePayload(): string {
+    return serializeSave({
         name: this.name,
         seed: this.world.seed,
         mode: this.mode,
@@ -294,6 +334,7 @@ export class Game {
         player: { position: { ...this.body.position }, yaw: this.body.yaw, pitch: this.body.pitch, flying: this.body.flying },
         inventory: this.inventory.toJSON(),
         inventoryPending: this.inventoryScreen.pendingItems(),
+        worldDrops: this.worldDrops.toJSON(),
         edits: this.world.exportEdits(),
         npcs: this.mobs.exportNpcs(),
         hunger: { ...this.hunger },
@@ -307,9 +348,36 @@ export class Game {
         gamerules: { doMobSpawning: this.mobs.spawning, doDaylightCycle: this.daylightCycle },
         redstone: this.redstone.exportScheduled(),
         farming: this.farming.toJSON(),
-      }));
+      });
+  }
+
+  save(): boolean {
+    if (this.stopped || Game.activeWriter !== this) return false;
+    if (this.recoveryOriginal !== null) {
+      this.saveError = "Damaged world drops were found. The original save is preserved; export a recovery backup before leaving.";
+      this.hud.message(this.saveError); return false;
+    }
+    try {
+      localStorage.setItem(SAVE_KEY, this.savePayload());
+      this.saveError = ""; return true;
     } catch {
-      // Storage may be full or disabled (private mode); the game keeps running.
+      this.saveError = "World could not be saved. Keep this game open, retry, or export a backup before leaving.";
+      this.hud.message(this.saveError); return false;
+    }
+  }
+
+  private dropStack(stack: ItemStack): boolean {
+    const dir = lookDirection(this.body.yaw, 0);
+    return this.worldDrops.spawnBatch([structuredClone(stack)], {
+      x: this.body.position.x + dir.x * .4, y: this.body.position.y + 1, z: this.body.position.z + dir.z * .4,
+    }, { x: dir.x * 2, y: 1, z: dir.z * 2 });
+  }
+
+  private dropSelected(all: boolean): void {
+    const held = this.inventory.selectedStack(); if (!held) return;
+    const count = all ? held.count : 1;
+    if (this.dropStack({ ...structuredClone(held), count })) {
+      held.count -= count; if (!held.count) this.inventory.slots[this.inventory.selected] = null;
     }
   }
 
@@ -378,7 +446,11 @@ export class Game {
       this.eatTimer = 0;
     }
     this.lastPos = { x: this.body.position.x, z: this.body.position.z };
-    if (!this.paused) this.stepAgent(dt);
+    if (!this.paused) {
+      this.worldDrops.update(dt);
+      if (!this.dead && !this.screenOpen()) this.worldDrops.tryPickup(this.body.position, (stack) => this.inventory.addStack(stack));
+      this.stepAgent(dt);
+    }
     this.agentView.update(dt, AGENT_STEP_SECONDS, this.clock);
     // Furnaces keep smelting while the world runs, even with their screen closed.
     if (!this.paused) {
@@ -395,6 +467,7 @@ export class Game {
     cam.position.set(this.body.position.x, this.body.position.y + EYE_HEIGHT, this.body.position.z);
     cam.rotation.set(this.body.pitch, this.body.yaw, 0);
     this.renderer.updateChunks(this.renderer.isAreaReady(1) ? 6 : 30);
+    this.worldDropsView.update(this.clock, cam.position, this.renderer.renderDistance * 16);
 
     const underwater = blockAtEyes((x, y, z) => this.world.getBlock(x, y, z), this.body) === "water";
     this.hud.setUnderwater(underwater);
@@ -465,16 +538,11 @@ export class Game {
         // Held tools hit harder (swords most); the bare-hand damage keeps the game's balance.
         const tool = toolOf(this.inventory.selectedStack()?.id);
         const damage = tool?.attack ?? (this.mode === "creative" ? 4 : 2);
-        const drop = this.mobs.attack(mob, damage, this.body.yaw);
+        const killed = this.mobs.attack(mob, damage, this.body.yaw);
         if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.attack);
         // Minecraft: a hit wears a sword by one use and other tools by two.
         if (tool && this.mode === "survival") this.wearTool(tool.kind === "sword" ? 1 : 2);
-        if (drop !== undefined) {
-          this.hud.message(`${MOB_SPECS[mob.kind].displayName} was defeated`);
-          if (drop !== null && this.mode === "survival") this.inventory.add(drop, MOB_SPECS[mob.kind].drop![1]);
-          const extra = MOB_SPECS[mob.kind].extraDrop;
-          if (extra && this.mode === "survival") this.inventory.add(stackId(extra[0]), extra[1]);
-        }
+        if (killed) this.hud.message(`${MOB_SPECS[mob.kind].displayName} was defeated`);
       }
       if (place && mob.kind === "npc") this.openNpcDialog(mob);
       return;
@@ -709,12 +777,16 @@ export class Game {
       attack: (x, y, z) => {
         const mob = this.mobs.mobs.find((m) => Math.floor(m.position.x) === x && Math.floor(m.position.z) === z && Math.abs(m.position.y - y) < 1.5);
         if (!mob) return false;
-        this.mobs.attack(mob, 4, this.body.yaw);
+        this.mobs.attack(mob, 4, this.body.yaw, "agent");
         return true;
       },
       giveToPlayer: (stack) => this.inventory.addStack(stack),
-      beforeDestroy: (x, y, z) => this.canRecoverFurnace(x, y, z),
-      afterDestroy: (x, y, z) => this.recoverFurnace(x, y, z),
+      worldDrop: this.dropSink,
+      collect: (agent, filterId) => this.worldDrops.tryPickup({ x: agent.x + .5, y: agent.y, z: agent.z + .5 }, (stack) => giveAgent(agent, stack), filterId),
+      destroyContents: (x, y, z) => {
+        const furnace = this.furnaces.get(furnaceKey(x, y, z)); return furnace ? furnaceContents(furnace) : [];
+      },
+      afterDestroy: (x, y, z) => { this.furnaces.delete(furnaceKey(x, y, z)); },
       });
       // Defence in depth: anything but a result object stops the program.
       if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
@@ -739,8 +811,8 @@ export class Game {
     const contents = furnace ? furnaceContents(furnace) : [];
     // Breaking any cell of a chalkboard removes the whole board (one item drops, from the broken cell).
     const board = chalkboardSizeOf(t.id) ? this.chalkboardAt(t.x, t.y, t.z) : null;
-    if (!breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z, Math.random, contents)) {
-      if (t.id === FURNACE && canBreak(this.world, this.mode, t.x, t.y, t.z)) this.hud.message("Inventory full: make room before breaking this furnace");
+    if (!breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z, Math.random, contents, this.dropSink)) {
+      if (t.id === FURNACE && canBreak(this.world, this.mode, t.x, t.y, t.z)) this.hud.message("Could not preserve world drops; the furnace remains in place");
       return;
     }
     if (board) {
@@ -754,26 +826,6 @@ export class Game {
     if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.breakBlock);
     if (t.id !== FURNACE) return;
     this.furnaces.delete(furnaceKey(t.x, t.y, t.z));
-  }
-
-  /** Reserve the complete contents before removal; there is no dropped-item entity fallback. */
-  private canRecoverFurnace(x: number, y: number, z: number): boolean {
-    if (this.world.getBlock(x, y, z) !== FURNACE) return true;
-    const contents = this.furnaces.get(furnaceKey(x, y, z));
-    if (!contents) return true;
-    const trial = Inventory.fromJSON(this.inventory.toJSON());
-    if (furnaceContents(contents).some((stack) => trial.addStack(stack) > 0)) {
-      this.hud.message("Inventory full: make room before breaking this furnace");
-      return false;
-    }
-    return true;
-  }
-
-  private recoverFurnace(x: number, y: number, z: number): void {
-    const key = furnaceKey(x, y, z);
-    const furnace = this.furnaces.get(key);
-    if (furnace) for (const stack of furnaceContents(furnace)) this.inventory.addStack(stack);
-    this.furnaces.delete(key);
   }
 
   /** Zombies in reach hit the player (3 damage, 1 s cooldown) and knock them back. */
@@ -849,6 +901,9 @@ export class Game {
       return;
     }
     // Education Edition opens Code Builder with C; C is the camera here, so K opens it.
+    if (e.code === "KeyQ" && !e.repeat && !this.paused && !this.dead && !this.screenOpen()) {
+      e.preventDefault(); this.dropSelected(e.ctrlKey); return;
+    }
     if (e.code === "KeyK" && !this.paused && !this.dead && !this.inventoryScreen.open) {
       this.openCodeBuilder();
       return;

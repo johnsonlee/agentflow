@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-import { blockAt, command, countStack, craftWoodenPickaxe, createWorld, look, parkMouse, pressMouse, settle, snap, target } from "./helpers";
+import { collectWorldDrops, blockAt, command, countStack, craftWoodenPickaxe, createWorld, look, parkMouse, pressMouse, settle, snap, target } from "./helpers";
 
 test.describe("PC browser: items, tools and tool-based mining", () => {
   test("survival: craft a wooden pickaxe from logs, then mine stone into cobblestone", async ({ page }, testInfo) => {
@@ -49,6 +49,7 @@ test.describe("PC browser: items, tools and tool-based mining", () => {
     await page.mouse.down();
     await expect.poll(() => blockAt(page, stoneAt.x, stoneAt.y, stoneAt.z), { timeout: 20_000 }).toBe(0);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     // Minecraft: a pickaxe harvests stone as cobblestone, and the tool wears by one use.
     await expect.poll(() => countStack(page, "cobblestone")).toBe(1);
     // The pickaxe wore (exactly one use per block is unit-tested; a slow release may start on the block below).

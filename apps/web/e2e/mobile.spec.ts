@@ -1,5 +1,5 @@
 import { expect, test, type CDPSession, type Page } from "@playwright/test";
-import { blockAt, createWorld, expectRenderedScene, look, player, settle, snap, target, trackRise } from "./helpers";
+import { collectWorldDrops, blockAt, createWorld, expectRenderedScene, look, player, settle, snap, target, trackRise } from "./helpers";
 
 /** Real multi-touch through the Chrome DevTools Protocol (Playwright's touchscreen API only supports taps). */
 class Finger {
@@ -187,6 +187,7 @@ test.describe("Mobile layout (mouse pointer)", () => {
     await page.waitForTimeout(700);
     const moved = await player(page);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     expect(start.z - moved.z).toBeGreaterThan(1);
     expect(Math.abs(moved.x - start.x)).toBeLessThan(0.6);
     await expect(page.locator(".touch-stick-base")).not.toHaveClass(/active/);
@@ -198,6 +199,7 @@ test.describe("Mobile layout (mouse pointer)", () => {
     await page.mouse.down();
     for (let i = 1; i <= 8; i++) await page.mouse.move(vp.width * 0.7 - i * 15, vp.height * 0.4 + i * 4);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     await page.waitForTimeout(100);
     const look2 = await player(page);
     expect(look2.yaw).toBeGreaterThan(look1.yaw + 0.3);
@@ -226,6 +228,7 @@ test.describe("Mobile layout (mouse pointer)", () => {
     await page.mouse.down();
     await expect.poll(() => blockAt(page, t2!.x, t2!.y, t2!.z), { timeout: 5000 }).toBe(0);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
 
     await settle(page);
     const jump = await centerOf(page, ".touch-jump");
@@ -234,6 +237,7 @@ test.describe("Mobile layout (mouse pointer)", () => {
     await page.mouse.down();
     await page.waitForTimeout(300);
     await page.mouse.up();
+    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     expect(await rise()).toBeGreaterThan(0.8);
   });
 });
