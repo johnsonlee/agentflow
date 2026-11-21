@@ -1,4 +1,4 @@
-import { planBottleFill, type BottleFillResult } from "./bottles";
+import { planBottleFill, planBottleDrink, inspectBottleOwner, type BottleFillResult, type BottleDrinkResult } from "./bottles";
 import { inspectItemState } from "./item-state";
 import { isSparklerId, type SparklerState, type SparklerActivationResult } from "./sparkler-state";
 import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, stackId, toolOf, type ArmorSlot } from "../catalog/items";
@@ -78,6 +78,16 @@ export class Inventory {
     if (!plan.ok) return plan;
     for(let index=0;index<this.slots.length;index++) this.slots[index]=plan.slots[index];
     return {ok:true};
+  }
+
+  /** Caller earns the held-use duration and verifies lifecycle; commit keeps one finite container. */
+  drinkSelectedWaterBottle(): BottleDrinkResult {
+    const plan = planBottleDrink(this.slots, this.selected);
+    if (!plan.ok) return plan;
+    if (this.selected !== plan.index || this.slots[plan.index] !== plan.source || inspectBottleOwner(plan.source).kind === "invalid")
+      return { ok: false, reason: "invalid-state" };
+    this.slots[plan.index] = plan.replacement;
+    return { ok: true };
   }
 
   /** Offhand accepts Sparklers only; refusal leaves both owners unchanged. */

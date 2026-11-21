@@ -52,6 +52,11 @@ export class KeyboardMouseInput {
       if (this.pointerLocked) this.skipNextMove = true;
     });
     if (options.mouseButtons ?? true) this.listen(target, "mousedown", (e) => this.onMouseDown(e as MouseEvent));
+    this.listen(target, "pointercancel", () => {
+      // A cancelled canvas contact can terminate compatibility mouse events too. Preserve
+      // keyboard movement, slot/fly intentions and scroll; touch has its own contact owner.
+      this.breaking = false; this.using = false; this.breakClicked = false; this.place = false; this.pick = false;
+    });
     this.listen(window, "mouseup", (e) => {
       if ((e as MouseEvent).button === 0) this.breaking = false;
       if ((e as MouseEvent).button === 2) this.using = false;

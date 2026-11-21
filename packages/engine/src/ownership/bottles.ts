@@ -53,3 +53,34 @@ export function planBottleFill(slots: readonly (ItemStack | null)[], selected: n
   return {ok:true,slots:trial};
   } catch { return {ok:false,reason:"invalid-state"}; }
 }
+
+/** Held-use duration is an application convention, not calibrated Education vanilla timing. */
+export const WATER_DRINK_SECONDS = 1.6;
+export type BottleDrinkResult = { ok: true } | { ok: false; reason: "not-water-bottle" | "invalid-state" };
+export type BottleDrinkPlan = { ok: true; index: number; source: ItemStack; replacement: ItemStack }
+  | Exclude<BottleDrinkResult, { ok: true }>;
+
+/** A completed drink only exchanges the actual selected container. No hunger/status/world input
+ * is accepted, and no room is borrowed: the singleton source already owns its destination cell. */
+export function planBottleDrink(slots: readonly (ItemStack | null)[], selected: number): BottleDrinkPlan {
+  try {
+    if (!Array.isArray(slots) || slots.length !== INVENTORY_SIZE || !Number.isInteger(selected) || selected < 0 || selected >= HOTBAR_SIZE
+      || !own(slots, String(selected))) return { ok: false, reason: "invalid-state" };
+    const source = slots[selected];
+    if (source && inspectBottleOwner(source).kind === "invalid") return { ok: false, reason: "invalid-state" };
+    if (!source || bottleKind(source.id) !== "water") return { ok: false, reason: "not-water-bottle" };
+    // Application owners are plain data, never getters that could redirect the selected source
+    // while a drink is being validated. Unknown content metadata was already refused above.
+    if (!Object.getOwnPropertyDescriptor(source, "id")?.value || Object.getOwnPropertyDescriptor(source, "count")?.value !== 1)
+      return { ok: false, reason: "invalid-state" };
+    for (let index = 0; index < slots.length; index++) {
+      if (!own(slots, String(index))) return { ok: false, reason: "invalid-state" };
+      const stack = slots[index];
+      if (stack === null) continue;
+      if (!stack || typeof stack !== "object" || !isKnownId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
+        || inspectItemState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))
+        return { ok: false, reason: "invalid-state" };
+    }
+    return { ok: true, index: selected, source, replacement: { id: BOTTLE_IDS.empty, count: 1 } };
+  } catch { return { ok: false, reason: "invalid-state" }; }
+}

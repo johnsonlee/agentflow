@@ -4,7 +4,7 @@ import {
   SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
-  EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, createPlayerStatus, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
+  WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, createPlayerStatus, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, loadPrograms, startProgram, type AgentCommand,
@@ -40,6 +40,7 @@ const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
 );
 
 const GLASS_BOTTLE = stackId("glass_bottle");
+const WATER_BOTTLE = stackId("water_bottle");
 const WATER = blockId("water");
 const SNOWBALL = stackId("snowball");
 const LEAD = stackId("lead_rope");
@@ -132,6 +133,12 @@ export class Game {
   private openFurnace: string | null = null;
   /** Seconds the use button has been held on food. */
   private eatTimer = 0;
+  /** Ephemeral, exact-owner use progress; it is never part of the saved world. */
+  private drinkOwner: { slot: number; source: ItemStack; count: number; mode: GameMode; elapsed: number } | null = null;
+  private readonly handleDrinkMouseRelease = (e: MouseEvent) => { if (e.button === 2) this.cancelDrinking(); };
+  private readonly handleDrinkPointerRelease = (e: PointerEvent) => this.endDrinkPointer(e);
+  private readonly handleDrinkWheel = (e: WheelEvent) => { if (e.deltaY !== 0) this.cancelDrinking(); };
+  private readonly handleDrinkBlur = () => this.cancelDrinking();
   private lastPos = { x: 0, z: 0 };
   paused = false;
   dead = false;
@@ -181,6 +188,7 @@ export class Game {
   private hadPointerLock = false;
   private running = false;
   private readonly root: HTMLElement;
+  private readonly canvas: HTMLCanvasElement;
 
   constructor(
     container: HTMLElement,
@@ -192,7 +200,7 @@ export class Game {
     this.root = document.createElement("div");
     this.root.className = "game";
     container.appendChild(this.root);
-    const canvas = document.createElement("canvas");
+    const canvas = this.canvas = document.createElement("canvas");
     canvas.className = "game-canvas";
     this.root.appendChild(canvas);
 
@@ -265,7 +273,7 @@ export class Game {
     this.keyboard = new KeyboardMouseInput(canvas, { mouseButtons: !options.touch });
     this.touch = options.touch ? new TouchControls(canvas, this.root) : null;
     this.hud = new Hud(this.root, atlas, {
-      onSelectSlot: (slot) => { if (!this.dead && !this.actionsNeedRecovery) this.inventory.select(slot); },
+      onSelectSlot: (slot) => { if (!this.dead && !this.actionsNeedRecovery) this.selectHotbar(slot); },
       onOpenInventory: () => this.toggleInventory(),
       onPause: () => this.pause(),
       onChat: () => this.openChat(),
@@ -319,6 +327,11 @@ export class Game {
     canvas.addEventListener("click", () => {
       if (!this.touch && !this.paused && !this.dead) this.keyboard.requestPointerLock();
     });
+    canvas.addEventListener("pointerup", this.handleDrinkPointerRelease);
+    canvas.addEventListener("pointercancel", this.handleDrinkPointerRelease);
+    canvas.addEventListener("wheel", this.handleDrinkWheel, { passive: true });
+    window.addEventListener("mouseup", this.handleDrinkMouseRelease);
+    window.addEventListener("blur", this.handleDrinkBlur);
     document.addEventListener("pointerlockchange", this.handlePointerLock);
     window.addEventListener("keydown", this.handleKey);
     window.addEventListener("resize", this.handleResize);
@@ -356,10 +369,16 @@ export class Game {
   }
 
   stop(): boolean {
+    this.cancelDrinking();
     if (this.stopped) return true;
     if (!this.save()) return false;
     this.running = false; this.stopped = true;
     if (Game.activeWriter === this) Game.activeWriter = null;
+    this.canvas.removeEventListener("pointerup", this.handleDrinkPointerRelease);
+    this.canvas.removeEventListener("pointercancel", this.handleDrinkPointerRelease);
+    this.canvas.removeEventListener("wheel", this.handleDrinkWheel);
+    window.removeEventListener("mouseup", this.handleDrinkMouseRelease);
+    window.removeEventListener("blur", this.handleDrinkBlur);
     document.removeEventListener("pointerlockchange", this.handlePointerLock);
     window.removeEventListener("keydown", this.handleKey);
     window.removeEventListener("resize", this.handleResize);
@@ -377,6 +396,7 @@ export class Game {
   /** Requests a complete-world backup; requesting a download never bypasses failed browser storage. */
   exportSaveBackup(): void {
     if (this.ownershipBusy) { this.hud.message("Items are being transferred. Retry the backup afterward."); return; }
+    this.cancelDrinking();
     this.paused = true; this.keyboard.reset();
     this.markPlayerStatusRecovery();
     this.leashes.reconcileLoadedReferences(this.leashContext()); this.markLeashRecovery();
@@ -389,6 +409,7 @@ export class Game {
   }
 
   pause(): void {
+    this.cancelDrinking();
     if (this.ownershipBusy) return;
     if (this.paused || this.dead) return;
     this.paused = true;
@@ -399,6 +420,7 @@ export class Game {
   }
 
   resume(): void {
+    this.cancelDrinking();
     if (this.dead || this.ownershipBusy) return;
     this.paused = false;
     this.lastTime = performance.now();
@@ -407,6 +429,7 @@ export class Game {
 
   setMode(mode: GameMode): void {
     if (this.dead || this.ownershipBusy || this.actionsNeedRecovery) return;
+    this.cancelDrinking();
     this.mode = mode;
     if (mode === "survival") this.body.flying = false;
     this.health = MAX_HEALTH;
@@ -415,6 +438,7 @@ export class Game {
 
   /** A failed item transfer keeps the same death overlay and all original owners. */
   respawn(): boolean {
+    this.cancelDrinking();
     if (this.ownershipBusy || this.actionsNeedRecovery || !this.dead || !this.deathState || !this.tryDeathTransfer()) return false;
     this.dead = false; this.paused = false; this.deathState = undefined; this.deathError = "";
     this.health = MAX_HEALTH; this.hunger = createHunger(); clearPlayerStatus(this.playerStatus);
@@ -613,7 +637,7 @@ export class Game {
   }
 
   private tick(dt: number): void {
-    if (this.ownershipBusy) return;
+    if (this.ownershipBusy) { this.cancelDrinking(); return; }
     this.frameCount++;
     this.fpsTimer += dt;
     if (this.fpsTimer >= 1) {
@@ -632,8 +656,8 @@ export class Game {
     if (active) {
       this.body.yaw += input.lookYaw;
       this.body.pitch = Math.max(-PITCH_LIMIT, Math.min(PITCH_LIMIT, this.body.pitch + input.lookPitch));
-      if (input.hotbarSlot !== null) this.inventory.select(input.hotbarSlot);
-      if (input.hotbarScroll !== 0) this.inventory.scroll(input.hotbarScroll);
+      if (input.hotbarSlot !== null) this.selectHotbar(input.hotbarSlot);
+      if (input.hotbarScroll !== 0) { this.cancelDrinking(); this.inventory.scroll(input.hotbarScroll); }
       if (input.toggleFly && this.mode === "creative") this.body.flying = !this.body.flying;
 
       const wasOnGround = this.body.onGround;
@@ -673,6 +697,7 @@ export class Game {
       this.balloonTarget = null;
       this.breakProgress = 0;
       this.eatTimer = 0;
+      this.cancelDrinking();
     }
     this.lastPos = { x: this.body.position.x, z: this.body.position.z };
     if (!this.paused && !this.actionsNeedRecovery) {
@@ -722,7 +747,8 @@ export class Game {
   }
 
   private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
-    if (this.ownershipBusy || this.actionsNeedRecovery) return;
+    if (this.ownershipBusy || this.actionsNeedRecovery || this.dead || this.paused || this.stopped || this.screenOpen()) { this.cancelDrinking(); return; }
+    if (!using) this.cancelDrinking();
     const eye = { x: this.body.position.x, y: this.body.position.y + EYE_HEIGHT, z: this.body.position.z };
     const dir = lookDirection(this.body.yaw, this.body.pitch);
     const targetable = (id: number) => id !== AIR && blockById(id).shape !== "liquid";
@@ -739,6 +765,9 @@ export class Game {
     this.balloonTarget = balloonHit && (!this.target || balloonHit.distance < this.target.distance) &&
       (!mobHit || balloonHit.distance < mobHit.distance) ? balloonHit : null;
     const held = this.inventory.selectedStack();
+    const stationTarget = this.target !== null && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE || CHEMISTRY_STATIONS.has(this.target.id) || chalkboardSizeOf(this.target.id) !== null);
+    const drinking = using && held?.id === WATER_BOTTLE && !this.mobTarget && !this.balloonTarget && !stationTarget;
+    if (!drinking) this.cancelDrinking();
     if (place && this.placeCooldown === 0 && held?.id === GLASS_BOTTLE) {
       // Normal outline/break targeting keeps ignoring liquids. This separate physical ray uses
       // the same five-block reach and fence geometry; nearer actors win ties and occlude filling.
@@ -782,6 +811,11 @@ export class Game {
     if (place && held && (isWritableBook(held) || isWrittenBook(held)) && !(this.target && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE))) {
       this.suspendInput();
       this.bookScreen.show(held);
+      return;
+    }
+    if (drinking) {
+      this.breakProgress = 0; this.eatTimer = 0;
+      this.drinkSelectedWater(dt);
       return;
     }
     const usesBlock = this.target !== null && !this.mobTarget && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE);
@@ -978,6 +1012,32 @@ export class Game {
       const canonical = baseStackId(t.id);
       if (isKnownId(canonical) && (isItem(canonical) || tryBlockById(canonical)?.creative)) this.inventory.pick(canonical, t.id === blockId("placed_glow_stick"));
     }
+  }
+
+  private cancelDrinking(): void { this.drinkOwner = null; }
+
+  private endDrinkPointer(e: Pick<PointerEvent, "type" | "pointerType">): void {
+    if (e.type === "pointercancel" || e.pointerType !== "mouse") this.cancelDrinking();
+  }
+
+  private selectHotbar(slot: number): void {
+    this.cancelDrinking();
+    this.inventory.select(slot);
+  }
+
+  /** The held duration and finite-container behavior are application choices, not native calibration. */
+  private drinkSelectedWater(dt: number): void {
+    const slot = this.inventory.selected, source = this.inventory.selectedStack();
+    if (!Number.isFinite(dt) || dt <= 0 || !source || source.id !== WATER_BOTTLE) { this.cancelDrinking(); return; }
+    if (!this.drinkOwner || this.drinkOwner.slot !== slot || this.drinkOwner.source !== source || this.drinkOwner.count !== source.count || this.drinkOwner.mode !== this.mode) {
+      this.drinkOwner = { slot, source, count: source.count, mode: this.mode, elapsed: 0 };
+      this.hud.message("Keep holding to drink water.");
+    }
+    this.drinkOwner.elapsed += dt;
+    if (this.drinkOwner.elapsed + 1e-10 < WATER_DRINK_SECONDS) return;
+    const result = this.inventory.drinkSelectedWaterBottle();
+    this.cancelDrinking();
+    this.hud.message(result.ok ? "Drank water; the Glass Bottle is empty." : "This bottle needs attention before it can be used.");
   }
 
   /** Diagnose the raw section before sanitation can erase malformed timed state. */
@@ -1353,6 +1413,7 @@ export class Game {
 
   private onKey(e: KeyboardEvent): void {
     if (!this.running || this.dead || this.chat.open) return;
+    if (/^Digit[1-9]$/.test(e.code)) this.cancelDrinking();
     if (this.chalkDialog.open || this.bookScreen.open || this.codeBuilder.open) {
       if (e.code === "Escape") this.closeDialog(this.chalkDialog.open ? this.chalkDialog : this.bookScreen.open ? this.bookScreen : this.codeBuilder);
       return;
@@ -1407,6 +1468,7 @@ export class Game {
   }
 
   private suspendInput(): void {
+    this.cancelDrinking();
     this.keyboard.reset();
     this.keyboard.enabled = false;
     if (document.pointerLockElement) document.exitPointerLock();
@@ -1452,6 +1514,7 @@ export class Game {
 
   private openChat(prefix = ""): void {
     if (this.dead) return;
+    this.cancelDrinking();
     this.keyboard.reset();
     this.keyboard.enabled = false;
     if (document.pointerLockElement) document.exitPointerLock();
@@ -1459,6 +1522,7 @@ export class Game {
   }
 
   private resumeInput(): void {
+    this.cancelDrinking();
     if (this.dead) return;
     this.keyboard.enabled = true;
     this.lastTime = performance.now();
