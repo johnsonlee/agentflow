@@ -50,6 +50,8 @@ export interface ItemDef {
   /** Texture tile drawn as the item's icon. */
   icon: string;
   tool?: ToolSpec;
+  /** Non-mining held use; 64 ignition uses are an application model, not native calibration. */
+  useTool?: { kind: "ignition"; durability: number };
   armor?: ArmorSpec;
   /** Block this item places (Lab Table products such as the heat block and glow stick). */
   places?: string;
@@ -226,6 +228,7 @@ const specs: Omit<ItemDef, "id">[] = [
   material("cooked_beef", "Steak", { hunger: 8, saturation: 12.8 }),
   material("leather", "Leather"),
   material("flint", "Flint"),
+  { name: "flint_and_steel", displayName: "Flint and Steel", maxStack: 1, icon: "item_flint_and_steel", useTool: { kind: "ignition", durability: 64 } },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
@@ -261,9 +264,9 @@ export function isKnownItemId(id: number): boolean {
   return isItem(id) && ITEMS[id - ITEM_ID_BASE] !== undefined;
 }
 
-/** True for a registered block or item, including extended world blocks. */
+/** True for a supported inventory identity; Fire is world-only, not an owned stack. */
 export function isKnownId(id: number): boolean {
-  return isKnownBlockId(id) || isKnownItemId(id);
+  return isKnownBlockId(id) && id !== blockId("fire") || isKnownItemId(id);
 }
 
 export function nameOf(id: number): string {
@@ -298,7 +301,7 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
 // Ordinary and stained glass shatter without Silk Touch (enchantments are not modelled).
 // Keep dropOf/baseStackId as canonical identities; zero is a quantity, never the air item.
 const BLOCK_DROP_COUNTS = new Map<string, number>([
-  ["bookshelf", 3], ["glass", 0],
+  ["bookshelf", 3], ["glass", 0], ["fire", 0],
   // Four-ball harvest is an application rule pending direct current Education runtime proof.
   // Agent destroy shares these quantities with its existing tool-independent harvest semantics.
   ["snow", 4],
@@ -341,6 +344,7 @@ export function baseStackId(id: number): number {
 
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
+  if (id === blockId("fire")) return null;
   if (isKnownBlockId(id)) return id;
   if (!isKnownItemId(id)) return null;
   const places = itemById(id).places;
@@ -366,5 +370,5 @@ export function armorOf(id: number | null | undefined): ArmorSpec | null {
 export function durabilityOf(id: number | null | undefined): number | null {
   if (typeof id !== "number" || !isKnownItemId(id)) return null;
   const item = ITEMS[id - ITEM_ID_BASE];
-  return item?.tool?.durability ?? item?.armor?.durability ?? null;
+  return item?.tool?.durability ?? item?.armor?.durability ?? item?.useTool?.durability ?? null;
 }

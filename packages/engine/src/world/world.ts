@@ -1,3 +1,4 @@
+import { FireSystem } from "../simulation/fire";
 import { GravelHarvestResolver } from "../ownership/gravel-harvest";
 import { AIR, isKnownBlockId, isOpaque } from "../catalog/blocks";
 import { WORLD_BORDER } from "../core/math";
@@ -16,6 +17,7 @@ export type BlockListener = (x: number, y: number, z: number, id: number) => voi
 export class World {
   readonly generator: TerrainGenerator;
   readonly gravelHarvests = new GravelHarvestResolver(this);
+  readonly fires = new FireSystem(this);
   private readonly chunks = new Map<string, Chunk>();
   private readonly edits = new Map<string, Map<number, number>>();
   private readonly listeners = new Set<ChunkListener>();
@@ -23,6 +25,9 @@ export class World {
   /** Chunks whose light changed during the current update (to re-mesh them). */
   private readonly lightTouched = new Set<string>();
   private lastPeek: Chunk | undefined;
+  private mutationVersion = 0;
+  /** Monotonic real-cell change identity, including same-ID remove/reinsert cycles. */
+  get blockMutationVersion(): number { return this.mutationVersion; }
 
   /** Light accessors over loaded chunks only (never generates terrain). */
   private readonly lightAccess: LightAccess = {
@@ -172,7 +177,8 @@ export class World {
     return chunk.get(toLocalCoord(x), Math.floor(y), toLocalCoord(z));
   }
 
-  setBlock(x: number, y: number, z: number, id: number): void {
+  /** finalize is a trusted synchronous owner commit before external observer notifications. */
+  setBlock(x: number, y: number, z: number, id: number, finalize?: () => void): void {
     if (!isKnownBlockId(id)) return;
     x = Math.floor(x);
     y = Math.floor(y);
@@ -184,6 +190,7 @@ export class World {
     const lz = toLocalCoord(z);
     const chunk = this.getChunk(cx, cz);
     if (chunk.get(lx, y, lz) === id) return;
+    this.mutationVersion++;
     this.gravelHarvests.invalidate(x, y, z);
     chunk.set(lx, y, lz, id);
 
@@ -191,6 +198,8 @@ export class World {
     let chunkEdits = this.edits.get(key);
     if (!chunkEdits) this.edits.set(key, (chunkEdits = new Map()));
     chunkEdits.set(Chunk.index(lx, y, lz), id);
+    this.fires.blockChanged(x, y, z);
+    finalize?.();
 
     this.lightTouched.clear();
     relightBlock(this.lightAccess, x, y, z);
@@ -239,6 +248,7 @@ export class World {
   importEdits(edits: readonly BlockEdit[]): void {
     // Import replaces logical world contents, including same-ID cells; restore decisions afterward.
     this.gravelHarvests.clear();
+    this.fires.clear();
     for (const [x, y, z, id] of edits) this.setBlock(x, y, z, id);
   }
 

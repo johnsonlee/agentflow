@@ -87,3 +87,5 @@ export * from "./simulation/milk";
 export * from "./ownership/buckets";
 
 export * from "./ownership/gravel-harvest";
+export * from "./ownership/ignition-tool";
+export * from "./simulation/fire";

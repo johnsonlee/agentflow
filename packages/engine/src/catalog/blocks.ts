@@ -226,6 +226,10 @@ for (const [i, color] of DYE_COLORS.entries()) specs.push({
 specs.push({ id: 188, name: "oak_fence", displayName: "Oak Fence", faces: faces("oak_planks"),
   shape: "fence", transparent: true, solid: true, hardness: 3, tool: "axe" });
 
+// Bounded upright application Fire; hidden, noncolliding and never an obtainable item.
+specs.push({ id: 189, name: "fire", displayName: "Fire", faces: faces("fire"),
+  shape: "cross", solid: false, transparent: true, creative: false, hardness: 0, emissive: true, light: 15 });
+
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, id: explicitId, ...s }, index) => ({

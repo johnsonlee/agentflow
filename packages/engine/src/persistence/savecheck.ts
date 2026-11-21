@@ -13,6 +13,7 @@ import { AGENT_SLOTS, type AgentState } from "../automation/agent";
 import { CHALKBOARD_SIZES, type Chalkboard, type ChalkboardSize } from "../education/chalkboard";
 import type { HungerState } from "../simulation/hunger";
 import type { ItemStack } from "../ownership/inventory";
+import { IGNITION_TOOL_ID, inspectIgnitionOwner } from "../ownership/ignition-tool";
 import { armorOf, baseStackId, durabilityOf, isKnownId, maxStackOf } from "../catalog/items";
 import { MAX_FOOD } from "../simulation/hunger";
 import { smeltResult, type FurnaceState } from "../crafting/smelting";
@@ -33,6 +34,7 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   // Hidden state blocks (powered dust, a pressed button, an open door half...) become their base item.
   const base = baseStackId(id);
   if (!int(count, 1, maxStackOf(base))) return null;
+  if (inspectIgnitionOwner(raw).kind === "invalid") return null;
   const sparkler = inspectSparklerState(raw);
   if (sparkler.kind === "invalid") return null;
   const glow = inspectGlowState(raw);
@@ -45,7 +47,7 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   const durability = durabilityOf(id);
   // New armor is strict: invalid wear must not silently repair damaged equipped pieces.
   if (armorOf(id) && damage !== undefined && !int(damage, 0, durability! - 1)) return null;
-  if (durability !== null && int(damage, 1, durability - 1)) s.damage = damage;
+  if ((durability !== null && int(damage, 1, durability - 1)) || (id === IGNITION_TOOL_ID && damage === 0)) s.damage = damage as number;
   const book = own(raw, "book");
   if (isObj(book) && Array.isArray(own(book, "pages"))) {
     s.book = { pages: (own(book, "pages") as unknown[]).slice(0, 50).map((p) => typeof p === "string" ? p.slice(0, 256) : "") };

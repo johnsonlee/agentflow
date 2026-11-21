@@ -868,5 +868,7 @@ export const ATLAS_TEXTURE_CATALOG: readonly string[] = Object.freeze([
   "item_raw_beef",
   "item_cooked_beef",
   "item_leather",
-  "item_flint"
+  "item_flint",
+  "fire",
+  "item_flint_and_steel"
 ]);

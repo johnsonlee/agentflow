@@ -1,3 +1,4 @@
+import { extinguishFire } from "../simulation/fire";
 import { gravelOwnerSnapshot } from "../ownership/gravel-harvest";
 import type { OwnershipGuard } from "../ownership/leashes";
 import { placementIntersectsFenceGeometry } from "../catalog/block-geometry";
@@ -70,6 +71,7 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   if (ownershipGuard && (!sink || !ownershipGuard.valid())) return false;
   if (!canBreak(world, mode, x, y, z)) return false;
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
+  if (id === blockId("fire")) return extinguishFire(world, x, y, z);
   const gravel = mode === "survival" && id === blockId("gravel");
   const selectedBeforeTool = gravel ? inventory.selected : undefined;
   const tool = toolOf(inventory.selectedStack()?.id);

@@ -10,6 +10,7 @@ import { bodyBox } from "../simulation/physics";
  */
 import type { DropSink } from "../ownership/world-drops";
 import { cloneStack, insertStackIntoSlots } from "../ownership/stack";
+import { extinguishFire } from "../simulation/fire";
 import { blockDrops } from "../simulation/farming";
 import { AIR, tryBlockById, blockById, blockId, isSolid } from "../catalog/blocks";
 import { FACING_DIRS } from "../education/chalkboard";
@@ -193,6 +194,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const id = world.getBlock(t.x, t.y, t.z);
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
+      if (id === blockId("fire")) return { ok: extinguishFire(world, t.x, t.y, t.z), message: "Fire extinguished" };
       const attempt = env.beginDestroyOwnership?.(t.x, t.y, t.z) ?? { kind: "none" as const };
       if (attempt.kind === "refused") return { ok: false, message: attempt.reason };
       const lease = attempt.kind === "ready" ? attempt.lease : null;

@@ -160,6 +160,7 @@ export const RECIPES: readonly Recipe[] = [
   { id: "glass_bottle", pattern: ["G G", " G "], key: { G: "glass" }, result: ["glass_bottle", 3] },
   // Retained Education bucket recipe: three iron ingots in a width-three V.
   { id: "bucket", pattern: ["I I", " I "], key: { I: "iron_ingot" }, result: ["bucket", 1] },
+  { id: "flint_and_steel", ingredients: ["iron_ingot", "flint"], result: ["flint_and_steel", 1] },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

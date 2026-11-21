@@ -13,10 +13,10 @@ const floor={getLoadedBlock: (_x:number,y:number,_z:number)=>y===0?blockId("ston
 describe("five Journal-supported Sparklers and real offhand owners",()=>{
   it("preserves every old definition, recipe and atlas identity as an exact prefix",()=>{
     expect(JSON.parse(JSON.stringify(ITEMS.slice(0,568)))).toEqual(baseline.items);
-    expect(JSON.parse(JSON.stringify(BLOCKS))).toEqual(baseline.blocks);
+    expect(JSON.parse(JSON.stringify(BLOCKS.slice(0,308)))).toEqual(baseline.blocks);
     expect(JSON.parse(JSON.stringify(RECIPES.slice(0,160)))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,849)).toEqual(baseline.names);
-    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([582,308,167,868]);
+    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([583,309,168,870]);
     expect(Object.isFrozen(SPARKLER_COLORS)).toBe(true); expect(SPARKLER_COLORS.every(Object.isFrozen)).toBe(true);
   });
   it("crafts all five vertical chloride/Mg/stick grids and refuses wrong color chemistry and short grids",()=>{

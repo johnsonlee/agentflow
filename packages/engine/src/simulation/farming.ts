@@ -31,6 +31,7 @@ export function farmDrops(id: number, rand: () => number = Math.random): ItemSta
   return [{ id: stackId("wheat"), count: 1 }, ...(count ? [{ id: seeds, count }] : [])];
 }
 export function blockDrops(id: number, rand: () => number = Math.random): ItemStack[] {
+  if (id === blockId("fire")) return [];
   if (id === blockId("gravel")) return gravelDrops(rand);
   const farm = farmDrops(id, rand);
   if (farm !== null) return farm;

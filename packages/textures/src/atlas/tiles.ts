@@ -4,6 +4,7 @@ import { REDSTONE_TILE_GENERATORS } from "../artwork/redstone";
 import { FARMING_TILE_GENERATORS } from "../artwork/farming";
 import { STAINED_GLASS_TILE_GENERATORS } from "../artwork/stained-glass";
 import { ITEM_TILE_GENERATORS } from "../artwork/items";
+import { fireTile } from "../artwork/ignition";
 import { TILE_SIZE, Tile, hex, shade, type Rgb } from "./pixels";
 
 const S = TILE_SIZE;
@@ -310,6 +311,7 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
       return Math.floor((x + y) / 3) % 2 === 0 ? red : black;
     });
   },
+  fire: fireTile,
 };
 
 /** True if `name` has an item sprite (fixed sprites, or a chemistry element/isotope/compound/product). */

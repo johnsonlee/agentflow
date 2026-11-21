@@ -1,3 +1,5 @@
+import { sanitizeFireState, type FireData } from "../simulation/fire";
+import { inspectIgnitionOwner, isIgnitionToolId } from "../ownership/ignition-tool";
 import { sanitizeGravelHarvestState, type GravelHarvestData } from "../ownership/gravel-harvest";
 import { inspectBucketOwner, isBucketId } from "../ownership/buckets";
 import { diagnoseRawCowState } from "./mob-save";
@@ -72,6 +74,10 @@ export interface SaveData {
   /** Pending redstone ticks (optional; sanitized by `sanitizeScheduled` on load). */
   redstone?: unknown;
   farming?: FarmingState;
+  fire?: FireData;
+  /** Derived raw/source diagnostic, never trusted or serialized. */
+  fireInvalid?: boolean;
+  ignitionOwnershipIssues?: GlowOwnershipIssue[];
   gravelHarvests?: GravelHarvestData;
   /** Derived raw decision diagnostic, never trusted or serialized. */
   gravelHarvestInvalid?: boolean;
@@ -88,7 +94,12 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const toolIssues = diagnoseRawIgnitionOwnership(owned);
+  if (toolIssues.some(issue => /ignition/.test(issue.reason))) throw new Error("Cannot serialize invalid ignition ownership");
+  const fire = sanitizeFireState(owned.fire);
+  if (_fireInvalid || fire.invalid || _ignitionIssues?.length) throw new Error("Cannot serialize invalid Fire or ignition ownership");
+  if (fire.data.records.length) owned.fire = fire.data; else delete owned.fire;
   const status = sanitizePlayerStatus(owned.playerStatus);
   if (_statusInvalid || status.invalid) throw new Error("Cannot serialize invalid player status");
   if (status.data.poison) owned.playerStatus = status.data; else delete owned.playerStatus;
@@ -105,7 +116,7 @@ export interface GlowOwnershipIssue { path: string; reason: string }
 
 /** Scan raw owners before sanitizeInventoryPending/fromJSON/Agent/furnace loaders can drop state.
  * This produces diagnostics only; Game must preserve the original raw text and block overwrite. */
-function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket"): GlowOwnershipIssue[] {
+function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket" | "ignition"): GlowOwnershipIssue[] {
   const issues: GlowOwnershipIssue[] = [];
   if (!isObj(raw)) return issues;
   const check = (value: unknown, path: string, supported = true) => {
@@ -114,8 +125,9 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
     const legacySparkler = field === "sparkler" && isObj(value) && typeof own(value, "id") === "number" && isSparklerId(own(value, "id") as number);
     const bottle = field === "bottle" && isObj(value) && typeof own(value,"id") === "number" && isBottleId(own(value,"id") as number);
     const bucket = field === "bucket" && isObj(value) && typeof own(value,"id")==="number" && isBucketId(own(value,"id") as number);
-    if (field === "bottle" ? !bottle : field === "bucket" ? !bucket : !(field in value) && !legacySparkler) return;
-    const state = field === "bucket" ? inspectBucketOwner(value) : field === "bottle" ? inspectBottleOwner(value) : field === "glow" ? inspectGlowState(value) : inspectSparklerState(value);
+    const ignition = field === "ignition" && isObj(value) && isIgnitionToolId(own(value, "id"));
+    if (field === "ignition" ? !ignition : field === "bottle" ? !bottle : field === "bucket" ? !bucket : !(field in value) && !legacySparkler) return;
+    const state = field === "ignition" ? inspectIgnitionOwner(value) : field === "bucket" ? inspectBucketOwner(value) : field === "bottle" ? inspectBottleOwner(value) : field === "glow" ? inspectGlowState(value) : inspectSparklerState(value);
     if (state.kind === "invalid") issues.push({ path, reason: state.reason });
     else if (!supported) issues.push({ path, reason: `${field} owner would be discarded or is unsupported` });
   };
@@ -147,7 +159,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
         else check(rawOffhand, "inventory.offhand");
       }
     }
-    if ((field === "bottle" || field === "bucket") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
+    if ((field === "bottle" || field === "bucket" || field === "ignition") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
     const equipment = object(own(inventory, "equipment"), "inventory.equipment");
     if (equipment) for (const key of Object.keys(equipment))
       check(own(equipment, key), `inventory.equipment.${key}`, false); // Glow is never armor.
@@ -157,7 +169,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   if (agent) {
     if (field === "sparkler" && Object.prototype.hasOwnProperty.call(agent, "offhand"))
       issues.push({ path: "agent.offhand", reason: "Agent offhand is an unsupported owner" });
-    if (field === "bottle" || field === "bucket") check(own(agent,"offhand"),"agent.offhand",false);
+    if (field === "bottle" || field === "bucket" || field === "ignition") check(own(agent,"offhand"),"agent.offhand",false);
     const valid = integer(own(agent, "x")) && integer(own(agent, "y"), 0, 1000) && integer(own(agent, "z"))
       && integer(own(agent, "facing"), 0, 3) && integer(own(agent, "selected"), 0, 26);
     if (!valid) issues.push({ path: "agent", reason: "invalid owned-item Agent envelope" });
@@ -193,6 +205,8 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   return issues;
 }
 
+export function diagnoseRawIgnitionOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "ignition"); }
+
 export function diagnoseRawBucketOwnership(raw:unknown):GlowOwnershipIssue[]{return diagnoseRawActivationOwnership(raw,"bucket");}
 
 export function diagnoseRawBottleOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "bottle"); }
@@ -225,6 +239,8 @@ export function parseSave(text: string): SaveData {
   const sparklerOwnershipIssues = diagnoseRawSparklerOwnership(raw);
   const bottleOwnershipIssues = diagnoseRawBottleOwnership(raw);
   const bucketOwnershipIssues = diagnoseRawBucketOwnership(raw);
+  const ignitionOwnershipIssues = diagnoseRawIgnitionOwnership(raw);
+  const fire = sanitizeFireState(own(raw, "fire"));
   const cowStateInvalid = diagnoseRawCowState(own(raw,"mobs"));
   const gravelHarvest = sanitizeGravelHarvestState(own(raw,"gravelHarvests"));
   const name = own(raw, "name");
@@ -268,6 +284,9 @@ export function parseSave(text: string): SaveData {
   if (sparklerOwnershipIssues.length) save.sparklerOwnershipIssues = sparklerOwnershipIssues;
   if (bottleOwnershipIssues.length) save.bottleOwnershipIssues = bottleOwnershipIssues;
   if (bucketOwnershipIssues.length) save.bucketOwnershipIssues = bucketOwnershipIssues;
+  if (ignitionOwnershipIssues.length) save.ignitionOwnershipIssues = ignitionOwnershipIssues;
+  if (fire.present) save.fire = fire.data;
+  if (fire.invalid) save.fireInvalid = true;
   if (cowStateInvalid) save.cowStateInvalid = true;
   if (gravelHarvest.present) save.gravelHarvests = gravelHarvest.data;
   if (gravelHarvest.invalid) save.gravelHarvestInvalid = true;

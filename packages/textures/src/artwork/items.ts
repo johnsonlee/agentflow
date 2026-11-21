@@ -1,4 +1,5 @@
 import { flintTile } from "./flint";
+import { flintAndSteelTile } from "./ignition";
 import { MILK_ITEM_GENERATORS } from "./milk-items";
 import { BOTTLE_ITEM_GENERATORS } from "./bottles";
 import { BALLOON_ITEM_GENERATORS } from "./balloons";
@@ -244,3 +245,5 @@ Object.assign(ITEM_TILE_GENERATORS, MILK_ITEM_GENERATORS);
 
 // Append the original flaked-stone icon while retaining every earlier generator.
 ITEM_TILE_GENERATORS.item_flint = flintTile;
+
+ITEM_TILE_GENERATORS.item_flint_and_steel = flintAndSteelTile;
