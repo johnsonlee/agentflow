@@ -14,6 +14,7 @@ import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
 import { ChatInput, Hud, InventoryScreen, type ChemistryKind, type InventoryKind } from "./hud";
 import { MobManager } from "./mobs";
+import { findLoadedSquidSummonSpot } from "./squid-habitat";
 import { BookScreen, ChalkboardDialog, NpcDialog, Portfolio, PortfolioScreen } from "./screens";
 import { ChalkboardViews } from "./chalkboards";
 import { AgentView } from "./agentView";
@@ -1133,6 +1134,8 @@ export class Game {
   private takeMobHits(dt: number, daylight: number): void {
     for (const mob of this.mobs.mobs) {
       if (this.dead) break;
+      // Passive aquatic actors cannot attack; avoid a generating light query for them.
+      if (mob.kind === "squid") continue;
       const damage = mobAttack(mob, this.body.position, dt, this.mobs.effectiveLight(mob, daylight));
       if (damage === 0 || this.dead) continue;
       const kb = knockbackFrom(mob, this.body.position);
@@ -1357,6 +1360,16 @@ export class Game {
         const dir = lookDirection(this.body.yaw, 0);
         const x = this.body.position.x + dir.x * 3;
         const z = this.body.position.z + dir.z * 3;
+        if (cmd.kind === "squid") {
+          // Command policy: prefer nearby loaded water, then a supported dry pose. A dry
+          // summon proves neither aquatic habitat nor natural spawning; never generate terrain.
+          const spot = findLoadedSquidSummonSpot(this.world, { x, y: this.body.position.y, z });
+          if (!spot) { reply = "No safe loaded water or dry space nearby to summon a Squid"; break; }
+          if (this.mobs.idsExhausted) { reply = "Creature IDs are exhausted; no creature was summoned"; break; }
+          this.mobs.spawn("squid", spot, { yaw: this.body.yaw + Math.PI });
+          reply = "Summoned new Squid";
+          break;
+        }
         // A ground spot near that point at about the player's level, never inside or on top of a tree.
         const get = (bx: number, by: number, bz: number) => this.world.getBlock(bx, by, bz);
         const height = Math.ceil(MOB_SPECS[cmd.kind].height);

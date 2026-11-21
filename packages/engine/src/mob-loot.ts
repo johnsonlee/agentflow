@@ -21,7 +21,7 @@ export function mobDrops(kind: MobKind, rand: () => number = Math.random): ItemS
   for (const [index, entry] of [spec.drop, spec.extraDrop].entries()) {
     if (!entry) continue;
     const [name, fixed] = entry;
-    const count = kind === "pig" && index === 0 ? countBetween(1, 3, rand)
+    const count = (kind === "pig" || kind === "squid") && index === 0 ? countBetween(1, 3, rand)
       : ((kind === "zombie" || kind === "spider") && index === 0 || kind === "chicken" && index === 1) ? countBetween(0, 2, rand)
       : fixed;
     if (count > 0) stacks.push({ id: stackId(name), count });

@@ -1,10 +1,11 @@
+import { createSquidState, stepSquid, type SquidState } from "./aquatics";
 import { blockById, blockId, isOpaque, isSolid } from "./blocks";
 import { MAX_LIGHT, blockLightOf, skyOf } from "./light";
 import { clampPosition, type Vec3 } from "./math";
 import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
 import { PathSearch, type PathBudget, type PathNode } from "./pathfind";
 
-export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider";
+export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider" | "squid";
 
 export interface MobSpec {
   kind: MobKind;
@@ -32,7 +33,11 @@ export const MOB_SPECS: Record<MobKind, MobSpec> = {
   zombie: { kind: "zombie", displayName: "Zombie", width: 0.6, height: 1.95, maxHealth: 20, speed: 2.3, drop: ["rotten_flesh", 1], hostile: true },
   // Retained Education text: HP16/body1.4x.9. Speed is an application ground-walking model.
   spider: { kind: "spider", displayName: "Spider", width: 1.4, height: 0.9, maxHealth: 16, speed: 2.4, drop: ["string", 1], hostile: true },
+  // Selected retained .95 adult source variant; active-pack binding is unresolved.
+  squid: { kind: "squid", displayName: "Squid", width: 0.95, height: 0.95, maxHealth: 10, speed: 0, drop: ["ink_sac", 1] },
 };
+
+export const AQUATIC_MOBS: readonly MobKind[] = ["squid"];
 
 export const HOSTILE_MOBS: readonly MobKind[] = ["zombie", "spider"];
 
@@ -72,6 +77,8 @@ const combatProfile = (mob: Mob) => mob.kind === "spider" ? SPIDER : ZOMBIE;
 export const PASSIVE_MOBS: readonly MobKind[] = ["pig", "sheep", "chicken"];
 
 export interface Mob {
+  /** Application aquatic state, present only for adult ordinary squid. */
+  squidState?: SquidState;
   id: number;
   kind: MobKind;
   position: Vec3;
@@ -118,6 +125,7 @@ export function createMob(id: number, kind: MobKind, position: Vec3, extra: Part
     yaw: extra.yaw ?? 0,
     health: MOB_SPECS[kind].maxHealth,
     ...(kind === "spider" ? { spiderAngerSeconds: 0 } : {}),
+    ...(kind === "squid" ? { squidState: createSquidState() } : {}),
     onGround: false,
     thinkTimer: 0,
     walking: false,
@@ -165,7 +173,8 @@ export function stepMob(
   effectiveLight = 0,
   movementBias: Vec3 = { x: 0, y: 0, z: 0 },
   externalAcceleration: Vec3 = { x: 0, y: 0, z: 0 },
-): void {
+): boolean | void {
+  if (mob.kind === "squid") return stepSquid(getBlock, mob, dt, rand, movementBias, externalAcceleration);
   const { n, h } = substeps(dt);
   if (mob.kind === "spider") mob.spiderAngerSeconds = Math.max(0, (mob.spiderAngerSeconds ?? 0) - n * h);
   const chasing = planChase(getBlock, mob, n * h, target, budget, effectiveLight);

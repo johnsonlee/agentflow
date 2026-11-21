@@ -1,10 +1,13 @@
 import * as THREE from "three";
 import {
   MOB_SPECS, PASSIVE_MOBS, PATHFINDING, SEA_LEVEL, onBlockChangedNear, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
-  raycastMob, skyDarken, skyOf, blockLightOf, stackId, stepMob, mobSnapshot, restoreMobSnapshot,
+  raycastMob, squidBreathDamage, skyDarken, skyOf, blockLightOf, stackId, stepMob, mobSnapshot, restoreMobSnapshot,
   type MobStateData, type MobLootResolver,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
+
+import { buildSquidModel, animateSquidModel } from "./squid-model";
+import { isNaturalSquidSpawnEligible } from "./squid-habitat";
 
 interface Part {
   size: [number, number, number];
@@ -16,7 +19,7 @@ interface Part {
   face?: "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider";
 }
 
-const MODELS: Record<MobKind, Part[]> = {
+const MODELS: Record<Exclude<MobKind, "squid">, Part[]> = {
   // Original procedural model: a low dark body, eight independently animated legs and red eyes.
   // Ground walking only; native climbing, leaping and model/texture parity remain unimplemented.
   spider: [
@@ -133,6 +136,7 @@ function faceTexture(color: string, face: NonNullable<Part["face"]>): THREE.Text
 }
 
 function buildModel(mob: Mob): THREE.Group {
+  if (mob.kind === "squid") return buildSquidModel();
   const group = new THREE.Group();
   for (const part of MODELS[mob.kind]) {
     const side = new THREE.MeshBasicMaterial({ map: partTexture(part.color) });
@@ -188,10 +192,12 @@ export interface SavedNpc {
 
 const MAX_ANIMALS = 12;
 const MAX_HOSTILES = 8;
+/** Application ocean population cap; native population scheduling is uncalibrated. */
+const MAX_SQUID = 4;
 const DESPAWN_DISTANCE = 96;
 
 /** Simulates and renders animals and NPCs. */
-export type MobDeathCause = "player" | "agent" | "sunlight" | "void";
+export type MobDeathCause = "player" | "agent" | "sunlight" | "void" | "suffocation";
 
 export class MobManager {
   private readonly unsubscribeBlock: () => void;
@@ -209,6 +215,9 @@ export class MobManager {
   private lastPlayer: Vec3 | null = null;
   private seed = 12345;
   private readonly rand = () => ((this.seed = (this.seed * 16807) % 2147483647) / 2147483647);
+  /** Separate application stream: aquatic attempts/steering never consume land-mob randomness. */
+  private aquaticSeed = 8675309;
+  private readonly aquaticRand = () => ((this.aquaticSeed = (this.aquaticSeed * 16807) % 2147483647) / 2147483647);
 
   private currentBodyLoaded(mob: Mob): boolean {
     const spec = MOB_SPECS[mob.kind], box = bodyBox(mob.position, spec.width, spec.height);
@@ -310,11 +319,15 @@ export class MobManager {
       if (this.spawning) {
         this.spawnNear(player);
         this.spawnHostileNear(player, darken);
+        this.spawnSquidNear(player);
       }
     }
     const order = this.mobs.length > 0 ? [...this.mobs.slice(this.rotation % this.mobs.length), ...this.mobs.slice(0, this.rotation % this.mobs.length)] : [];
     this.rotation++;
     for (const mob of order) {
+      // A receiver can reenter update while this actor owns a fatal transfer. Do not mutate
+      // its health, exposure, pose or cached state before the outer transaction finishes.
+      if (this.deathOwners.has(mob.id)) continue;
       const dist = Math.hypot(mob.position.x - player.x, mob.position.z - player.z);
       // A refused fatal transfer still owns its cached loot, even outside the simulation radius.
       if (mob.kind !== "npc" && dist > DESPAWN_DISTANCE) {
@@ -325,16 +338,24 @@ export class MobManager {
         this.die(mob, "void");
         continue;
       }
-      const loadedOnly = this.loadedOnlyPhysics(mob);
+      const loadedOnly = mob.kind === "squid" || this.loadedOnlyPhysics(mob);
       if (loadedOnly && !this.currentBodyLoaded(mob)) continue;
       // Balloon-owned actors never generate cells to satisfy a suspended tether. Unknown cells
       // remain a conservative collision boundary; ordinary unowned actor behavior stays unchanged.
       const physicsGet = loadedOnly
-        ? (x: number, y: number, z: number) => this.world.getLoadedBlock(x, y, z) ?? blockId("stone")
+        ? (x: number, y: number, z: number) => this.world.getLoadedBlock(x, y, z) ?? (mob.kind === "squid" ? -1 : blockId("stone"))
         : get;
-      if (dist < 64) stepMob(physicsGet, mob, dt, this.rand, target, this.pathBudget, this.effectiveLight(mob, daylight), this.movementBias(mob), this.externalAcceleration(mob));
-      // Zombies burn under open sky by day.
-      const head = this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
+      const stepped = dist < 64 ? stepMob(physicsGet, mob, dt, mob.kind === "squid" ? this.aquaticRand : this.rand, target, this.pathBudget, mob.kind === "squid" ? 0 : this.effectiveLight(mob, daylight), this.movementBias(mob), this.externalAcceleration(mob)) : false;
+      if (mob.kind === "squid" && stepped === false) continue;
+      if (mob.kind === "squid") {
+        const exposureDamage = squidBreathDamage(mob);
+        if (exposureDamage > 0) {
+          mob.health = Math.max(0, mob.health - exposureDamage);
+          if (mob.health <= 0) { this.die(mob, "suffocation"); continue; }
+        }
+      }
+      // Squid never generates light cells; the old land-mob light path is unchanged.
+      const head = mob.kind === "squid" ? 0 : this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
       if (burnInDaylight(mob, skyOf(head), darken, dt)) {
         this.die(mob, "sunlight");
         continue;
@@ -342,6 +363,7 @@ export class MobManager {
       const model = this.models.get(mob.id)!;
       model.position.set(mob.position.x, mob.position.y, mob.position.z);
       model.rotation.y = mob.yaw;
+      if (mob.kind === "squid") animateSquidModel(model, mob, time);
       const speed = Math.hypot(mob.velocity.x, mob.velocity.z);
       const swing = Math.sin(time * 10 + mob.id) * Math.min(1, speed) * 0.7;
       const tint =
@@ -353,7 +375,11 @@ export class MobManager {
       model.traverse((o) => {
         if (o instanceof THREE.Mesh) {
           if (o.userData.leg !== undefined) o.rotation.x = o.userData.leg === 0 ? swing : -swing;
-          for (const m of Array.isArray(o.material) ? o.material : [o.material]) (m as THREE.MeshBasicMaterial).color.copy(tint);
+          for (const m of Array.isArray(o.material) ? o.material : [o.material]) {
+            const material = m as THREE.MeshBasicMaterial;
+            material.color.copy(tint);
+            if (material.userData.baseColor) material.color.multiply(material.userData.baseColor);
+          }
         }
       });
     }
@@ -400,11 +426,31 @@ export class MobManager {
   }
 
   animalCount(): number {
-    return this.mobs.filter((m) => m.kind !== "npc" && !MOB_SPECS[m.kind].hostile).length;
+    return this.mobs.filter((m) => m.kind !== "npc" && m.kind !== "squid" && !MOB_SPECS[m.kind].hostile).length;
   }
 
   hostileCount(): number {
     return this.mobs.filter((m) => MOB_SPECS[m.kind].hostile).length;
+  }
+
+  squidCount(): number { return this.mobs.filter(m => m.kind === "squid").length; }
+
+  /** Separate bounded loaded-ocean attempts; never places water or spends the land quota. */
+  private spawnSquidNear(player: Vec3): void {
+    for (let attempt = 0; attempt < 4 && this.squidCount() < MAX_SQUID && !this.idsExhausted; attempt++) {
+      const angle = this.aquaticRand() * Math.PI * 2;
+      const radius = 14 + this.aquaticRand() * 22;
+      const x = Math.floor(player.x + Math.cos(angle) * radius);
+      const z = Math.floor(player.z + Math.sin(angle) * radius);
+      for (let y = SEA_LEVEL - 2; y >= SEA_LEVEL - 8; y--) {
+        const at = { x: x + .5, y: y + .2, z: z + .5 };
+        if (!isNaturalSquidSpawnEligible(this.world, at)) continue;
+        // Avoid overlapping actors while keeping the existing single ID allocator.
+        if (this.mobs.some(m => Math.hypot(m.position.x - at.x, m.position.y - at.y, m.position.z - at.z) < 1.5)) continue;
+        this.spawn("squid", at, { yaw: this.aquaticRand() * Math.PI * 2 });
+        break;
+      }
+    }
   }
 
   /** Natural hostile spawning: a few tries per tick on the surface and in caves (see canHostileSpawn). */

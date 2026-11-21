@@ -164,16 +164,34 @@ async function setup(page: Page, mobile: boolean) {
 export async function balloonChemistryLiftRoute(page: Page, info: TestInfo, mobile: boolean) {
   const f = await setup(page, mobile); await f.craft("red"); expect(await countStack(page, "lead_rope")).toBe(1);
   await command(page, "/summon pig");
-  const pig = await page.evaluate(() => {
+  const pig = await page.evaluate(roofY => {
     const g = window.__craft.game!, m = g.mobs.mobs.at(-1)!, p = g.body.position;
     m.position = { x: p.x + 1, y: p.y, z: p.z + 2 }; m.velocity = { x: 0, y: 0, z: 0 }; m.walking = false; m.thinkTimer = 120;
     // Broad roof keeps both moving bodies within loaded solid collision bounds.
-    for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) g.world.setBlock(Math.floor(p.x) + dx, Math.floor(p.y) + 5, Math.floor(p.z) + dz, window.__craft.blockId("bedrock"));
-    return { id: m.id, position: { ...m.position }, roof: Math.floor(p.y) + 5 };
-  });
+    for (let dx = -4; dx <= 4; dx++) for (let dz = -4; dz <= 4; dz++) g.world.setBlock(Math.floor(p.x) + dx, roofY, Math.floor(p.z) + dz, window.__craft.blockId("bedrock"));
+    return { id: m.id, position: { ...m.position }, roof: roofY };
+  }, f.pad.y + 5);
   await f.select("red_balloon"); await lookAtMob(page, pig.id); await f.use(); await expect.poll(async () => (await f.records()).length).toBe(1);
   const owner = (await f.records())[0]; expect(owner.target).toEqual({ kind: "mob", mobId: pig.id }); expect(await countStack(page, "red_balloon")).toBe(0);
-  await page.waitForFunction(({ id, y }) => window.__craft.game!.mobs.mobs.find(m => m.id === id)!.position.y > y + .25, { id: pig.id, y: pig.position.y }, { timeout: 30_000 });
+  await fs.writeFile(info.outputPath("balloon-lift-fixture.json"), JSON.stringify({ pad: f.pad, pig, owner }, null, 2));
+  try {
+    await page.waitForFunction(({ id, y }) => window.__craft.game!.mobs.mobs.find(m => m.id === id)!.position.y > y + .25, { id: pig.id, y: pig.position.y }, { timeout: 30_000 });
+  } catch (error) {
+    const diagnostic = await page.evaluate(({ id, key, roof }) => {
+      const g = window.__craft.game!, mob = g.mobs.mobs.find(m => m.id === id), balloon = g.balloons.records.find(r => r.key === key);
+      const bodies = [mob && { name: "pig", position: mob.position, width: .9, height: .9 }, balloon && { name: "balloon", position: balloon.position, width: .4, height: .4 }].filter(Boolean);
+      const loadedCells: Record<string, number | null> = {};
+      for (const body of bodies) {
+        if (!body) continue;
+        for (let x = Math.floor(body.position.x - body.width / 2) - 1; x <= Math.floor(body.position.x + body.width / 2) + 1; x++)
+          for (let y = Math.floor(body.position.y) - 1; y <= Math.floor(body.position.y + body.height) + 1; y++)
+            for (let z = Math.floor(body.position.z - body.width / 2) - 1; z <= Math.floor(body.position.z + body.width / 2) + 1; z++) loadedCells[`${x},${y},${z}`] = g.world.getLoadedBlock(x, y, z) ?? null;
+      }
+      return { at: performance.now(), roof, mob, balloon, player: g.body.position, paused: g.paused, dead: g.dead, mode: g.mode, areaReady: g.renderer.isAreaReady(2), loadedCells, caveat: "Read-only failure sample; wall time and screencast frames do not establish physics tick count" };
+    }, { id: pig.id, key: owner.key, roof: pig.roof });
+    await fs.writeFile(info.outputPath("balloon-lift-failure-state.json"), JSON.stringify(diagnostic, null, 2));
+    throw error;
+  }
   // Observe the actual balloon body meeting the solid ceiling; the pig remains lifted below it.
   await page.waitForFunction(({ key, roof }) => { const r = window.__craft.game!.balloons.records.find(r => r.key === key); return !!r && r.position.y + .4 >= roof - .025 && r.position.y + .4 <= roof; }, { key: owner.key, roof: pig.roof }, { timeout: 30_000 });
   const lifted = await page.evaluate(({ id, key, roof }) => {
@@ -375,7 +393,11 @@ export async function balloonOwnershipRoute(page: Page, info: TestInfo, mobile: 
     await f.select("diamond_sword"); let stop: (() => Promise<void>) | undefined;
     const attackEvidence: { action: string; before?: unknown; after?: unknown } = { action: "actual-sword-attack" };
     try {
-      stop = await approachMob(); attackEvidence.before = await mobUsePose(); expect((attackEvidence.before as { clear: boolean }).clear).toBe(true);
+      stop = await approachMob(); attackEvidence.before = await mobUsePose();
+      // Production targetMob already applies the eye-ray reach and nearer-block priority.
+      // A moving actor can cross the approach helper's smaller feet-distance margin between
+      // observations; actual input still must acknowledge this same actor's damage/transfer.
+      expect((attackEvidence.before as { targetMob: number | null }).targetMob).toBe(deathPig);
       await expect.poll(() => page.evaluate(() => window.__craft.game!.targetMob?.id)).toBe(deathPig);
       const before = await page.evaluate(id => ({ health: window.__craft.game!.mobs.mobs.find(m => m.id === id)!.health, jointAttempts: (window as unknown as { __balloonMobRefusal?: { attempts: { stacks: { id: number; count: number }[] }[] } }).__balloonMobRefusal?.attempts.filter(a => a.stacks.some(s => s.id === 807) && a.stacks.some(s => s.id === 822)).length ?? 0 }), deathPig);
       const finger = mobile ? await page.context().newCDPSession(page) : null, vp = page.viewportSize()!;

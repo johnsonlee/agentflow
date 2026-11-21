@@ -63,7 +63,7 @@ it("reports duplicate/bad IDs and invalid nextId without renumbering or discardi
 
 it("strictly rejects nonfinite/corekind/boolean/inherited fields and preserves valid zero/negative timer values", () => {
   const good = mobSnapshot(createMob(1, "pig", position));
-  const bad: unknown[] = [null, [], Object.create(good), { ...good, kind: "squid" }, { ...good, kind: "constructor" }, { ...good, kind: "__proto__" },
+  const bad: unknown[] = [null, [], Object.create(good), { ...good, kind: "not-a-supported-mob" }, { ...good, kind: "constructor" }, { ...good, kind: "__proto__" },
     { ...good, position: { ...position, x: Infinity } }, { ...good, position: { ...position, y: NaN } }, { ...good, velocity: { x: 0, y: -Infinity, z: 0 } },
     { ...good, yaw: NaN }, { ...good, health: NaN }, { ...good, health: 0 }, { ...good, health: 11 }, { ...good, health: "invulnerable" },
     { ...good, onGround: 1 }, { ...good, walking: "true" }, { ...good, thinkTimer: Infinity }, { ...good, hurtTimer: -1 }, { ...good, burnTimer: NaN }, { ...good, detourSign: 0 }, { ...good, burning: 1 }];

@@ -17,11 +17,67 @@ async function leashSetup(page: Page, info: TestInfo, mobile: boolean) {
     const slot = name ? await slotOf(name) : await empty(); expect(slot).toBeGreaterThanOrEqual(0); expect(slot).toBeLessThan(9);
     if (mobile) await press(page.locator(`.hotbar [data-slot="${slot}"]`)); else { await page.keyboard.press(`Digit${slot + 1}`); await parkMouse(page); }
   };
+  let useSequence = 0;
   const use = async () => {
-    const vp = page.viewportSize()!;
-    if (finger) { await finger.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 123 }] }); await page.waitForTimeout(60); await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); }
-    else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); }
-    await page.waitForTimeout(300);
+    const sequence = ++useSequence, vp = page.viewportSize()!;
+    // Capture native input phases without changing controls, actor state or the input frame.
+    let before: unknown, after: unknown, originalFailure: unknown, failed = false;
+    const captureErrors: { stage: string; error: string }[] = [];
+    const captureError = (stage: string, error: unknown) => { if (captureErrors.length < 8) captureErrors.push({ stage, error: String(error).slice(0, 2000) }); };
+    try {
+    before = await page.evaluate(at => {
+      const g = window.__craft.game!;
+      const state = () => ({ at: performance.now(), body: structuredClone(g.body),
+        targetBlock: g.targetBlock ? structuredClone(g.targetBlock) : null, targetMob: g.targetMob?.id ?? null,
+        table: { ...at, loadedId: g.world.getLoadedBlock(at.x, at.y, at.z) ?? null,
+          belowLoadedId: g.world.getLoadedBlock(at.x, at.y - 1, at.z) ?? null },
+        selected: g.inventory.selected, inventory: structuredClone(g.inventory.slots),
+        paused: g.paused, dead: g.dead, areaReady: g.renderer.isAreaReady(2) });
+      const w = window as unknown as { __leashPointerEvents?: unknown[]; __leashInputState?: typeof state; __leashPointerCleanup?: () => void };
+      w.__leashPointerCleanup?.(); w.__leashPointerEvents = []; w.__leashInputState = state;
+      const listener = (event: Event) => { const e = event as PointerEvent;
+        w.__leashPointerEvents!.push({ phase: e.type, timeStamp: e.timeStamp, observedAt: performance.now(),
+          pointerId: e.pointerId, pointerType: e.pointerType, button: e.button, buttons: e.buttons,
+          x: e.clientX, y: e.clientY, target: (e.target as HTMLElement)?.className, state: state() });
+      };
+      for (const type of ["pointerdown", "pointerup", "pointercancel"]) window.addEventListener(type, listener, true);
+      w.__leashPointerCleanup = () => { for (const type of ["pointerdown", "pointerup", "pointercancel"]) window.removeEventListener(type, listener, true); };
+      return state();
+    }, table);
+      if (finger) {
+        // Ordered physical quick tap: no page wait or telemetry RPC between native start and end.
+        let contactFailure: unknown, contactFailed = false;
+        try { await finger.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 123 }] }); }
+        catch (error) { contactFailed = true; contactFailure = error; }
+        try { await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); }
+        catch (error) { if (!contactFailed) { contactFailed = true; contactFailure = error; } else captureError("touchEnd", error); }
+        if (contactFailed) throw contactFailure;
+      } else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); }
+      await page.waitForTimeout(300);
+    } catch (error) { failed = true; originalFailure = error; }
+    finally {
+      try {
+        after = await page.evaluate(() => {
+          const w = window as unknown as { __leashPointerEvents?: unknown[]; __leashInputState?: () => unknown };
+          return { state: w.__leashInputState?.(), events: w.__leashPointerEvents ?? [] };
+        });
+      } catch (error) { captureError("sample", error); }
+      finally {
+        try { await page.evaluate(() => { (window as unknown as { __leashPointerCleanup?: () => void }).__leashPointerCleanup?.(); }); }
+        catch (error) { captureError("cleanup", error); }
+      }
+      const evidence = () => ({ sequence, before, after, originalFailure: failed ? String(originalFailure).slice(0, 2000) : null, captureErrors,
+        input: mobile ? "Ordered actual CDP touchStart/touchEnd without intentional contact wait" : "Actual right mouse click",
+        qualification: "Read-only capture-phase input samples; target phase precedes target handlers. Native event timestamps expose contact duration; camera meshing readiness is not physics tick evidence. No retry or outcome writes." });
+      try { await fs.writeFile(info.outputPath(`leash-use-${sequence}.json`), JSON.stringify(evidence(), null, 2)); }
+      catch (error) {
+        captureError("write", error);
+        try { await fs.writeFile(info.outputPath(`leash-use-${sequence}-capture-fallback.json`), JSON.stringify(evidence(), null, 2)); }
+        catch (fallbackError) { captureError("fallbackWrite", fallbackError); console.error("Leash diagnostic capture failed", captureErrors); }
+      }
+    }
+    if (failed) throw originalFailure;
+    if (captureErrors.length) throw new Error(`Leash diagnostic capture failed: ${JSON.stringify(captureErrors)}`);
   };
   const open = async () => { if (mobile) await press(page.getByRole("button", { name: "Open inventory" })); else await page.keyboard.press("KeyE"); await expect(inv).toBeVisible(); };
   const close = () => press(page.getByRole("button", { name: "Close inventory" }));

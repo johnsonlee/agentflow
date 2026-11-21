@@ -68,3 +68,5 @@ export { BALLOON_COLORS, balloonColorOf, type BalloonColor } from "./balloon-col
 export * from "./balloons";
 
 export * from "./ownership-release";
+
+export * from "./aquatics";

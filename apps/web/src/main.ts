@@ -211,7 +211,7 @@ function showHelp(): void {
     <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep and chickens roam grassland; left click to attack (sheep drop wool).</p>
     <p>Survival death drops carried items and worn armor. Use <code>/gamerule keepInventory true</code> to keep them; this world rule is saved.</p>
     <h3>Commands</h3>
-    <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /summon pig|sheep|chicken|npc · /gamerule doMobSpawning false · /seed</p>`;
+    <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /summon pig|sheep|chicken|zombie|spider|squid|npc · /gamerule doMobSpawning false · /seed</p>`;
   app.replaceChildren(screen("help-screen", el("h2", "", "How to Play"), list, button("Back", showTitle)));
 }
 

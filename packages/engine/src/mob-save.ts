@@ -1,3 +1,4 @@
+import { createSquidState, SQUID, type SquidState } from "./aquatics";
 import { SPIDER, MOB_SPECS, createMob, type Mob, type MobKind } from "./entities";
 import type { ItemStack } from "./inventory";
 import { WORLD_BORDER, type Vec3 } from "./math";
@@ -5,6 +6,7 @@ import { sanitizePendingMobLoot } from "./mob-loot";
 
 /** JSON-safe semantic state. Native path-search objects and derived graph caches are never saved. */
 export interface MobSnapshot {
+  squidState?: SquidState;
   id: number;
   kind: MobKind;
   position: Vec3;
@@ -53,6 +55,13 @@ function readMob(raw: unknown): MobSnapshot | null {
     if (kind !== "spider" || !finite(anger) || anger < 0 || anger > SPIDER.angerDuration) return null;
     result.spiderAngerSeconds = anger;
   }
+  if (Object.prototype.hasOwnProperty.call(raw, "squidState")) {
+    const state = own(raw, "squidState");
+    if (kind !== "squid" || !plain(state)) return null;
+    const air = own(state, "airRemaining"), damage = own(state, "damageAccumulator"), direction = own(state, "swimDirection"), pitch = own(state, "pitch"), decision = own(state, "decisionTimer");
+    if (!finite(air) || air < 0 || air > SQUID.airSupply || !finite(damage) || damage < 0 || damage >= 2 || !vector(direction, true) || Math.hypot(direction.x, direction.y, direction.z) > 1.000001 || !finite(pitch) || Math.abs(pitch) > Math.PI / 2 || !finite(decision) || decision < 0 || decision > SQUID.decisionSeconds || Object.keys(state).some(key => !["airRemaining", "damageAccumulator", "swimDirection", "pitch", "decisionTimer"].includes(key))) return null;
+    result.squidState = { airRemaining: air, damageAccumulator: damage, swimDirection: { ...direction }, pitch, decisionTimer: decision };
+  } else if (kind === "squid") result.squidState = createSquidState();
   const burning = own(raw, "burning"), detourSign = own(raw, "detourSign");
   if (burning !== undefined) { if (typeof burning !== "boolean") return null; result.burning = burning; }
   if (detourSign !== undefined) { if (detourSign !== -1 && detourSign !== 1) return null; result.detourSign = detourSign; }
@@ -100,6 +109,7 @@ export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[]): MobSnapshot {
     walking: mob.walking, hurtTimer: mob.hurtTimer,
   };
   for (const field of [...optionalTimers, "spiderAngerSeconds", "burning", "detourSign"] as const) if (mob[field] !== undefined) raw[field] = mob[field];
+  if (mob.squidState !== undefined) raw.squidState = mob.squidState;
   if (mob.kind === "npc") { raw.name = mob.name ?? "NPC"; raw.dialogue = mob.dialogue ?? ""; }
   if (pendingLoot !== undefined) raw.pendingLoot = pendingLoot;
   const result = readMob(raw);
@@ -112,6 +122,7 @@ export function restoreMobSnapshot(snapshot: MobSnapshot): Mob {
   const saved = readMob(snapshot);
   if (!saved) throw new Error("Cannot restore invalid mob snapshot");
   const mob = createMob(saved.id, saved.kind, saved.position, { yaw: saved.yaw, name: saved.name, dialogue: saved.dialogue });
+  if (saved.squidState) mob.squidState = { ...saved.squidState, swimDirection: { ...saved.squidState.swimDirection } };
   mob.velocity = { ...saved.velocity }; mob.health = saved.health === "invulnerable" ? Infinity : saved.health;
   mob.onGround = saved.onGround; mob.thinkTimer = saved.thinkTimer; mob.walking = saved.walking; mob.hurtTimer = saved.hurtTimer;
   for (const field of [...optionalTimers, "spiderAngerSeconds", "burning", "detourSign"] as const) if (saved[field] !== undefined) (mob as unknown as Record<string, unknown>)[field] = saved[field];
