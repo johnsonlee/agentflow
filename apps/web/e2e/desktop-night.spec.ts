@@ -47,34 +47,60 @@ test.describe("PC browser: light and hostile mobs", () => {
     await command(page, "/give iron_sword");
     // Night, so the zombie doesn't burn in the sun.
     await command(page, "/time set night");
+    // Finish real weapon/cursor preparation before a living target can attack during UI waits.
+    await page.keyboard.press("Digit1");
+    await page.waitForFunction(() => window.__craft.game!.inventory.selected === 0 &&
+      window.__craft.game!.inventory.selectedStack()?.id === window.__craft.stackId("iron_sword"));
+    await parkMouse(page);
     await command(page, "/summon zombie");
     const id = (await newestMob(page, "zombie"))!;
     expect(id).not.toBeNull();
-
-    // It walks up and hits: health drops (3 per hit).
-    await expect.poll(() => health(page), { timeout: 30_000 }).toBeLessThan(20);
-    await expect(page.locator(".chat-line", { hasText: "Zombie hit you" }).first()).toBeVisible();
-
-    // Fight back with the iron sword (7 damage; a zombie has 20 HP).
-    await page.keyboard.press("Digit1");
-    await parkMouse(page);
+    const observations: unknown[] = [];
+    const combatState = () => page.evaluate(mobId => {
+      const g = window.__craft.game, mob = g?.mobs.mobs.find(m => m.id === mobId);
+      return { at: performance.now(), exists: !!g, health: g?.health ?? 0, yaw: g?.body.yaw ?? null,
+        pitch: g?.body.pitch ?? null, target: g?.targetMob?.id ?? null, mobHealth: mob?.health ?? null,
+        mobPosition: mob ? { ...mob.position } : null, selected: g?.inventory.selected ?? null,
+        selectedStack: g?.inventory.selectedStack() ? { ...g.inventory.selectedStack()! } : null,
+        dead: g?.dead ?? null, paused: g?.paused ?? null };
+    }, id);
+    // Camera-only tracking starts before the first real hit; neither actor nor health is changed.
     const stop = await trackMob(page, id);
-    await page.waitForTimeout(300);
-    await snap(page, testInfo, "19-zombie-attack");
-    for (let i = 0; i < 30 && (await mobExists(page, id)); i++) {
-      // Refuse a stale combat action instead of accidentally clicking a newly opened death menu.
-      const ready = await page.evaluate(mobId => {
-        const g = window.__craft.game;
-        return !!g && g.health > 0 && Number.isFinite(g.body.yaw) && Number.isFinite(g.body.pitch) && g.targetMob?.id === mobId;
-      }, id);
-      expect(ready, "Living player with a finite camera and the actual zombie under the crosshair").toBe(true);
-      await expect(page.getByRole("heading", { name: "You died!" })).toHaveCount(0);
-      await pressMouse(page, "left");
-      await page.waitForTimeout(450);
+    let combatFailed = false;
+    try {
+      // It walks up and hits: health drops (3 per hit).
+      await expect.poll(() => health(page), { timeout: 30_000 }).toBeLessThan(20);
+      await expect(page.locator(".chat-line", { hasText: "Zombie hit you" }).first()).toBeVisible();
+
+      // Fight back with the iron sword (7 damage; a zombie has 20 HP).
+      for (let i = 0; i < 30 && (await mobExists(page, id)); i++) {
+        // Refuse a stale combat action instead of accidentally clicking a newly opened death menu.
+        const state = await combatState(); observations.push({ phase: "before-real-attack", attempt: i, ...state });
+        const ready = state.exists && state.health > 0 && Number.isFinite(state.yaw) && Number.isFinite(state.pitch) && state.target === id;
+        expect(ready, "Living player with a finite camera and the actual zombie under the crosshair").toBe(true);
+        await expect(page.getByRole("heading", { name: "You died!" })).toHaveCount(0);
+        await pressMouse(page, "left");
+        await page.waitForTimeout(450);
+      }
+    } catch (error) {
+      combatFailed = true;
+      throw error;
+    } finally {
+      // Preserve the combat failure even if a crashed page cannot supply final diagnostics.
+      const cleanupErrors: string[] = [];
+      try { observations.push({ phase: "after-combat-or-refusal", ...await combatState() }); }
+      catch (error) { const message = String(error); cleanupErrors.push(message); observations.push({ phase: "final-readback-failed", message }); }
+      try { await stop(); }
+      catch (error) { const message = String(error); cleanupErrors.push(message); observations.push({ phase: "tracker-cleanup-failed", message }); }
+      try {
+        await testInfo.attach("actual-night-combat-observations", { body: JSON.stringify({ observations, cleanupErrors,
+          fixture: "Preowned sword and existing camera-only tracker; real cursor/tool preparation precedes summon. First combat assigns no health, mob, damage, RNG or clock outcome. The later health3 death setup is retained separately." }), contentType: "application/json" });
+      } catch (error) { cleanupErrors.push(String(error)); console.error("Night combat diagnostics attachment failed", String(error)); }
+      if (!combatFailed && cleanupErrors.length > 0) throw new Error(`Night combat diagnostics failed: ${cleanupErrors.join("; ")}`);
     }
-    await stop();
     expect(await mobExists(page, id)).toBe(false);
     await expect(page.locator(".chat-line", { hasText: "Zombie was defeated" })).toHaveCount(1);
+    await snap(page, testInfo, "19-zombie-defeated-after-real-combat");
     await collectWorldDrops(page); // Ground pickup happens after combat and its real feedback.
     const rolledFlesh = await countStack(page, "rotten_flesh");
     expect(Number.isInteger(rolledFlesh)).toBe(true); expect(rolledFlesh).toBeGreaterThanOrEqual(0); expect(rolledFlesh).toBeLessThanOrEqual(2);

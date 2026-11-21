@@ -225,6 +225,7 @@ const specs: Omit<ItemDef, "id">[] = [
   material("raw_beef", "Raw Beef", { hunger: 3, saturation: 1.8 }),
   material("cooked_beef", "Steak", { hunger: 8, saturation: 12.8 }),
   material("leather", "Leather"),
+  material("flint", "Flint"),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

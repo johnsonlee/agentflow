@@ -85,3 +85,5 @@ export * from "./ownership/bottles";
 export * from "./simulation/cows";
 export * from "./simulation/milk";
 export * from "./ownership/buckets";
+
+export * from "./ownership/gravel-harvest";

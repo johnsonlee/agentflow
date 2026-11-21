@@ -1,3 +1,4 @@
+import { gravelOwnerSnapshot } from "../ownership/gravel-harvest";
 import type { OwnershipGuard } from "../ownership/leashes";
 import { placementIntersectsFenceGeometry } from "../catalog/block-geometry";
 import type { DropSink } from "../ownership/world-drops";
@@ -69,11 +70,19 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   if (ownershipGuard && (!sink || !ownershipGuard.valid())) return false;
   if (!canBreak(world, mode, x, y, z)) return false;
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
+  const gravel = mode === "survival" && id === blockId("gravel");
+  const selectedBeforeTool = gravel ? inventory.selected : undefined;
   const tool = toolOf(inventory.selectedStack()?.id);
   const selected = inventory.selected, selectedSource = ownershipGuard ? JSON.stringify(inventory.selectedStack()) : "";
+  const gravelSlots = inventory.slots;
+  const gravelOwner = gravel ? gravelOwnerSnapshot(gravelSlots, selected, 36, true) : null;
+  if (gravel && (selectedBeforeTool !== selected || selected < 0 || selected >= 9 || !gravelOwner)) return false;
+  const gravelPlan = gravel ? world.gravelHarvests.plan(x, y, z, rand) : null;
+  if (gravel && !gravelPlan) return false;
   const guardedPartner = ownershipGuard ? doorPartner(world, x, y, z) : null;
   const partnerId = guardedPartner ? world.getBlock(...guardedPartner) : null;
   const sourceValid = () => {
+    if (gravel && (!gravelPlan!.valid() || world.getBlock(x, y + 1, z) !== above || inventory.slots !== gravelSlots || inventory.selected !== selected || !gravelOwner!())) return false;
     if (!ownershipGuard) return true;
     try {
       return ownershipGuard.valid() && world.getBlock(x, y, z) === id && world.getBlock(x, y + 1, z) === above &&
@@ -82,8 +91,9 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   };
   const supported = tryBlockById(above)?.needsSupport === true;
   const drops: ItemStack[] = [...(mode === "survival" ? [
-    ...(canHarvest(id, tool) ? blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
+    ...(canHarvest(id, tool) ? gravelPlan ? [gravelPlan.stack] : blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
   ] : []), ...externalDrops];
+  if (gravel && !sourceValid()) return false;
   // Optional world receiver stages the complete resolved batch before source removal.
   if (sink) {
     const batch = sink(drops, { x: x + .5, y: y + .5, z: z + .5 });
@@ -93,6 +103,7 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   } else {
     const trial = Inventory.fromJSON(inventory.toJSON());
     if (drops.some((stack) => trial.addStack(stack) > 0)) return false;
+    if (gravel && !sourceValid()) return false;
   }
   const partner = ownershipGuard ? guardedPartner : doorPartner(world, x, y, z);
   world.setBlock(x, y, z, AIR);

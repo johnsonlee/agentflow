@@ -1,3 +1,4 @@
+import { flintTile } from "./flint";
 import { MILK_ITEM_GENERATORS } from "./milk-items";
 import { BOTTLE_ITEM_GENERATORS } from "./bottles";
 import { BALLOON_ITEM_GENERATORS } from "./balloons";
@@ -240,3 +241,6 @@ Object.assign(ITEM_TILE_GENERATORS, BOTTLE_ITEM_GENERATORS);
 
 // Append original Cow resource and pail icons without changing earlier generators.
 Object.assign(ITEM_TILE_GENERATORS, MILK_ITEM_GENERATORS);
+
+// Append the original flaked-stone icon while retaining every earlier generator.
+ITEM_TILE_GENERATORS.item_flint = flintTile;

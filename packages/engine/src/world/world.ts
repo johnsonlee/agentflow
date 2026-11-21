@@ -1,3 +1,4 @@
+import { GravelHarvestResolver } from "../ownership/gravel-harvest";
 import { AIR, isKnownBlockId, isOpaque } from "../catalog/blocks";
 import { WORLD_BORDER } from "../core/math";
 import { MAX_LIGHT, emission, relightBlock, spread, type LightAccess } from "./light";
@@ -14,6 +15,7 @@ export type BlockListener = (x: number, y: number, z: number, id: number) => voi
  */
 export class World {
   readonly generator: TerrainGenerator;
+  readonly gravelHarvests = new GravelHarvestResolver(this);
   private readonly chunks = new Map<string, Chunk>();
   private readonly edits = new Map<string, Map<number, number>>();
   private readonly listeners = new Set<ChunkListener>();
@@ -182,6 +184,7 @@ export class World {
     const lz = toLocalCoord(z);
     const chunk = this.getChunk(cx, cz);
     if (chunk.get(lx, y, lz) === id) return;
+    this.gravelHarvests.invalidate(x, y, z);
     chunk.set(lx, y, lz, id);
 
     const key = chunkKey(cx, cz);
@@ -234,6 +237,8 @@ export class World {
   }
 
   importEdits(edits: readonly BlockEdit[]): void {
+    // Import replaces logical world contents, including same-ID cells; restore decisions afterward.
+    this.gravelHarvests.clear();
     for (const [x, y, z, id] of edits) this.setBlock(x, y, z, id);
   }
 

@@ -1,3 +1,4 @@
+import { gravelOwnerSnapshot } from "../ownership/gravel-harvest";
 import { joinLeashRefundSink, type ReleaseAttempt } from "../ownership/leashes";
 import { placementIntersectsFenceGeometry } from "../catalog/block-geometry";
 import { bodyBox } from "../simulation/physics";
@@ -10,7 +11,7 @@ import { bodyBox } from "../simulation/physics";
 import type { DropSink } from "../ownership/world-drops";
 import { cloneStack, insertStackIntoSlots } from "../ownership/stack";
 import { blockDrops } from "../simulation/farming";
-import { AIR, tryBlockById, blockById, isSolid } from "../catalog/blocks";
+import { AIR, tryBlockById, blockById, blockId, isSolid } from "../catalog/blocks";
 import { FACING_DIRS } from "../education/chalkboard";
 import type { ItemStack } from "../ownership/inventory";
 import { isKnownId, placedBlockOf } from "../catalog/items";
@@ -63,6 +64,8 @@ export interface AgentEnv {
   playerFeet?(): Vec3;
   /** New physical mode; absent preserves legacy direct inventory-transfer behavior. */
   worldDrop?: DropSink;
+  /** Deterministic engine-test seam only; browser production does not inject harvest outcomes. */
+  gravelRand?: () => number;
   /** Detached external contents join the same destruction batch, never a second receiver. */
   destroyContents?(x: number, y: number, z: number): readonly ItemStack[];
   collect?(agent: AgentState, filterId?: number): number;
@@ -199,22 +202,29 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
         const supported = tryBlockById(above)?.needsSupport === true;
         const contents = env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [];
         const contentsSource = JSON.stringify(contents);
-        const drops = [...blockDrops(id), ...(supported ? blockDrops(above) : []), ...contents];
+        const gravel = id === blockId("gravel"), selected = agent.selected, slots = agent.slots;
+        const gravelOwner = gravel ? gravelOwnerSnapshot(slots, selected, AGENT_SLOTS) : null;
+        if (gravel && !gravelOwner) return { ok: false, message: "Invalid gravel harvest owner" };
+        const gravelPlan = gravel ? world.gravelHarvests.plan(t.x, t.y, t.z, env.gravelRand) : null;
+        if (gravel && !gravelPlan) return { ok: false, message: "Cannot resolve gravel harvest" };
+        const drops = [...(gravelPlan ? [gravelPlan.stack] : blockDrops(id)), ...(supported ? blockDrops(above) : []), ...contents];
         const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
         const partner = doorPartner(world, t.x, t.y, t.z), partnerId = partner ? world.getBlock(...partner) : null;
         const sourceValid = () => {
           try {
-            return (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
+            return (!gravel || gravelPlan!.valid() && agent.slots === slots && agent.selected === selected && gravelOwner!()) && (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
               (!partner || world.getBlock(...partner) === partnerId) && (!lease || JSON.stringify(env.destroyContents?.(t.x, t.y, t.z) ?? []) === contentsSource);
           } catch { return false; }
         };
+        if (gravel && !sourceValid()) return { ok: false, message: "Gravel source changed" };
         if (env.worldDrop) {
           const sink = lease ? joinLeashRefundSink(lease, env.worldDrop, sourceValid) : env.worldDrop;
           const batch = sink(drops, { x: t.x + .5, y: t.y + .5, z: t.z + .5 });
-          if (!batch || lease && !sourceValid() || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
+          if (!batch || (lease || gravel) && !sourceValid() || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
         } else {
           if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
           if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
+          if (gravel && !sourceValid()) return { ok: false, message: "Gravel source changed" };
         }
         world.setBlock(t.x, t.y, t.z, AIR);
         if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);

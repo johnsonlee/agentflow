@@ -1,3 +1,4 @@
+import { sanitizeGravelHarvestState, type GravelHarvestData } from "../ownership/gravel-harvest";
 import { inspectBucketOwner, isBucketId } from "../ownership/buckets";
 import { diagnoseRawCowState } from "./mob-save";
 import { inspectBottleOwner, isBottleId } from "../ownership/bottles";
@@ -71,6 +72,9 @@ export interface SaveData {
   /** Pending redstone ticks (optional; sanitized by `sanitizeScheduled` on load). */
   redstone?: unknown;
   farming?: FarmingState;
+  gravelHarvests?: GravelHarvestData;
+  /** Derived raw decision diagnostic, never trusted or serialized. */
+  gravelHarvestInvalid?: boolean;
   /** Optional v1 world-owned items; WorldDrops validates and reports corrupt records before save overwrite. */
   worldDrops?: WorldDropsData;
   /** Optional v1 live mob owners; validated separately without truncating valid records. */
@@ -84,7 +88,7 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
   const status = sanitizePlayerStatus(owned.playerStatus);
   if (_statusInvalid || status.invalid) throw new Error("Cannot serialize invalid player status");
   if (status.data.poison) owned.playerStatus = status.data; else delete owned.playerStatus;
@@ -222,6 +226,7 @@ export function parseSave(text: string): SaveData {
   const bottleOwnershipIssues = diagnoseRawBottleOwnership(raw);
   const bucketOwnershipIssues = diagnoseRawBucketOwnership(raw);
   const cowStateInvalid = diagnoseRawCowState(own(raw,"mobs"));
+  const gravelHarvest = sanitizeGravelHarvestState(own(raw,"gravelHarvests"));
   const name = own(raw, "name");
   const mode = own(raw, "mode");
   const time = own(raw, "timeOfDay");
@@ -264,6 +269,8 @@ export function parseSave(text: string): SaveData {
   if (bottleOwnershipIssues.length) save.bottleOwnershipIssues = bottleOwnershipIssues;
   if (bucketOwnershipIssues.length) save.bucketOwnershipIssues = bucketOwnershipIssues;
   if (cowStateInvalid) save.cowStateInvalid = true;
+  if (gravelHarvest.present) save.gravelHarvests = gravelHarvest.data;
+  if (gravelHarvest.invalid) save.gravelHarvestInvalid = true;
   const status = sanitizePlayerStatus(own(raw, "playerStatus"));
   if (status.invalid) save.playerStatusInvalid = true;
   else if (status.data.poison) save.playerStatus = status.data;

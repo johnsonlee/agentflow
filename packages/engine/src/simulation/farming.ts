@@ -1,3 +1,4 @@
+import { gravelDrops } from "../ownership/gravel-harvest";
 /** Seeded loaded-only wheat simulation. Cadence and fertility are explicit approximations, not an Education equivalence claim. */
 import { AIR, tryBlockById, blockId } from "../catalog/blocks";
 import { WORLD_HEIGHT } from "../world/chunk";
@@ -30,6 +31,7 @@ export function farmDrops(id: number, rand: () => number = Math.random): ItemSta
   return [{ id: stackId("wheat"), count: 1 }, ...(count ? [{ id: seeds, count }] : [])];
 }
 export function blockDrops(id: number, rand: () => number = Math.random): ItemStack[] {
+  if (id === blockId("gravel")) return gravelDrops(rand);
   const farm = farmDrops(id, rand);
   if (farm !== null) return farm;
   const count = dropCount(id, rand);
