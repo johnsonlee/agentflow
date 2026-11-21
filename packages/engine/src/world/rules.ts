@@ -39,7 +39,8 @@ export function canBuildAt(world: World, mode: GameMode, x: number, y: number, z
 
 export function canBreak(world: World, mode: GameMode, x: number, y: number, z: number): boolean {
   const id = world.getBlock(x, y, z);
-  if (id === AIR || isFluidBlock(id)) return false;
+  if (!world.portals.canChange(x,y,z)) return false;
+  if (id === AIR || id === 192 || id === 193 || isFluidBlock(id)) return false;
   if (mode === "survival" && !Number.isFinite(blockById(id).hardness)) return false;
   return canBuildAt(world, mode, x, y, z);
 }
@@ -69,6 +70,15 @@ export function breakTime(mode: GameMode, id: number, tool: ToolSpec | null = nu
  * Plants resting on the block are broken too. Returns false if the action is not allowed.
  */
 export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard): boolean {
+  if(world.blockSourceLeaseBusy)return false;
+  if(!world.portals.hasDependency(x,y,z))return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard);
+  if(!canBreak(world,mode,x,y,z))return false;
+  const edits:import("./world").BlockEdit[]=[[x,y,z,AIR]],partner=doorPartner(world,x,y,z),above=world.getBlock(x,y+1,z);
+  if(partner)edits.push([...partner,AIR]);if(tryBlockById(above)?.needsSupport)edits.push([x,y+1,z,AIR]);
+  const lease=world.reserveBlockBatch(edits);if(!lease)return false;
+  try{return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard,lease);}finally{lease.release();}
+}
+function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard, portalBatch?:import("./world").BlockSourceLease): boolean {
   if (ownershipGuard && (!sink || !ownershipGuard.valid())) return false;
   if (!canBreak(world, mode, x, y, z)) return false;
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
@@ -86,6 +96,7 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   const partnerId = guardedPartner ? world.getBlock(...guardedPartner) : null;
   const sourceValid = () => {
     if (gravel && (!gravelPlan!.valid() || world.getBlock(x, y + 1, z) !== above || inventory.slots !== gravelSlots || inventory.selected !== selected || !gravelOwner!())) return false;
+    if(portalBatch&&!portalBatch.valid())return false;
     if (!ownershipGuard) return true;
     try {
       return ownershipGuard.valid() && world.getBlock(x, y, z) === id && world.getBlock(x, y + 1, z) === above &&
@@ -109,6 +120,10 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
     if (gravel && !sourceValid()) return false;
   }
   const partner = ownershipGuard ? guardedPartner : doorPartner(world, x, y, z);
+  if(portalBatch)return portalBatch.commit(()=>{
+    if(!sink)for(const stack of drops)inventory.addStack(stack);
+    if(mode==="survival"&&tool&&blockById(id).hardness>0)inventory.damageSelected(1);
+  });
   world.setBlock(x, y, z, AIR);
   if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
   if (supported) world.setBlock(x, y + 1, z, AIR);
@@ -120,6 +135,7 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
 /** Hoe use obeys build rules and consumes durability only after a successful transformation. */
 export function tillSoil(world: World, inventory: Inventory, mode: GameMode,
   hit: { x: number; y: number; z: number; normal: { x: number; y: number; z: number } }): boolean {
+  if(world.blockSourceLeaseBusy)return false;
   const { x, y, z, normal } = hit;
   if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT - 1 || normal.y < 0 ||
     toolOf(inventory.selectedStack()?.id)?.kind !== "hoe") return false;
@@ -171,6 +187,7 @@ export function placeBlock(
   /** Direction the player looks (0-3, as FACING_VECTORS): orients repeaters and doors. */
   look = 0,
 ): boolean {
+  if(world.blockSourceLeaseBusy)return false;
   if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT) return false;
   const stack = inventory.selectedStack();
   // Items place nothing, except Lab Table products that place a block (heat block, glow stick, ...).

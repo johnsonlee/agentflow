@@ -268,7 +268,7 @@ export function isKnownItemId(id: number): boolean {
 
 /** True for a supported inventory identity; Fire is world-only, not an owned stack. */
 export function isKnownId(id: number): boolean {
-  return isKnownBlockId(id) && id !== blockId("fire") && id !== blockId("lava") || isKnownItemId(id);
+  return isKnownBlockId(id) && id !== blockId("fire") && id !== blockId("lava") && id !== 192 && id !== 193 || isKnownItemId(id);
 }
 
 export function nameOf(id: number): string {
@@ -303,7 +303,7 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
 // Ordinary and stained glass shatter without Silk Touch (enchantments are not modelled).
 // Keep dropOf/baseStackId as canonical identities; zero is a quantity, never the air item.
 const BLOCK_DROP_COUNTS = new Map<string, number>([
-  ["bookshelf", 3], ["glass", 0], ["fire", 0],
+  ["bookshelf", 3], ["glass", 0], ["fire", 0], ["nether_portal_x", 0], ["nether_portal_z", 0],
   // Four-ball harvest is an application rule pending direct current Education runtime proof.
   // Agent destroy shares these quantities with its existing tool-independent harvest semantics.
   ["snow", 4],
@@ -346,7 +346,7 @@ export function baseStackId(id: number): number {
 
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
-  if (id === blockId("fire") || id === blockId("lava")) return null;
+  if (id === blockId("fire") || id === blockId("lava") || id === 192 || id === 193) return null;
   if (isKnownBlockId(id)) return id;
   if (!isKnownItemId(id)) return null;
   const places = itemById(id).places;

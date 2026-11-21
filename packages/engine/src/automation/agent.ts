@@ -145,6 +145,7 @@ function addToAgent(agent: AgentState, stack: ItemStack): number {
 
 /** Executes one Agent command against the world. */
 export function runAgentCommand(world: World, agent: AgentState, cmd: AgentCommand, env: AgentEnv = {}): AgentResult {
+  if(world.blockSourceLeaseBusy&&cmd.op!=="detect"&&cmd.op!=="inspect")return {ok:false,message:"World source is reserved"};
   const target = (dir: AgentDirection) => {
     const [dx, dy, dz] = agentStep(agent, dir);
     return { x: agent.x + dx, y: agent.y + dy, z: agent.z + dz };
@@ -195,6 +196,15 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
       if (id === blockId("fire")) return { ok: extinguishFire(world, t.x, t.y, t.z), message: "Fire extinguished" };
+      const portalDependency=world.portals.hasDependency(t.x,t.y,t.z);
+      const portalEdits:import("../world/world").BlockEdit[]=[[t.x,t.y,t.z,AIR]];
+      if(portalDependency){
+        const portalAbove=world.getBlock(t.x,t.y+1,t.z),portalPartner=doorPartner(world,t.x,t.y,t.z);
+        if(portalPartner)portalEdits.push([...portalPartner,AIR]);if(tryBlockById(portalAbove)?.needsSupport)portalEdits.push([t.x,t.y+1,t.z,AIR]);
+      }
+      const portalSource=portalDependency?world.reserveBlockBatch(portalEdits):null;
+      if(portalDependency&&!portalSource)return {ok:false,message:"Portal source is unavailable"};
+      try {
       const attempt = env.beginDestroyOwnership?.(t.x, t.y, t.z) ?? { kind: "none" as const };
       if (attempt.kind === "refused") return { ok: false, message: attempt.reason };
       const lease = attempt.kind === "ready" ? attempt.lease : null;
@@ -214,7 +224,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
         const partner = doorPartner(world, t.x, t.y, t.z), partnerId = partner ? world.getBlock(...partner) : null;
         const sourceValid = () => {
           try {
-            return (!gravel || gravelPlan!.valid() && agent.slots === slots && agent.selected === selected && gravelOwner!()) && (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
+            return (!portalSource||portalSource.valid()) && (!gravel || gravelPlan!.valid() && agent.slots === slots && agent.selected === selected && gravelOwner!()) && (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
               (!partner || world.getBlock(...partner) === partnerId) && (!lease || JSON.stringify(env.destroyContents?.(t.x, t.y, t.z) ?? []) === contentsSource);
           } catch { return false; }
         };
@@ -228,6 +238,11 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
           if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
           if (gravel && !sourceValid()) return { ok: false, message: "Gravel source changed" };
         }
+        if(portalSource){
+          const committed=portalSource.commit(()=>{if(!env.worldDrop)for(const stack of drops)addToAgent(agent,stack);});
+          if(!committed)return {ok:false,message:"Portal source changed"};
+          env.afterDestroy?.(t.x,t.y,t.z);return {ok:true};
+        }
         world.setBlock(t.x, t.y, t.z, AIR);
         if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
         if (supported) world.setBlock(t.x, t.y + 1, t.z, AIR);
@@ -235,6 +250,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
         env.afterDestroy?.(t.x, t.y, t.z);
         return { ok: true };
       } finally { lease?.cancel(); }
+      } finally {portalSource?.release();}
     }
     case "detect": {
       const t = target(cmd.dir);

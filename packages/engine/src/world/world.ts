@@ -1,3 +1,4 @@
+import { PortalSystem, isPortalActionBusy } from "../simulation/portals";
 import { FluidSystem, planFluidChanges, isLavaBlock, isWaterBlock } from "../simulation/fluids";
 import { FireSystem } from "../simulation/fire";
 import { GravelHarvestResolver } from "../ownership/gravel-harvest";
@@ -9,6 +10,7 @@ import { TerrainGenerator } from "./generator";
 
 export type BlockEdit = [x: number, y: number, z: number, id: number];
 export interface WorldCellSnapshot { x:number;y:number;z:number;id:number;revision:number;chunk:Chunk }
+export interface BlockSourceLease {valid():boolean;commit(finalize?:()=>void):boolean;release():void}
 export type ChunkListener = (cx: number, cz: number) => void;
 export type BlockListener = (x: number, y: number, z: number, id: number) => void;
 
@@ -21,8 +23,12 @@ export class World {
   readonly gravelHarvests = new GravelHarvestResolver(this);
   readonly fires = new FireSystem(this);
   readonly fluids = new FluidSystem(this);
+  readonly portals = new PortalSystem(this);
   private readonly cellRevisions = new Map<string,number>();
   private batchBusy = false;
+  private sourceLease:symbol|undefined;
+  private sourceLeaseDepth=0;
+  get blockSourceLeaseBusy():boolean{return this.sourceLeaseDepth>0;}
   private loadingChunks=0;
   private readonly pendingBlockNotifications=new Map<string,BlockEdit>();
   private readonly pendingChunkNotifications=new Set<string>();
@@ -65,6 +71,7 @@ export class World {
     const key = chunkKey(cx, cz);
     let chunk = this.chunks.get(key);
     if (!chunk) {
+      if(this.sourceLease)throw new Error("World source lease prevents chunk generation");
       chunk = this.generator.generate(cx, cz);
       const chunkEdits = this.edits.get(key);
       if (chunkEdits) for (const [index, id] of chunkEdits) chunk.blocks[index] = id;
@@ -167,6 +174,7 @@ export class World {
 
   /** Drops a chunk from memory; edits are kept and re-applied when it is regenerated. */
   unloadChunk(cx: number, cz: number): void {
+    if(this.sourceLease)return;
     this.chunks.delete(chunkKey(cx, cz));
     if (this.lastPeek?.cx === cx && this.lastPeek.cz === cz) this.lastPeek = undefined;
   }
@@ -198,9 +206,30 @@ export class World {
     return this.peek(s.x,s.z)===s.chunk&&(this.cellRevisions.get(`${s.x},${s.y},${s.z}`)??0)===s.revision&&s.chunk.get(toLocalCoord(s.x),s.y,toLocalCoord(s.z))===s.id;
   }
 
+  /** Bounded source reservation across a drop receiver. Supported writes, unloads and
+   * generation are refused; direct raw Chunk storage mutation is outside this contract. */
+  reserveBlockBatch(edits:readonly BlockEdit[]):BlockSourceLease|null {
+    if(this.batchBusy||this.sourceLease||!Array.isArray(edits)||!edits.length||edits.length>CHUNK_SIZE*CHUNK_SIZE*WORLD_HEIGHT*2||edits.some(e=>!Array.isArray(e)||e.length!==4))return null;
+    if(new Set(edits.map(e=>`${e[0]},${e[1]},${e[2]}`)).size!==edits.length)return null;
+    const detached=edits.map(e=>[...e] as BlockEdit),portal=this.portals.planChanges(detached);if(!portal)return null;
+    const expected:WorldCellSnapshot[]=[...portal.expected];
+    for(const e of detached){if(!isKnownBlockId(e[3]))return null;const s=this.captureCell(e[0],e[1],e[2]);if(!s)return null;expected.push(s);}
+    const token=Symbol("block-source-lease");let released=false,used=false,handoff=false;
+    const valid=()=>!released&&!used&&(this.sourceLease===token||handoff)&&portal.valid()&&expected.every(s=>this.cellUnchanged(s));
+    this.sourceLease=token;this.sourceLeaseDepth++;
+    const release=()=>{if(released)return;released=true;if(this.sourceLease===token)this.sourceLease=undefined;this.sourceLeaseDepth--;};
+    return {valid,release,commit:(finalize?:()=>void)=>{
+      if(!valid()){release();return false;}
+      // No callback between releasing the write lock and entering batchBusy.
+      handoff=true;this.sourceLease=undefined;
+      try {const committed=this.commitBlockBatch(detached,finalize,expected,valid);used=true;return committed;}
+      finally {release();}
+    }};
+  }
+
   /** Trusted synchronous owner finalization only. Fluid actions never generate unloaded targets. */
   commitBlockBatch(edits:readonly BlockEdit[],finalize?:()=>void,expected:readonly WorldCellSnapshot[]=[],ownerValid?:()=>boolean):boolean {
-    if(this.batchBusy)return false;this.batchBusy=true;
+    if(this.batchBusy||this.sourceLease)return false;this.batchBusy=true;
     const changed:BlockEdit[]=[],notifyChunks=new Set<string>();let committed=false;
     try {
       if(!Array.isArray(edits)||edits.length<1||edits.length>CHUNK_SIZE*CHUNK_SIZE*WORLD_HEIGHT*2)return false;
@@ -209,6 +238,8 @@ export class World {
         if(!Array.isArray(e)||e.length!==4||!isKnownBlockId(e[3])||!this.captureCell(e[0],e[1],e[2]))return false;
         const k=`${e[0]},${e[1]},${e[2]}`;if(staged.has(k))return false;staged.set(k,[e[0],e[1],e[2],e[3]]);
       }
+      const portalPlan=this.portals.planChanges([...staged.values()]);if(!portalPlan)return false;
+      for(const e of portalPlan.edits)staged.set(`${e[0]},${e[1]},${e[2]}`,e);
       const resolution=planFluidChanges(this,[...staged.values()]);
       for(const e of resolution.edits)staged.set(`${e[0]},${e[1]},${e[2]}`,e);
       // Fire invalidation historically removes a Fire above any changed support. Stage those
@@ -222,13 +253,14 @@ export class World {
       }
       const captures:WorldCellSnapshot[]=[];
       for(const e of staged.values()){const snapshot=this.captureCell(e[0],e[1],e[2]);if(!snapshot)return false;captures.push(snapshot);if(snapshot.id!==e[3])changed.push(e);}
-      if(!changed.length||!resolution.valid()||expected.some(s=>!this.cellUnchanged(s))||ownerValid&&!ownerValid()||!resolution.valid()||captures.some(s=>!this.cellUnchanged(s))||expected.some(s=>!this.cellUnchanged(s)))return false;
+      if(!changed.length||!portalPlan.valid()||!resolution.valid()||expected.some(s=>!this.cellUnchanged(s))||ownerValid&&!ownerValid()||!portalPlan.valid()||!resolution.valid()||captures.some(s=>!this.cellUnchanged(s))||expected.some(s=>!this.cellUnchanged(s)))return false;
       for(const[x,y,z,id]of changed){
         const chunk=this.peek(x,z)!;chunk.set(toLocalCoord(x),y,toLocalCoord(z),id);this.mutationVersion++;this.cellRevisions.set(`${x},${y},${z}`,this.mutationVersion);this.gravelHarvests.invalidate(x,y,z);
         const ck=chunkKey(chunk.cx,chunk.cz);let edits=this.edits.get(ck);if(!edits)this.edits.set(ck,edits=new Map());edits.set(Chunk.index(toLocalCoord(x),y,toLocalCoord(z)),id);
         notifyChunks.add(ck);if(toLocalCoord(x)===0)notifyChunks.add(chunkKey(chunk.cx-1,chunk.cz));if(toLocalCoord(x)===CHUNK_SIZE-1)notifyChunks.add(chunkKey(chunk.cx+1,chunk.cz));if(toLocalCoord(z)===0)notifyChunks.add(chunkKey(chunk.cx,chunk.cz-1));if(toLocalCoord(z)===CHUNK_SIZE-1)notifyChunks.add(chunkKey(chunk.cx,chunk.cz+1));
       }
       for(const[x,y,z]of changed)this.fires.blockChanged(x,y,z);
+      portalPlan.commit();
       finalize?.();
       committed=true;
       this.lightTouched.clear();for(const[x,y,z]of changed)relightBlock(this.lightAccess,x,y,z);for(const k of this.lightTouched)notifyChunks.add(k);this.lightTouched.clear();
@@ -242,7 +274,7 @@ export class World {
 
   /** Valid ordinary writes preserve lazy generation; callers needing refusal use loaded batches. */
   setBlock(x:number,y:number,z:number,id:number,finalize?:()=>void):void {
-    if(!isKnownBlockId(id)||this.batchBusy)return;x=Math.floor(x);y=Math.floor(y);z=Math.floor(z);
+    if(!isKnownBlockId(id)||this.batchBusy||this.sourceLease)return;x=Math.floor(x);y=Math.floor(y);z=Math.floor(z);
     if(!(y>=0&&y<WORLD_HEIGHT)||!(Math.abs(x)<=WORLD_BORDER)||!(Math.abs(z)<=WORLD_BORDER))return;
     this.getChunk(toChunkCoord(x),toChunkCoord(z));if(this.getLoadedBlock(x,y,z)===id)return;
     this.commitBlockBatch([[x,y,z,id]],finalize);
@@ -276,6 +308,7 @@ export class World {
   }
 
   importEdits(edits: readonly BlockEdit[]): void {
+    if(this.batchBusy||isPortalActionBusy(this))return;
     // Import replaces logical world contents, including same-ID cells; restore decisions afterward.
     this.gravelHarvests.clear();
     this.fires.clear();

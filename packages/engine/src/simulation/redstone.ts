@@ -150,6 +150,7 @@ export class Redstone {
 
   /** Advances by `dt` seconds of game time, running whole redstone ticks. */
   update(dt: number): void {
+    if(this.world.blockSourceLeaseBusy)return;
     if (!Number.isFinite(dt) || dt <= 0) return;
     this.accumulator = Math.min(this.accumulator + dt, REDSTONE_TICK * 5);
     while (this.accumulator >= REDSTONE_TICK) {
@@ -160,6 +161,7 @@ export class Redstone {
 
   /** One redstone tick: due scheduled updates, then (bounded) dirty-cell processing. */
   step(): void {
+    if(this.world.blockSourceLeaseBusy)return;
     this.tick++;
     const due = [...this.scheduled.values()].filter((s) => s.due <= this.tick).sort((a, b) => a.due - b.due).slice(0, MAX_SCHEDULED_PER_TICK);
     for (const s of due) {
@@ -171,6 +173,7 @@ export class Redstone {
 
   /** Runs until nothing is pending (tests and initial settling); at most `maxTicks` ticks. */
   settle(maxTicks = 100): void {
+    if(this.world.blockSourceLeaseBusy)return;
     for (let i = 0; i < maxTicks && (this.dirty.size > 0 || this.scheduled.size > 0); i++) this.step();
   }
 
@@ -381,6 +384,7 @@ export class Redstone {
    * delay. Returns true if the block reacted (so the use doesn't also place a block).
    */
   interact(x: number, y: number, z: number): boolean {
+    if(this.world.blockSourceLeaseBusy)return false;
     const c: Cell = [x, y, z];
     const info = INFO.get(this.get(c));
     if (!info) return false;
@@ -411,6 +415,7 @@ export class Redstone {
 
   /** Pressure plates: `occupied` holds the cells (keys "x,y,z") where a player or mob stands this tick. */
   updatePlates(occupied: ReadonlySet<string>): void {
+    if(this.world.blockSourceLeaseBusy)return;
     for (const k of occupied) {
       if (this.activePlates.has(k)) continue;
       const [x, y, z] = k.split(",").map(Number);
@@ -438,6 +443,7 @@ export class Redstone {
    * left pressed without a pending release, from the saved edits.
    */
   restore(scheduled: readonly ScheduledTick[], edits: readonly BlockEdit[]): void {
+    if(this.world.blockSourceLeaseBusy)return;
     for (const s of scheduled) this.schedule([s.x, s.y, s.z], s.due, s.kind);
     for (const [x, y, z, id] of edits) {
       const info = INFO.get(id);

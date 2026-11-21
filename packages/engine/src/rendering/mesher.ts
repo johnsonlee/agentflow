@@ -64,6 +64,14 @@ const FACES: readonly FaceDef[] = [
   { dir: [0, 0, -1], corners: [[1, 0, 0], [0, 0, 0], [0, 1, 0], [1, 1, 0]], shade: 0.8, key: "side" },
 ];
 
+// Both sides of a cell-centred surface; portal cells are not opaque cubes.
+const PORTAL_X_FACES: readonly FaceDef[] = FACES.filter(face => face.dir[2] !== 0).map(face => ({
+  ...face, shade: 1, corners: face.corners.map(([x, y]) => [x, y, .5] as const),
+}));
+const PORTAL_Z_FACES: readonly FaceDef[] = FACES.filter(face => face.dir[0] !== 0).map(face => ({
+  ...face, shade: 1, corners: face.corners.map(([, y, z]) => [.5, y, z] as const),
+}));
+
 const AO_LEVELS = [1, 0.78, 0.62, 0.5];
 const WATER = blockId("water");
 const LIQUID_TOP = 0.875;
@@ -113,6 +121,11 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
         if (id === AIR) continue;
         const def = tryBlockById(id);
         if (!def) continue;
+        if (def.name === "nether_portal_x" || def.name === "nether_portal_z") {
+          const faces = def.name === "nether_portal_x" ? PORTAL_X_FACES : PORTAL_Z_FACES;
+          for (const face of faces) addFace(translucent, face, x, y, z, uv(def.faces.side), null, false, 0xff);
+          continue;
+        }
         // Drawn elsewhere (e.g. chalkboards are textured planes).
         if (def.shape === "none") continue;
         if (def.shape === "cross" || def.shape === "torch") {

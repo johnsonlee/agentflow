@@ -31,7 +31,7 @@ export function farmDrops(id: number, rand: () => number = Math.random): ItemSta
   return [{ id: stackId("wheat"), count: 1 }, ...(count ? [{ id: seeds, count }] : [])];
 }
 export function blockDrops(id: number, rand: () => number = Math.random): ItemStack[] {
-  if (id === blockId("fire") || id === blockId("lava")) return [];
+  if (id === blockId("fire") || id === blockId("lava") || id === 192 || id === 193) return [];
   if (id === blockId("gravel")) return gravelDrops(rand);
   const farm = farmDrops(id, rand);
   if (farm !== null) return farm;
@@ -47,6 +47,7 @@ export function hasFarmWater(world: World, x: number, y: number, z: number): boo
   return false;
 }
 export function matureCrop(world: World, x: number, y: number, z: number): number {
+  if(world.blockSourceLeaseBusy)return 0;
   const id = world.getLoadedBlock(x, y, z), age = id === undefined ? null : wheatAge(id);
   if (age === null || age === 7 || farmlandMoisture(world.getLoadedBlock(x, y - 1, z) ?? AIR) === null) return 0;
   world.setBlock(x, y, z, wheatId(7));
@@ -86,6 +87,7 @@ export class FarmingSystem {
   dispose(): void { this.unsubscribe(); }
   toJSON(): FarmingState { return { ...this.state }; }
   update(dt: number, skyLight = 15): void {
+    if(this.world.blockSourceLeaseBusy)return;
     if (!Number.isFinite(dt) || dt < 0 || dt > 86400) return;
     skyLight = Number.isFinite(skyLight) ? Math.max(0, Math.min(15, skyLight)) : 0;
     this.state.accumulator = Math.round(Math.min(86400, this.state.accumulator + dt) * 1e9) / 1e9;

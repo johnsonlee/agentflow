@@ -36,6 +36,7 @@ function cellsAround(x: number, y: number, z: number, r: number): [number, numbe
 
 /** Replaces blocks per `swap` around a point, nearest first, at most EFFECT_LIMIT. Returns the count. */
 function transform(world: World, x: number, y: number, z: number, swap: ReadonlyMap<number, number>): number {
+  if(world.blockSourceLeaseBusy)return 0;
   if (![x, y, z].every(Number.isInteger)) return 0;
   let changed = 0;
   for (const [cx, cy, cz] of cellsAround(x, y, z, EFFECT_RADIUS)) {
@@ -63,6 +64,7 @@ export function freezeAround(world: World, x: number, y: number, z: number): num
  * meal). Returns the number of plants grown (0 if the target isn't grass).
  */
 export function fertilizeAround(world: World, x: number, y: number, z: number, rand: () => number = Math.random): number {
+  if(world.blockSourceLeaseBusy)return 0;
   if (![x, y, z].every(Number.isInteger) || world.getBlock(x, y, z) !== GRASS) return 0;
   let grown = 0;
   for (const [cx, cy, cz] of cellsAround(x, y, z, EFFECT_RADIUS)) {
@@ -87,6 +89,7 @@ export function useLabProduct(
   hit: { x: number; y: number; z: number; normal: { x: number; y: number; z: number } },
   rand: () => number = Math.random,
 ): number {
+  if(world.blockSourceLeaseBusy)return 0;
   const name = nameOf(itemId);
   if (name === "ice_bomb") return freezeAround(world, hit.x + hit.normal.x, hit.y + hit.normal.y, hit.z + hit.normal.z);
   if (name === "super_fertilizer") {

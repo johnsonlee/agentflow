@@ -1,3 +1,4 @@
+import { sanitizePortalState, validatePortalEdits, isPortalBlock, type PortalData } from "../simulation/portals";
 import { sanitizeFluidState, type FluidData } from "../simulation/fluids";
 import { sanitizeGeneratorVersion, type GeneratorVersion } from "../world/generator";
 import { isKnownBlockId } from "../catalog/blocks";
@@ -41,6 +42,9 @@ export interface SaveData {
   generatorVersionInvalid?: boolean;
   fluids?: FluidData;
   fluidsInvalid?: boolean;
+  portals?: PortalData;
+  portalsInvalid?: boolean;
+  portalOwnershipIssues?: GlowOwnershipIssue[];
   mode: GameMode;
   timeOfDay: number;
   /** `position` is null when a damaged save had none (the game then uses the spawn point). */
@@ -103,7 +107,10 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const portals=sanitizePortalState(owned.portals);
+  if(_portalsInvalid||_portalIssues?.length||portals.invalid||!validatePortalEdits(owned.portals,owned.edits)||diagnoseRawPortalOwnership(owned).length)throw new Error("Cannot serialize invalid portal ownership");
+  if(portals.present)owned.portals=portals.data;
   const generator=sanitizeGeneratorVersion(owned.generatorVersion),fluids=sanitizeFluidState(owned.fluids);
   if(_fluidsInvalid||_generatorVersionInvalid||generator.invalid||fluids.invalid||(generator.present||fluids.present)&&!validFluidEdits(owned.edits))throw new Error("Cannot serialize invalid fluids or terrain version");
   if(generator.present)owned.generatorVersion=generator.version;
@@ -141,11 +148,12 @@ export interface GlowOwnershipIssue { path: string; reason: string }
 
 /** Scan raw owners before sanitizeInventoryPending/fromJSON/Agent/furnace loaders can drop state.
  * This produces diagnostics only; Game must preserve the original raw text and block overwrite. */
-function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket" | "ignition"): GlowOwnershipIssue[] {
+function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket" | "ignition" | "portal"): GlowOwnershipIssue[] {
   const issues: GlowOwnershipIssue[] = [];
   if (!isObj(raw)) return issues;
   const check = (value: unknown, path: string, supported = true) => {
     if (typeof value !== "object" || value === null) return;
+    if(field==="portal"){if(isPortalBlock(Object.getOwnPropertyDescriptor(value,"id")?.value))issues.push({path,reason:"hidden portal physical cell cannot be an owned item"});return;}
     // New Sparkler identities require recovery even when their legacy metadata is absent.
     const legacySparkler = field === "sparkler" && isObj(value) && typeof own(value, "id") === "number" && isSparklerId(own(value, "id") as number);
     const bottle = field === "bottle" && isObj(value) && typeof own(value,"id") === "number" && isBottleId(own(value,"id") as number);
@@ -184,7 +192,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
         else check(rawOffhand, "inventory.offhand");
       }
     }
-    if ((field === "bottle" || field === "bucket" || field === "ignition") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
+    if ((field === "bottle" || field === "bucket" || field === "ignition" || field === "portal") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
     const equipment = object(own(inventory, "equipment"), "inventory.equipment");
     if (equipment) for (const key of Object.keys(equipment))
       check(own(equipment, key), `inventory.equipment.${key}`, false); // Glow is never armor.
@@ -194,7 +202,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   if (agent) {
     if (field === "sparkler" && Object.prototype.hasOwnProperty.call(agent, "offhand"))
       issues.push({ path: "agent.offhand", reason: "Agent offhand is an unsupported owner" });
-    if (field === "bottle" || field === "bucket" || field === "ignition") check(own(agent,"offhand"),"agent.offhand",false);
+    if (field === "bottle" || field === "bucket" || field === "ignition" || field === "portal") check(own(agent,"offhand"),"agent.offhand",false);
     const valid = integer(own(agent, "x")) && integer(own(agent, "y"), 0, 1000) && integer(own(agent, "z"))
       && integer(own(agent, "facing"), 0, 3) && integer(own(agent, "selected"), 0, 26);
     if (!valid) issues.push({ path: "agent", reason: "invalid owned-item Agent envelope" });
@@ -229,6 +237,8 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   }); // Existing mob loot tables never produce glow; do not relax their allowlists.
   return issues;
 }
+
+export function diagnoseRawPortalOwnership(raw:unknown):GlowOwnershipIssue[]{return diagnoseRawActivationOwnership(raw,"portal");}
 
 export function diagnoseRawIgnitionOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "ignition"); }
 
@@ -265,6 +275,8 @@ export function parseSave(text: string): SaveData {
   const bottleOwnershipIssues = diagnoseRawBottleOwnership(raw);
   const bucketOwnershipIssues = diagnoseRawBucketOwnership(raw);
   const ignitionOwnershipIssues = diagnoseRawIgnitionOwnership(raw);
+  const portalOwnershipIssues=diagnoseRawPortalOwnership(raw),portals=sanitizePortalState(own(raw,"portals"));
+  const portalsInvalid=portals.invalid||!validatePortalEdits(own(raw,"portals"),own(raw,"edits"));
   const generator=sanitizeGeneratorVersion(own(raw,"generatorVersion")),fluids=sanitizeFluidState(own(raw,"fluids"));
   const fluidEditsInvalid=(generator.present||fluids.present)&&!validFluidEdits(own(raw,"edits"));
   const fire = sanitizeFireState(own(raw, "fire"));
@@ -307,6 +319,9 @@ export function parseSave(text: string): SaveData {
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
+  if(portals.present)save.portals=portals.data;
+  if(portalsInvalid)save.portalsInvalid=true;
+  if(portalOwnershipIssues.length)save.portalOwnershipIssues=portalOwnershipIssues;
   if(generator.present)save.generatorVersion=generator.version;
   if(generator.invalid)save.generatorVersionInvalid=true;
   if(fluids.present)save.fluids=fluids.data;

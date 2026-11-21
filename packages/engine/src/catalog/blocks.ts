@@ -236,6 +236,9 @@ specs.push({ id: 190, name: "lava", displayName: "Lava", faces: faces("lava"),
 specs.push({ id: 191, name: "obsidian", displayName: "Obsidian", faces: faces("obsidian"),
   hardness: 35, tool: "pickaxe", harvestTier: 4 });
 
+// Hidden physical lifecycle cells; emission is a bounded application choice.
+for (const [id,name] of [[192,"nether_portal_x"],[193,"nether_portal_z"]] as const) specs.push({id,name,displayName:"Nether Portal",faces:faces("nether_portal"),shape:"none",solid:false,transparent:true,creative:false,hardness:Infinity,emissive:true,light:11});
+
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, id: explicitId, ...s }, index) => ({

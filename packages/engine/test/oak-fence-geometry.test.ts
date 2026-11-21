@@ -13,8 +13,8 @@ function fixture() {
 }
 
 it("appends explicit188 and preserves all previous block definitions/order without new atlas faces", () => {
-  expect(BLOCKS).toHaveLength(311); expect(BLOCKS[307]).toMatchObject({ id: 188, name: "oak_fence", shape: "fence", solid: true, transparent: true, faces: { top: "oak_planks", side: "oak_planks", bottom: "oak_planks" }, hardness: 3, tool: "axe" });
-  expect(new Set(BLOCKS.map(x => x.id)).size).toBe(311); expect(F).toBe(188);
+  expect(BLOCKS).toHaveLength(313); expect(BLOCKS[307]).toMatchObject({ id: 188, name: "oak_fence", shape: "fence", solid: true, transparent: true, faces: { top: "oak_planks", side: "oak_planks", bottom: "oak_planks" }, hardness: 3, tool: "axe" });
+  expect(new Set(BLOCKS.map(x => x.id)).size).toBe(313); expect(F).toBe(188);
   expect(MAX_BLOCK_COLLISION_HEIGHT).toBe(1.5); expect(BLOCK_COLLISION_ORIGIN_BELOW).toBe(1);
 });
 
@@ -57,7 +57,7 @@ it("finds collisions originating one cell below, clears above1.5 and keeps empty
 
 it("retains bounded corrupt-box guards and legacy farmland/cube behavior", () => {
   let reads = 0; const get = () => { reads++; return AIR; };
-  for (const b of [{ minX: NaN, maxX: 1 }, { minX: -100, maxX: 100 }]) expect(boxCollides(get, { minX: 0, minY: 0, minZ: 0, maxX: 1, maxY: 1, maxZ: 1, ...b })).toBe(true);
+  for (const b of [{ minX: NaN, maxX: 1 }, { minX: -100, maxX: 100 }]) expect(boxCollides(get, { minY: 0, minZ: 0, maxY: 1, maxZ: 1, ...b })).toBe(true);
   expect(reads).toBe(0);
   const w = fixture(); w.set(0, 1, 0, blockId("farmland_0"));
   expect(blockCollisionBoxes(w.get, 0, 1, 0)).toEqual([[0, 0, 0, 1, 15 / 16, 1]]);

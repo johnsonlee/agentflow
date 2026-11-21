@@ -12,6 +12,7 @@ export * from "./world/rules";
 export * from "./persistence/save";
 export * from "./world/time";
 export * from "./world/world";
+export * from "./world/portal-frame";
 export * from "./automation/commands";
 export * from "./crafting/crafting";
 export * from "./simulation/entities";
@@ -91,3 +92,7 @@ export * from "./ownership/ignition-tool";
 export * from "./simulation/fire";
 
 export * from "./simulation/fluids";
+
+export { PortalSystem, tryUsePortalIgnition, isPortalActionBusy, isPortalBlock, sanitizePortalState, validatePortalEdits, PORTAL_MAX_RECORDS } from "./simulation/portals";
+export type { PortalRecord, PortalData, PortalIgnitionResult } from "./simulation/portals";
+export { diagnoseRawPortalOwnership } from "./persistence/save";

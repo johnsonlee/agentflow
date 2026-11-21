@@ -19,7 +19,7 @@ export async function fluidAcquisitionRoute(page: Page, info: TestInfo, mobile: 
     const press = (l: Locator) => mobile ? l.tap() : l.click(), inv = page.locator(".inventory-screen");
     finger = mobile ? await page.context().newCDPSession(page) : null;
     const touch = (type: "touchStart" | "touchEnd") => { const vp = page.viewportSize()!; return finger!.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: vp.width * .65, y: vp.height * .42, id: 124 }] }); };
-    const use = async () => { if (mobile) { const vp = page.viewportSize()!; await page.touchscreen.tap(vp.width * .65, vp.height * .42); } else await pressMouse(page, "right"); };
+    const use = async () => { await page.waitForFunction(()=>((window.__craft.game! as unknown as {placeCooldown:number}).placeCooldown)===0); if (mobile) { const vp = page.viewportSize()!; await page.touchscreen.tap(vp.width * .65, vp.height * .42); } else await pressMouse(page, "right"); };
     const hold = async (until: () => Promise<unknown>, breaking = false) => { try { if (mobile) await touch("touchStart"); else await page.mouse.down({ button: breaking ? "left" : "right" }); await until(); } finally { if (mobile) await touch("touchEnd"); else await page.mouse.up({ button: breaking ? "left" : "right" }); } };
     const slotOf = (name: string) => page.evaluate(n => window.__craft.game!.inventory.slots.findIndex(s => s?.id === window.__craft.stackId(n)), name);
     const empty = () => page.evaluate(() => window.__craft.game!.inventory.slots.findIndex(s => s === null));

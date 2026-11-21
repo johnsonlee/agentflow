@@ -6,8 +6,8 @@ import baseline from "./fixtures/flint-240b979.json";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("preserves all867 published pixels and UVs while appending one original Flint icon", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
-  expect(names).toHaveLength(874); expect(names.slice(0, 867)).toEqual(baseline.names);
-  expect(names.slice(867, 868)).toEqual(["item_flint"]); expect(new Set(names).size).toBe(874);
+  expect(names).toHaveLength(875); expect(names.slice(0, 867)).toEqual(baseline.names);
+  expect(names.slice(867, 868)).toEqual(["item_flint"]); expect(new Set(names).size).toBe(875);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

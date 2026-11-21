@@ -122,7 +122,7 @@ export class FireSystem {
 }
 
 /** A detached, writable selected-owner ACK; never invokes stack getters/setters. */
-function selectedIgnition(inventory: Inventory): { valid: () => boolean; next: ItemStack | null } | null {
+export function selectedIgnition(inventory: Inventory): { valid: () => boolean; next: ItemStack | null } | null {
   const slotsDescriptor = Object.getOwnPropertyDescriptor(inventory, "slots"), selectedDescriptor = Object.getOwnPropertyDescriptor(inventory, "selected");
   if (!slotsDescriptor || !("value" in slotsDescriptor) || !selectedDescriptor || !("value" in selectedDescriptor)) return null;
   const slots = slotsDescriptor.value, selected = selectedDescriptor.value;
