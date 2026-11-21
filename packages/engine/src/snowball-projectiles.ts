@@ -2,7 +2,7 @@ import { blockById, isSolid } from "./blocks";
 import { MAX_Y, MIN_Y, WORLD_BORDER, type Vec3 } from "./math";
 import type { Inventory } from "./inventory";
 import type { GameMode } from "./rules";
-import { stackId } from "./items";
+import { maxStackOf, stackId } from "./items";
 export interface SnowballBox { minX: number; minY: number; minZ: number; maxX: number; maxY: number; maxZ: number }
 type Box = SnowballBox;
 
@@ -122,7 +122,7 @@ export class SnowballProjectiles {
 /** The flight record is allocated before exactly one survival item leaves its selected slot. */
 export function tryThrowSnowball(inventory: Inventory, mode: GameMode, position: Vec3, direction: Vec3, store: SnowballProjectiles): number | null {
   const selected = inventory.selectedStack();
-  if (!selected || selected.id !== stackId("snowball") || !Number.isInteger(selected.count) || selected.count < 1 || (mode !== "survival" && mode !== "creative")) return null;
+  if (!selected || selected.id !== stackId("snowball") || !Number.isSafeInteger(selected.count) || selected.count < 1 || selected.count > maxStackOf(selected.id) || (mode !== "survival" && mode !== "creative")) return null;
   const id = store.spawn(position, direction);
   if (id !== null && mode === "survival") inventory.takeSelected();
   return id;

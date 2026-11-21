@@ -109,3 +109,17 @@ it("flags a whole present corrupt snapshot rather than truncating owners into a 
   const inherited = Object.create({ version: 1, nextKey: 2, records: good.records }); expect(new SnowballProjectiles(world(), inherited).loadIssues).toBe(1);
   const json = JSON.stringify({ version: 1, seed: 1, snowballProjectiles: { ...good, version: 8 } }); const parsed = parseSave(json); expect(new SnowballProjectiles(world(), parsed.snowballProjectiles).loadIssues).toBe(1); expect(json).toContain('"version":8'); // Game must gate overwrite using loadIssues and original raw storage.
 });
+
+// Public inventory slots can contain invalid live data; huge integer counts do not decrement in IEEE754.
+it("refuses malformed or over-bound source counts without allocating a duplicate flight owner", () => {
+  for (const count of [0, -1, .5, NaN, Infinity, 17, Number.MAX_SAFE_INTEGER + 1, 1e100]) {
+    for (const mode of ["survival", "creative"] as const) {
+      const inv = bag(), shots = new SnowballProjectiles(world());
+      inv.slots[0] = { id: stackId("snowball"), count };
+      const source = inv.selectedStack(), before = shots.toJSON();
+      expect(tryThrowSnowball(inv, mode, p, d, shots)).toBeNull();
+      expect(inv.selectedStack()).toBe(source); expect(inv.selectedStack()?.count).toBe(count);
+      expect(shots.toJSON()).toEqual(before);
+    }
+  }
+});
