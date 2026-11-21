@@ -123,7 +123,8 @@ export const RECIPES: readonly Recipe[] = [
   { id: "glow_stick", pattern: ["PHP", "PDP", "PLP"],
     key: { P: "polyethylene", H: "hydrogen_peroxide", D: "green_dye", L: "luminol" }, result: ["glow_stick", 1],
     note: "Existing green item only; output count provisional, activation/lifetime/current Education behavior unverified" },
-  { id: "glowstone", pattern: ["##", "##"], key: { "#": "gold_ore" }, result: ["glowstone", 1], note: "Minecraft uses glowstone dust" },
+  // Replace the former gold-ore placeholder: candidate1.26.33.0 vanilla/1.20.10 agree on four dust.
+  { id: "glowstone", pattern: ["##", "##"], key: { "#": "glowstone_dust" }, result: ["glowstone", 1] },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

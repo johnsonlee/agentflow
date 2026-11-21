@@ -166,3 +166,14 @@ for (const [name, color] of Object.entries(DYE_PIGMENTS)) {
   const base = hex(color);
   ITEM_TILE_GENERATORS[`item_${name}_dye`] = lump([base, shade(base, 0.88), shade(base, 1.12)], PIGMENT_HEAP);
 }
+
+/** Original golden powder grains and scattered glints; no imported game image payload. */
+ITEM_TILE_GENERATORS.item_glowstone_dust = (t) => {
+  t.fill(() => null);
+  const grains: Mask = (x, y) => Math.hypot(x - 6, (y - 10) * 1.25) <= 3.1 ||
+    Math.hypot(x - 10, y - 7) <= 2.2 || Math.hypot(x - 5, y - 5) <= 1.4 ||
+    (x === 12 && y === 3) || (x === 2 && y === 12) || (x === 12 && y === 12);
+  paint(t, grains, ["#e2a52b", "#ffc94f", "#fff1a5", "#d78b20"].map(hex));
+  t.set(6, 9, hex("#fff4bd")); t.set(10, 6, hex("#ffed95"));
+  return t;
+};

@@ -191,6 +191,8 @@ const specs: Omit<ItemDef, "id">[] = [
   }),
   // Append-only canonical dyes after all 519 published entries.
   ...DYE_COLORS.map(({ name, displayName }) => material(`${name}_dye`, `${displayName} Dye`)),
+  // Append after all535 published items; saved glowstone blocks retain their existing block ID.
+  material("glowstone_dust", "Glowstone Dust"),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
@@ -254,7 +256,7 @@ export function foodOf(id: number | undefined | null): ItemDef["food"] | null {
 const BLOCK_ITEM_DROPS = new Map<string, string>([
   ["coal_ore", "coal"], ["diamond_ore", "diamond"], ["bookshelf", "book"],
   ["placed_heat_block", "heat_block"], ["placed_underwater_torch", "underwater_torch"], ["placed_glow_stick", "glow_stick"],
-  ["redstone_ore", "redstone"],
+  ["redstone_ore", "redstone"], ["glowstone", "glowstone_dust"],
   ...ELEMENTS.map((e) => [`element_${e.z}`, elementItemName(e)] as [string, string]),
   ...BLOCKS.filter((b) => /^wheat_\d$/.test(b.name)).map((b) => [b.name, "wheat_seeds"] as [string, string]),
   ...BLOCKS.filter((b) => b.name.startsWith("redstone_wire_")).map((b) => [b.name, "redstone"] as [string, string]),
@@ -263,13 +265,22 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
 // Ordinary and stained glass shatter without Silk Touch (enchantments are not modelled).
 // Keep dropOf/baseStackId as canonical identities; zero is a quantity, never the air item.
 const BLOCK_DROP_COUNTS = new Map<string, number>([
-  ["bookshelf", 3], ["redstone_ore", 4], ["glass", 0],
+  ["bookshelf", 3], ["glass", 0],
   ...DYE_COLORS.map(({ name }) => [`${name}_stained_glass`, 0] as [string, number]),
 ]);
 
-/** How many of `dropOf(block)` a harvested block gives. */
-export function dropCount(blockIdValue: number): number {
-  return BLOCK_DROP_COUNTS.get(blockById(blockIdValue).name) ?? 1;
+/** Unenchanted harvest quantities. Source min/max bounds use application uniform integer sampling;
+ * native RNG probabilities, Fortune and Silk Touch are not modeled here.
+ */
+export function dropCount(blockIdValue: number, rand: () => number = Math.random): number {
+  const name = blockById(blockIdValue).name;
+  const range = name === "redstone_ore" ? [4, 5] : name === "glowstone" ? [2, 4] : null;
+  if (range) {
+    const value = rand();
+    if (!Number.isFinite(value)) throw new RangeError("Harvest RNG must return a finite number");
+    return Math.min(range[1], range[0] + Math.floor(Math.max(0, Math.min(1, value)) * (range[1] - range[0] + 1)));
+  }
+  return BLOCK_DROP_COUNTS.get(name) ?? 1;
 }
 
 /** Stack id a block drops when harvested. */

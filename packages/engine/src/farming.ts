@@ -32,7 +32,7 @@ export function farmDrops(id: number, rand: () => number = Math.random): ItemSta
 export function blockDrops(id: number, rand: () => number = Math.random): ItemStack[] {
   const farm = farmDrops(id, rand);
   if (farm !== null) return farm;
-  const count = dropCount(id);
+  const count = dropCount(id, rand);
   return count > 0 ? [{ id: dropOf(id), count }] : [];
 }
 

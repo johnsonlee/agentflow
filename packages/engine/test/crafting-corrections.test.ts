@@ -19,11 +19,11 @@ function roundTrip(f: FurnaceState): FurnaceState {
   })).furnaces![0].state;
 }
 
-it("preserves complete registries, all127 other recipes, old9 smelts and all fuels", () => {
-  expect(BLOCKS).toHaveLength(307); expect(ITEMS).toHaveLength(535);
-  expect(digest(BLOCKS)).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS)).toBe(baseline.allItemDefsSHA256);
+it("preserves prior registry prefixes, other126 recipes, old9 smelts and all fuels", () => {
+  expect(BLOCKS).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
+  expect(digest(BLOCKS)).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
   expect(RECIPES).toHaveLength(128);
-  expect(RECIPES.filter((r) => r.id !== "bookshelf")).toEqual(fixture.unchangedRecipes);
+  expect(RECIPES.filter((r) => r.id !== "bookshelf" && r.id !== "glowstone")).toEqual(fixture.unchangedRecipes.filter((r: { id: string }) => r.id !== "glowstone"));
   expect(Object.keys(SMELTING_RECIPES)).toHaveLength(11);
   for (const [input, output] of Object.entries(fixture.previousSmelting)) expect(SMELTING_RECIPES[input]).toBe(output);
   expect(FUELS).toEqual(fixture.previousFuels); expect(SMELT_SECONDS).toBe(10);

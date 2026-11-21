@@ -170,5 +170,5 @@ it("uses the same canonical IDs for capacity prediction and actual adds, includi
     expect(bag.spaceFor(alias)).toBe(0); expect(bag.add(alias)).toBe(1);
   }
   const bag = new Inventory();
-  for (const invalid of [-1, NaN, Infinity, 791, 32767, 65535, 65536]) expect(bag.spaceFor(invalid)).toBe(0);
+  for (const invalid of [-1, NaN, Infinity, ITEMS.at(-1)!.id + 1, 32767, 65535, 65536]) expect(bag.spaceFor(invalid)).toBe(0);
 });

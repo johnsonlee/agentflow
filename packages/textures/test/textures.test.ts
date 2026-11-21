@@ -3,6 +3,7 @@ import { describe, expect, it } from "vitest";
 import { BLOCKS, DYE_COLORS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
 import legacyTextures from "./fixtures/legacy-textures-a81.json";
 import legacyGlassTextures from "./fixtures/legacy-textures-96.json";
+import legacyGlowstoneTextures from "./fixtures/legacy-textures-0f9.json";
 import { STAINED_GLASS_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
 
 describe("procedural textures", () => {
@@ -137,6 +138,26 @@ describe("procedural textures", () => {
       hash.update(name + "\0").update(generateTile(name));
     }
     expect(hash.digest("hex")).toBe(legacyGlassTextures.sha256);
+  });
+
+  it("appends an original visible glowstone powder sprite without changing all 808 older tiles", () => {
+    expect(legacyGlowstoneTextures.names).toHaveLength(808);
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])];
+    expect(names).toHaveLength(809);
+    expect(names.filter(n => !legacyGlowstoneTextures.names.includes(n))).toEqual(["item_glowstone_dust"]);
+    const hash = createHash("sha256");
+    for (const name of legacyGlowstoneTextures.names) hash.update(name + "\0").update(generateTile(name));
+    expect(hash.digest("hex")).toBe(legacyGlowstoneTextures.sha256);
+    expect(hasItemTile("item_glowstone_dust")).toBe(true);
+    const dust = generateTile("item_glowstone_dust");
+    const opaque = Array.from(dust).filter((_, i) => i % 4 === 3 && dust[i] === 255).length;
+    expect(opaque).toBeGreaterThan(10); expect(opaque).toBeLessThan(128);
+    expect(dust.some((a, i) => i % 4 === 3 && a === 0)).toBe(true);
+    expect(Buffer.from(dust).equals(Buffer.from(generateTile("item_glowstone_dust")))).toBe(true);
+    expect(Buffer.from(dust).equals(Buffer.from(generateTile("item_yellow_dye")))).toBe(false);
+    const atlas = buildAtlas(names);
+    expect(atlas.tiles.size).toBe(809);
+    expect(Buffer.from(atlas.tilePixels("item_glowstone_dust")).equals(Buffer.from(dust))).toBe(true);
   });
 
   it("grass side has a green top fringe over dirt", () => {

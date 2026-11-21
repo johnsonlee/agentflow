@@ -21,7 +21,7 @@ it("preserves every prior block/item/atom identity and appends dyes and explicit
   expect(hash(ITEMS.slice(0, 519).map(({ id, name }) => [id, name]))).toBe("c7c43e88c216c30259536783a583814edc6f93126bf4aa6397f024a33cce5ba7");
   expect(hash(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");
-  expect(BLOCKS.slice(0, 291)).toHaveLength(291); expect(ITEMS).toHaveLength(535);
+  expect(BLOCKS.slice(0, 291)).toHaveLength(291); expect(ITEMS.slice(0, 535)).toHaveLength(535);
   expect(DYE_COLORS.map((c) => c.name)).toEqual(colors);
   expect(new Set(DYE_COLORS.map((c) => c.rgb.join(","))).size).toBe(16);
   for (const [i, color] of DYE_COLORS.entries()) {
@@ -127,5 +127,5 @@ it("round trips all new dye/wool stacks through inventory, pending recovery and 
   const received = new Inventory();
   for (let i = 0; i < names.length; i++) expect(runAgentCommand(new World(13), clean, { op: "drop", slot: i }, { giveToPlayer: (s) => received.addStack(s) }).ok).toBe(true);
   expect(received.slots.filter(Boolean)).toEqual(names.map((n) => stack(n, 2)));
-  for (const raw of [{ id: 791, count: 1 }, { id: 188, count: 1 }, { id: 775, count: 65 }, { id: 775, count: 0 }]) expect(sanitizeStack(raw)).toBeNull();
+  for (const raw of [{ id: ITEMS.at(-1)!.id + 1, count: 1 }, { id: 188, count: 1 }, { id: 775, count: 65 }, { id: 775, count: 0 }]) expect(sanitizeStack(raw)).toBeNull();
 });

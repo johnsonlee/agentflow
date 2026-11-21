@@ -24,10 +24,10 @@ function emptyWorld() {
 
 it("preserves all prior registry/atom IDs and adds only sixteen explicit translucent low-block identities", () => {
   expect(digest(BLOCKS.slice(0, 291).map(({ id, name }) => [id, name]))).toBe("25176986039cc25bf6439a18fa41557d6795fff785648954210ae5451484b561");
-  expect(digest(ITEMS.map(({ id, name }) => [id, name]))).toBe("885d45248089dcfd792313e7a5e8cd18f293596684eb119a628a8afda3844b3f");
+  expect(digest(ITEMS.slice(0, 535).map(({ id, name }) => [id, name]))).toBe("885d45248089dcfd792313e7a5e8cd18f293596684eb119a628a8afda3844b3f");
   expect(digest(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");
-  expect(BLOCKS).toHaveLength(307); expect(ITEMS).toHaveLength(535);
+  expect(BLOCKS).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
   expect(BLOCKS.slice(291).map((b) => [b.id, b.name])).toEqual(names.map((name, i) => [172 + i, name]));
   expect(BLOCKS.filter((b) => b.translucent).map((b) => b.name)).toEqual(names);
   for (const name of names) {

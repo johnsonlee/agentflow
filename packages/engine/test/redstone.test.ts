@@ -261,10 +261,11 @@ describe("recipes, smelting and ore", () => {
     }
   });
 
-  it("redstone ore smelts to redstone, drops 4 redstone, and generates deep underground", () => {
+  it("redstone ore smelts to redstone, drops4–5 redstone, and generates deep underground", () => {
     expect(smeltResult(B("redstone_ore"))).toBe(stackId("redstone"));
     expect(dropOf(B("redstone_ore"))).toBe(stackId("redstone"));
-    expect(dropCount(B("redstone_ore"))).toBe(4);
+    expect(dropCount(B("redstone_ore"), () => 0)).toBe(4);
+    expect(dropCount(B("redstone_ore"), () => 1 - Number.EPSILON)).toBe(5);
     const world = new World(7);
     let found = 0;
     for (let x = 0; x < 48 && found === 0; x++) for (let z = 0; z < 48; z++) for (let y = 1; y < 16; y++) if (world.getBlock(x, y, z) === B("redstone_ore")) found++;

@@ -23,7 +23,7 @@ const count = (bag: Inventory, id: number) => bag.slots.reduce((n, s) => n + (s?
 
 it("matches all22 independently retained raw candidate recipe output lists and per-row provenance", () => {
   expect(NATIVE_REDUCTION_SOURCE.version).toBe(fixture.version); expect(NATIVE_REDUCTION_SOURCE.installerSHA256).toBe(fixture.installerSHA256);
-  expect(NATIVE_REDUCTION_SOURCE.acceptedTargetVersion).toBe(false); expect(fixture.cases).toHaveLength(22); expect(NATIVE_MATERIAL_REDUCTIONS).toHaveLength(22);
+  expect(NATIVE_REDUCTION_SOURCE.acceptedTargetVersion).toBe(false); expect(fixture.cases).toHaveLength(22); expect(NATIVE_MATERIAL_REDUCTIONS.slice(0, 22)).toHaveLength(22);
   for (const test of fixture.cases) {
     const row = NATIVE_MATERIAL_REDUCTIONS.find((r) => r.input === test.appName)!;
     expect(stackId(test.appName)).toBe(test.appId); expect(row.inputKind).toBe(test.appKind); expect(isItem(test.appId)).toBe(test.appKind === "item");
@@ -36,8 +36,8 @@ it("matches all22 independently retained raw candidate recipe output lists and p
   }
 });
 
-it("exposes the actual active24-row table and preserves ordered duplicate-element stacks", () => {
-  expect(REDUCTIONS).toHaveLength(24); expect(new Set(REDUCTIONS.map(([name]) => name)).size).toBe(24);
+it("exposes the actual active25-row table and preserves ordered duplicate-element stacks", () => {
+  expect(REDUCTIONS).toHaveLength(25); expect(new Set(REDUCTIONS.map(([name]) => name)).size).toBe(25);
   expect(LEGACY_MATERIAL_REDUCTIONS.map(([name]) => name)).toEqual(["glass", "charcoal"]);
   const symbols = new Map(ITEMS.filter((i) => i.chem?.kind === "element").map((i) => [i.chem!.symbol, i.id]));
   for (const [name, parts] of REDUCTIONS) expect(reduceMaterial(stackId(name))).toEqual(parts.map(([symbol, count]) => ({ id: symbol === "?" ? 32768 : symbols.get(symbol)!, count })));
@@ -62,14 +62,14 @@ it("rejects the sulfur material/atom name collision and leaves unsupported/unkno
   for (const name of ["water", "snowy_grass", "stone_button", "element_16", "element_0", "bleach", "red_dye"]) expect(reduceMaterial(stackId(name))).toBeNull();
   expect(constructElement(0, 0, 0)).toHaveProperty("error"); expect(elementParticlesOf(32768)).toBeNull();
   expect(createCompound([{ id: 32768, count: 1 }])).toHaveProperty("error");
-  for (const id of [-1, .5, NaN, Infinity, 188, 791, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
+  for (const id of [-1, .5, NaN, Infinity, 188, ITEMS.at(-1)!.id + 1, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
 });
 
 it("keeps every complete pre-increment block/item definition and atom identity unchanged", () => {
-  expect(BLOCKS).toHaveLength(307); expect(ITEMS).toHaveLength(535);
-  expect(digest(BLOCKS)).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS)).toBe(baseline.allItemDefsSHA256);
+  expect(BLOCKS).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
+  expect(digest(BLOCKS)).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
   expect(digest(BLOCKS.map(({ id, name }) => [id, name]))).toBe(baseline.allBlockIDNamesSHA256);
-  expect(digest(ITEMS.map(({ id, name }) => [id, name]))).toBe(baseline.allItemIDNamesSHA256);
+  expect(digest(ITEMS.slice(0, 535).map(({ id, name }) => [id, name]))).toBe(baseline.allItemIDNamesSHA256);
   expect(digest(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");
 });
