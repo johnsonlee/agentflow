@@ -138,6 +138,10 @@ export const RECIPES: readonly Recipe[] = [
     note: "Four-cell shape and canonical white from retained Education recipe; output1 application default" },
   // Retained Education1.26.33 vanilla_1.21.40: four oak planks, two sticks -> three oak fences.
   { id: "oak_fence", pattern: ["W#W", "W#W"], key: { W: "oak_planks", "#": "stick" }, result: ["oak_fence", 3] },
+  // Explicit modern variant: retained vanilla_1.21.90 uses five strings, output2.
+  // Older retained variants require four strings plus slime; active pack selection remains unverified.
+  { id: "lead", pattern: ["~~ ", "~~ ", "  ~"], key: { "~": "string" }, result: ["lead_rope", 2],
+    note: "Selected retained modern five-string variant; older slime recipe differs, active native binding unverified" },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

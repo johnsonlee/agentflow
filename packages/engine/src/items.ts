@@ -202,6 +202,8 @@ const specs: Omit<ItemDef, "id">[] = [
   })),
   // App stack bound64; retained loot text establishes string identity/count, not native stack size.
   { name: "string", displayName: "String", maxStack: MAX_STACK, icon: "item_string" },
+  // Application stack bound64; modern retained recipe identity/count, not native stack calibration.
+  { name: "lead_rope", displayName: "Lead", maxStack: MAX_STACK, icon: "item_lead" },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

@@ -163,11 +163,12 @@ export function stepMob(
   target: Vec3 | null = null,
   budget?: PathBudget,
   effectiveLight = 0,
+  movementBias: Vec3 = { x: 0, y: 0, z: 0 },
 ): void {
   const { n, h } = substeps(dt);
   if (mob.kind === "spider") mob.spiderAngerSeconds = Math.max(0, (mob.spiderAngerSeconds ?? 0) - n * h);
   const chasing = planChase(getBlock, mob, n * h, target, budget, effectiveLight);
-  for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing);
+  for (let i = 0; i < n; i++) stepMobOnce(getBlock, mob, h, rand, chasing, movementBias);
   clampPosition(mob.position);
 }
 
@@ -254,7 +255,7 @@ function planChase(getBlock: BlockGetter, mob: Mob, dt: number, target: Vec3 | n
   return true;
 }
 
-function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => number, chasing: boolean): void {
+function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => number, chasing: boolean, movementBias: Vec3): void {
   const spec = MOB_SPECS[mob.kind];
   const p = mob.position;
   const v = mob.velocity;
@@ -272,8 +273,12 @@ function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => nu
 
   // Passive mobs panic-run when hurt; hostile ones keep their pace.
   const speed = mob.walking ? spec.speed * (mob.hurtTimer > 0 && !spec.hostile ? 2.2 : 1) : 0;
-  const wishX = -Math.sin(mob.yaw) * speed;
-  const wishZ = -Math.cos(mob.yaw) * speed;
+  // Leash bias participates in ordinary acceleration/collision, never a position correction.
+  const biasX = Number.isFinite(movementBias.x) ? movementBias.x : 0;
+  const biasZ = Number.isFinite(movementBias.z) ? movementBias.z : 0;
+  const biasLength = Math.hypot(biasX, biasZ), scale = biasLength > 6 ? 6 / biasLength : 1;
+  const wishX = -Math.sin(mob.yaw) * speed + biasX * scale;
+  const wishZ = -Math.cos(mob.yaw) * speed + biasZ * scale;
   const blend = 1 - Math.exp(-(mob.onGround ? 12 : 3) * dt);
   v.x += (wishX - v.x) * blend;
   v.z += (wishZ - v.z) * blend;

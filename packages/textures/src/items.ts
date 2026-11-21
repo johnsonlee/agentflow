@@ -195,3 +195,17 @@ ITEM_TILE_GENERATORS.item_string = (t) => {
   paint(t, loops, ["#e8e6da", "#fffdf2", "#c2c3bc"].map(hex));
   return t;
 };
+
+/** Original brown rope loop and trailing knot; no imported game media. */
+ITEM_TILE_GENERATORS.item_lead = (t) => {
+  t.fill(() => null);
+  const loop: Mask = (x, y) => {
+    const radius = Math.hypot((x - 6) * 1.2, (y - 6) * 1.05);
+    return (radius >= 3 && radius <= 4.8) ||
+      (x >= 7 && x <= 13 && Math.abs(y - (x * .65 + 4)) <= .9) ||
+      (x >= 11 && x <= 13 && y >= 12 && y <= 13);
+  };
+  paint(t, loop, ["#a37a42", "#cea56b", "#e2bd82"].map(hex));
+  t.set(9, 9, hex("#e9ca92"));
+  return t;
+};

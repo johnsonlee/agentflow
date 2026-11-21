@@ -1,6 +1,7 @@
 import { createHash } from "node:crypto";
 import { describe, expect, it } from "vitest";
 import { BLOCKS, DYE_COLORS, GLOW_STICK_COLORS, ELEMENTS, itemTextureNames, textureNames } from "@craft/engine";
+import leashBaseline from "./fixtures/leash-oak-fence-baseline.json";
 import spiderStringBaseline from "./fixtures/spider-string-e3.json";
 import glowColorsBaseline from "./fixtures/glow-stick-colors-f64.json";
 import legacyTextures from "./fixtures/legacy-textures-a81.json";
@@ -11,8 +12,20 @@ import { STAINED_GLASS_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAME
 const addedGlowKeys = new Set(GLOW_STICK_COLORS.filter(color => color.color !== "green").map(color => color.icon));
 
 describe("procedural textures", () => {
-  it("appends an original string coil while retaining all823 published tile pixels and UVs", () => {
+  it("appends an original brown Lead coil while retaining every824 published pixel and UV", () => {
     const names = [...new Set([...textureNames(), ...itemTextureNames()])];
+    expect(names).toHaveLength(825); expect(names.at(-1)).toBe("item_lead"); expect(names.slice(0, -1)).toEqual(leashBaseline.names);
+    const previous = buildAtlas(leashBaseline.names), current = buildAtlas(names);
+    expect(createHash("sha256").update(previous.data).digest("hex")).toBe(leashBaseline.atlasRGBA_SHA256);
+    expect([current.width, current.height, current.tileSize]).toEqual([512, 512, 16]);
+    for (const name of leashBaseline.names) { expect(current.tilePixels(name)).toEqual(previous.tilePixels(name)); expect(current.uv(name)).toEqual(previous.uv(name)); }
+    expect(hasItemTile("item_lead")).toBe(true); const pixels = generateTile("item_lead");
+    expect(pixels.some((c, i) => i % 4 === 3 && c === 255)).toBe(true); expect(pixels.some((c, i) => i % 4 === 3 && c === 0)).toBe(true);
+    expect(current.tilePixels("item_lead")).toEqual(pixels); expect(pixels).not.toEqual(generateTile("item_string"));
+  });
+
+  it("appends an original string coil while retaining all823 published tile pixels and UVs", () => {
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_lead");
     expect(names).toHaveLength(824); expect(names.at(-1)).toBe("item_string");
     expect(names.slice(0, -1)).toEqual(spiderStringBaseline.names);
     const previous = buildAtlas(spiderStringBaseline.names), current = buildAtlas(names);
@@ -165,7 +178,7 @@ describe("procedural textures", () => {
 
   it("appends an original visible glowstone powder sprite without changing all 808 older tiles", () => {
     expect(legacyGlowstoneTextures.names).toHaveLength(808);
-    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_string").filter(name => name !== "item_snowball" && !addedGlowKeys.has(name));
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_lead").filter(name => name !== "item_string").filter(name => name !== "item_snowball" && !addedGlowKeys.has(name));
     expect(names).toHaveLength(809);
     expect(names.filter(n => !legacyGlowstoneTextures.names.includes(n))).toEqual(["item_glowstone_dust"]);
     const hash = createHash("sha256");
@@ -184,7 +197,7 @@ describe("procedural textures", () => {
   });
 
   it("appends a distinct original snowball icon while retaining every published atlas key", () => {
-    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_string").filter(name => !addedGlowKeys.has(name));
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_lead").filter(name => name !== "item_string").filter(name => !addedGlowKeys.has(name));
     expect(names).toHaveLength(810); expect(names.at(-1)).toBe("item_snowball");
     expect(hasItemTile("item_snowball")).toBe(true);
     const snowball = generateTile("item_snowball");
@@ -196,7 +209,7 @@ describe("procedural textures", () => {
   });
 
   it("appends thirteen distinct original glow colors while preserving all810 prior pixels, names, UVs and layout", () => {
-    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_string");
+    const names = [...new Set([...textureNames(), ...itemTextureNames()])].filter(name => name !== "item_lead").filter(name => name !== "item_string");
     expect(names).toHaveLength(823); expect(addedGlowKeys.size).toBe(13);
     expect(names.filter(name => !addedGlowKeys.has(name))).toEqual(glowColorsBaseline.names);
     const previous = buildAtlas(glowColorsBaseline.names), current = buildAtlas(names);

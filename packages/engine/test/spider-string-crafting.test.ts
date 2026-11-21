@@ -15,7 +15,7 @@ it("appends string and its wool recipe while preserving every published item, bl
   expect(RECIPES.slice(0, 141).map(r => r.id)).toEqual(before.recipeIDs);
   expect(stackId("string")).toBe(806); expect(maxStackOf(806)).toBe(64);
   expect(sanitizeStack(string(64))).toEqual(string(64));
-  expect(ITEMS.at(-1)?.icon).toBe("item_string");
+  expect(ITEMS.slice(0, 551).at(-1)?.icon).toBe("item_string");
 });
 
 it("crafts white wool in either supported grid from four occupied string cells, consuming once per cell", () => {

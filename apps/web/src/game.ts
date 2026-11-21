@@ -1,4 +1,5 @@
 import {
+  LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
   SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
@@ -19,6 +20,7 @@ import { CodeBuilderScreen } from "./codeBuilder";
 import { WorldRenderer } from "./renderer";
 import { WorldDropsView } from "./worldDropsView";
 import { SnowballProjectilesView } from "./snowballProjectilesView";
+import { LeashView } from "./leash-view";
 
 export const SAVE_KEY = "craft.save.v1";
 const REACH = 5;
@@ -33,6 +35,8 @@ const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
 );
 
 const SNOWBALL = stackId("snowball");
+const LEAD = stackId("lead_rope");
+const OAK_FENCE = blockId("oak_fence");
 const GLOW_STICK = stackId("glow_stick");
 const SUPER_FERTILIZER = stackId("super_fertilizer");
 /** Light level of a held glow stick (as when placed). */
@@ -66,6 +70,9 @@ export class Game {
   private snowballImpacts: SnowballImpact[] = [];
   /** Bounded actual simulation outcomes for read-only diagnostics; detached from store/view ownership. */
   get recentSnowballImpacts(): readonly SnowballImpact[] { return structuredClone(this.snowballImpacts); }
+  readonly leashes: LeashStore;
+  private readonly leashView: LeashView;
+  private readonly leashOriginalRaw: string | null;
   readonly worldDrops: WorldDrops;
   private readonly worldDropsView: WorldDropsView;
   saveError = "";
@@ -178,6 +185,8 @@ export class Game {
     this.snowballProjectiles = new SnowballProjectiles(this.world, save?.snowballProjectiles);
     if (this.snowballProjectiles.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("snowball projectiles"); }
     this.worldDrops = new WorldDrops(this.world, save?.worldDrops);
+    this.leashes = new LeashStore(save?.leashes);
+    this.leashOriginalRaw = save?.leashes === undefined ? null : localStorage.getItem(SAVE_KEY);
     if (this.worldDrops.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("world drops"); }
     // Redstone: component states are blocks (in the edits); pending ticks are saved separately.
     this.redstone = new Redstone(this.world);
@@ -187,11 +196,11 @@ export class Game {
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.worldDropsView = new WorldDropsView(this.renderer.scene, atlas, this.worldDrops);
     this.snowballProjectilesView = new SnowballProjectilesView(this.renderer.scene, atlas, this.snowballProjectiles);
-    this.mobs = new MobManager(this.world, this.renderer.scene, (mob) => {
-      const ok = this.mobLoot.tryDrop(mob, this.dropSink, { ...mob.position, y: mob.position.y + .3 });
-      if (!ok) this.hud?.message("Could not preserve mob drops; the mob remains in the world");
-      return ok;
-    }, (mob) => this.mobLoot.exportPending(mob) !== undefined);
+    this.mobs = new MobManager(this.world, this.renderer.scene, (mob) => this.transferMobDeath(mob),
+      (mob) => this.mobLoot.exportPending(mob) !== undefined,
+      (mob) => this.leashes.protectsMob(mob.id), () => this.leashes.busy,
+      (mob) => this.leashes.movementBias(mob, this.leashContext()));
+    this.leashView = new LeashView(this.renderer.scene);
     const creatures = sanitizeMobState(save?.mobs);
     if (creatures.present) this.mobs.restore(creatures.data, this.mobLoot);
     else for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
@@ -218,6 +227,8 @@ export class Game {
     this.body.pitch = save?.player.pitch ?? 0;
     this.body.flying = save?.player.flying ?? false;
     this.inventory = save ? Inventory.fromJSON(save.inventory) : this.starterInventory();
+    this.leashes.validateCrossReferences(this.leashContext());
+    this.markLeashRecovery();
     if (this.dead && (save?.playerStateOwnershipInvalid || !validatePlayerDeathOwnership(save?.inventory, save?.inventoryPending))) {
       this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("player state");
     }
@@ -248,6 +259,7 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    if (this.leashes.loadIssues) this.loadErrors.push("Damaged leashes (original save preserved)");
     if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
     if (creatures.invalid) this.loadErrors.push(`${creatures.invalid} damaged creature entries (original save preserved)`);
     if (this.snowballProjectiles.loadIssues) this.loadErrors.push(`${this.snowballProjectiles.loadIssues} damaged snowball-projectile entries (original save preserved)`);
@@ -317,6 +329,7 @@ export class Game {
     window.removeEventListener("pagehide", this.handlePageHide);
     this.runner?.stop(); this.keyboard.dispose(); this.farming.dispose();
     this.snowballProjectilesView.dispose(); this.snowballProjectiles.dispose();
+    this.leashView.dispose(); this.leashes.dispose();
     this.worldDropsView.dispose(); this.worldDrops.dispose(); this.mobs.dispose();
     this.agentView.dispose(); this.chalkViews.dispose();
     this.root.remove(); this.renderer.dispose();
@@ -325,8 +338,10 @@ export class Game {
 
   /** Requests a complete-world backup; requesting a download never bypasses failed browser storage. */
   exportSaveBackup(): void {
+    if (this.leashes.busy) { this.hud.message("Items are being transferred. Retry the backup afterward."); return; }
     this.paused = true; this.keyboard.reset();
-    const payload = this.savePayload();
+    this.leashes.reconcileLoadedReferences(this.leashContext()); this.markLeashRecovery();
+    const payload = this.savePayload(true);
     const backup = this.recoveryOriginal === null ? payload : JSON.stringify({ ...JSON.parse(payload), recoveryOriginalSave: this.recoveryOriginal });
     const url = URL.createObjectURL(new Blob([backup], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = `${this.name.replace(/[^a-z0-9_-]/gi, "_") || "world"}.json`;
@@ -350,7 +365,7 @@ export class Game {
   }
 
   setMode(mode: GameMode): void {
-    if (this.dead) return;
+    if (this.dead || this.leashes.busy) return;
     this.mode = mode;
     if (mode === "survival") this.body.flying = false;
     this.health = MAX_HEALTH;
@@ -359,7 +374,7 @@ export class Game {
 
   /** A failed item transfer keeps the same death overlay and all original owners. */
   respawn(): boolean {
-    if (!this.dead || !this.deathState || !this.tryDeathTransfer()) return false;
+    if (this.leashes.busy || !this.dead || !this.deathState || !this.tryDeathTransfer()) return false;
     this.dead = false; this.paused = false; this.deathState = undefined; this.deathError = "";
     this.health = MAX_HEALTH; this.hunger = createHunger();
     this.body.position = { ...this.spawn }; this.body.velocity = { x: 0, y: 0, z: 0 };
@@ -369,7 +384,7 @@ export class Game {
   }
 
   private tryDeathTransfer(): boolean {
-    if (!this.deathState) return false;
+    if (this.leashes.busy || !this.deathState) return false;
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -388,7 +403,52 @@ export class Game {
     return ok;
   }
 
-  private savePayload(): string {
+  private leashContext(): LeashContext {
+    return { mobs: this.mobs.mobs, player: this.body.position, getLoadedBlock: (x, y, z) => this.world.getLoadedBlock(x, y, z) };
+  }
+
+  private markLeashRecovery(): void {
+    if (!this.leashes.loadIssues || this.recoverySections.includes("leashes")) return;
+    this.recoveryOriginal ??= this.leashOriginalRaw ?? localStorage.getItem(SAVE_KEY);
+    this.recoverySections.push("leashes");
+    this.loadErrors?.push("Damaged leashes (original save preserved)");
+  }
+
+  private fenceLeashKeys(x: number, y: number, z: number): number[] {
+    return this.leashes.records.filter(r => r.phase === "active" && r.anchor.kind === "fence" &&
+      r.anchor.x === x && r.anchor.y === y && r.anchor.z === z).map(r => r.key);
+  }
+
+  private releaseLeashes(keys: readonly number[]): boolean {
+    const attempt = this.leashes.beginRelease(keys, this.leashContext());
+    if (attempt.kind === "refused") return false;
+    if (attempt.kind === "none") return true;
+    const lease = attempt.lease;
+    try {
+      const record = this.leashes.records.find(r => keys.includes(r.key));
+      const at = record?.lastPosition ?? this.body.position;
+      const batch = joinLeashRefundSink(lease, this.dropSink)([], { ...at, y: at.y + .3 });
+      return Boolean(batch && batch.commit());
+    } catch { return false; }
+    finally { lease.cancel(); }
+  }
+
+  private transferMobDeath(mob: Mob): boolean {
+    const attempt = this.leashes.beginRelease(this.leashes.records.filter(r => r.targetMobId === mob.id).map(r => r.key), this.leashContext());
+    if (attempt.kind === "refused") return false;
+    const lease = attempt.kind === "ready" ? attempt.lease : null;
+    const health = mob.health, at = { ...mob.position, y: mob.position.y + .3 };
+    try {
+      const sink = lease ? joinLeashRefundSink(lease, this.dropSink, () => this.mobs.mobs.includes(mob) && mob.health === health) : this.dropSink;
+      const ok = this.mobLoot.tryDrop(mob, sink, at);
+      if (!ok) this.hud?.message("Could not preserve mob drops and Leads; the mob remains");
+      return ok;
+    } catch { return false; }
+    finally { lease?.cancel(); }
+  }
+
+  private savePayload(recoveryBackup = false): string {
+    if (this.leashes.busy) throw new Error("An ownership transfer is in progress");
     return serializeSave({
         name: this.name,
         seed: this.world.seed,
@@ -400,6 +460,7 @@ export class Game {
         playerState: { health: this.health, ...(this.deathState ? { death: this.deathState } : {}) },
         snowballProjectiles: this.snowballProjectiles.toJSON(),
         worldDrops: this.worldDrops.toJSON(),
+        ...(recoveryBackup && this.leashes.loadIssues ? {} : { leashes: this.leashes.toJSON() }),
         edits: this.world.exportEdits(),
         mobs: this.mobs.exportState(this.mobLoot),
         npcs: this.mobs.exportNpcs(),
@@ -419,6 +480,9 @@ export class Game {
 
   save(): boolean {
     if (this.stopped || Game.activeWriter !== this) return false;
+    if (this.leashes.busy) { this.saveError = "Items are being transferred. Retry saving afterward."; return false; }
+    this.leashes.reconcileLoadedReferences(this.leashContext());
+    this.leashes.validateCrossReferences(this.leashContext()); this.markLeashRecovery();
     if (this.recoverySections.length > 0) {
       this.saveError = `Damaged ${[...new Set(this.recoverySections)].join(" and ")}. Original save preserved. Export a backup; repair the saved data before saving or quitting.`;
       this.hud.message(this.saveError); return false;
@@ -502,6 +566,7 @@ export class Game {
       const light = skyAt(this.timeOfDay).light;
       // Hostile mobs ignore creative players (as in Minecraft).
       const target = this.mode === "survival" ? this.body.position : null;
+      if (!this.dead) { this.leashes.update(dt, this.leashContext(), this.dropSink); this.markLeashRecovery(); }
       if (!this.dead) this.mobs.update(dt, this.body.position, light, this.clock, target, (light - 0.2) / 0.8);
       if (!this.dead && target) this.takeMobHits(dt, (light - 0.2) / 0.8);
       if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt);
@@ -541,6 +606,7 @@ export class Game {
     cam.rotation.set(this.body.pitch, this.body.yaw, 0);
     this.renderer.updateChunks(this.renderer.isAreaReady(1) ? 6 : 30);
     this.worldDropsView.update(this.clock, cam.position, this.renderer.renderDistance * 16);
+    this.leashView.update(this.leashes.records, this.mobs.mobs, this.body.position);
     this.snowballProjectilesView.update(active && !this.dead && !this.screenOpen() ? dt : 0, cam, this.renderer.renderDistance * 16);
 
     const underwater = blockAtEyes((x, y, z) => this.world.getBlock(x, y, z), this.body) === "water";
@@ -561,6 +627,7 @@ export class Game {
   }
 
   private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
+    if (this.leashes.busy) return;
     const eye = { x: this.body.position.x, y: this.body.position.y + EYE_HEIGHT, z: this.body.position.z };
     const dir = lookDirection(this.body.yaw, this.body.pitch);
     const targetable = (id: number) => id !== AIR && blockById(id).shape !== "liquid";
@@ -606,6 +673,17 @@ export class Game {
     // A non-NPC actor does not consume the use edge: snowballs can be aimed at supported mobs.
     if (place && held?.id === SNOWBALL && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc") {
       this.throwSnowball(); return;
+    }
+    if (place && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc" && (held?.id === LEAD || !held)) {
+      const mob = this.mobTarget;
+      const keys = this.leashes.records.filter(r => r.targetMobId === mob.id).map(r => r.key);
+      const withinReach = Math.hypot(mob.position.x - this.body.position.x, mob.position.y - this.body.position.y, mob.position.z - this.body.position.z) <= LEASH_PROFILE.attachReach;
+      const ok = held?.id === LEAD
+        ? this.leashes.attachFromInventory(this.inventory, this.mode, mob, this.leashContext())
+        : keys.length > 0 && withinReach && this.releaseLeashes(keys);
+      this.placeCooldown = .25;
+      this.hud.message(ok ? (held?.id === LEAD ? "Lead attached" : "Lead released") : "No Lead action is available for that creature here");
+      return;
     }
     if (this.mobTarget) {
       this.target = null;
@@ -683,6 +761,21 @@ export class Game {
 
     // Interactive blocks above keep priority; otherwise a snowball also throws into empty sky.
     if (place && held?.id === SNOWBALL && this.placeCooldown === 0) { this.throwSnowball(); return; }
+
+    // Held blocks still place normally; only a Lead or an empty hand selects the fence tether action.
+    if (place && t?.id === OAK_FENCE && this.placeCooldown === 0 && (held?.id === LEAD || !held)) {
+      const context = this.leashContext();
+      const playerKeys = this.leashes.records.filter(r => r.phase === "active" && r.anchor.kind === "player").map(r => r.key);
+      const fenceKeys = this.fenceLeashKeys(t.x, t.y, t.z);
+      const coord = { x: t.x, y: t.y, z: t.z };
+      // Attaching the last held Lead leaves an empty hand; tying needs no second item.
+      const withinReach = Math.hypot(t.x + .5 - this.body.position.x, t.y + .75 - this.body.position.y, t.z + .5 - this.body.position.z) <= LEASH_PROFILE.retieReach;
+      const ok = playerKeys.length > 0 ? this.leashes.retieToFence(playerKeys, coord, context)
+        : !held && fenceKeys.length > 0 && withinReach && this.releaseLeashes(fenceKeys);
+      const refusal = !withinReach && (playerKeys.length > 0 || fenceKeys.length > 0) ? "Move closer to tie or release Leads"
+        : playerKeys.length > 0 || (!held && fenceKeys.length > 0) ? "Could not tie or release Leads" : "There are no Leads to tie or release here";
+      this.placeCooldown = .25; this.hud.message(ok ? (playerKeys.length ? "Leads tied to fence" : "Leads released") : refusal); return;
+    }
 
     // Hoe use precedes generic placement; authorization and successful-use wear are engine-owned.
     if (place && t && this.placeCooldown === 0 && tool?.kind === "hoe") {
@@ -846,7 +939,7 @@ export class Game {
   /** Executes one Agent command every AGENT_STEP_SECONDS while a program runs. */
   private stepAgent(dt: number): void {
     const runner = this.runner;
-    if (!runner) return;
+    if (!runner || this.leashes.busy) return;
     if (this.clock - this.runnerStarted > PROGRAM_TIMEOUT_SECONDS) {
       this.runner = null;
       this.hud.message(`"${this.runnerName}" stopped: it ran for more than ${PROGRAM_TIMEOUT_SECONDS} s`);
@@ -881,6 +974,7 @@ export class Game {
       giveToPlayer: (stack) => this.dead ? stack.count : this.inventory.addStack(stack),
       worldDrop: this.dropSink,
       playerFeet: () => this.body.position,
+      beginDestroyOwnership: (x, y, z) => this.leashes.beginRelease(this.fenceLeashKeys(x, y, z), this.leashContext()),
       collect: (agent, filterId) => this.worldDrops.tryPickup({ x: agent.x + .5, y: agent.y, z: agent.z + .5 }, (stack) => giveAgent(agent, stack), filterId),
       destroyContents: (x, y, z) => {
         const furnace = this.furnaces.get(furnaceKey(x, y, z)); return furnace ? furnaceContents(furnace) : [];
@@ -906,14 +1000,25 @@ export class Game {
 
   /** Breaks the targeted block; a broken furnace gives back its contents (Minecraft drops them). */
   private breakAt(t: RaycastHit): void {
+    if (this.leashes.busy) return;
     const furnace = t.id === FURNACE ? this.furnaces.get(furnaceKey(t.x, t.y, t.z)) : undefined;
     const contents = furnace ? furnaceContents(furnace) : [];
     // Breaking any cell of a chalkboard removes the whole board (one item drops, from the broken cell).
     const board = chalkboardSizeOf(t.id) ? this.chalkboardAt(t.x, t.y, t.z) : null;
-    if (!breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z, Math.random, contents, this.dropSink)) {
-      if (t.id === FURNACE && canBreak(this.world, this.mode, t.x, t.y, t.z)) this.hud.message("Could not preserve world drops; the furnace remains in place");
-      return;
-    }
+    const release = this.leashes.beginRelease(this.fenceLeashKeys(t.x, t.y, t.z), this.leashContext());
+    if (release.kind === "refused") { this.hud.message("Leads could not be released; the block remains"); return; }
+    const lease = release.kind === "ready" ? release.lease : null;
+    const sourceContents = JSON.stringify(contents);
+    const sourceValid = () => this.world.getBlock(t.x, t.y, t.z) === t.id &&
+      JSON.stringify(t.id === FURNACE ? furnaceContents(this.furnaces.get(furnaceKey(t.x, t.y, t.z)) ?? createFurnace()) : []) === sourceContents;
+    let broken = false;
+    try {
+      const sink = lease ? joinLeashRefundSink(lease, this.dropSink, sourceValid) : this.dropSink;
+      broken = breakBlock(this.world, this.inventory, this.mode, t.x, t.y, t.z, Math.random, contents, sink,
+        lease ? { valid: () => lease.valid() && sourceValid(), afterReceiverCommit: () => {} } : undefined);
+    } catch { broken = false; }
+    finally { lease?.cancel(); }
+    if (!broken) { this.hud.message("Could not preserve world drops; the block and its contents remain"); return; }
     if (board) {
       for (const c of chalkboardCells(board)) {
         this.chalkCells.delete(chalkboardKey(c.x, c.y, c.z));
@@ -977,7 +1082,7 @@ export class Game {
   }
 
   private hurt(amount: number, kind: "melee" | "fall" | "starvation" | "void" = "melee"): void {
-    if (this.dead || !Number.isFinite(amount) || amount <= 0 || (this.mode === "creative" && kind !== "void")) return;
+    if (this.leashes.busy || this.dead || !Number.isFinite(amount) || amount <= 0 || (this.mode === "creative" && kind !== "void")) return;
     const worn = ARMOR_SLOTS.map((slot) => [slot, this.inventory.equipment[slot]?.id] as const);
     const damage = applyArmorDamage(this.inventory, amount, kind);
     for (const [slot, id] of worn) {

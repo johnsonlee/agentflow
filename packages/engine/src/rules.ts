@@ -1,3 +1,4 @@
+import type { OwnershipGuard } from "./leashes";
 import { placementIntersectsFenceGeometry } from "./block-geometry";
 import type { DropSink } from "./world-drops";
 import { AIR, tryBlockById, blockById, blockId, isOpaque, type BlockDef } from "./blocks";
@@ -64,10 +65,21 @@ export function breakTime(mode: GameMode, id: number, tool: ToolSpec | null = nu
  * or the legacy inventory receiver, and a held tool wears by one use, breaking when spent.
  * Plants resting on the block are broken too. Returns false if the action is not allowed.
  */
-export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink): boolean {
+export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard): boolean {
+  if (ownershipGuard && (!sink || !ownershipGuard.valid())) return false;
   if (!canBreak(world, mode, x, y, z)) return false;
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
   const tool = toolOf(inventory.selectedStack()?.id);
+  const selected = inventory.selected, selectedSource = ownershipGuard ? JSON.stringify(inventory.selectedStack()) : "";
+  const guardedPartner = ownershipGuard ? doorPartner(world, x, y, z) : null;
+  const partnerId = guardedPartner ? world.getBlock(...guardedPartner) : null;
+  const sourceValid = () => {
+    if (!ownershipGuard) return true;
+    try {
+      return ownershipGuard.valid() && world.getBlock(x, y, z) === id && world.getBlock(x, y + 1, z) === above &&
+        (!guardedPartner || world.getBlock(...guardedPartner) === partnerId) && inventory.selected === selected && JSON.stringify(inventory.selectedStack()) === selectedSource;
+    } catch { return false; }
+  };
   const supported = tryBlockById(above)?.needsSupport === true;
   const drops: ItemStack[] = [...(mode === "survival" ? [
     ...(canHarvest(id, tool) ? blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
@@ -75,12 +87,14 @@ export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x
   // Optional world receiver stages the complete resolved batch before source removal.
   if (sink) {
     const batch = sink(drops, { x: x + .5, y: y + .5, z: z + .5 });
-    if (!batch || !batch.commit()) return false;
+    if (!batch || !sourceValid() || !sourceValid() || !batch.commit()) return false;
+    // Guard finalizers are trusted synchronous nonthrowing assignments, never receiver callbacks.
+    ownershipGuard?.afterReceiverCommit();
   } else {
     const trial = Inventory.fromJSON(inventory.toJSON());
     if (drops.some((stack) => trial.addStack(stack) > 0)) return false;
   }
-  const partner = doorPartner(world, x, y, z);
+  const partner = ownershipGuard ? guardedPartner : doorPartner(world, x, y, z);
   world.setBlock(x, y, z, AIR);
   if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
   if (supported) world.setBlock(x, y + 1, z, AIR);

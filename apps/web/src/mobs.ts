@@ -198,6 +198,7 @@ export class MobManager {
   readonly mobs: Mob[] = [];
   private readonly models = new Map<number, THREE.Group>();
   private nextId = 1;
+  private readonly deathOwners = new Set<number>();
   /** Minecraft's doMobSpawning game rule: natural animal spawning (summoning always works). */
   spawning = true;
   private spawnTimer = 0;
@@ -214,6 +215,9 @@ export class MobManager {
     private readonly scene: THREE.Scene,
     private readonly onDeath: (mob: Mob, cause: MobDeathCause) => boolean = () => true,
     private readonly hasPendingLoot: (mob: Mob) => boolean = () => false,
+    private readonly protectsOwnedMob: (mob: Mob) => boolean = () => false,
+    private readonly ownershipBusy: () => boolean = () => false,
+    private readonly movementBias: (mob: Mob) => Vec3 = () => ({ x: 0, y: 0, z: 0 }),
   ) {
     // Opening (or closing) a shelter near the player or a zombie ends that zombie's path back-off.
     this.unsubscribeBlock = world.onBlockChanged((x, y, z) => onBlockChangedNear(this.mobs, x, y, z, this.lastPlayer));
@@ -222,6 +226,7 @@ export class MobManager {
   get idsExhausted(): boolean { return this.nextId >= Number.MAX_SAFE_INTEGER; }
 
   spawn(kind: MobKind, position: Vec3, extra: { name?: string; dialogue?: string; yaw?: number } = {}): Mob {
+    if (this.ownershipBusy()) throw new Error("Creature ownership transfer is in progress");
     if (this.nextId >= Number.MAX_SAFE_INTEGER) throw new Error("Creature IDs are exhausted; no creature was summoned");
     const mob = createMob(this.nextId++, kind, position, extra);
     this.register(mob);
@@ -252,6 +257,12 @@ export class MobManager {
   }
 
   remove(mob: Mob): void {
+    // Receiver callbacks cannot recursively remove the actor whose transfer is still in progress.
+    if (this.ownershipBusy() || this.deathOwners.has(mob.id)) return;
+    this.removeView(mob);
+  }
+
+  private removeView(mob: Mob): void {
     const i = this.mobs.indexOf(mob);
     if (i >= 0) this.mobs.splice(i, 1);
     const model = this.models.get(mob.id);
@@ -276,6 +287,7 @@ export class MobManager {
    * the player). `daylight` is 0 (night) .. 1 (day).
    */
   update(dt: number, player: Vec3, light: number, time: number, target: Vec3 | null = player, daylight = light): void {
+    if (this.ownershipBusy()) return;
     const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
     const darken = skyDarken(daylight);
     this.pathBudget.nodes = PATHFINDING.budgetPerFrame;
@@ -295,7 +307,7 @@ export class MobManager {
       const dist = Math.hypot(mob.position.x - player.x, mob.position.z - player.z);
       // A refused fatal transfer still owns its cached loot, even outside the simulation radius.
       if (mob.kind !== "npc" && dist > DESPAWN_DISTANCE) {
-        if (!this.hasPendingLoot(mob)) this.remove(mob);
+        if (!this.hasPendingLoot(mob) && !this.protectsOwnedMob(mob)) this.remove(mob);
         continue;
       }
       if (mob.position.y < -10) {
@@ -303,7 +315,7 @@ export class MobManager {
         continue;
       }
       // Only simulate mobs in loaded terrain near the player.
-      if (dist < 64) stepMob(get, mob, dt, this.rand, target, this.pathBudget, this.effectiveLight(mob, daylight));
+      if (dist < 64) stepMob(get, mob, dt, this.rand, target, this.pathBudget, this.effectiveLight(mob, daylight), this.movementBias(mob));
       // Zombies burn under open sky by day.
       const head = this.world.getLight(Math.floor(mob.position.x), Math.floor(mob.position.y + 1.6), Math.floor(mob.position.z));
       if (burnInDaylight(mob, skyOf(head), darken, dt)) {
@@ -350,13 +362,17 @@ export class MobManager {
 
   /** Exactly one world-owned loot batch per actual death; despawn/removal stays loot-free. */
   private die(mob: Mob, cause: MobDeathCause): boolean {
-    if (!this.mobs.includes(mob)) return false;
-    if (!this.onDeath(mob, cause)) { mob.health = 1; return false; }
-    this.remove(mob); return true;
+    if (!this.mobs.includes(mob) || this.ownershipBusy() || this.deathOwners.has(mob.id)) return false;
+    this.deathOwners.add(mob.id);
+    try {
+      if (!this.onDeath(mob, cause)) { mob.health = 1; return false; }
+      this.removeView(mob); return true;
+    } finally { this.deathOwners.delete(mob.id); }
   }
 
   attack(mob: Mob, damage: number, fromYaw: number, cause: "player" | "agent" = "player"): boolean {
-    if (!this.mobs.includes(mob)) return false;
+    // This must be before damageMob: a resolver/sink guard alone is too late to protect health.
+    if (!this.mobs.includes(mob) || this.ownershipBusy() || this.deathOwners.has(mob.id)) return false;
     if (!damageMob(mob, damage, fromYaw)) return false;
     return this.die(mob, cause);
   }

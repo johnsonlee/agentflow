@@ -1,3 +1,4 @@
+import { joinLeashRefundSink, type ReleaseAttempt } from "./leashes";
 import { placementIntersectsFenceGeometry } from "./block-geometry";
 import { bodyBox } from "./physics";
 /**
@@ -56,6 +57,8 @@ export interface AgentResult {
 
 /** Hooks into the game for commands that touch mobs or the player. */
 export interface AgentEnv {
+  /** Acquires scoped external ownership before planning a block destruction; busy must refuse. */
+  beginDestroyOwnership?(x: number, y: number, z: number): ReleaseAttempt;
   /** Optional live player feet for new fence placement/connection overlap checks. */
   playerFeet?(): Vec3;
   /** New physical mode; absent preserves legacy direct inventory-transfer behavior. */
@@ -199,24 +202,39 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const id = world.getBlock(t.x, t.y, t.z);
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
-      const above = world.getBlock(t.x, t.y + 1, t.z);
-      const supported = tryBlockById(above)?.needsSupport === true;
-      const drops = [...blockDrops(id), ...(supported ? blockDrops(above) : []), ...(env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [])];
-      const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
-      if (env.worldDrop) {
-        const batch = env.worldDrop(drops, { x: t.x + .5, y: t.y + .5, z: t.z + .5 });
-        if (!batch || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
-      } else {
-        if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
-        if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
-      }
-      const partner = doorPartner(world, t.x, t.y, t.z);
-      world.setBlock(t.x, t.y, t.z, AIR);
-      if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
-      if (supported) world.setBlock(t.x, t.y + 1, t.z, AIR);
-      if (!env.worldDrop) for (const stack of drops) addToAgent(agent, stack);
-      env.afterDestroy?.(t.x, t.y, t.z);
-      return { ok: true };
+      const attempt = env.beginDestroyOwnership?.(t.x, t.y, t.z) ?? { kind: "none" as const };
+      if (attempt.kind === "refused") return { ok: false, message: attempt.reason };
+      const lease = attempt.kind === "ready" ? attempt.lease : null;
+      try {
+        if (lease && !env.worldDrop) return { ok: false, message: "Leashed sources require atomic world drops" };
+        const above = world.getBlock(t.x, t.y + 1, t.z);
+        const supported = tryBlockById(above)?.needsSupport === true;
+        const contents = env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [];
+        const contentsSource = JSON.stringify(contents);
+        const drops = [...blockDrops(id), ...(supported ? blockDrops(above) : []), ...contents];
+        const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
+        const partner = doorPartner(world, t.x, t.y, t.z), partnerId = partner ? world.getBlock(...partner) : null;
+        const sourceValid = () => {
+          try {
+            return (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
+              (!partner || world.getBlock(...partner) === partnerId) && (!lease || JSON.stringify(env.destroyContents?.(t.x, t.y, t.z) ?? []) === contentsSource);
+          } catch { return false; }
+        };
+        if (env.worldDrop) {
+          const sink = lease ? joinLeashRefundSink(lease, env.worldDrop, sourceValid) : env.worldDrop;
+          const batch = sink(drops, { x: t.x + .5, y: t.y + .5, z: t.z + .5 });
+          if (!batch || lease && !sourceValid() || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
+        } else {
+          if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
+          if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
+        }
+        world.setBlock(t.x, t.y, t.z, AIR);
+        if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
+        if (supported) world.setBlock(t.x, t.y + 1, t.z, AIR);
+        if (!env.worldDrop) for (const stack of drops) addToAgent(agent, stack);
+        env.afterDestroy?.(t.x, t.y, t.z);
+        return { ok: true };
+      } finally { lease?.cancel(); }
     }
     case "detect": {
       const t = target(cmd.dir);
