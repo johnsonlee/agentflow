@@ -37,8 +37,8 @@ it("pins fourteen literal catalog identities, excluding both red-art placeholder
 
 it("retains all537 old item definitions,307 blocks,128 recipes and exact old green owners", () => {
   expect([baseline.items, baseline.blocks, baseline.recipes]).toEqual([537, 307, 128]);
-  expect(ITEMS.slice(0, 550)).toHaveLength(550); expect(BLOCKS).toHaveLength(307); expect(RECIPES.slice(0, 141)).toHaveLength(141);
-  expect(digest(ITEMS.slice(0, 537))).toBe(baseline.itemDefsSHA256); expect(digest(BLOCKS)).toBe(baseline.blockDefsSHA256);
+  expect(ITEMS.slice(0, 550)).toHaveLength(550); expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(RECIPES.slice(0, 141)).toHaveLength(141);
+  expect(digest(ITEMS.slice(0, 537))).toBe(baseline.itemDefsSHA256); expect(digest(BLOCKS.slice(0, 307))).toBe(baseline.blockDefsSHA256);
   expect(digest(RECIPES.slice(0, 128))).toBe(baseline.recipesSHA256); expect(RECIPES.slice(0, 128).map(r => r.id)).toEqual(baseline.recipeIDs);
   expect(itemById(stackId("glow_stick"))).toEqual(baseline.oldGreenItem); expect(RECIPES.find(r => r.id === "glow_stick")).toEqual(baseline.oldGreenRecipe);
   expect(placedBlockOf(stackId("glow_stick"))).toBe(blockId("placed_glow_stick"));

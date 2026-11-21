@@ -1,3 +1,5 @@
+import { tryBlockById } from "./blocks";
+import { blockSelectionBoxes, type LocalBox } from "./block-geometry";
 import type { Vec3 } from "./math";
 
 export interface RaycastHit {
@@ -11,6 +13,22 @@ export interface RaycastHit {
   distance: number;
 }
 
+/** Exact slab hit for the new fence only; existing block targeting stays voxel-based. */
+function fenceSlab(origin: Vec3, direction: Vec3, x: number, y: number, z: number, bounds: LocalBox): { distance: number; normal: Vec3 } | null {
+  let enter = 0, exit = Infinity;
+  let normal: Vec3 = { x: 0, y: 0, z: 0 };
+  for (const [axis, low, high, offset] of [["x", bounds[0], bounds[3], x], ["y", bounds[1], bounds[4], y], ["z", bounds[2], bounds[5], z]] as const) {
+    const d = direction[axis], p = origin[axis];
+    if (Math.abs(d) < 1e-12) { if (p < offset + low || p > offset + high) return null; continue; }
+    const a = (offset + low - p) / d, b = (offset + high - p) / d;
+    const near = Math.min(a, b), far = Math.max(a, b);
+    if (near > enter) { enter = near; normal = { x: 0, y: 0, z: 0 }; normal[axis] = d > 0 ? -1 : 1; }
+    exit = Math.min(exit, far);
+    if (enter > exit) return null;
+  }
+  return exit >= 0 ? { distance: enter, normal } : null;
+}
+
 /**
  * Voxel traversal (Amanatides & Woo). `isTarget` decides which block ids stop the ray.
  */
@@ -22,7 +40,7 @@ export function raycast(
   isTarget: (id: number) => boolean,
 ): RaycastHit | null {
   const len = Math.hypot(direction.x, direction.y, direction.z);
-  if (len === 0) return null;
+  if (!Number.isFinite(len) || len === 0 || ![origin.x, origin.y, origin.z, maxDistance].every(Number.isFinite) || maxDistance < 0) return null;
   const dx = direction.x / len;
   const dy = direction.y / len;
   const dz = direction.z / len;
@@ -45,7 +63,15 @@ export function raycast(
   let t = 0;
   while (t <= maxDistance) {
     const id = getBlock(x, y, z);
-    if (isTarget(id)) return { x, y, z, id, normal: { ...normal }, distance: t };
+    if (isTarget(id)) {
+      if (tryBlockById(id)?.shape !== "fence") return { x, y, z, id, normal: { ...normal }, distance: t };
+      let nearest: { distance: number; normal: Vec3 } | null = null;
+      for (const box of blockSelectionBoxes(getBlock, x, y, z, id)) {
+        const hit = fenceSlab(origin, { x: dx, y: dy, z: dz }, x, y, z, box);
+        if (hit && hit.distance >= t - 1e-9 && hit.distance <= maxDistance && (!nearest || hit.distance < nearest.distance)) nearest = hit;
+      }
+      if (nearest) return { x, y, z, id, ...nearest };
+    }
     if (tMaxX < tMaxY && tMaxX < tMaxZ) {
       x += stepX;
       t = tMaxX;

@@ -1,5 +1,6 @@
+import { BLOCK_COLLISION_ORIGIN_BELOW, boxIntersectsBlockGeometry } from "./block-geometry";
 import { clampPosition } from "./math";
-import { blockById, blockId, isSolid } from "./blocks";
+import { blockById, blockId } from "./blocks";
 import type { Vec3 } from "./math";
 
 export const PLAYER_WIDTH = 0.6;
@@ -88,16 +89,11 @@ export function boxCollides(getBlock: BlockGetter, b: Box): boolean {
     // NaN, Infinity or a span that floating point can't represent: treat as blocked.
     return !(nx < 0 || ny < 0 || nz < 0);
   }
-  for (let j = 0; j <= ny; j++) {
+  for (let j = -BLOCK_COLLISION_ORIGIN_BELOW; j <= ny; j++) {
     for (let k = 0; k <= nz; k++) {
       for (let i = 0; i <= nx; i++) {
         const x = x0 + i, y = y0 + j, z = z0 + k;
-        const id = getBlock(x, y, z);
-        if (!isSolid(id)) continue;
-        const bounds = blockById(id).collisionBox ?? [0, 0, 0, 1, 1, 1];
-        if (b.maxX > x + bounds[0] + eps && b.minX < x + bounds[3] - eps &&
-          b.maxY > y + bounds[1] + eps && b.minY < y + bounds[4] - eps &&
-          b.maxZ > z + bounds[2] + eps && b.minZ < z + bounds[5] - eps) return true;
+        if (boxIntersectsBlockGeometry(getBlock, b, x, y, z)) return true;
       }
     }
   }

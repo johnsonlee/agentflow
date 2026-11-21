@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CHUNK_SIZE, meshChunk, toChunkCoord, type MeshData, type SkyState, type UvLookup, type World } from "@craft/engine";
+import { CHUNK_SIZE, blockById, blockSelectionBoxes, type LocalBox, meshChunk, toChunkCoord, type MeshData, type SkyState, type UvLookup, type World } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
 interface ChunkEntry {
@@ -32,6 +32,7 @@ export class WorldRenderer {
   private readonly heldPos = { value: new THREE.Vector3() };
   private readonly uv: UvLookup;
   private readonly selection: THREE.LineSegments;
+  private selectionGeometryKey = "cube";
   private readonly crack: THREE.Mesh;
   private readonly crackTextures: THREE.Texture[];
   private readonly sun: THREE.Mesh;
@@ -105,7 +106,7 @@ export class WorldRenderer {
     this.scene.fog = this.fog;
 
     this.selection = new THREE.LineSegments(
-      new THREE.EdgesGeometry(new THREE.BoxGeometry(1.004, 1.004, 1.004)),
+      cubeOutlineGeometry(),
       new THREE.LineBasicMaterial({ color: 0x000000, transparent: true, opacity: 0.6 }),
     );
     this.selection.visible = false;
@@ -207,6 +208,16 @@ export class WorldRenderer {
     this.selection.visible = block !== null;
     this.crack.visible = block !== null && breakProgress > 0;
     if (!block) return;
+    const fence = blockById(this.world.getBlock(block.x, block.y, block.z)).shape === "fence";
+    const boxes = fence ? blockSelectionBoxes((x, y, z) => this.world.getBlock(x, y, z), block.x, block.y, block.z) : null;
+    const key = boxes ? `fence:${JSON.stringify(boxes)}` : "cube";
+    // Neighbour connections can change while the selected block coordinate stays the same.
+    if (key !== this.selectionGeometryKey) {
+      this.selection.geometry.dispose(); this.crack.geometry.dispose();
+      this.selection.geometry = boxes ? fenceOverlayGeometry(boxes, .004, true) : cubeOutlineGeometry();
+      this.crack.geometry = boxes ? fenceOverlayGeometry(boxes, .006, false) : new THREE.BoxGeometry(1.006, 1.006, 1.006);
+      this.selectionGeometryKey = key;
+    }
     this.selection.position.set(block.x + 0.5, block.y + 0.5, block.z + 0.5);
     this.crack.position.copy(this.selection.position);
     if (breakProgress > 0) {
@@ -378,4 +389,35 @@ function crackTexture(stage: number): THREE.Texture {
   tex.minFilter = THREE.NearestFilter;
   tex.needsUpdate = true;
   return tex;
+}
+
+/** Composite original fence overlay. Coordinates stay relative to the legacy cell-centred object.
+ * Every temporary box/edge geometry is disposed after copying; final geometry belongs to renderer. */
+function fenceOverlayGeometry(boxes: readonly LocalBox[], inset: number, edges: boolean): THREE.BufferGeometry {
+  const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
+  for (const box of boxes) {
+    const cube = new THREE.BoxGeometry(box[3] - box[0] + inset, box[4] - box[1] + inset, box[5] - box[2] + inset);
+    cube.translate((box[0] + box[3]) / 2 - .5, (box[1] + box[4]) / 2 - .5, (box[2] + box[5]) / 2 - .5);
+    const geometry = edges ? new THREE.EdgesGeometry(cube) : cube;
+    const offset = positions.length / 3;
+    positions.push(...geometry.getAttribute("position").array);
+    if (!edges) {
+      normals.push(...geometry.getAttribute("normal").array); uvs.push(...geometry.getAttribute("uv").array);
+      for (const index of geometry.index!.array) indices.push(index + offset);
+    }
+    if (edges) geometry.dispose(); cube.dispose();
+  }
+  const result = new THREE.BufferGeometry();
+  result.setAttribute("position", new THREE.Float32BufferAttribute(positions, 3));
+  if (!edges) {
+    result.setAttribute("normal", new THREE.Float32BufferAttribute(normals, 3));
+    result.setAttribute("uv", new THREE.Float32BufferAttribute(uvs, 2)); result.setIndex(indices);
+  }
+  return result;
+}
+
+/** Identical legacy cube edges with the temporary source box released after copying. */
+function cubeOutlineGeometry(): THREE.EdgesGeometry {
+  const cube = new THREE.BoxGeometry(1.004, 1.004, 1.004);
+  const edges = new THREE.EdgesGeometry(cube); cube.dispose(); return edges;
 }

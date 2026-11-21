@@ -62,13 +62,13 @@ it("rejects the sulfur material/atom name collision and leaves unsupported/unkno
   for (const name of ["water", "snowy_grass", "stone_button", "element_16", "element_0", "bleach", "red_dye"]) expect(reduceMaterial(stackId(name))).toBeNull();
   expect(constructElement(0, 0, 0)).toHaveProperty("error"); expect(elementParticlesOf(32768)).toBeNull();
   expect(createCompound([{ id: 32768, count: 1 }])).toHaveProperty("error");
-  for (const id of [-1, .5, NaN, Infinity, 188, ITEMS.at(-1)!.id + 1, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
+  for (const id of [-1, .5, NaN, Infinity, 189, ITEMS.at(-1)!.id + 1, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
 });
 
 it("keeps every complete pre-increment block/item definition and atom identity unchanged", () => {
-  expect(BLOCKS).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
-  expect(digest(BLOCKS)).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
-  expect(digest(BLOCKS.map(({ id, name }) => [id, name]))).toBe(baseline.allBlockIDNamesSHA256);
+  expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
+  expect(digest(BLOCKS.slice(0, 307))).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
+  expect(digest(BLOCKS.slice(0, 307).map(({ id, name }) => [id, name]))).toBe(baseline.allBlockIDNamesSHA256);
   expect(digest(ITEMS.slice(0, 535).map(({ id, name }) => [id, name]))).toBe(baseline.allItemIDNamesSHA256);
   expect(digest(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");

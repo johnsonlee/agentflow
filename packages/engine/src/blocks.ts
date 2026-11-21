@@ -7,7 +7,7 @@ import { DYE_COLORS } from "./dyes";
 import { ELEMENTS } from "./chemistry-data";
 import { EXTENDED_BLOCK_ID_BASE, isBlockNamespace } from "./ids";
 
-export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "none";
+export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "fence" | "none";
 
 export interface BlockFaces {
   top: string;
@@ -219,6 +219,11 @@ for (const [i, color] of DYE_COLORS.entries()) specs.push({
   // Reuse the existing ordinary-glass proxy; exact current Education mining times are unverified.
   hardness: .45,
 });
+
+// Append explicit unused low ID; old compact registry indices/extended IDs remain unchanged.
+// Original application geometry/mining model; native fence shape calibration is unverified.
+specs.push({ id: 188, name: "oak_fence", displayName: "Oak Fence", faces: faces("oak_planks"),
+  shape: "fence", transparent: true, solid: true, hardness: 3, tool: "axe" });
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

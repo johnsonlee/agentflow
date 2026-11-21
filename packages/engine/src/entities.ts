@@ -1,4 +1,4 @@
-import { blockId, isOpaque, isSolid } from "./blocks";
+import { blockById, blockId, isOpaque, isSolid } from "./blocks";
 import { MAX_LIGHT, blockLightOf, skyOf } from "./light";
 import { clampPosition, type Vec3 } from "./math";
 import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
@@ -392,7 +392,7 @@ export function canHostileSpawn(
   darken: number,
   roll: number,
 ): boolean {
-  if (!isOpaque(getBlock(x, y - 1, z))) return false;
+  if (!isOpaque(getBlock(x, y - 1, z)) || blockById(getBlock(x, y - 1, z)).shape === "fence") return false;
   if (isSolid(getBlock(x, y, z)) || isSolid(getBlock(x, y + 1, z))) return false;
   if (getBlock(x, y, z) === WATER) return false;
   const light = getLight(x, y, z);

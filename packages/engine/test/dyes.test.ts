@@ -31,7 +31,7 @@ it("preserves every prior block/item/atom identity and appends dyes and explicit
     expect(blockById(blockId(`${color.name}_wool`)).faces.side).toBe(`${color.name}_wool`);
   }
   expect(BLOCKS.slice(283, 291).map((b) => [b.id, b.name])).toEqual(newWools.map((c, i) => [164 + i, `${c}_wool`]));
-  expect(blockId("element_118")).toBe(32886); expect(isKnownBlockId(188)).toBe(false); expect(isItem(164)).toBe(false);
+  expect(blockId("element_118")).toBe(32886); expect(isKnownBlockId(189)).toBe(false); expect(isItem(164)).toBe(false);
 });
 
 it("matches all 17 available-input primary-source recipes with exact output counts in arbitrary cells", () => {
@@ -127,5 +127,5 @@ it("round trips all new dye/wool stacks through inventory, pending recovery and 
   const received = new Inventory();
   for (let i = 0; i < names.length; i++) expect(runAgentCommand(new World(13), clean, { op: "drop", slot: i }, { giveToPlayer: (s) => received.addStack(s) }).ok).toBe(true);
   expect(received.slots.filter(Boolean)).toEqual(names.map((n) => stack(n, 2)));
-  for (const raw of [{ id: ITEMS.at(-1)!.id + 1, count: 1 }, { id: 188, count: 1 }, { id: 775, count: 65 }, { id: 775, count: 0 }]) expect(sanitizeStack(raw)).toBeNull();
+  for (const raw of [{ id: ITEMS.at(-1)!.id + 1, count: 1 }, { id: 189, count: 1 }, { id: 775, count: 65 }, { id: 775, count: 0 }]) expect(sanitizeStack(raw)).toBeNull();
 });

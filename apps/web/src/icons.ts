@@ -62,6 +62,15 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
     ctx.drawImage(tileCanvas(atlas, itemById(id).icon), 0, 0, size, size);
   } else if (def.shape === "cross" || def.shape === "torch") {
     ctx.drawImage(tileCanvas(atlas, def.faces.side), size * 0.1, size * 0.1, size * 0.8, size * 0.8);
+  } else if (def.shape === "fence") {
+    // Original two-post inventory silhouette using the same local plank tile as the world model.
+    const plank = tileCanvas(atlas, def.faces.side);
+    for (const y of [.29, .59]) ctx.drawImage(plank, size * .12, size * y, size * .76, size * .13);
+    for (const x of [.17, .65]) {
+      ctx.drawImage(plank, size * x, size * .08, size * .18, size * .84);
+      ctx.fillStyle = "rgba(0,0,0,.22)";
+      ctx.fillRect(size * (x + .14), size * .08, size * .04, size * .84);
+    }
   } else if (def.shape === "box") {
     // Flat redstone parts (plates, buttons, repeaters): their top texture.
     ctx.drawImage(tileCanvas(atlas, def.faces.top), size * 0.15, size * 0.15, size * 0.7, size * 0.7);

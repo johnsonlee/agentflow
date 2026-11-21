@@ -1,3 +1,5 @@
+import { placementIntersectsFenceGeometry } from "./block-geometry";
+import { bodyBox } from "./physics";
 /**
  * Education Edition Agent: a small robot that belongs to the player and runs Code Builder
  * commands one at a time. It occupies one block cell, flies (doesn't fall), can't pass through
@@ -54,6 +56,8 @@ export interface AgentResult {
 
 /** Hooks into the game for commands that touch mobs or the player. */
 export interface AgentEnv {
+  /** Optional live player feet for new fence placement/connection overlap checks. */
+  playerFeet?(): Vec3;
   /** New physical mode; absent preserves legacy direct inventory-transfer behavior. */
   worldDrop?: DropSink;
   /** Detached external contents join the same destruction batch, never a second receiver. */
@@ -100,6 +104,8 @@ export function findAgentPosition(world: Pick<World, "getBlock">, player: Vec3, 
     if (y < 0 || y + 1 >= WORLD_HEIGHT) continue;
     for (const { x, z } of columns) {
       if (isSolid(world.getBlock(x, y, z)) || isSolid(world.getBlock(x, y + 1, z))) continue;
+      // Agent integer grid policy: air above a1.5-high fence is not a safe teleport cell.
+      if (y > 0 && blockById(world.getBlock(x, y - 1, z)).shape === "fence") continue;
       const spot = { x, y, z };
       if (y > 0 && isSolid(world.getBlock(x, y - 1, z))) return spot;
       flying ??= spot;
@@ -155,7 +161,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const t = target(cmd.dir);
       if (t.y < 0 || t.y >= WORLD_HEIGHT) return { ok: false, message: "Can't move out of the world" };
       if (Math.abs(t.x) > WORLD_BORDER || Math.abs(t.z) > WORLD_BORDER) return { ok: false, message: "That's beyond the world border" };
-      if (isSolid(world.getBlock(t.x, t.y, t.z))) return { ok: false, message: "Blocked" };
+      if (isSolid(world.getBlock(t.x, t.y, t.z)) || (t.y > 0 && blockById(world.getBlock(t.x, t.y - 1, t.z)).shape === "fence")) return { ok: false, message: "Blocked" };
       agent.x = t.x;
       agent.y = t.y;
       agent.z = t.z;
@@ -179,6 +185,10 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       // Repeaters point the way the Agent faces; doors face it and need the cell above (inside the world).
       const cells = orientedPlacement(placed, t.x, t.y, t.z, agent.facing) ?? [[t.x, t.y, t.z, placed]];
       if (!extraCellsFree(world, cells)) return { ok: false, message: "Something is in the way" };
+      // New fence only: fixed centered.6x1 Agent footprint, not a retrofit of legacy actor physics.
+      const get = world.getBlock.bind(world), feet = env.playerFeet?.();
+      if (placementIntersectsFenceGeometry(get, cells, bodyBox({ x: agent.x + .5, y: agent.y, z: agent.z + .5 }, .6, 1)) ||
+        (feet && placementIntersectsFenceGeometry(get, cells, bodyBox(feet)))) return { ok: false, message: "Fence would overlap an actor" };
       for (const [cx, cy, cz, id] of cells) world.setBlock(cx, cy, cz, id);
       stack.count--;
       if (stack.count <= 0) agent.slots[agent.selected] = null;

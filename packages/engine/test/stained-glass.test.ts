@@ -27,8 +27,8 @@ it("preserves all prior registry/atom IDs and adds only sixteen explicit translu
   expect(digest(ITEMS.slice(0, 535).map(({ id, name }) => [id, name]))).toBe("885d45248089dcfd792313e7a5e8cd18f293596684eb119a628a8afda3844b3f");
   expect(digest(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");
-  expect(BLOCKS).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
-  expect(BLOCKS.slice(291).map((b) => [b.id, b.name])).toEqual(names.map((name, i) => [172 + i, name]));
+  expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
+  expect(BLOCKS.slice(291, 307).map((b) => [b.id, b.name])).toEqual(names.map((name, i) => [172 + i, name]));
   expect(BLOCKS.filter((b) => b.translucent).map((b) => b.name)).toEqual(names);
   for (const name of names) {
     const id = blockId(name), def = blockById(id);
@@ -36,7 +36,7 @@ it("preserves all prior registry/atom IDs and adds only sixteen explicit translu
     expect(def.faces).toEqual({ top: name, side: name, bottom: name });
     expect(isItem(id)).toBe(false); expect(isKnownBlockId(id)).toBe(true); expect(placedBlockOf(id)).toBe(id);
   }
-  expect(isKnownBlockId(188)).toBe(false); expect(blockId("glass")).toBe(11); expect(blockId("element_118")).toBe(32886);
+  expect(isKnownBlockId(189)).toBe(false); expect(blockId("glass")).toBe(11); expect(blockId("element_118")).toBe(32886);
 });
 
 it("crafts every primary-source ring with exact eight outputs and one unit consumed per occupied cell", () => {

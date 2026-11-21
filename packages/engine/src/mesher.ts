@@ -1,4 +1,5 @@
 import { AIR, blockId, isOpaque, tryBlockById } from "./blocks";
+import { blockRenderBoxes } from "./block-geometry";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "./chunk";
 import type { World } from "./world";
 
@@ -116,6 +117,10 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
         if (def.shape === "none") continue;
         if (def.shape === "cross" || def.shape === "torch") {
           addCross(solid, x, y, z, uv(def.faces.side), def.shape === "torch" ? 0.0 : 0.15, def.emissive ? 0xff : lightAt(x, y, z));
+          continue;
+        }
+        if (def.shape === "fence") {
+          for (const bounds of blockRenderBoxes(get, x, y, z, id)) addBox(solid, x, y, z, bounds, def.faces, uv, lightAt(x, y, z));
           continue;
         }
         if (def.shape === "box" && def.box) {

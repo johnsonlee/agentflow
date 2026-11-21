@@ -17,8 +17,8 @@ const full = () => { const b = new Inventory(); for (let i = 0; i < 36; i++) b.s
 it("appends item537 with application stack16 and retains all307 block identities", () => {
   expect([baseline.blocks, baseline.items, baseline.recipes, baseline.nativeRows]).toEqual([307, 536, 128, 23]);
   expect(ITEMS.slice(0, 537)).toHaveLength(537); // New13color entries append after this frozen prefix.
-  expect(BLOCKS).toHaveLength(307);
-  expect(digest(BLOCKS)).toBe(baseline.blockDefsSHA256);
+  expect(BLOCKS.slice(0, 307)).toHaveLength(307);
+  expect(digest(BLOCKS.slice(0, 307))).toBe(baseline.blockDefsSHA256);
   expect(digest(ITEMS.slice(0, 536))).toBe(baseline.itemDefsSHA256);
   expect(RECIPES.slice(0, 128).map((r) => r.id)).toEqual(baseline.recipeIDs);
   expect(digest(RECIPES.slice(0, 128).filter((r) => r.id !== "snow_block"))).toBe(baseline.other127RecipesSHA256);

@@ -20,8 +20,8 @@ function roundTrip(f: FurnaceState): FurnaceState {
 }
 
 it("preserves prior registry prefixes, other125 recipes (snow is checked separately), old9 smelts and all fuels", () => {
-  expect(BLOCKS).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
-  expect(digest(BLOCKS)).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
+  expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
+  expect(digest(BLOCKS.slice(0, 307))).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
   expect(RECIPES.slice(0, 128)).toHaveLength(128);
   expect(RECIPES.slice(0, 128).filter((r) => r.id !== "bookshelf" && r.id !== "glowstone" && r.id !== "snow_block")).toEqual(fixture.unchangedRecipes.filter((r: { id: string }) => r.id !== "glowstone" && r.id !== "snow_block"));
   expect(Object.keys(SMELTING_RECIPES)).toHaveLength(11);

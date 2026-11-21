@@ -1,0 +1,102 @@
+{
+  "workingReference": "Official-currentEducation1.26.33.0; activepack/runtimecalibrationnotproved",
+  "installer": {
+    "bytes": 810354021,
+    "sha256": "80bb151b1db4e46edc503230bc8ece25210fff94b7d73d6774559a054398a91e",
+    "url": "https://downloads.minecrafteduservices.com/retailbuilds/MacOS/Minecraft_Education_1.26.33.0.dmg"
+  },
+  "sources": [
+    {
+      "path": "behavior_packs/vanilla/recipes/fence.json",
+      "bytes": 460,
+      "sha256": "d2834393c26c7a5e184fe4fa494bbe2ee294b8f88bb08ac3f6b91fa95b583845",
+      "manifestMatches": true,
+      "identifier": "minecraft:fence",
+      "formatVersion": "1.12",
+      "pattern": [
+        "W#W",
+        "W#W"
+      ],
+      "key": {
+        "#": {
+          "item": "minecraft:stick"
+        },
+        "W": {
+          "item": "minecraft:planks",
+          "data": 0
+        }
+      },
+      "resultLiteral": {
+        "item": "minecraft:fence",
+        "data": 0,
+        "count": 3
+      },
+      "countFieldPresent": true,
+      "countLiteral": 3,
+      "tags": [
+        "crafting_table"
+      ]
+    },
+    {
+      "path": "behavior_packs/vanilla_1.20.10/recipes/fence.json",
+      "bytes": 553,
+      "sha256": "e560d72c6b5fd71fc03243511b0bc484f99ce5a27f021ef395744094696c4004",
+      "manifestMatches": true,
+      "identifier": "minecraft:fence",
+      "formatVersion": "1.20.10",
+      "pattern": [
+        "W#W",
+        "W#W"
+      ],
+      "key": {
+        "#": {
+          "item": "minecraft:stick"
+        },
+        "W": {
+          "item": "minecraft:planks",
+          "data": 0
+        }
+      },
+      "resultLiteral": {
+        "item": "minecraft:fence",
+        "data": 0,
+        "count": 3
+      },
+      "countFieldPresent": true,
+      "countLiteral": 3,
+      "tags": [
+        "crafting_table"
+      ]
+    },
+    {
+      "path": "behavior_packs/vanilla_1.21.40/recipes/fence.json",
+      "bytes": 510,
+      "sha256": "b97c710db9dc4a95a43364c2da352e0ca046f848f50bfa38dc831db1064bac67",
+      "manifestMatches": true,
+      "identifier": "minecraft:fence",
+      "formatVersion": "1.20.10",
+      "pattern": [
+        "W#W",
+        "W#W"
+      ],
+      "key": {
+        "#": {
+          "item": "minecraft:stick"
+        },
+        "W": {
+          "item": "minecraft:oak_planks"
+        }
+      },
+      "resultLiteral": {
+        "item": "minecraft:oak_fence",
+        "count": 3
+      },
+      "countFieldPresent": true,
+      "countLiteral": 3,
+      "tags": [
+        "crafting_table"
+      ]
+    }
+  ],
+  "limits": "Actual retained recipe facts only; active pack, native geometry/collision/hardness not measured."
+}

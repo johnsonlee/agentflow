@@ -54,3 +54,5 @@ export * from "./player-death";
 export * from "./snowball-projectiles";
 
 export { GLOW_STICK_COLORS } from "./glow-stick-colors";
+
+export * from "./block-geometry";

@@ -6,10 +6,11 @@
  * within `radius` of the start and expands at most `maxNodes` nodes, so it is cheap and always
  * terminates; if the goal is unreachable it returns a path to the closest node found.
  */
-import { BLOCKS, isOpaque, isSolid } from "./blocks";
+import { BLOCKS, blockById, isOpaque, isSolid } from "./blocks";
 
 const TREE = new Set(BLOCKS.filter((b) => b.name.endsWith("_log") || b.name.endsWith("_leaves")).map((b) => b.id));
-import type { BlockGetter } from "./physics";
+import { bodyBox, type BlockGetter } from "./physics";
+import { boxIntersectsFences } from "./block-geometry";
 import type { Vec3 } from "./math";
 
 export interface PathOptions {
@@ -24,6 +25,9 @@ export type PathNode = { x: number; y: number; z: number };
 
 
 function free(get: BlockGetter, x: number, y: number, z: number, height: number): boolean {
+  // Integer-grid walkers cannot stand in the air cell above a1.5-high fence.
+  // This is conservative path policy, not width-aware navigation or native climbing.
+  if (blockById(get(x, y - 1, z)).shape === "fence") return false;
   for (let i = 0; i < height; i++) if (isSolid(get(x, y + i, z))) return false;
   return true;
 }
@@ -229,7 +233,7 @@ export function findPath(get: BlockGetter, from: Vec3, to: Vec3, opts: PathOptio
  * beside it, reachable on foot, instead of inside the trunk or on top of the canopy.
  * Returns the feet position (cell centre), or null if nothing fits.
  */
-export function findSummonSpot(get: BlockGetter, x: number, z: number, nearY: number, height = 2, radius = 4): Vec3 | null {
+export function findSummonSpot(get: BlockGetter, x: number, z: number, nearY: number, height = 2, radius = 4, width = .6): Vec3 | null {
   const cx = Math.floor(x);
   const cz = Math.floor(z);
   const y0 = Math.floor(nearY);
@@ -244,6 +248,10 @@ export function findSummonSpot(get: BlockGetter, x: number, z: number, nearY: nu
             const floor = get(cx + dx, y - 1, cz + dz);
             if (!isOpaque(floor) || TREE.has(floor)) continue;
             if (!standable(get, cx + dx, y, cz + dz, height)) continue;
+            // Only the new fence gets an actual-width spawn probe; legacy solid targeting and
+            // integer standability remain unchanged. Width is supplied for the wide Spider.
+            const body = bodyBox({ x: cx + dx + .5, y, z: cz + dz + .5 }, width, height);
+            if (boxIntersectsFences(get, body)) continue;
             const score = Math.hypot(dx, dz) + Math.abs(y - y0) * 0.5;
             if (!best || score < best.score) best = { x: cx + dx, y, z: cz + dz, score };
           }

@@ -41,7 +41,7 @@ it("dispatches only bounded valid output stacks and keeps invalid/unsupported ID
     expect(Number.isInteger(s.count)).toBe(true); expect(s.count).toBeGreaterThan(0); expect(s.count).toBeLessThanOrEqual(maxStackOf(s.id));
   }
   for (const compound of COMPOUNDS) expect(reduceMaterial(stackId(compound.name))).not.toBeNull();
-  for (const id of [-1, .5, NaN, Infinity, 188, ITEMS.at(-1)!.id + 1, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
+  for (const id of [-1, .5, NaN, Infinity, 189, ITEMS.at(-1)!.id + 1, 32767, 65535, 65536]) expect(reduceMaterial(id)).toBeNull();
   for (const name of ["element_0", "element_6", "crafting_table", "bleach", "red_dye"]) expect(reduceMaterial(stackId(name))).toBeNull();
 });
 

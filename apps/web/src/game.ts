@@ -1,5 +1,5 @@
 import {
-  SnowballProjectiles, tryThrowSnowball, bodyBox, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
@@ -880,6 +880,7 @@ export class Game {
       },
       giveToPlayer: (stack) => this.dead ? stack.count : this.inventory.addStack(stack),
       worldDrop: this.dropSink,
+      playerFeet: () => this.body.position,
       collect: (agent, filterId) => this.worldDrops.tryPickup({ x: agent.x + .5, y: agent.y, z: agent.z + .5 }, (stack) => giveAgent(agent, stack), filterId),
       destroyContents: (x, y, z) => {
         const furnace = this.furnaces.get(furnaceKey(x, y, z)); return furnace ? furnaceContents(furnace) : [];
@@ -1156,11 +1157,16 @@ export class Game {
         // A ground spot near that point at about the player's level, never inside or on top of a tree.
         const get = (bx: number, by: number, bz: number) => this.world.getBlock(bx, by, bz);
         const height = Math.ceil(MOB_SPECS[cmd.kind].height);
-        const spot = findSummonSpot(get, x, z, this.body.position.y, height) ?? {
+        const groundSpot = findSummonSpot(get, x, z, this.body.position.y, height, 4, MOB_SPECS[cmd.kind].width);
+        const spot = groundSpot ?? {
           x,
           y: Math.max(this.world.generator.heightAt(Math.floor(x), Math.floor(z)) + 1, Math.floor(this.body.position.y)) + 0.5,
           z,
         };
+        // Preserve the legacy fallback, but never allocate a new actor into the new fence geometry.
+        if (!groundSpot && boxIntersectsFences(get, bodyBox({ ...spot, y: spot.y + .01 }, MOB_SPECS[cmd.kind].width, MOB_SPECS[cmd.kind].height))) {
+          reply = "No safe space near the fence to summon that creature"; break;
+        }
         // NPCs face the player.
         if (this.mobs.idsExhausted) { reply = "Creature IDs are exhausted; no creature was summoned"; break; }
         const mob = this.mobs.spawn(cmd.kind, { x: spot.x, y: spot.y + 0.01, z: spot.z }, { name: cmd.name, yaw: this.body.yaw + Math.PI });

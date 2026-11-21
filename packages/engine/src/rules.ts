@@ -1,3 +1,4 @@
+import { placementIntersectsFenceGeometry } from "./block-geometry";
 import type { DropSink } from "./world-drops";
 import { AIR, tryBlockById, blockById, blockId, isOpaque, type BlockDef } from "./blocks";
 import { WORLD_HEIGHT } from "./chunk";
@@ -6,7 +7,7 @@ import { placedBlockOf, toolOf, type ToolSpec } from "./items";
 import { blockDrops, farmlandId, farmlandMoisture, wheatAge } from "./farming";
 import { meltAround } from "./labeffects";
 import { doorPartner, orientedPlacement } from "./redstone";
-import { bodyOverlapsBlock } from "./physics";
+import { bodyOverlapsBlock, playerBox } from "./physics";
 import type { Vec3 } from "./math";
 import type { World } from "./world";
 
@@ -150,11 +151,12 @@ export function placeBlock(
   const target = world.getBlock(x, y, z);
   if (target !== AIR && target !== WATER && !tryBlockById(target)?.replaceable) return false;
   const def = blockById(placed);
-  if (def.solid && bodyOverlapsBlock(playerFeet, x, y, z)) return false;
+  if (def.solid && def.shape !== "fence" && bodyOverlapsBlock(playerFeet, x, y, z)) return false;
   if (!hasSupport(world, def, x, y, z, target)) return false;
   if (!canBuildAt(world, mode, x, y, z)) return false;
   // Repeaters point where the player looks; doors face the player and need the cell above free.
   const cells = orientedPlacement(placed, x, y, z, look);
+  if (placementIntersectsFenceGeometry(world.getBlock.bind(world), cells ?? [[x, y, z, placed]], playerBox(playerFeet))) return false;
   if (cells) {
     // A door needs its upper cell free and inside the world (not at the top layer).
     if (!extraCellsFree(world, cells)) return false;

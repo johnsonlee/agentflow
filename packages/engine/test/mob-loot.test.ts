@@ -13,7 +13,7 @@ const amount = (stacks: readonly ItemStack[], name: string) => stacks.filter((s)
 
 it("retains all legacy mob metadata and registries while documenting exact candidate source ranges", () => {
   expect(JSON.parse(JSON.stringify(Object.fromEntries(Object.entries(MOB_SPECS).filter(([kind]) => kind !== "spider"))))).toEqual(facts.legacyMobSpecs);
-  expect(BLOCKS).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
+  expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
   expect(facts.sources).toHaveLength(13);
   expect(facts.ranges.map((r: { mob: string; min: number; max: number; sources: string[] }) => [r.mob, r.min, r.max, r.sources.length])).toEqual([
     ["pig", 1, 3, 2], ["chicken", 0, 2, 1], ["zombie", 0, 2, 4],

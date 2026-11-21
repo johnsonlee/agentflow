@@ -136,6 +136,8 @@ export const RECIPES: readonly Recipe[] = [
   // Native JSON omits result count; output1 is the application default, not a measured native quantity.
   { id: "string_to_wool", pattern: ["##", "##"], key: { "#": "string" }, result: ["white_wool", 1],
     note: "Four-cell shape and canonical white from retained Education recipe; output1 application default" },
+  // Retained Education1.26.33 vanilla_1.21.40: four oak planks, two sticks -> three oak fences.
+  { id: "oak_fence", pattern: ["W#W", "W#W"], key: { W: "oak_planks", "#": "stick" }, result: ["oak_fence", 3] },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

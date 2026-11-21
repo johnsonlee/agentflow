@@ -1,4 +1,5 @@
-import { blockById, isSolid } from "./blocks";
+import { blockById } from "./blocks";
+import { BLOCK_COLLISION_ORIGIN_BELOW, MAX_BLOCK_COLLISION_HEIGHT, blockCollisionBoxes, type LocalBox } from "./block-geometry";
 import { MAX_Y, MIN_Y, WORLD_BORDER, type Vec3 } from "./math";
 import type { Inventory } from "./inventory";
 import type { GameMode } from "./rules";
@@ -89,12 +90,23 @@ export class SnowballProjectiles {
         const x0 = Math.floor(Math.min(a.x, b.x) - SNOWBALL_PROJECTILE_PROFILE.radius), x1 = Math.floor(Math.max(a.x, b.x) + SNOWBALL_PROJECTILE_PROFILE.radius);
         const y0 = Math.floor(Math.min(a.y, b.y) - SNOWBALL_PROJECTILE_PROFILE.radius), y1 = Math.floor(Math.max(a.y, b.y) + SNOWBALL_PROJECTILE_PROFILE.radius);
         const z0 = Math.floor(Math.min(a.z, b.z) - SNOWBALL_PROJECTILE_PROFILE.radius), z1 = Math.floor(Math.max(a.z, b.z) + SNOWBALL_PROJECTILE_PROFILE.radius);
-        for (let x = x0; x <= x1; x++) for (let y = y0; y <= y1; y++) for (let z = z0; z <= z1; z++) {
+        for (let x = x0; x <= x1; x++) for (let y = y0 - BLOCK_COLLISION_ORIGIN_BELOW; y <= y1; y++) for (let z = z0; z <= z1; z++) {
           const id = this.world.getLoadedBlock(x, y, z);
-          if (id !== undefined && !isSolid(id)) continue;
-          const bounds = id === undefined ? [0, 0, 0, 1, 1, 1] : blockById(id).collisionBox ?? [0, 0, 0, 1, 1, 1];
-          const at = contact(a, b, { minX: x + bounds[0], minY: y + bounds[1], minZ: z + bounds[2], maxX: x + bounds[3], maxY: y + bounds[4], maxZ: z + bounds[5] });
-          if (at !== null && at < best) { best = at; kind = "block"; unknown = id === undefined; }
+          // Unknown cells could contain an above-origin fence. Conservative pause retains the
+          // flight owner rather than inventing an impact or generating a chunk.
+          let uncertain = id === undefined;
+          const geometryGet = (gx: number, gy: number, gz: number) => {
+            const adjacent = this.world.getLoadedBlock(gx, gy, gz);
+            if (adjacent === undefined) { uncertain = true; return 1; }
+            return adjacent;
+          };
+          const boxes: readonly LocalBox[] = id === undefined ? [[0, 0, 0, 1, MAX_BLOCK_COLLISION_HEIGHT, 1]] : blockCollisionBoxes(geometryGet, x, y, z, id);
+          // A known fence next to unloaded terrain is conservatively connected until loaded;
+          // even a definite post contact waits if its neighbor geometry is unresolved.
+          for (const bounds of boxes) {
+            const at = contact(a, b, { minX: x + bounds[0], minY: y + bounds[1], minZ: z + bounds[2], maxX: x + bounds[3], maxY: y + bounds[4], maxZ: z + bounds[5] });
+            if (at !== null && at < best) { best = at; kind = "block"; unknown = uncertain; }
+          }
         }
         for (const target of eligible) {
           const at = contact(a, b, target.box);
