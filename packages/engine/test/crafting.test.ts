@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { RECIPES, blockId, craftOnce, matchRecipe, stackId, type CraftingGrid } from "../src";
+import { RECIPES, blockId, craftOnce, matchRecipe, stackId, type CraftingGrid } from "../src/index";
 
 const s = (name: string, count = 1) => ({ id: blockId(name), count });
 

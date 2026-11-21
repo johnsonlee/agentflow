@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import baseline from "./fixtures/station-binding-067.json";
-import { AIR, World, meshChunk, ATLAS_TEXTURE_CATALOG, BLOCKS, ITEMS, RECIPES, STATION_FACE_KEYS, STATION_FACE_TEXTURES, allAtlasTextureNames, blockById, itemTextureNames, textureNames } from "../src";
+import { AIR, World, meshChunk, ATLAS_TEXTURE_CATALOG, BLOCKS, ITEMS, RECIPES, STATION_FACE_KEYS, STATION_FACE_TEXTURES, allAtlasTextureNames, blockById, itemTextureNames, textureNames } from "../src/index";
 const digest = (v: unknown) => createHash("sha256").update(JSON.stringify(v) + "\n").digest("hex");
 const expected = [[44, "element_constructor"], [45, "compound_creator"], [46, "material_reducer"], [47, "lab_table"]] as const;
 it("changes exactly eight top/bottom texture references on four stable stations; every other definition, item and recipe stays exact", () => {

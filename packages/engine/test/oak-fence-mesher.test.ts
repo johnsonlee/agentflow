@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { AIR, World, blockId, blockRenderBoxes, meshChunk } from "../src";
+import { AIR, World, blockId, blockRenderBoxes, meshChunk } from "../src/index";
 const uv = () => [0, 0, 1, 1] as const;
 function emptyWorld() {
   const world = new World(1);

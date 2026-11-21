@@ -7,7 +7,7 @@ import {
   blockId, cloneStack, craftOnce, createAgent, giveAgent, itemById, matchRecipe, maxStackOf, parseSave,
   placeBlock, placedBlockOf, runAgentCommand, sanitizeAgent, sanitizeInventoryPending, sanitizeStack,
   serializeSave, stackId, stacksCompatible, validatePlayerDeathOwnership, type CraftingGrid, type ItemStack, type PlayerDeathState,
-} from "../src";
+} from "../src/index";
 const baseline = JSON.parse(readFileSync(new URL("./fixtures/glow-stick-colors-baseline.json", import.meta.url), "utf8"));
 const facts = JSON.parse(readFileSync(new URL("./fixtures/glow-stick-color-source-facts.json", import.meta.url), "utf8"));
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value) + "\n").digest("hex");

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, AGENT_SLOTS, Inventory, ProgramRunner, World, blockId, createAgent, giveAgent, itemId, parseCommand, parseSave, runAgentCommand,
   serializeSave, validateProgram, loadPrograms, startProgram, type AgentCommand, type CodeProgram,
-} from "../src";
+} from "../src/index";
 
 const STONE = blockId("stone");
 const PLANKS = blockId("oak_planks");

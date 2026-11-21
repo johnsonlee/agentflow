@@ -5,7 +5,7 @@ import {
   Inventory, World, constructElement, createAgent, createCompound, elementParticlesOf, giveAgent,
   isDocumentedEducationIsotope, itemById, nameOf, parseSave, runAgentCommand, sanitizeAgent,
   sanitizeInventoryPending, serializeSave, stackId, type ItemStack,
-} from "../src";
+} from "../src/index";
 
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value) + "\n").digest("hex");
 const stack = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });

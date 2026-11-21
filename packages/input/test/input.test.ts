@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DoubleTap, classifyTouch, emptyFrame, joystickVector, knobOffset, mergeFrames } from "../src";
+import { DoubleTap, classifyTouch, emptyFrame, joystickVector, knobOffset, mergeFrames } from "../src/index";
 
 describe("virtual joystick", () => {
   it("returns zero inside the dead zone", () => {

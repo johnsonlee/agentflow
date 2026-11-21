@@ -3,7 +3,7 @@ import {
   AIR, EAT_SECONDS, EXHAUSTION, Inventory, MAX_FOOD, MOB_SPECS, SMELT_SECONDS, World, addExhaustion, blockId, breakBlock, canEat,
   canHarvest, createFurnace, createHunger, dropOf, eat, fuelSeconds, furnaceContents, itemId, matchRecipe, parseSave,
   serializeSave, smeltResult, stackId, tickFurnace, tickHunger, toolOf, type CraftingGrid,
-} from "../src";
+} from "../src/index";
 
 const st = (name: string, count = 1) => ({ id: stackId(name), count });
 

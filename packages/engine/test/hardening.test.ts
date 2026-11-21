@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   Inventory, World, createAgent, isKnownId, loadPrograms, parseCommand, parseSave, runAgentCommand, sanitizeAgent, sanitizeChalkboards,
   sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, sanitizePhotos, sanitizeStack, serializeSave, startProgram, validateProgram, type AgentCommand,
-} from "../src";
+} from "../src/index";
 
 // Review d1dce006: prototype property names as keys must never be accepted or throw.
 const PROTO_NAMES = [...Object.getOwnPropertyNames(Object.prototype), "__proto__", "prototype", "__defineGetter__"];

@@ -9,7 +9,7 @@ import {
   isKnownId, isKnownItemId, isOpaque, isSolid, loadPrograms, maxStackOf, meshChunk, parseCommand, parseSave,
   placeBlock, placedBlockOf, raycast, runAgentCommand, sanitizeAgent, sanitizeChalkboards, sanitizeEdits,
   sanitizeFurnaces, sanitizeInventoryPending, sanitizeScheduled, serializeSave, stackId, toolOf, tryBlockById,
-} from "../src";
+} from "../src/index";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value) + "\n").digest("hex");
 const feet = { x: 2, y: 91, z: 2 };

@@ -21,6 +21,17 @@ npm run build      # production build in apps/web/dist
 | `packages/input` (`@craft/input`) | Keyboard/mouse with pointer lock, virtual joystick, and touch gestures (tap places, hold breaks, drag looks), merged into one device-independent `InputFrame` |
 | `apps/web` (`@craft/web`) | Vite + Three.js client: renderer, sky, clouds, HUD, menus, inventory, persistence |
 
+## Source organization
+
+Source implementations are grouped by responsibility. Package consumers keep using `@craft/engine`, `@craft/input` and `@craft/textures` through their existing `src/index.ts` entry points.
+
+| Source tree | Responsibility folders |
+| --- | --- |
+| `packages/engine/src` | `core` (shared math, random and IDs), `catalog` (block/item/texture registries), `world` (chunks, generation, light, time and rules), `simulation` (physics, actors and gameplay systems), `ownership` (inventory, stacks and world-owned products), `crafting` (recipes, chemistry and lab effects), `persistence` (save validation and mob snapshots), `automation` (Agent, commands and Code Builder), `education` (chalkboard data), `rendering` (chunk meshing) |
+| `packages/input/src` | `contracts` (device-independent actions) and `devices` (keyboard/mouse, touch and joystick calculations) |
+| `packages/textures/src` | `atlas` (packing and pixel primitives), `artwork` (procedural tile families) and `resource-packs` (local pack validation) |
+| `apps/web/src` | `application` (startup and game orchestration), `rendering` (Three.js views and models), `simulation` (mob management and habitat queries), `ui` (screens, HUD, icons and styles) and `persistence` (local resource-pack selection) |
+
 ## Features
 
 - An infinite, seeded world with plains, forest, desert, snowy and ocean biomes, oak and birch trees, flowers, ores and bedrock

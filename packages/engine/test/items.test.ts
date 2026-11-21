@@ -3,7 +3,7 @@ import {
   AIR, ITEMS, ITEM_ID_BASE, Inventory, World, blockId, breakBlock, breakTime, canHarvest, craftOnce, displayNameOf, isItem,
   itemById, itemId, matchRecipe, maxStackOf, parseCommand, parseSave, placeBlock, serializeSave, stackId, toolOf,
   type CraftingGrid, type ItemStack,
-} from "../src";
+} from "../src/index";
 
 const st = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });
 const P = () => st("oak_planks");

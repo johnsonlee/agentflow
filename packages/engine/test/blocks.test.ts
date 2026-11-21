@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, BLOCKS, BLOCK_ID_LIMIT, isKnownBlockId, blockById, blockId, creativeBlocks, isOpaque, isSolid, textureNames } from "../src";
+import { AIR, BLOCKS, BLOCK_ID_LIMIT, isKnownBlockId, blockById, blockId, creativeBlocks, isOpaque, isSolid, textureNames } from "../src/index";
 
 describe("block registry", () => {
   it("assigns ids by index with air at 0", () => {

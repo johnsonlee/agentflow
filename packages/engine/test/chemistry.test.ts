@@ -3,7 +3,7 @@ import {
   matchRecipe,
   BLOCKS, COMPOUNDS, ELEMENTS, Inventory, ITEMS, LAB_REACTIONS, REDUCTIONS, addExhaustion, constructElement, createCompound,
   displayNameOf, elementByZ, isKnownId, itemById, labReaction, nameOf, createHunger, reduceMaterial, sanitizeStack, stackId,
-} from "../src";
+} from "../src/index";
 
 const id = (name: string) => stackId(name);
 const ok = (r: { id: number } | { error: string }) => ("id" in r ? nameOf(r.id) : `error: ${r.error}`);

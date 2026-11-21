@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   Inventory, WORLD_BORDER, World, boxCollides, bodyBox, clampPosition, createAgent, createMob, createPlayerBody, itemId, moveAxis, parseCommand,
   parseSave, runAgentCommand, sanitizeAgent, sanitizeFurnaces, sanitizeStack, stepMob, stepPlayer, toolOf,
-} from "../src";
+} from "../src/index";
 
 // Review 7372276b: huge coordinates froze block loops (x++ stops changing x beyond ~9e15).
 const EXTREMES = [1e16, -1e16, 1e308, -1e308, Number.MAX_VALUE, Infinity, -Infinity, NaN, 2 ** 53, 9.007199254740993e15];

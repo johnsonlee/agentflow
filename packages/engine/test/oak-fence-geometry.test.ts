@@ -3,7 +3,7 @@ import {
   AIR, BLOCKS, FENCE_CONNECTIONS, MAX_BLOCK_COLLISION_HEIGHT, BLOCK_COLLISION_ORIGIN_BELOW,
   blockById, blockCollisionBoxes, blockId, blockRenderBoxes, blockSelectionBoxes, bodyBox, boxCollides,
   createPlayerBody, fenceConnections, findPath, findSummonSpot, boxIntersectsFences, isSolid, raycast, standable, stepPlayer,
-} from "../src";
+} from "../src/index";
 const F = blockId("oak_fence"), S = blockId("stone");
 function fixture() {
   const blocks = new Map<string, number>();

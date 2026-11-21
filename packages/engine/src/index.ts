@@ -1,72 +1,72 @@
-export * from "./blocks";
-export * from "./chunk";
-export * from "./generator";
-export * from "./inventory";
-export * from "./math";
-export * from "./mesher";
-export * from "./noise";
-export * from "./physics";
-export * from "./random";
-export * from "./raycast";
-export * from "./rules";
-export * from "./save";
-export * from "./time";
-export * from "./world";
-export * from "./commands";
-export * from "./crafting";
-export * from "./entities";
-export * from "./items";
-export * from "./smelting";
-export * from "./hunger";
-export * from "./light";
-export * from "./pathfind";
-export * from "./chalkboard";
-export * from "./books";
-export * from "./agent";
-export * from "./codebuilder";
-export * from "./savecheck";
-export * from "./chemistry-data";
-export * from "./chemistry";
-export * from "./labeffects";
-export * from "./redstone";
+export * from "./catalog/blocks";
+export * from "./world/chunk";
+export * from "./world/generator";
+export * from "./ownership/inventory";
+export * from "./core/math";
+export * from "./rendering/mesher";
+export * from "./world/noise";
+export * from "./simulation/physics";
+export * from "./core/random";
+export * from "./simulation/raycast";
+export * from "./world/rules";
+export * from "./persistence/save";
+export * from "./world/time";
+export * from "./world/world";
+export * from "./automation/commands";
+export * from "./crafting/crafting";
+export * from "./simulation/entities";
+export * from "./catalog/items";
+export * from "./crafting/smelting";
+export * from "./simulation/hunger";
+export * from "./world/light";
+export * from "./automation/pathfind";
+export * from "./education/chalkboard";
+export * from "./ownership/books";
+export * from "./automation/agent";
+export * from "./automation/codebuilder";
+export * from "./persistence/savecheck";
+export * from "./crafting/chemistry-data";
+export * from "./crafting/chemistry";
+export * from "./crafting/labeffects";
+export * from "./simulation/redstone";
 
-export * from "./armor";
+export * from "./simulation/armor";
 
-export * from "./farming";
+export * from "./simulation/farming";
 
-export * from "./education-isotopes";
+export * from "./crafting/education-isotopes";
 
-export { LEGACY_BLOCK_ID_LIMIT, ITEM_ID_LIMIT, EXTENDED_BLOCK_ID_BASE, BLOCK_ID_LIMIT, isBlockNamespace } from "./ids";
+export { LEGACY_BLOCK_ID_LIMIT, ITEM_ID_LIMIT, EXTENDED_BLOCK_ID_BASE, BLOCK_ID_LIMIT, isBlockNamespace } from "./core/ids";
 
-export * from "./dyes";
+export * from "./catalog/dyes";
 
-export * from "./native-reductions";
+export * from "./crafting/native-reductions";
 
-export * from "./stack";
-export * from "./world-drops";
+export * from "./ownership/stack";
+export * from "./ownership/world-drops";
 
-export * from "./mob-loot";
+export * from "./simulation/mob-loot";
 
-export * from "./mob-save";
+export * from "./persistence/mob-save";
 
-export * from "./player-death";
+export * from "./simulation/player-death";
 
-export * from "./snowball-projectiles";
+export * from "./simulation/snowball-projectiles";
 
-export { GLOW_STICK_COLORS } from "./glow-stick-colors";
+export { GLOW_STICK_COLORS } from "./catalog/glow-stick-colors";
 
-export * from "./block-geometry";
+export * from "./catalog/block-geometry";
 
-export * from "./leashes";
+export * from "./ownership/leashes";
 
-export * from "./station-textures";
-export * from "./atlas-texture-catalog";
-export * from "./atlas-texture-names";
+export * from "./catalog/station-textures";
+export * from "./catalog/atlas-texture-catalog";
+export * from "./catalog/atlas-texture-names";
 
-export { BALLOON_COLORS, balloonColorOf, type BalloonColor } from "./balloon-colors";
+export { BALLOON_COLORS, balloonColorOf, type BalloonColor } from "./catalog/balloon-colors";
 
-export * from "./balloons";
+export * from "./ownership/balloons";
 
-export * from "./ownership-release";
+export * from "./ownership/ownership-release";
 
-export * from "./aquatics";
+export * from "./simulation/aquatics";

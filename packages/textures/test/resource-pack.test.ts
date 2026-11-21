@@ -2,7 +2,7 @@ import { allAtlasTextureNames } from "@craft/engine";
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { GLOW_STICK_COLORS, itemTextureNames, textureNames } from "@craft/engine";
-import { MAX_PACK_BYTES, MAX_PACK_NAME_LENGTH, buildAtlas, generateTile, parseLocalTexturePack, sha256Hex, type SourceTile } from "../src";
+import { MAX_PACK_BYTES, MAX_PACK_NAME_LENGTH, buildAtlas, generateTile, parseLocalTexturePack, sha256Hex, type SourceTile } from "../src/index";
 // Historical pixel/UV assertions retain the exact first825 keys. Full catalog is tested separately.
 const historical825Names = () => allAtlasTextureNames().slice(0, 825);
 

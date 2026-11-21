@@ -3,7 +3,7 @@ import {
   AIR, Inventory, MobLootResolver, WorldDrops, blockId, createMob, mobSnapshot, restoreMobSnapshot,
   sanitizeMobState, sanitizeNpcs, sanitizePendingMobLoot, serializeSave, parseSave, stackId,
   type Mob, type MobKind, type MobSnapshot, type MobStateData,
-} from "../src";
+} from "../src/index";
 const position = { x: .5, y: 1, z: .5 };
 const floor = { getLoadedBlock: (_x: number, y: number, _z: number) => y === 0 ? blockId("stone") : AIR };
 const stack = (name: string, count = 1) => ({ id: stackId(name), count });

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, DAY_LENGTH, HOTBAR_SIZE, Inventory, MAX_STACK, World, blockId, breakBlock, breakTime, canBuildAt, parseSave,
   placeBlock, serializeSave, skyAt,
-} from "../src";
+} from "../src/index";
 
 function clearArea(world: World) {
   for (let x = -2; x < 6; x++) for (let z = -2; z < 6; z++) {

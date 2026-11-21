@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, World, blockId, bodyOverlapsBlock, createPlayerBody, isSolid, lookDirection, raycast, stepPlayer, WALK_SPEED,
   type MoveInput,
-} from "../src";
+} from "../src/index";
 
 const STONE = blockId("stone");
 const idle: MoveInput = { forward: 0, strafe: 0, jump: false, descend: false, sprint: false };

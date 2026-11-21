@@ -2,7 +2,7 @@ import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { ITEMS, BLOCKS, RECIPES, craftOnce, matchRecipe, maxStackOf, placedBlockOf, itemById, stackId, type CraftingGrid } from "../src";
+import { ITEMS, BLOCKS, RECIPES, craftOnce, matchRecipe, maxStackOf, placedBlockOf, itemById, stackId, type CraftingGrid } from "../src/index";
 const baseline = JSON.parse(readFileSync(new URL("./fixtures/leash-baseline.json", import.meta.url), "utf8"));
 const facts = JSON.parse(readFileSync(new URL("./fixtures/lead-source-facts.json", import.meta.url), "utf8"));
 const digest = (v: unknown) => createHash("sha256").update(JSON.stringify(v) + "\n").digest("hex");

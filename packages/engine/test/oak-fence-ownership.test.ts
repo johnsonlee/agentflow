@@ -3,7 +3,7 @@ import {
   AIR, Inventory, SnowballProjectiles, World, WorldDrops, blockId, bodyBox, boxCollides, breakBlock,
   canHostileSpawn, createAgent, findAgentPosition, parseSave, placeBlock, runAgentCommand,
   serializeSave, stackId,
-} from "../src";
+} from "../src/index";
 const F = blockId("oak_fence"), S = blockId("stone");
 const stack = (id = F, count = 1) => ({ id, count });
 function terrain() {

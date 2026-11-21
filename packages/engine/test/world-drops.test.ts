@@ -3,7 +3,7 @@ import {
   AIR, BLOCKS, ITEMS, Inventory, SAVE_VERSION, World, WorldDrops, WORLD_DROP_PROFILE, blockId, breakBlock,
   createAgent, giveAgent, runAgentCommand, stackId, elementBlockId, sanitizeWorldDrops, cloneStack,
   parseSave, serializeSave, validateProgram, type ItemStack, type Vec3,
-} from "../src";
+} from "../src/index";
 const s = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });
 const p: Vec3 = { x: .5, y: 1, z: .5 };
 function floorWorld() {

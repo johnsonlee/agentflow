@@ -7,7 +7,7 @@ import {
   isKnownBlockId, isOpaque, isSolid, matchRecipe, meshChunk, parseSave, placeBlock, placedBlockOf,
   raycast, runAgentCommand, sanitizeAgent, sanitizeEdits, sanitizeInventoryPending, serializeSave,
   stackId, type CraftingGrid, type ItemStack, type MeshData,
-} from "../src";
+} from "../src/index";
 
 const stack = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value) + "\n").digest("hex");

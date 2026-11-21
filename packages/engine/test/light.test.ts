@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, Inventory, World, blockId, blockLightOf, emission, itemId, matchRecipe, placeBlock, skyOf, stackId, type CraftingGrid } from "../src";
+import { AIR, Inventory, World, blockId, blockLightOf, emission, itemId, matchRecipe, placeBlock, skyOf, stackId, type CraftingGrid } from "../src/index";
 
 const STONE = blockId("stone");
 const TORCH = blockId("torch");

@@ -1,9 +1,9 @@
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { allAtlasTextureNames } from "@craft/engine";
-import { BALLOON_COLORS } from "../../engine/src/balloon-colors";
+import { BALLOON_COLORS } from "../../engine/src/catalog/balloon-colors";
 import baseline from "../../engine/test/fixtures/balloon-baseline-ebab.json";
-import { buildAtlas, generateTile, hasItemTile } from "../src";
+import { buildAtlas, generateTile, hasItemTile } from "../src/index";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("appends exactly sixteen original color icons and preserves all833 catalog entries, original pixels and UVs", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names), historical = buildAtlas(baseline.names);

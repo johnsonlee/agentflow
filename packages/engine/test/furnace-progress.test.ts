@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   Inventory, SAVE_VERSION, createFurnace, parseSave, sanitizeFurnaces, serializeSave,
   setFurnaceInput, stackId, tickFurnace, type FurnaceState, type ItemStack,
-} from "../src";
+} from "../src/index";
 
 const stack = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });
 function halfway(): FurnaceState {

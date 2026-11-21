@@ -6,7 +6,7 @@ import {
   createAgent, createHunger, createPlayerBody, eat, farmDrops, farmlandId, farmlandMoisture, fuelSeconds,
   hasFarmWater, matchRecipe, parseSave, placeBlock, runAgentCommand, sanitizeFarmingState, serializeSave,
   stackId, stepPlayer, tillSoil, toolOf, useLabProduct, wheatAge, wheatId, type CraftingGrid,
-} from "../src";
+} from "../src/index";
 
 const spot = { x: 8, y: 90, z: 8, normal: { x: 0, y: 1, z: 0 } };
 const idMapHash = (defs: readonly { id: number; name: string }[]) => createHash("sha256").update(JSON.stringify(historicalItemMap(defs)) + "\n").digest("hex");

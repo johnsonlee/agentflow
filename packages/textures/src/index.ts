@@ -1,13 +1,13 @@
-export * from "./atlas";
-export * from "./pixels";
-export * from "./tiles";
-export * from "./items";
-export * from "./chemistry";
-export * from "./redstone";
+export * from "./atlas/atlas";
+export * from "./atlas/pixels";
+export * from "./atlas/tiles";
+export * from "./artwork/items";
+export * from "./artwork/chemistry";
+export * from "./artwork/redstone";
 
-export * from "./farming";
+export * from "./artwork/farming";
 
-export * from "./stained-glass";
+export * from "./artwork/stained-glass";
 
-export * from "./resource-pack";
-export * from "./checksum";
+export * from "./resource-packs/resource-pack";
+export * from "./atlas/checksum";

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ADDITIONAL_COMPOUNDS, ADDITIONAL_ELEMENTS, COMPOUNDS, ELEMENTS, ITEMS, Inventory, MAX_PARTICLES,
   constructElement, createCompound, elementByZ, itemById, labReaction, nameOf, parseSave, reduceMaterial, serializeSave, stackId,
-} from "../src";
+} from "../src/index";
 
 const resultName = (r: { id: number } | { error: string }) => "id" in r ? nameOf(r.id) : r.error;
 

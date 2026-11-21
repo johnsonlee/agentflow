@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import {
   BLOCKS, COMPOUNDS, ITEMS, Inventory, LEGACY_MATERIAL_REDUCTIONS, REDUCTIONS, blockId, createAgent, giveAgent, maxStackOf,
   parseSave, reduceMaterial, sanitizeAgent, sanitizeInventoryPending, serializeSave, stackId, type ItemStack,
-} from "../src";
+} from "../src/index";
 
 const stack = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });
 const summary = (parts: ItemStack[]) => parts.map(({ id, count }) => [id, count]);

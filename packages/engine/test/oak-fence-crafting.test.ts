@@ -2,7 +2,7 @@ import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { BLOCKS, ITEMS, RECIPES, blockById, blockId, craftOnce, matchRecipe, stackId, type CraftingGrid } from "../src";
+import { BLOCKS, ITEMS, RECIPES, blockById, blockId, craftOnce, matchRecipe, stackId, type CraftingGrid } from "../src/index";
 const before = JSON.parse(readFileSync(new URL("./fixtures/oak-fence-baseline.json", import.meta.url), "utf8"));
 const facts = JSON.parse(readFileSync(new URL("./fixtures/oak-fence-source-facts.json", import.meta.url), "utf8"));
 const digest = (v: unknown) => createHash("sha256").update(JSON.stringify(v) + "\n").digest("hex");

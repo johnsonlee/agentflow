@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
-import { BLOCKS, ITEMS, RECIPES, MOB_SPECS, stackId, maxStackOf, craftOnce, matchRecipe, type CraftingGrid } from "../src";
-import { BALLOON_COLORS, balloonColorOf } from "../src/balloon-colors";
+import { BLOCKS, ITEMS, RECIPES, MOB_SPECS, stackId, maxStackOf, craftOnce, matchRecipe, type CraftingGrid } from "../src/index";
+import { BALLOON_COLORS, balloonColorOf } from "../src/catalog/balloon-colors";
 import baseline from "./fixtures/balloon-baseline-ebab.json";
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value) + "\n").digest("hex");
 const grid = (dye: string, count = 2): CraftingGrid => ["latex", dye, "latex", "latex", "helium", "latex", "latex", "lead_rope", "latex"].map(name => ({ id: stackId(name), count }));

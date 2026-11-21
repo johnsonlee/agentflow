@@ -2,7 +2,7 @@ import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
-import { ITEMS, BLOCKS, RECIPES, craftOnce, matchRecipe, stackId, maxStackOf, sanitizeStack, type CraftingGrid } from "../src";
+import { ITEMS, BLOCKS, RECIPES, craftOnce, matchRecipe, stackId, maxStackOf, sanitizeStack, type CraftingGrid } from "../src/index";
 const before = JSON.parse(readFileSync(new URL("./fixtures/spider-string-baseline.json", import.meta.url), "utf8"));
 const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(value) + "\n").digest("hex");
 const string = (count = 1) => ({ id: stackId("string"), count });

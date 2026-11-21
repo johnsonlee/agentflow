@@ -7,7 +7,7 @@ import {
   Inventory, World, WorldDrops, blockId, blockDrops, breakBlock, canHarvest, craftOnce, matchRecipe,
   itemById, stackId, toolOf, reduceMaterial, createAgent, giveAgent, runAgentCommand,
   parseSave, serializeSave, sanitizeAgent, sanitizeInventoryPending, type ItemStack, type CraftingGrid,
-} from "../src";
+} from "../src/index";
 const st = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });
 const snow = blockId("snow");
 const baseline = JSON.parse(readFileSync(new URL("./fixtures/snowball-material-baseline.json", import.meta.url), "utf8"));

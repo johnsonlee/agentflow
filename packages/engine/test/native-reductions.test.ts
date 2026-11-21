@@ -7,7 +7,7 @@ import {
   Inventory, World, blockId, breakBlock, constructElement, createAgent, createCompound, elementBlockId, elementParticlesOf,
   giveAgent, isItem, itemById, maxStackOf, parseSave, placeBlock, reduceMaterial, runAgentCommand, sanitizeAgent,
   sanitizeInventoryPending, serializeSave, stackId, type ItemStack,
-} from "../src";
+} from "../src/index";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/native-reductions-1.26.33.json", import.meta.url), "utf8")) as {
   version: string; installerSHA256: string; cases: { appName: string; appId: number; appKind: "block" | "item"; nativeIdentifier: string;

@@ -3,7 +3,7 @@ import {
   AIR, BOOK_PAGE_CHARS, CHALKBOARD_SIZES, Inventory, MOB_SPECS, World, blockId, breakBlock, canEditChalkboard, canPlaceChalkboard,
   chalkboardCells, chalkboardSizeOf, clampChalkText, creativeBlocks, facingTowards, itemId, matchRecipe, parseSave, serializeSave,
   signBook, stackId, writeBook, type Chalkboard,
-} from "../src";
+} from "../src/index";
 
 const base = {
   name: "w", seed: 1, mode: "survival" as const, timeOfDay: 0.3,

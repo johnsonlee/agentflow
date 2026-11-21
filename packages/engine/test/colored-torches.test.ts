@@ -5,7 +5,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, BLOCKS, ITEMS, Inventory, World, blockById, blockId, breakBlock, craftOnce, creativeBlocks,
   dropOf, emission, labReaction, matchRecipe, parseSave, placeBlock, placedBlockOf, sanitizeEdits, serializeSave, stackId, type CraftingGrid,
-} from "../src";
+} from "../src/index";
 
 const recipes = [["blue", "cerium_chloride"], ["red", "mercuric_chloride"], ["purple", "potassium_chloride"], ["green", "tungsten_chloride"]] as const;
 const hash = (defs: readonly { id: number; name: string }[]) => createHash("sha256").update(JSON.stringify(historicalItemMap(defs)) + "\n").digest("hex");

@@ -8,7 +8,7 @@ import glowColorsBaseline from "./fixtures/glow-stick-colors-f64.json";
 import legacyTextures from "./fixtures/legacy-textures-a81.json";
 import legacyGlassTextures from "./fixtures/legacy-textures-96.json";
 import legacyGlowstoneTextures from "./fixtures/legacy-textures-0f9.json";
-import { STAINED_GLASS_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src";
+import { STAINED_GLASS_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, TILE_NAMES, TILE_SIZE, buildAtlas, generateTile, hasItemTile } from "../src/index";
 
 // Historical pixel/UV assertions retain the exact first825 keys. Full catalog is tested separately.
 const stationKeys = new Set(STATION_FACE_KEYS);

@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, ITEMS, Inventory, World, blockId, breakBlock, breakTime, canHarvest, craftOnce, itemId,
   matchRecipe, parseCommand, parseSave, serializeSave, stackId, toolOf, type CraftingGrid,
-} from "../src";
+} from "../src/index";
 
 const materials = ["golden", "diamond"] as const;
 const kinds = ["pickaxe", "axe", "shovel", "sword"] as const;

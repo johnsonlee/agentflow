@@ -1,13 +1,13 @@
 import { expect, it } from "vitest";
-import { BalloonStore, BALLOON_PROFILE, raycastBalloons } from "../src/balloons";
-import { combineReleaseAttempts } from "../src/ownership-release";
-import { LeashStore, joinLeashRefundSink, type LeashContext } from "../src/leashes";
-import { Inventory } from "../src/inventory";
-import { blockId } from "../src/blocks";
-import { createMob, stepMob, type Mob } from "../src/entities";
-import { stackId } from "../src/items";
-import { WorldDrops } from "../src/world-drops";
-import { parseSave, serializeSave } from "../src/save";
+import { BalloonStore, BALLOON_PROFILE, raycastBalloons } from "../src/ownership/balloons";
+import { combineReleaseAttempts } from "../src/ownership/ownership-release";
+import { LeashStore, joinLeashRefundSink, type LeashContext } from "../src/ownership/leashes";
+import { Inventory } from "../src/ownership/inventory";
+import { blockId } from "../src/catalog/blocks";
+import { createMob, stepMob, type Mob } from "../src/simulation/entities";
+import { stackId } from "../src/catalog/items";
+import { WorldDrops } from "../src/ownership/world-drops";
+import { parseSave, serializeSave } from "../src/persistence/save";
 const red = stackId("red_balloon"), p = { x: .5, y: 1, z: .5 };
 function context(mobs: Mob[] = [createMob(1, "pig", { x: 2, y: 1, z: .5 })]) {
   const blocks = new Map<string, number>(), state = { loaded: true };

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, CHUNK_SIZE, SEA_LEVEL, SimplexNoise, World, WORLD_HEIGHT, blockId, isSolid, seedFromString, toLocalCoord, toChunkCoord } from "../src";
+import { AIR, CHUNK_SIZE, SEA_LEVEL, SimplexNoise, World, WORLD_HEIGHT, blockId, isSolid, seedFromString, toLocalCoord, toChunkCoord } from "../src/index";
 
 describe("coordinates", () => {
   it("maps negative coordinates to chunks and local offsets", () => {

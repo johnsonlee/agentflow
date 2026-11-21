@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, EFFECT_LIMIT, EFFECT_RADIUS, FERTILIZER_LIMIT, Inventory, World, blockById, blockId, breakBlock, dropOf, emission, fertilizeAround,
   freezeAround, meltAround, nameOf, placeBlock, stackId, useLabProduct,
-} from "../src";
+} from "../src/index";
 
 const B = blockId;
 const far = { x: 100, y: 100, z: 100 };

@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { allAtlasTextureNames, STATION_FACE_KEYS } from "@craft/engine";
 import baseline from "./fixtures/station-binding-067.json";
-import { buildAtlas, generateTile, parseLocalTexturePack, TILE_NAMES, type SourceTile } from "../src";
+import { buildAtlas, generateTile, parseLocalTexturePack, TILE_NAMES, type SourceTile } from "../src/index";
 const hash = (v: Uint8Array | Uint8ClampedArray) => createHash("sha256").update(v).digest("hex");
 const generic = "chem_station_top", names = allAtlasTextureNames();
 const tile = (size: 16 | 32, seed: number): SourceTile => ({ width: size, height: size, rgba: Uint8ClampedArray.from({ length: size * size * 4 }, (_, i) => i % 4 === 3 ? (i % 12 === 3 ? 0 : 255) : (i * 37 + seed * 29) & 255) });

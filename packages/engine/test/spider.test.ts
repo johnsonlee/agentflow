@@ -5,7 +5,7 @@ import {
   createMob, damageMob, itemById, knockbackFrom, mobAttack, mobDrops, mobIsAggressive, mobSnapshot,
   parseCommand, parseSave, raycastMob, restoreMobSnapshot, sanitizeMobState, sanitizePendingMobLoot,
   serializeSave, stackId, stepMob, type MobKind,
-} from "../src";
+} from "../src/index";
 const facts = JSON.parse(readFileSync(new URL("./fixtures/spider-source-facts.json", import.meta.url), "utf8"));
 const at = { x: .5, y: 10, z: .5 }, near = { x: 1.5, y: 10, z: .5 };
 const flat = (_x: number, y: number, _z: number) => y < 10 ? blockId("stone") : AIR;

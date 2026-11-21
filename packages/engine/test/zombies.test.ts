@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, MOB_SPECS, ZOMBIE, World, blockId, burnInDaylight, canHostileSpawn, createHunger, createMob, damageMob, eat, itemId,
   knockbackFrom, mobAttack, parseCommand, skyDarken, stepMob,
-} from "../src";
+} from "../src/index";
 
 const STONE = blockId("stone");
 

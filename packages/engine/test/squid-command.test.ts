@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { COMMAND_HELP, parseCommand } from "../src/commands";
+import { COMMAND_HELP, parseCommand } from "../src/automation/commands";
 
 describe("adult ordinary squid summon command", () => {
   it("accepts ordinary and namespaced squid with names", () => {

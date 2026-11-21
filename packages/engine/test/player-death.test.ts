@@ -2,7 +2,7 @@ import { expect, it } from "vitest";
 import {
   AIR, COMMAND_HELP, Inventory, MAX_PLAYER_HEALTH, PlayerDeathTransfer, WorldDrops, blockId, parseCommand,
   parseSave, sanitizePlayerState, serializeSave, stackId, validatePlayerDeathOwnership, type ItemStack, type PlayerDeathState, type DropSink,
-} from "../src";
+} from "../src/index";
 const position = { x: 4.5, y: 70.125, z: -8.5 };
 const floor = { getLoadedBlock: (_x: number, y: number, _z: number) => y === 0 ? blockId("stone") : AIR };
 const stack = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });

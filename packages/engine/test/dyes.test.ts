@@ -6,7 +6,7 @@ import {
   craftOnce, createAgent, elementBlockId, giveAgent, isItem, isKnownBlockId, itemById, matchRecipe,
   parseSave, placeBlock, runAgentCommand, sanitizeAgent, sanitizeEdits, sanitizeInventoryPending,
   sanitizeStack, serializeSave, stackId, type CraftingGrid, type ItemStack,
-} from "../src";
+} from "../src/index";
 
 const hash = (value: unknown) => createHash("sha256").update(JSON.stringify(value) + "\n").digest("hex");
 const stack = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });

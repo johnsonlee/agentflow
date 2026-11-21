@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { blockId, parseCommand } from "../src";
+import { blockId, parseCommand } from "../src/index";
 
 describe("chat commands", () => {
   it("parses /gamemode", () => {

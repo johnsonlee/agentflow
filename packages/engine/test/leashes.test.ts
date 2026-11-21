@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { AIR, Inventory, LEASH_PROFILE, LeashStore, WorldDrops, blockId, createMob, joinLeashRefundSink, parseSave, serializeSave, stackId, stepMob, type LeashContext, type LeashData, type Mob, type MobKind } from "../src";
+import { AIR, Inventory, LEASH_PROFILE, LeashStore, WorldDrops, blockId, createMob, joinLeashRefundSink, parseSave, serializeSave, stackId, stepMob, type LeashContext, type LeashData, type Mob, type MobKind } from "../src/index";
 const p = { x: .5, y: 1, z: .5 }, lead = (count = 1) => ({ id: stackId("lead_rope"), count });
 function context(mobs: Mob[] = [createMob(1, "pig", { x: 2, y: 1, z: .5 })]) {
   const blocks = new Map<string, number>(), state = { loaded: true };

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { Inventory, SnowballProjectiles, blockId, parseSave, serializeSave, stackId, tryThrowSnowball } from "../src";
+import { Inventory, SnowballProjectiles, blockId, parseSave, serializeSave, stackId, tryThrowSnowball } from "../src/index";
 const p = { x: .5, y: 5.5, z: .5 }, d = { x: 1, y: 0, z: 0 };
 function world() {
   const blocks = new Map<string, number>();

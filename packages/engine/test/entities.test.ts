@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, MOB_SPECS, blockId, createMob, damageMob, mulberry32, raycastMob, stepMob } from "../src";
+import { AIR, MOB_SPECS, blockId, createMob, damageMob, mulberry32, raycastMob, stepMob } from "../src/index";
 
 const STONE = blockId("stone");
 const flat = (x: number, y: number, z: number) => (y <= 9 ? STONE : AIR);

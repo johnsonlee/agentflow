@@ -3,7 +3,7 @@ import { expect, it } from "vitest";
 import {
   AIR, BLOCKS, ITEMS, Inventory, MOB_SPECS, MobLootResolver, SAVE_VERSION, WorldDrops, blockId,
   createMob, mobDrops, parseSave, serializeSave, stackId, type DropSink, type ItemStack, type MobKind,
-} from "../src";
+} from "../src/index";
 
 const facts = JSON.parse(readFileSync(new URL("./fixtures/native-mob-loot-1.26.33.json", import.meta.url), "utf8"));
 const stack = (name: string, count = 1): ItemStack => ({ id: stackId(name), count });

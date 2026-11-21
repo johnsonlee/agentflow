@@ -69,7 +69,7 @@ class ConverterTests(unittest.TestCase):
         # Exercise the actual TypeScript import authority, not only a mirrored JSON schema.
         project = TOOL.parent.parent
         harness = self.root / "check.ts"
-        parser = project / "packages/textures/src/resource-pack.ts"
+        parser = project / "packages/textures/src/resource-packs/resource-pack.ts"
         harness.write_text('import {readFileSync} from "node:fs";\nimport {parseLocalTexturePack} from ' + json.dumps(str(parser)) + ';\nconst p=await parseLocalTexturePack(readFileSync(' + json.dumps(str(self.output)) + '),["stone","grass_side","item_iron_ingot"]);\nconsole.log(p.contentSha256+" "+p.tiles.size);\n')
         checked = subprocess.run([str(project / "node_modules/.bin/vite-node"), str(harness)], cwd=project, capture_output=True, text=True)
         self.assertEqual(checked.returncode, 0, checked.stderr)

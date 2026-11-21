@@ -4,7 +4,7 @@ import { describe, expect, it } from "vitest";
 import {
   ARMOR_SLOTS, ITEMS, Inventory, applyArmorDamage, armorOf, armorPoints, craftOnce, durabilityOf,
   matchRecipe, parseSave, serializeSave, sanitizeInventoryPending, stackId, type CraftingGrid, type InventoryData,
-} from "../src";
+} from "../src/index";
 
 const piece = (name: string, damage?: number) => ({ id: stackId(name), count: 1, ...(damage === undefined ? {} : { damage }) });
 const materials = ["iron", "golden", "diamond"] as const;

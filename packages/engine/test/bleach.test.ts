@@ -5,7 +5,7 @@ import {
   createAgent, createCompound, giveAgent, itemById, labReaction, nameOf, parseCommand, parseSave,
   reduceMaterial, runAgentCommand, sanitizeAgent, sanitizeFurnaces, sanitizeInventoryPending, serializeSave,
   stackId, type CraftingGrid, type ItemStack,
-} from "../src";
+} from "../src/index";
 import { historicalItemMap } from "./historical-item-map";
 
 const compoundId = 402, productId = 704;

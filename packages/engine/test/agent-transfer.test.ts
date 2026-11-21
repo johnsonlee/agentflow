@@ -1,6 +1,6 @@
 import { expect, it } from "vitest";
 import { AGENT_SLOTS, Inventory, World, createAgent, giveAgent, parseSave, runAgentCommand, sanitizeAgent,
-  serializeSave, stackId, type ItemStack } from "../src";
+  serializeSave, stackId, type ItemStack } from "../src/index";
 
 it("preserves worn armor, tools and authored books through Agent transfer, save and drop", () => {
   const agent = createAgent(0, 60, 0);

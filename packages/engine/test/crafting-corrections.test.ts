@@ -6,7 +6,7 @@ import {
   BLOCKS, ITEMS, RECIPES, SMELTING_RECIPES, FUELS, SMELT_SECONDS, Inventory,
   craftOnce, matchRecipe, createFurnace, tickFurnace, smeltResult, stackId, parseSave, serializeSave,
   type CraftingGrid, type FurnaceState,
-} from "../src";
+} from "../src/index";
 
 const fixture = JSON.parse(readFileSync(new URL("./fixtures/crafting-corrections-1.26.33.json", import.meta.url), "utf8"));
 const baseline = JSON.parse(readFileSync(new URL("./fixtures/native-reductions-registry-ca64.json", import.meta.url), "utf8"));

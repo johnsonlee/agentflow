@@ -1,7 +1,7 @@
 import { describe, expect, it, vi } from "vitest";
 import { World, SEA_LEVEL, WORLD_BORDER, blockId, createMob } from "../src";
-import { findLoadedSquidSummonSpot, isLoadedSquidWater, isNaturalSquidSpawnEligible } from "../../../apps/web/src/squid-habitat";
-import { MobManager } from "../../../apps/web/src/mobs";
+import { findLoadedSquidSummonSpot, isLoadedSquidWater, isNaturalSquidSpawnEligible } from "../../../apps/web/src/simulation/squid-habitat";
+import { MobManager } from "../../../apps/web/src/simulation/mobs";
 
 const water = blockId("water"), stone = blockId("stone");
 function fixture(read: (x: number, y: number, z: number) => number | undefined, biome = "plains"): World {

@@ -1,5 +1,5 @@
 import { expect, it } from "vitest";
-import { AIR, WORLD_BORDER, WORLD_HEIGHT, blockId, elementBlockId, findAgentPosition } from "../src";
+import { AIR, WORLD_BORDER, WORLD_HEIGHT, blockId, elementBlockId, findAgentPosition } from "../src/index";
 
 const stone = blockId("stone");
 const player = { x: 8.5, y: 60, z: 8.5 };

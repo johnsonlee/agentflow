@@ -3,7 +3,7 @@ import {
   AIR, Inventory, LeashStore, MobLootResolver, World, WorldDrops, blockId, breakBlock, createAgent,
   createMob, joinLeashRefundSink, mobSnapshot, parseSave, restoreMobSnapshot, runAgentCommand,
   serializeSave, stackId, type LeashContext, type ReleaseLease,
-} from "../src";
+} from "../src/index";
 const p = { x: .5, y: 1, z: .5 }, F = blockId("oak_fence"), L = () => stackId("lead_rope");
 function fixture(kind: "pig" | "sheep" | "chicken" = "pig") {
   const w = new World(7);

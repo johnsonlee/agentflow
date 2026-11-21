@@ -1,8 +1,8 @@
 import { expect, it, vi } from "vitest";
 import { Scene } from "three";
 import { World, blockId, createMob, type Mob } from "../src";
-import { MobManager } from "../../../apps/web/src/mobs";
-import { Game } from "../../../apps/web/src/game";
+import { MobManager } from "../../../apps/web/src/simulation/mobs";
+import { Game } from "../../../apps/web/src/application/game";
 
 it("does not sample generating light for a passive squid in the player combat path", () => {
   const squid = createMob(1, "squid", { x: 1, y: 1, z: 1 });

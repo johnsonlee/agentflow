@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, CHUNK_SIZE, World, WORLD_HEIGHT, blockId, meshChunk, type UvLookup } from "../src";
+import { AIR, CHUNK_SIZE, World, WORLD_HEIGHT, blockId, meshChunk, type UvLookup } from "../src/index";
 
 const uv: UvLookup = () => [0, 0, 1, 1];
 

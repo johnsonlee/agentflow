@@ -7,7 +7,7 @@ import {
   blockId, blockDrops, blockById, breakBlock, craftOnce, createAgent, dropCount, dropOf, emission,
   giveAgent, itemById, matchRecipe, parseSave, placeBlock, placedBlockOf, reduceMaterial, runAgentCommand,
   sanitizeAgent, sanitizeFurnaces, sanitizeInventoryPending, serializeSave, stackId, type CraftingGrid, type ItemStack,
-} from "../src";
+} from "../src/index";
 const baseline = JSON.parse(readFileSync(new URL("./fixtures/glowstone-dust-baseline.json", import.meta.url), "utf8"));
 const source = JSON.parse(readFileSync(new URL("./fixtures/glowstone-dust-source-facts.json", import.meta.url), "utf8"));
 const hash = (v: unknown) => createHash("sha256").update(JSON.stringify(v) + "\n").digest("hex");

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   AIR, Inventory, MAX_DIRTY_PER_TICK, Redstone, World, blockId, breakBlock, dustLevel, nameOf, placeBlock, redstoneInfo, runAgentCommand,
   createAgent, sanitizeScheduled, stackId, matchRecipe, smeltResult, dropOf, dropCount, sanitizeStack,
-} from "../src";
+} from "../src/index";
 
 const B = blockId;
 const far = { x: 100, y: 100, z: 100 };

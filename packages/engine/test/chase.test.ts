@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { AIR, JUMP_VELOCITY, World, blockId, createMob, PATHFINDING, createPlayerBody, findPath, findSummonSpot, mobAttack, onBlockChangedNear, stepMob, stepPlayer, type Mob, type MobKind } from "../src";
+import { AIR, JUMP_VELOCITY, World, blockId, createMob, PATHFINDING, createPlayerBody, findPath, findSummonSpot, mobAttack, onBlockChangedNear, stepMob, stepPlayer, type Mob, type MobKind } from "../src/index";
 
 // Reproduces review bd1e2360: obstacles pinned the straight-line chase, and below ~30 fps mobs
 // could not jump a 1-block step. Both must work at 20-144 fps.
