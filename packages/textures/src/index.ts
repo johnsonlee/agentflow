@@ -8,3 +8,6 @@ export * from "./redstone";
 export * from "./farming";
 
 export * from "./stained-glass";
+
+export * from "./resource-pack";
+export * from "./checksum";

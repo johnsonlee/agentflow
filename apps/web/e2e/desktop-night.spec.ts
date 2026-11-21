@@ -62,13 +62,20 @@ test.describe("PC browser: light and hostile mobs", () => {
     await page.waitForTimeout(300);
     await snap(page, testInfo, "19-zombie-attack");
     for (let i = 0; i < 30 && (await mobExists(page, id)); i++) {
+      // Refuse a stale combat action instead of accidentally clicking a newly opened death menu.
+      const ready = await page.evaluate(mobId => {
+        const g = window.__craft.game;
+        return !!g && g.health > 0 && Number.isFinite(g.body.yaw) && Number.isFinite(g.body.pitch) && g.targetMob?.id === mobId;
+      }, id);
+      expect(ready, "Living player with a finite camera and the actual zombie under the crosshair").toBe(true);
+      await expect(page.getByRole("heading", { name: "You died!" })).toHaveCount(0);
       await pressMouse(page, "left");
-      await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
       await page.waitForTimeout(450);
     }
     await stop();
     expect(await mobExists(page, id)).toBe(false);
     await expect(page.locator(".chat-line", { hasText: "Zombie was defeated" })).toHaveCount(1);
+    await collectWorldDrops(page); // Ground pickup happens after combat and its real feedback.
     const rolledFlesh = await countStack(page, "rotten_flesh");
     expect(Number.isInteger(rolledFlesh)).toBe(true); expect(rolledFlesh).toBeGreaterThanOrEqual(0); expect(rolledFlesh).toBeLessThanOrEqual(2);
     await testInfo.attach("actual-zombie-base-loot-roll", { body: JSON.stringify({ rotten_flesh: rolledFlesh, range: [0, 2], rng: "uncontrolled session roll" }), contentType: "application/json" });

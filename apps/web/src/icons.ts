@@ -1,7 +1,7 @@
 import { blockById, isItem, itemById } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
-const cache = new Map<number, string>();
+const cache = new WeakMap<TextureAtlas, Map<string, string>>();
 
 function tileCanvas(atlas: TextureAtlas, name: string): HTMLCanvasElement {
   const c = document.createElement("canvas");
@@ -24,7 +24,7 @@ function face(ctx: CanvasRenderingContext2D, img: HTMLCanvasElement, m: [number,
   if (darken > 0) {
     l.globalCompositeOperation = "source-atop";
     l.fillStyle = `rgba(0,0,0,${darken})`;
-    l.fillRect(0, 0, 16, 16);
+    l.fillRect(0, 0, img.width, img.height);
   }
   ctx.drawImage(layer, 0, 0);
 }
@@ -34,7 +34,10 @@ function face(ctx: CanvasRenderingContext2D, img: HTMLCanvasElement, m: [number,
  * for plants and items (sticks, tools).
  */
 export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
-  const cached = cache.get(id);
+  let icons = cache.get(atlas);
+  if (!icons) { icons = new Map(); cache.set(atlas, icons); }
+  const key = `${id}:${size}`;
+  const cached = icons.get(key);
   if (cached) return cached;
   const canvas = document.createElement("canvas");
   canvas.width = size;
@@ -64,7 +67,7 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
     ctx.drawImage(tileCanvas(atlas, def.faces.top), size * 0.15, size * 0.15, size * 0.7, size * 0.7);
   } else {
     const s = size;
-    const k = s / 32;
+    const k = s / (2 * atlas.tileSize);
     const top = tileCanvas(atlas, def.faces.top);
     const side = tileCanvas(atlas, def.faces.side);
     face(ctx, top, [k, k / 2, -k, k / 2, s / 2, 0], 0);
@@ -72,6 +75,6 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64): string {
     face(ctx, side, [k, -k / 2, 0, k, s / 2, s / 2], 0.4);
   }
   const url = canvas.toDataURL();
-  cache.set(id, url);
+  icons.set(key, url);
   return url;
 }

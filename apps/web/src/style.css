@@ -447,3 +447,20 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .element-lookup .hint { flex: 1; min-width: 180px; max-width: 320px; margin: 0; }
 .element-lookup .chem-status { flex-basis: 100%; color: #8a1c1c; }
 .particle-value:disabled { color: #f3f0e7; opacity: 1; }
+
+/* Title content remains reachable when short touch screens need to scroll. */
+.title-screen { overflow-y: auto; justify-content: flex-start; }
+.title-screen > :first-child { margin-top: auto; }
+.title-screen > :last-child { margin-bottom: auto; }
+.title-screen > * { flex-shrink: 0; }
+.title-screen .footer { position: static; }
+.pack-status { white-space: pre-wrap; max-width: 38rem; }
+.pack-previews { display: flex; flex-wrap: wrap; gap: 10px; }
+.pack-previews img { width: 48px; height: 48px; image-rendering: pixelated; }
+.pack-details { font-size: 13px; }
+.pack-details summary { cursor: pointer; padding: 8px 0; }
+.pack-hash { overflow-wrap: anywhere; }
+.title-screen, .resource-packs-screen .panel { touch-action: pan-y; }
+.resource-packs-screen .panel > * { flex-shrink: 0; min-width: 0; max-width: 100%; }
+.pack-current, .resource-packs-screen h3, .pack-status { overflow-wrap: anywhere; }
+.resource-packs-screen button:disabled { opacity: .6; cursor: wait; }

@@ -2,7 +2,7 @@
   "name": "@craft/textures",
   "version": "0.1.0",
   "private": true,
-  "description": "Procedural 16x16 pixel-art block textures and texture atlas packing",
+  "description": "Procedural pixel art, lossless local RGBA packs and 16/32 texture atlas packing",
   "type": "module",
   "main": "src/index.ts",
   "types": "src/index.ts",

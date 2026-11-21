@@ -39,63 +39,102 @@ export async function furnaceProgressRoute(page: Page, info: TestInfo, mobile: b
   await open();
   const inv = page.locator(".inventory-screen"), input = inv.locator('[data-furnace="input"]'), output = inv.locator('[data-furnace="output"]');
   const read = () => page.evaluate(() => structuredClone([...window.__craft.game!.furnaces.values()][0]));
+  // Read-only listeners bracket the same synchronous input event; no simulation work can occur between them.
+  const inputClick = async () => {
+    await page.evaluate(() => {
+      const snapshot = () => ({ state: structuredClone([...window.__craft.game!.furnaces.values()][0]), now: performance.now() });
+      const sample: { before?: ReturnType<typeof snapshot>; after?: ReturnType<typeof snapshot>; stop?: () => void } = {};
+      const capture = (event: Event) => { if ((event.target as Element)?.closest('[data-furnace="input"]')) sample.before = snapshot(); };
+      const bubble = (event: Event) => { if ((event.target as Element)?.closest('[data-furnace="input"]')) sample.after = snapshot(); };
+      document.addEventListener("click", capture, true); document.addEventListener("click", bubble);
+      sample.stop = () => { document.removeEventListener("click", capture, true); document.removeEventListener("click", bubble); };
+      (window as unknown as { __furnaceInputSample: typeof sample }).__furnaceInputSample = sample;
+    });
+    try { await press(input); }
+    finally { await page.evaluate(() => (window as unknown as { __furnaceInputSample: { stop(): void } }).__furnaceInputSample.stop()); }
+    return page.evaluate(() => {
+      const sample = (window as unknown as { __furnaceInputSample: { before?: unknown; after?: unknown } }).__furnaceInputSample;
+      if (!sample.before || !sample.after) throw new Error("The actual furnace input click was not observed");
+      return structuredClone({ before: sample.before, after: sample.after });
+    }) as Promise<{ before: { state: Awaited<ReturnType<typeof read>>; now: number }; after: { state: Awaited<ReturnType<typeof read>>; now: number } }>;
+  };
   await press(inv.locator('[data-slot="4"]')); await press(inv.locator('[data-furnace="fuel"]'));
   await press(inv.locator('[data-slot="1"]')); await press(input);
+  // Stage the next owned input before waiting, so no extra inventory selection delays the observed click.
+  await press(inv.locator('[data-slot="2"]'));
   await expect.poll(async () => (await read()).progress).toBeGreaterThanOrEqual(.25);
-  const beforeTopup = await read();
-  await press(inv.locator('[data-slot="2"]')); await press(input);
-  const afterTopup = await read();
-  expect(afterTopup.input).toEqual({ id: fixture.iron, count: 2 });
-  expect(afterTopup.progress).toBeGreaterThanOrEqual(beforeTopup.progress);
-  expect(afterTopup.progressInputId).toBe(fixture.iron);
+  const topup = await inputClick();
+  expect(topup.before.state.input?.id).toBe(fixture.iron);
+  expect(topup.before.state.progress).toBeGreaterThan(0);
+  expect(topup.after.state.input).toEqual({ id: fixture.iron, count: topup.before.state.input!.count + 1 });
+  expect(topup.after.state.progress).toBe(topup.before.state.progress);
+  expect(topup.after.state.progressInputId).toBe(fixture.iron);
+  await press(inv.locator('[data-slot="3"]'));
   await expect.poll(async () => (await read()).progress).toBeGreaterThanOrEqual(.45);
-  const ironPartial = await read(); expect(ironPartial.output).toBeNull();
-  await press(inv.locator('[data-slot="3"]')); await press(input);
-  const swapped = await read();
+  const swap = await inputClick(), swapped = swap.after.state;
+  expect(swap.before.state.input?.id).toBe(fixture.iron);
+  expect(swap.before.state.progress).toBeGreaterThan(0);
   expect(swapped.input).toEqual({ id: fixture.diamond, count: 1 });
-  expect(swapped.progress).toBeLessThan(.15); // Only new model frames may accrue after the actual click.
-  await expect(inv.getByTestId("cursor")).toContainText("Iron Ore ×2");
+  expect(swapped.progress).toBe(0); expect(swapped.progressInputId).toBeUndefined();
+  // Old iron may have legitimately completed while the real UI was operating. Account every owner.
+  const returnedIron = swap.before.state.input!.count;
+  const ironIngot = await page.evaluate(() => window.__craft.stackId("iron_ingot"));
+  const cookedIron = swapped.output?.id === ironIngot ? swapped.output.count : 0;
+  expect(returnedIron + cookedIron).toBe(2);
+  if (swapped.output) expect(swapped.output.id).toBe(ironIngot);
+  await expect(inv.getByTestId("cursor")).toContainText(`Iron Ore ×${returnedIron}`);
   await press(inv.locator('[data-slot="5"]'));
-  expect(await countStack(page, "iron_ore")).toBe(2);
-  await input.scrollIntoViewIfNeeded();
-  await snap(page, info, "ore-identity-swap-resets-progress-keeps-returned-iron");
-  // Read the app's game-frame clock only; never inject ticks or completed outputs.
-  await expect.poll(async () => (await read()).progress).toBeGreaterThanOrEqual(.48);
-  const diamondHalf = await read();
-  expect(diamondHalf.progress).toBeLessThan(.7); expect(diamondHalf.output).toBeNull();
-  expect(diamondHalf.input).toEqual({ id: fixture.diamond, count: 1 });
-  expect(diamondHalf.progressInputId).toBe(fixture.diamond);
-  expect(diamondHalf.fuel).toEqual({ id: fixture.coal, count: 1 });
-  await input.scrollIntoViewIfNeeded();
-  await snap(page, info, "new-ore-still-unfinished-after-own-half-cook");
+  expect(await countStack(page, "iron_ore")).toBe(returnedIron);
+  if (cookedIron) {
+    await press(output); await press(inv.locator('[data-slot="9"]'));
+    expect(await countStack(page, "iron_ingot")).toBe(cookedIron);
+  }
+  // Pause through the real UI before screenshots. Rendering/automation work must not impose an elapsed-time ceiling.
+  await expect.poll(async () => (await read()).progress).toBeGreaterThanOrEqual(.2);
   await press(page.getByRole("button", { name: "Close inventory" }));
   if (mobile) await press(page.getByRole("button", { name: "Pause", exact: true })); else await page.keyboard.press("Escape");
+  await expect(page.getByRole("heading", { name: "Game Menu" })).toBeVisible();
+  const paused = await read();
+  expect(paused.input).toEqual({ id: fixture.diamond, count: 1 }); expect(paused.output).toBeNull();
+  expect(paused.progress).toBeGreaterThan(0); expect(paused.progress).toBeLessThan(1);
+  expect(paused.progressInputId).toBe(fixture.diamond);
+  await snap(page, info, "real-paused-partial-cook-after-identity-reset");
+  expect(await read()).toEqual(paused);
   await press(page.getByRole("button", { name: "Save & Quit to Title" }));
   const saved = await page.evaluate(() => JSON.parse(localStorage.getItem("craft.save.v1")!).furnaces[0].state);
-  expect(saved.progress).toBeGreaterThanOrEqual(.48); expect(saved.progress).toBeLessThan(.8); expect(saved.progressInputId).toBe(fixture.diamond);
+  expect(saved).toEqual(paused);
   await page.reload(); await press(page.getByRole("button", { name: /Continue/ }));
   await page.waitForFunction(() => window.__craft.game !== null);
-  // Pause using the real menu immediately so loading/meshing does not silently finish the recipe.
   if (mobile) await press(page.getByRole("button", { name: "Pause", exact: true })); else await page.keyboard.press("Escape");
   await expect(page.getByRole("heading", { name: "Game Menu" })).toBeVisible();
   const restored = await read();
-  expect(restored.progressInputId).toBe(fixture.diamond);
-  expect(restored.progress).toBeGreaterThanOrEqual(saved.progress); expect(restored.progress).toBeLessThan(saved.progress + .15);
-  expect(restored.input).toEqual({ id: fixture.diamond, count: 1 }); expect(restored.output).toBeNull();
+  const diamond = await page.evaluate(() => window.__craft.stackId("diamond"));
+  const restoredUnits = restored.output?.id === diamond ? restored.output.count : 0;
+  const resumedWork = restored.progress + restoredUnits - saved.progress;
+  const resumedBurnSeconds = saved.burnLeft - restored.burnLeft;
+  expect(resumedBurnSeconds).toBeGreaterThanOrEqual(-1e-8);
+  expect(resumedWork).toBeGreaterThanOrEqual(-1e-8);
+  expect(resumedWork).toBeLessThanOrEqual(resumedBurnSeconds / 10 + .01);
+  if (restoredUnits) {
+    expect(restoredUnits).toBe(1); expect(restored.input).toBeNull(); expect(restored.progress).toBe(0);
+  } else {
+    expect(restored.input).toEqual({ id: fixture.diamond, count: 1 }); expect(restored.output).toBeNull();
+    expect(restored.progressInputId).toBe(fixture.diamond);
+    expect(resumedWork).toBeCloseTo(resumedBurnSeconds / 10, 7);
+  }
   await page.waitForFunction(() => window.__craft.game!.renderer.isAreaReady(2), undefined, { timeout: 60_000 });
-  await press(page.getByRole("button", { name: "Back to Game" }));
-  await open();
+  await press(page.getByRole("button", { name: "Back to Game" })); await open();
   await expect(output.locator("img")).toHaveAttribute("alt", "Diamond", { timeout: 60_000 });
   const completed = await read();
   expect(completed.input).toBeNull(); expect(completed.progress).toBe(0); expect(completed.progressInputId).toBeUndefined();
   expect(completed.output?.count).toBe(1); expect(completed.fuel).toEqual({ id: fixture.coal, count: 1 });
-  // Fuel burn is the independent game-time clock: the diamond needed a full ten seconds after swap.
-  expect(swapped.burnLeft - completed.burnLeft).toBeGreaterThanOrEqual((1 - swapped.progress) * 10 - .05);
+  // Independent fuel clock proves at least one full new-input cook after the observed reset.
+  expect(swapped.burnLeft - completed.burnLeft).toBeGreaterThanOrEqual(10 - .05);
   await output.scrollIntoViewIfNeeded(); await snap(page, info, "actual-diamond-result-after-own-full-cook");
   await press(output); await press(inv.locator('[data-slot="6"]'));
   expect(await countStack(page, "diamond")).toBe(1); expect(await countStack(page, "diamond_ore")).toBe(0);
-  expect(await countStack(page, "iron_ore")).toBe(2); expect(await countStack(page, "iron_ingot")).toBe(0);
-  await fs.writeFile(info.outputPath("observed-model-progress.json"), JSON.stringify({ model: "existing application ten-second cook; no measured Education timing claim", beforeTopup, afterTopup, ironPartial, swapped, diamondHalf, saved, restored, completed }, null, 2));
-  await snap(page, info, "diamond-only-after-own-full-cook-and-midpoint-reload");
+  expect(await countStack(page, "iron_ore")).toBe(returnedIron); expect(await countStack(page, "iron_ingot")).toBe(cookedIron);
+  await fs.writeFile(info.outputPath("observed-model-progress.json"), JSON.stringify({ model: "Existing application ten-second cook; read-only real event observations, no injected ticks or native timing claim", topup, swap, returnedIron, cookedIron, paused, saved, restored, resumedWork, resumedBurnSeconds, completed }, null, 2));
+  await snap(page, info, "diamond-full-cook-and-pause-boundary-reload");
   expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([]); expect(errors).toEqual([]);
 }

@@ -65,12 +65,18 @@ test.describe("Mobile browser (touch): light and hostile mobs", () => {
     // On touch, attacking is press-and-hold on the view (break gesture); the sword hits every 0.4 s.
     const vp = page.viewportSize()!;
     const session = await page.context().newCDPSession(page);
+    expect(await page.evaluate(mobId => {
+      const g = window.__craft.game;
+      return !!g && g.health > 0 && Number.isFinite(g.body.yaw) && Number.isFinite(g.body.pitch) && g.targetMob?.id === mobId;
+    }, id), "Living player with a finite camera and actual zombie target").toBe(true);
     await session.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * 0.65, y: vp.height * 0.45, id: 12 }] });
-    await expect.poll(() => mobExists(page, id), { timeout: 30_000 }).toBe(false);
-    await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-    await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
-    await stop();
+    try { await expect.poll(() => mobExists(page, id), { timeout: 30_000 }).toBe(false); }
+    finally {
+      await session.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+      await stop();
+    }
     await expect(page.locator(".chat-line", { hasText: "Zombie was defeated" })).toHaveCount(1);
+    await collectWorldDrops(page); // Observe combat feedback before unrelated pickup can evict it.
     const rolledFlesh = await countStack(page, "rotten_flesh");
     expect(Number.isInteger(rolledFlesh)).toBe(true); expect(rolledFlesh).toBeGreaterThanOrEqual(0); expect(rolledFlesh).toBeLessThanOrEqual(2);
     await testInfo.attach("actual-zombie-base-loot-roll", { body: JSON.stringify({ rotten_flesh: rolledFlesh, range: [0, 2], rng: "uncontrolled session roll" }), contentType: "application/json" });

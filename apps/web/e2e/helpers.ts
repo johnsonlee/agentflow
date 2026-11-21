@@ -1,7 +1,10 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs";
-import { bodyBox, boxCollides, WORLD_DROP_PROFILE } from "@craft/engine";
+import { bodyBox, boxCollides, MOB_SPECS, WORLD_DROP_PROFILE } from "@craft/engine";
 import path from "node:path";
+
+// Serialize the engine catalogue, including zombie, instead of maintaining a partial test copy.
+const mobHeights = Object.fromEntries(Object.values(MOB_SPECS).map(spec => [spec.kind, spec.height]));
 
 export interface PlayerState {
   x: number;
@@ -293,25 +296,27 @@ export async function pressMouse(page: Page, button: "left" | "right" = "left") 
  * single aim goes stale before the click lands because the mob keeps walking.
  */
 export async function trackMob(page: Page, id: number): Promise<() => Promise<void>> {
-  await page.evaluate((mobId) => {
-    const w = window as unknown as { __track: { on: boolean } };
-    w.__track = { on: true };
-    const heights: Record<string, number> = { pig: 0.9, sheep: 1.3, chicken: 0.7, npc: 1.9 };
+  await page.evaluate(({ mobId, heights }) => {
+    const w = window as unknown as { __track?: { on: boolean } };
+    if (w.__track) w.__track.on = false;
+    const tracker = { on: true }; w.__track = tracker;
     const step = () => {
-      if (!w.__track.on) return;
-      const g = window.__craft.game!;
+      if (!tracker.on) return;
+      const g = window.__craft.game;
+      if (!g) { tracker.on = false; return; }
       const mob = g.mobs.mobs.find((m) => m.id === mobId);
       if (mob) {
         const dx = mob.position.x - g.body.position.x;
         const dz = mob.position.z - g.body.position.z;
         const dy = mob.position.y + heights[mob.kind] * 0.5 - (g.body.position.y + 1.62);
-        g.body.yaw = Math.atan2(-dx, -dz);
-        g.body.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+        const yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz));
+        if (!Number.isFinite(yaw) || !Number.isFinite(pitch)) { tracker.on = false; throw new Error("Cannot track a mob with a nonfinite camera pose"); }
+        g.body.yaw = yaw; g.body.pitch = pitch;
       }
       requestAnimationFrame(step);
     };
     requestAnimationFrame(step);
-  }, id);
+  }, { mobId: id, heights: mobHeights });
   await frames(page);
   return () => page.evaluate(() => {
     (window as unknown as { __track: { on: boolean } }).__track.on = false;
@@ -320,18 +325,18 @@ export async function trackMob(page: Page, id: number): Promise<() => Promise<vo
 
 /** Points the camera at the centre of a mob. Returns false if it no longer exists. */
 export function lookAtMob(page: Page, id: number) {
-  return page.evaluate((mobId) => {
-    const g = window.__craft.game!;
-    const mob = g.mobs.mobs.find((m) => m.id === mobId);
-    if (!mob) return false;
-    const heights: Record<string, number> = { pig: 0.9, sheep: 1.3, chicken: 0.7, npc: 1.9 };
+  return page.evaluate(({ mobId, heights }) => {
+    const g = window.__craft.game;
+    const mob = g?.mobs.mobs.find((m) => m.id === mobId);
+    if (!g || !mob) return false;
     const dx = mob.position.x - g.body.position.x;
     const dz = mob.position.z - g.body.position.z;
     const dy = mob.position.y + heights[mob.kind] * 0.5 - (g.body.position.y + 1.62);
-    g.body.yaw = Math.atan2(-dx, -dz);
-    g.body.pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    const yaw = Math.atan2(-dx, -dz), pitch = Math.atan2(dy, Math.hypot(dx, dz));
+    if (!Number.isFinite(yaw) || !Number.isFinite(pitch)) throw new Error("Cannot aim at a mob with a nonfinite camera pose");
+    g.body.yaw = yaw; g.body.pitch = pitch;
     return true;
-  }, id);
+  }, { mobId: id, heights: mobHeights });
 }
 
 export function mobExists(page: Page, id: number) {

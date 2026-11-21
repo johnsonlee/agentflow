@@ -80,12 +80,13 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
     for (let i = 0; i < 10 && (await mobExists(page, id)); i++) {
       expect(await approachMob(page, id)).toBe(true);
       await pressMouse(page, "left");
-      await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
       await page.waitForTimeout(500);
     }
     await stopTracking();
     expect(await mobExists(page, id)).toBe(false);
     await expect(page.locator(".chat-line", { hasText: "Chicken was defeated" })).toHaveCount(1);
+    // Observe the real defeat feedback before unrelated pickup can expire or evict it.
+    await collectWorldDrops(page);
   });
 
   test("survival drops: a sheep defeated over several hits drops wool", async ({ page }, testInfo) => {
@@ -105,12 +106,13 @@ test.describe("PC browser: crafting, mobs and Education Edition features", () =>
       await bringMob(page, id);
       await page.waitForTimeout(150);
       await pressMouse(page, "left");
-      await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
       await page.waitForTimeout(450);
     }
     await stopTracking();
     expect(await mobExists(page, id)).toBe(false);
     await expect(page.locator(".chat-line", { hasText: "Sheep was defeated" })).toHaveCount(1);
+    // Observe the real defeat feedback before unrelated pickup can expire or evict it.
+    await collectWorldDrops(page);
     expect(await countItem(page, "white_wool")).toBe(1);
   });
 

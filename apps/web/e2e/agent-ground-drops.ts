@@ -52,17 +52,87 @@ export async function agentGroundDropsRoute(page: Page, info: TestInfo, mobile: 
   await look(page, 0, 0); if (!mobile) await parkMouse(page);
   const stopTrack = await trackMob(page, pig);
   const touch = mobile ? await page.context().newCDPSession(page) : null;
-  for (let i = 0; i < 8 && await mobExists(page, pig); i++) {
-    await bringMob(page, pig); await page.waitForTimeout(120);
-    if (touch) {
-      const vp = page.viewportSize()!;
-      const down = touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 82 }] });
-      await new Promise((resolve) => setTimeout(resolve, 650));
-      await Promise.all([down, touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
-    } else await pressMouse(page, "left");
-    await page.waitForTimeout(450);
+  const touchCombat: Record<string, unknown>[] = [];
+  const combatState = () => page.evaluate(mobId => {
+    const g = window.__craft.game;
+    const mob = g?.mobs.mobs.find(m => m.id === mobId);
+    return { browserNowMs: performance.now(), gamePresent: !!g, playerHealth: g?.health ?? null,
+      paused: g?.paused ?? null, modalOpen: g ? (g as unknown as { screenOpen(): boolean }).screenOpen() : null,
+      finitePose: !!g && [g.body.yaw, g.body.pitch, g.body.position.x, g.body.position.y, g.body.position.z].every(Number.isFinite),
+      targetId: g?.targetMob?.id ?? null, mobExists: !!mob, mobHealth: mob?.health ?? null,
+      playerPosition: g ? { ...g.body.position } : null, mobPosition: mob ? { ...mob.position } : null };
+  }, pig);
+  try {
+    for (let i = 0; i < 8 && await mobExists(page, pig); i++) {
+      await bringMob(page, pig); await page.waitForTimeout(120);
+      if (touch) {
+        const observation: Record<string, unknown> = { attempt: i + 1 };
+        touchCombat.push(observation);
+        // A cached target is the game's actual in-reach raycast result, not an injected hit.
+        await expect.poll(async () => {
+          const state = await combatState(); observation.beforeReady = state;
+          return state.gamePresent && state.playerHealth! > 0 && !state.paused && !state.modalOpen && state.finitePose && state.targetId === pig;
+        }, { timeout: 10_000, message: "Live player and finite, in-range pig target before the real touch" }).toBe(true);
+        const before = await combatState(); observation.before = before;
+        expect(before.mobHealth).not.toBeNull();
+        await page.evaluate(() => {
+          const w = window as unknown as { __agentCombatTouch?: { events: unknown[]; stop(): void } };
+          w.__agentCombatTouch?.stop();
+          const events: unknown[] = [];
+          const observe = (event: PointerEvent) => {
+            const g = window.__craft.game;
+            events.push({ type: event.type, eventTimeMs: event.timeStamp, browserNowMs: performance.now(),
+              trusted: event.isTrusted, pointerType: event.pointerType, pointerId: event.pointerId,
+              targetClass: event.target instanceof Element ? event.target.className : null,
+              targetId: g?.targetMob?.id ?? null, playerHealth: g?.health ?? null, paused: g?.paused ?? null });
+          };
+          for (const type of ["pointerdown", "pointerup", "pointercancel"]) document.addEventListener(type, observe as EventListener, { capture: true, passive: true });
+          w.__agentCombatTouch = { events, stop() {
+            for (const type of ["pointerdown", "pointerup", "pointercancel"]) document.removeEventListener(type, observe as EventListener, true);
+          } };
+        });
+        const vp = page.viewportSize()!;
+        let failure: unknown;
+        try {
+          observation.downStartedNodeMs = Date.now();
+          await touch.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 82 }] });
+          observation.downAcknowledgedNodeMs = Date.now(); observation.afterDownAck = await combatState();
+          // Keep the actual finger down until a game frame records damage/death. No tick, hit or output is injected.
+          await page.waitForFunction(({ mobId, initialHealth }) => {
+            const g = window.__craft.game;
+            if (!g || g.health <= 0 || g.paused || (g as unknown as { screenOpen(): boolean }).screenOpen()) throw new Error("Combat became inactive while the real touch was held");
+            if (![g.body.yaw, g.body.pitch, g.body.position.x, g.body.position.y, g.body.position.z].every(Number.isFinite)) throw new Error("Nonfinite camera during held touch");
+            const mob = g.mobs.mobs.find(m => m.id === mobId);
+            return !mob || mob.health < initialHealth;
+          }, { mobId: pig, initialHealth: before.mobHealth! }, { timeout: 10_000, polling: "raf" });
+          observation.heldResult = await combatState(); observation.damageObservedNodeMs = Date.now();
+        } catch (error) {
+          failure = error; observation.failure = String(error);
+        } finally {
+          observation.releaseStartedNodeMs = Date.now();
+          try { await touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); }
+          catch (error) { observation.releaseFailure = String(error); failure ??= error; }
+          observation.releaseAcknowledgedNodeMs = Date.now(); observation.afterRelease = await combatState();
+          observation.pointerEvents = await page.evaluate(() => {
+            const w = window as unknown as { __agentCombatTouch?: { events: unknown[]; stop(): void } };
+            const observed = w.__agentCombatTouch; observed?.stop(); delete w.__agentCombatTouch;
+            return observed?.events ?? [];
+          });
+        }
+        if (failure) throw failure;
+      } else await pressMouse(page, "left");
+      await page.waitForTimeout(450);
+    }
+  } finally {
+    await stopTrack();
+    await fs.writeFile(info.outputPath("actual-agent-pig-combat-input.json"), JSON.stringify({
+      fixture: "Bring-near position/velocity and camera tracking only; health, hits and outputs are actual game results",
+      method: "At most eight attempts; acknowledge actual CDP down, observe health decrease/death while held, finally release",
+      touchCombat, final: await combatState(), errors,
+      limit: "Historical639 surviving-pig cause remains unproved; this corrects input evidence, not a performance acceptance test",
+    }, null, 2));
   }
-  await stopTrack(); expect(await mobExists(page, pig)).toBe(false);
+  expect(await mobExists(page, pig)).toBe(false);
   expect(await countStack(page, "raw_porkchop")).toBe(0); expect(await countStack(page, "cobblestone")).toBe(filler);
   const pork = await page.evaluate(() => window.__craft.stackId("raw_porkchop"));
   const loot = () => page.evaluate((id) => window.__craft.game!.worldDrops.records.filter(r => r.stack.id === id).reduce((n, r) => n + r.stack.count, 0), pork);
