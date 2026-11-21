@@ -19,14 +19,24 @@ export async function groundPickupLedgeRoute(page: Page, info: TestInfo, mobile:
   });
   await command(page, `/tp ${fixture.x + .5} ${fixture.floor + 1} ${fixture.z + 3.5}`);
   await command(page, "/summon chicken");
-  const chicken = await page.evaluate((f) => {
-    const g = window.__craft.game!, mob = g.mobs.mobs.filter(m => m.kind === "chicken").at(-1)!;
+  const chicken = await page.evaluate(() => window.__craft.game!.mobs.mobs.filter(m => m.kind === "chicken").at(-1)!.id);
+  if (mobile) await press(page.getByRole("button", { name: "Code Builder", exact: true })); else await page.keyboard.press("k");
+  await expect(page.locator(".code-screen")).toBeVisible();
+  await press(page.locator('[data-palette="attack"]'));
+  // Stage the airborne input while the real editor pauses creature simulation. Staging it
+  // before opening the editor lets gravity move it out of reach during slower UI actions.
+  const staged = await page.evaluate(({ f, id }) => {
+    const g = window.__craft.game!, mob = g.mobs.mobs.find(m => m.id === id)!;
+    const screenOpen = (g as unknown as { screenOpen(): boolean }).screenOpen();
+    if (!screenOpen) throw new Error("Airborne fixture must be staged inside the actual Code Builder modal");
+    const before = { id: mob.id, health: mob.health, position: { ...mob.position } };
     mob.position = { x: f.x + .8, y: f.floor + 4, z: f.z + .5 };
     mob.velocity = { x: 0, y: 0, z: 0 }; mob.walking = false; mob.thinkTimer = 60;
-    return mob.id;
-  }, fixture);
-  if (mobile) await press(page.getByRole("button", { name: "Code Builder", exact: true })); else await page.keyboard.press("k");
-  await press(page.locator('[data-palette="attack"]')); await press(page.getByRole("button", { name: "▶ Run" }));
+    return { screenOpen, before, after: { id: mob.id, health: mob.health, position: { ...mob.position } }, agent: { x: g.agent.x, y: g.agent.y, z: g.agent.z, facing: g.agent.facing } };
+  }, { f: fixture, id: chicken });
+  expect(staged.after.id).toBe(chicken); expect(staged.after.health).toBe(staged.before.health);
+  await fs.writeFile(info.outputPath("ledge-airborne-input-staging.json"), JSON.stringify({ fixture, staged, limitation: "Same live chicken is staged once while the editor is open; ordinary gravity and the real Agent attack run afterward. No health, death, loot or ground-owner outcome is injected." }, null, 2));
+  await press(page.getByRole("button", { name: "▶ Run" }));
   await expect(page.locator(".code-screen")).toBeHidden();
   await expect.poll(() => page.evaluate((id) => window.__craft.game!.mobs.mobs.some(m => m.id === id), chicken)).toBe(false);
   const before = await page.evaluate(() => {

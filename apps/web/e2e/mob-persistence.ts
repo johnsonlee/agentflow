@@ -1,4 +1,4 @@
-import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
+import { expect, type JSHandle, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs/promises";
 import { bringMob, collectWorldDrops, command, countStack, createWorld, look, mobExists, parkMouse, pressMouse, snap, trackMob, waitForTerrain } from "./helpers";
 
@@ -9,11 +9,66 @@ export async function mobPersistenceRoute(page: Page, info: TestInfo, mobile: bo
   const errors = await createWorld(page, { mode: "survival" });
   const press = (l: Locator) => mobile ? l.tap() : l.click();
   const cdp = mobile ? await page.context().newCDPSession(page) : null;
+  let attackSequence = 0;
   const interact = async (attack: boolean) => {
     if (!cdp) return pressMouse(page, attack ? "left" : "right");
     const vp = page.viewportSize()!;
+    if (attack) {
+      const sequence = ++attackSequence;
+      const events: { event: string; wallTime: string; detail?: unknown }[] = [];
+      const record = (event: string, detail?: unknown) => events.push({ event, wallTime: new Date().toISOString(), detail });
+      const before = await page.evaluate(() => {
+        const g = window.__craft.game!, m = g.targetMob;
+        const attempts = (window as unknown as { __refusedLoot?: { attempts: unknown[][] } }).__refusedLoot?.attempts.length ?? 0;
+        return { targetId: m?.id ?? null, health: m?.health ?? null, attempts, playerHealth: g.health, dead: g.dead, paused: g.paused, position: { ...g.body.position }, yaw: g.body.yaw, pitch: g.body.pitch,
+          modals: [...document.querySelectorAll<HTMLElement>(".inventory-screen,.code-screen,.pause-screen,.death-screen,.npc-screen")].filter(e => !e.hidden && e.getBoundingClientRect().width > 0).map(e => e.className) };
+      });
+      record("before", before);
+      let failure: unknown = null;
+      let observed: JSHandle<unknown> | null = null;
+      try {
+        await page.evaluate(() => { (window as unknown as { __mobAttackProbes: unknown[] }).__mobAttackProbes = []; });
+        expect(before.targetId).not.toBeNull(); expect(before.health).toBeGreaterThan(0);
+        expect(before.dead).toBe(false); expect(before.paused).toBe(false);
+        expect(before.playerHealth).toBeGreaterThan(0); expect(before.modals).toEqual([]);
+        expect([before.position.x, before.position.y, before.position.z, before.yaw, before.pitch].every(Number.isFinite)).toBe(true);
+        record("touchStart-send", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 109 }] });
+        await cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 109 }] });
+        record("touchStart-ack");
+        observed = await page.waitForFunction(({ id, health, attempts }) => {
+          const g = window.__craft.game!, m = g.mobs.mobs.find(m => m.id === id);
+          const currentAttempts = (window as unknown as { __refusedLoot?: { attempts: unknown[][] } }).__refusedLoot?.attempts.length ?? 0;
+          const state = { browserTime: performance.now(), id, exists: Boolean(m), health: m?.health ?? null, attempts: currentAttempts, targetId: g.targetMob?.id ?? null, playerHealth: g.health, dead: g.dead, paused: g.paused };
+          (window as unknown as { __mobAttackProbes: unknown[] }).__mobAttackProbes.push(state);
+          return !m || m.health < health! || currentAttempts > attempts ? state : false;
+        }, { id: before.targetId!, health: before.health!, attempts: before.attempts }, { polling: "raf", timeout: 15_000 });
+        record("actual-outcome-wait-returned");
+      } catch (error) {
+        failure = error; record("attack-error", String(error));
+      } finally {
+        record("touchEnd-send", { type: "touchEnd", touchPoints: [] });
+        try { await cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); record("touchEnd-ack"); }
+        catch (error) { failure ??= error; record("touchEnd-error", String(error)); }
+        // Release first: reading/disposing the observation handle requires extra RPCs and must
+        // not prolong the real hold through a second attack cooldown or fatal-transfer attempt.
+        if (observed) {
+          try { record("actual-outcome-observed-after-release", await observed.jsonValue()); }
+          catch (error) { failure ??= error; record("outcome-read-error", String(error)); }
+          finally {
+            try { await observed.dispose(); }
+            catch (error) { failure ??= error; record("outcome-dispose-error", String(error)); }
+          }
+        }
+        let probes: unknown;
+        try { probes = await page.evaluate(() => (window as unknown as { __mobAttackProbes?: unknown[] }).__mobAttackProbes ?? []); }
+        catch (error) { probes = { readError: String(error) }; }
+        await fs.writeFile(info.outputPath(`mob-touch-attack-${sequence}.json`), JSON.stringify({ sequence, before, events, probes, failure: failure === null ? null : String(failure), limits: "Read-only state probes surrounding actual acknowledged touch input; existing bring-near and camera tracking fixtures retained. No health, damage, tick, loot or actor-outcome write." }, null, 2));
+      }
+      if (failure !== null) throw failure;
+      return;
+    }
     const down = cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 109 }] });
-    await new Promise(resolve => setTimeout(resolve, attack ? 650 : 60));
+    await new Promise(resolve => setTimeout(resolve, 60));
     await Promise.all([down, cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
   };
   const pause = async () => {
