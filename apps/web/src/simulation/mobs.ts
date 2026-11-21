@@ -258,13 +258,13 @@ export class MobManager {
     this.nextId = data.nextId;
     for (const snapshot of data.records) {
       const mob = restoreMobSnapshot(snapshot);
-      if (snapshot.pendingLoot !== undefined && !loot.restorePending(mob, snapshot.pendingLoot)) throw new Error("Invalid pending creature loot");
+      if (snapshot.pendingLoot !== undefined && !loot.restorePending(mob, snapshot.pendingLoot, snapshot.pendingLootCause)) throw new Error("Invalid pending creature loot");
       this.register(mob);
     }
   }
 
   exportState(loot: MobLootResolver): MobStateData {
-    return { nextId: this.nextId, records: this.mobs.map(mob => mobSnapshot(mob, loot.exportPending(mob))) };
+    return { nextId: this.nextId, records: this.mobs.map(mob => mobSnapshot(mob, loot.exportPending(mob), loot.exportPendingCause(mob))) };
   }
 
   private register(mob: Mob): void {

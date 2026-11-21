@@ -4,7 +4,7 @@ import {
   SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
-  EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
+  EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, createPlayerStatus, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, loadPrograms, startProgram, type AgentCommand,
@@ -13,7 +13,7 @@ import {
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
 import { ChatInput, Hud, InventoryScreen, type ChemistryKind, type InventoryKind } from "../ui/hud";
-import { MobManager } from "../simulation/mobs";
+import { MobManager, type MobDeathCause } from "../simulation/mobs";
 import { findLoadedSquidSummonSpot } from "../simulation/squid-habitat";
 import { BookScreen, ChalkboardDialog, NpcDialog, Portfolio, PortfolioScreen } from "../ui/screens";
 import { ChalkboardViews } from "../ui/chalkboards";
@@ -95,6 +95,7 @@ export class Game {
   private recoveryOriginal: string | null = null;
   private recoverySections: string[] = [];
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
+  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("player status"); }
   private stopped = false;
   private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
   private readonly handleResize = () => { if (!this.stopped) this.resize(); };
@@ -120,6 +121,8 @@ export class Game {
   health = MAX_HEALTH;
   /** Survival hunger (food bar, saturation, exhaustion). */
   hunger: HungerState;
+  /** Active simulation time only; Poison timings are an explicit application model. */
+  playerStatus: PlayerStatus = createPlayerStatus();
   /** Furnace contents by block position ("x,y,z"); they keep smelting while the world runs. */
   readonly furnaces = new Map<string, FurnaceState>();
   /** Loaded-area crop hydration and growth; its scheduler is persisted with the world. */
@@ -192,7 +195,7 @@ export class Game {
     this.root.appendChild(canvas);
 
     const save = options.save;
-    this.markGlowRecovery(save); this.markSparklerRecovery(save);
+    this.markGlowRecovery(save); this.markSparklerRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
@@ -213,7 +216,7 @@ export class Game {
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.worldDropsView = new WorldDropsView(this.renderer.scene, atlas, this.worldDrops);
     this.snowballProjectilesView = new SnowballProjectilesView(this.renderer.scene, atlas, this.snowballProjectiles);
-    this.mobs = new MobManager(this.world, this.renderer.scene, (mob) => this.transferMobDeath(mob),
+    this.mobs = new MobManager(this.world, this.renderer.scene, (mob, cause) => this.transferMobDeath(mob, cause),
       (mob) => this.mobLoot.exportPending(mob) !== undefined,
       (mob) => this.leashes.protectsMob(mob.id) || this.balloons.protectsMob(mob.id), () => this.ownershipBusy,
       (mob) => this.leashes.movementBias(mob, this.leashContext()),
@@ -238,6 +241,7 @@ export class Game {
     this.keepInventory = save?.gamerules?.keepInventory ?? false;
     const playerState = sanitizePlayerState(save?.playerState);
     this.health = playerState.data.health; this.deathState = playerState.data.death; this.dead = this.health === 0;
+    if (this.dead) clearPlayerStatus(this.playerStatus);
     if (playerState.invalid) {
       this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("player state");
     }
@@ -259,7 +263,7 @@ export class Game {
     this.keyboard = new KeyboardMouseInput(canvas, { mouseButtons: !options.touch });
     this.touch = options.touch ? new TouchControls(canvas, this.root) : null;
     this.hud = new Hud(this.root, atlas, {
-      onSelectSlot: (slot) => { if (!this.dead) this.inventory.select(slot); },
+      onSelectSlot: (slot) => { if (!this.dead && !this.actionsNeedRecovery) this.inventory.select(slot); },
       onOpenInventory: () => this.toggleInventory(),
       onPause: () => this.pause(),
       onChat: () => this.openChat(),
@@ -270,7 +274,7 @@ export class Game {
       onLightSparkler: offhand => { this.tryLightSparkler(offhand); },
       onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.itemsNeedRecovery);
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.actionsNeedRecovery);
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob) => this.mobs.refresh(mob));
@@ -290,6 +294,7 @@ export class Game {
     if (this.leashes.loadIssues) this.loadErrors.push("Damaged leashes (original save preserved)");
     if (this.balloons.loadIssues) this.loadErrors.push("Damaged balloons (original save preserved)");
     if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
+    if (this.recoverySections.includes("player status")) this.loadErrors.push("Damaged player status (original save preserved)");
     if (creatures.invalid) this.loadErrors.push(`${creatures.invalid} damaged creature entries (original save preserved)`);
     if (this.snowballProjectiles.loadIssues) this.loadErrors.push(`${this.snowballProjectiles.loadIssues} damaged snowball-projectile entries (original save preserved)`);
     if (this.worldDrops.loadIssues) this.loadErrors.push(`${this.worldDrops.loadIssues} damaged world-drop entries`);
@@ -370,6 +375,7 @@ export class Game {
   exportSaveBackup(): void {
     if (this.ownershipBusy) { this.hud.message("Items are being transferred. Retry the backup afterward."); return; }
     this.paused = true; this.keyboard.reset();
+    this.markPlayerStatusRecovery();
     this.leashes.reconcileLoadedReferences(this.leashContext()); this.markLeashRecovery();
     this.balloons.reconcileLoadedReferences(this.leashContext()); this.markBalloonRecovery();
     const payload = this.savePayload(true);
@@ -397,7 +403,7 @@ export class Game {
   }
 
   setMode(mode: GameMode): void {
-    if (this.dead || this.ownershipBusy) return;
+    if (this.dead || this.ownershipBusy || this.actionsNeedRecovery) return;
     this.mode = mode;
     if (mode === "survival") this.body.flying = false;
     this.health = MAX_HEALTH;
@@ -406,9 +412,9 @@ export class Game {
 
   /** A failed item transfer keeps the same death overlay and all original owners. */
   respawn(): boolean {
-    if (this.ownershipBusy || !this.dead || !this.deathState || !this.tryDeathTransfer()) return false;
+    if (this.ownershipBusy || this.actionsNeedRecovery || !this.dead || !this.deathState || !this.tryDeathTransfer()) return false;
     this.dead = false; this.paused = false; this.deathState = undefined; this.deathError = "";
-    this.health = MAX_HEALTH; this.hunger = createHunger();
+    this.health = MAX_HEALTH; this.hunger = createHunger(); clearPlayerStatus(this.playerStatus);
     this.body.position = { ...this.spawn }; this.body.velocity = { x: 0, y: 0, z: 0 };
     this.fallStart = null; this.lastPos = { x: this.spawn.x, z: this.spawn.z }; this.lastTime = performance.now();
     if (this.inventoryScreen.resumePending()) this.suspendInput(); else this.resumeInput();
@@ -417,7 +423,7 @@ export class Game {
 
   private tryDeathTransfer(): boolean {
     if (this.ownershipBusy || !this.deathState) return false;
-    if (this.itemsNeedRecovery) { this.deathError = "Saved items need repair. Export a backup before respawning."; return false; }
+    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -498,7 +504,7 @@ export class Game {
     finally { lease.cancel(); }
   }
 
-  private transferMobDeath(mob: Mob): boolean {
+  private transferMobDeath(mob: Mob, cause: MobDeathCause = "suffocation"): boolean {
     const context = this.leashContext();
     const attempt = combineReleaseAttempts([
       () => this.leashes.beginRelease(this.leashes.records.filter(r => r.targetMobId === mob.id).map(r => r.key), context, true),
@@ -509,7 +515,7 @@ export class Game {
     const health = mob.health, at = { ...mob.position, y: mob.position.y + .3 };
     try {
       const sink = lease ? joinLeashRefundSink(lease, this.dropSink, () => this.mobs.mobs.includes(mob) && mob.health === health) : this.dropSink;
-      const ok = this.mobLoot.tryDrop(mob, sink, at);
+      const ok = this.mobLoot.tryDrop(mob, sink, at, cause === "player" || cause === "agent" ? cause : "environment");
       if (!ok) this.hud?.message("Could not preserve mob drops and attached items; the mob remains");
       return ok;
     } catch { return false; }
@@ -535,6 +541,7 @@ export class Game {
         mobs: this.mobs.exportState(this.mobLoot),
         npcs: this.mobs.exportNpcs(),
         hunger: { ...this.hunger },
+        ...(this.playerStatus.poison && !(recoveryBackup && this.recoverySections.includes("player status")) ? { playerStatus: structuredClone(this.playerStatus) } : {}),
         chalkboards: [...this.chalkboards.values()].map((b) => ({ ...b })),
         agent: { ...this.agent, slots: this.agent.slots.map((s) => (s ? { ...s } : null)) },
         programs: this.programs,
@@ -551,6 +558,7 @@ export class Game {
   save(): boolean {
     if (this.stopped || Game.activeWriter !== this) return false;
     if (this.ownershipBusy) { this.saveError = "Items are being transferred. Retry saving afterward."; return false; }
+    this.markPlayerStatusRecovery();
     this.leashes.reconcileLoadedReferences(this.leashContext());
     this.leashes.validateCrossReferences(this.leashContext()); this.markLeashRecovery();
     this.balloons.reconcileLoadedReferences(this.leashContext());
@@ -569,7 +577,7 @@ export class Game {
   }
 
   private dropStack(stack: ItemStack): boolean {
-    if (this.ownershipBusy || this.itemsNeedRecovery) return false;
+    if (this.ownershipBusy || this.actionsNeedRecovery) return false;
     const dir = lookDirection(this.body.yaw, 0);
     return this.worldDrops.spawnBatch([structuredClone(stack)], {
       x: this.body.position.x + dir.x * .4, y: this.body.position.y + 1, z: this.body.position.z + dir.z * .4,
@@ -612,7 +620,8 @@ export class Game {
     }
 
     this.clock += dt;
-    const active = !this.paused && !this.dead && !this.screenOpen() && !this.itemsNeedRecovery;
+    this.markPlayerStatusRecovery();
+    const active = !this.paused && !this.dead && !this.screenOpen() && !this.actionsNeedRecovery;
     const frames = [this.keyboard.poll()];
     if (this.touch) frames.push(this.touch.poll());
     const input = mergeFrames(frames);
@@ -635,6 +644,7 @@ export class Game {
       }, dt);
       this.updateFall(wasOnGround);
       if (!this.dead && this.mode === "survival") this.updateHunger(input.sprint, wasOnGround, dt);
+      if (!this.dead) this.updatePlayerStatus(dt);
       if (!this.dead && this.body.position.y < -20) this.hurt(MAX_HEALTH, "void");
       if (!this.dead && this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
       const light = skyAt(this.timeOfDay).light;
@@ -662,14 +672,14 @@ export class Game {
       this.eatTimer = 0;
     }
     this.lastPos = { x: this.body.position.x, z: this.body.position.z };
-    if (!this.paused && !this.itemsNeedRecovery) {
+    if (!this.paused && !this.actionsNeedRecovery) {
       this.worldDrops.update(dt);
       if (!this.dead && !this.screenOpen()) this.worldDrops.tryPickup(this.body.position, (stack) => this.inventory.addStack(stack));
       this.stepAgent(dt);
     }
     this.agentView.update(dt, AGENT_STEP_SECONDS, this.clock);
     // Furnaces keep smelting while the world runs, even with their screen closed.
-    if (!this.paused && !this.itemsNeedRecovery) {
+    if (!this.paused && !this.actionsNeedRecovery) {
       // Pressure plates under the player and mobs, then redstone ticks (10 per second).
       const feet = (p: { x: number; y: number; z: number }) => `${Math.floor(p.x)},${Math.floor(p.y + 0.05)},${Math.floor(p.z)}`;
       this.redstone.updatePlates(new Set([feet(this.body.position), ...this.mobs.mobs.map((m) => feet(m.position))]));
@@ -690,9 +700,10 @@ export class Game {
 
     const underwater = blockAtEyes((x, y, z) => this.world.getBlock(x, y, z), this.body) === "water";
     this.hud.setUnderwater(underwater);
+    this.hud.setPlayerStatus(this.playerStatus);
     this.hud.update(this.inventory, this.mode, this.health, this.hunger.food, dt, active && !this.ownershipBusy);
     this.glowStickView.update(this.inventory.selectedStack(), !this.paused && !this.dead && !this.screenOpen());
-    this.sparklerView.update(this.inventory.selectedStack(), this.inventory.offhand, !this.paused && !this.dead && !this.screenOpen() && !this.itemsNeedRecovery);
+    this.sparklerView.update(this.inventory.selectedStack(), this.inventory.offhand, !this.paused && !this.dead && !this.screenOpen() && !this.actionsNeedRecovery);
     this.renderer.setSelection(this.target, this.breakProgress);
     // A held glow stick lights the area around the player (Education Edition).
     this.heldLight = this.inventory.selectedStack()?.id === GLOW_STICK ? HELD_GLOW_LIGHT : 0;
@@ -708,7 +719,7 @@ export class Game {
   }
 
   private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
-    if (this.ownershipBusy || this.itemsNeedRecovery) return;
+    if (this.ownershipBusy || this.actionsNeedRecovery) return;
     const eye = { x: this.body.position.x, y: this.body.position.y + EYE_HEIGHT, z: this.body.position.z };
     const dir = lookDirection(this.body.yaw, this.body.pitch);
     const targetable = (id: number) => id !== AIR && blockById(id).shape !== "liquid";
@@ -761,8 +772,7 @@ export class Game {
       this.eatTimer += dt;
       this.breakProgress = 0;
       if (this.eatTimer >= EAT_SECONDS) {
-        eat(this.hunger, held!.id);
-        this.inventory.takeSelected();
+        finishMeal(this.inventory, this.hunger, this.playerStatus);
         this.eatTimer = 0;
       }
       return;
@@ -952,6 +962,30 @@ export class Game {
     }
   }
 
+  /** Diagnose the raw section before sanitation can erase malformed timed state. */
+  private restorePlayerStatus(save: SaveData | undefined): void {
+    const status = sanitizePlayerStatus(save?.playerStatus);
+    this.playerStatus = status.data;
+    if (status.invalid || save?.playerStatusInvalid) this.markPlayerStatusRecovery(true);
+  }
+
+  private markPlayerStatusRecovery(invalid = false): void {
+    if (!invalid && !sanitizePlayerStatus(this.playerStatus).invalid) return;
+    this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.recoverySections.includes("player status")) this.recoverySections.push("player status");
+  }
+
+  /** Poison bypasses armor wear and melee invulnerability; these are application choices. */
+  private updatePlayerStatus(dt: number): void {
+    this.markPlayerStatusRecovery();
+    if (this.dead || this.paused || this.screenOpen() || this.actionsNeedRecovery) return;
+    const change = tickPlayerStatus(this.playerStatus, dt, this.health, this.mode === "survival");
+    if (change < 0) {
+      this.health = Math.max(1, this.health + change);
+      this.hud.flashDamage();
+    }
+  }
+
   /** Retain the exact stored envelope before any item loader can repair it. */
   private markGlowRecovery(save: Pick<SaveData, "glowOwnershipIssues"> | undefined): void {
     if (!save?.glowOwnershipIssues?.length) return;
@@ -967,14 +1001,14 @@ export class Game {
   }
 
   trySwapOffhand(): boolean {
-    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.itemsNeedRecovery || this.stopped) return false;
+    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.actionsNeedRecovery || this.stopped) return false;
     if (!this.inventory.swapSelectedOffhand()) { this.hud.message("Select a sparkler or an empty hotbar slot before swapping the offhand."); return false; }
     return true;
   }
 
   /** One explicit hand is activated; the other owner is never implicitly changed. */
   tryLightSparkler(offhand = false): boolean {
-    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.itemsNeedRecovery || this.stopped) return false;
+    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.actionsNeedRecovery || this.stopped) return false;
     const result = offhand ? this.inventory.activateOffhandSparkler() : this.inventory.activateSelectedSparkler();
     if (!result.ok) {
       if (result.reason !== "not-sparkler") this.hud.message(result.reason === "needs-room"
@@ -989,7 +1023,7 @@ export class Game {
 
   /** A single input edge commits one complete per-unit activation before its visual response. */
   tryShakeSelectedGlow(): boolean {
-    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.itemsNeedRecovery || this.stopped) return false;
+    if (this.dead || this.paused || this.screenOpen() || this.ownershipBusy || this.actionsNeedRecovery || this.stopped) return false;
     const result = this.inventory.activateSelectedGlow();
     if (!result.ok) {
       if (result.reason !== "not-glow") this.hud.message(result.reason === "needs-room"
@@ -1058,7 +1092,7 @@ export class Game {
 
   /** /agent tp: brings the Agent next to the player. */
   teleportAgent(): boolean {
-    if (this.ownershipBusy || this.itemsNeedRecovery) return false;
+    if (this.ownershipBusy || this.actionsNeedRecovery) return false;
     const next = this.agentNearPlayer();
     if (!next) return false;
     Object.assign(this.agent, { x: next.x, y: next.y, z: next.z, facing: next.facing });
@@ -1075,7 +1109,7 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
-    if (this.itemsNeedRecovery) return "Saved items need repair. Export a backup before moving items";
+    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
     if (this.ownershipBusy) return "Items are being transferred. Retry giving them afterward";
     if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
@@ -1094,7 +1128,7 @@ export class Game {
 
   /** Starts a Code Builder program (stopping any running one). Invalid programs are refused with a message. */
   runProgram(program: CodeProgram): boolean {
-    if (this.dead || this.itemsNeedRecovery) return false;
+    if (this.dead || this.actionsNeedRecovery) return false;
     this.runner?.stop();
     this.runner = null;
     const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true);
@@ -1280,6 +1314,7 @@ export class Game {
     if (this.health === 0 || this.body.position.y < -20) {
       this.dead = true;
       this.health = 0;
+      clearPlayerStatus(this.playerStatus);
       this.deathState = { phase: "pending", position: { ...this.body.position }, keepInventory: this.keepInventory };
       // Flush the editor while its book still belongs to the player, then freeze every modal.
       this.bookScreen.hide(); this.inventoryScreen.freezeForDeath();
@@ -1342,7 +1377,7 @@ export class Game {
     if (this.dead || this.ownershipBusy) return;
     this.suspendInput();
     const furnace = kind === "furnace" && this.openFurnace ? (this.furnaces.get(this.openFurnace) ?? null) : null;
-    if (this.itemsNeedRecovery && this.inventoryScreen.resumePending()) return;
+    if (this.actionsNeedRecovery && this.inventoryScreen.resumePending()) return;
     this.inventoryScreen.show(this.inventory, this.mode, kind, furnace);
   }
 
@@ -1407,7 +1442,11 @@ export class Game {
 
   /** Executes a chat line; returns the feedback shown to the player. */
   runChat(text: string): string {
-    if (this.itemsNeedRecovery && text.startsWith("/")) return "Saved items need repair. Export a backup before using commands";
+    if (this.actionsNeedRecovery && text.startsWith("/")) {
+      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
+      this.hud.message(reply);
+      return reply;
+    }
     if (this.dead) return "Respawn before using commands";
     if (this.ownershipBusy) return "Items are being transferred. Retry the command afterward";
     if (!text.startsWith("/")) {

@@ -76,3 +76,6 @@ export * from "./ownership/glow-stick-state";
 export * from "./catalog/sparkler-colors";
 export * from "./ownership/sparkler-state";
 export * from "./ownership/item-state";
+
+export * from "./simulation/status-effects";
+export * from "./simulation/meal";

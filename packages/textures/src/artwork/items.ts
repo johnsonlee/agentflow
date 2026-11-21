@@ -217,3 +217,18 @@ Object.assign(ITEM_TILE_GENERATORS, BALLOON_ITEM_GENERATORS);
 
 // Append stateful sparkler sprites without changing any previous tile generator.
 Object.assign(ITEM_TILE_GENERATORS, SPARKLER_ITEM_GENERATORS);
+
+
+/** Original stylized eye with a burgundy shell and red iris; no imported game pixels. */
+ITEM_TILE_GENERATORS.item_spider_eye = (t) => {
+  t.fill(() => null);
+  const shell: Mask = (x, y) => ((x - 7.5) / 6) ** 2 + ((y - 8) / 4.5) ** 2 <= 1;
+  paint(t, shell, ["#71383e", "#8c494e", "#a15b5d"].map(hex));
+  for (let y = 5; y <= 11; y++) for (let x = 6; x <= 10; x++) {
+    if (((x - 8) / 2.6) ** 2 + ((y - 8) / 3.4) ** 2 <= 1)
+      t.set(x, y, hex(x === 8 ? "#3b1727" : x < 8 ? "#ed625d" : "#ba343e"));
+  }
+  t.set(6, 6, hex("#ffd0b9"));
+  t.set(5, 5, hex("#ca8982"));
+  return t;
+};

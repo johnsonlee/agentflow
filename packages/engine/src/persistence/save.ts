@@ -1,3 +1,4 @@
+import { sanitizePlayerStatus, type PlayerStatus } from "../simulation/status-effects";
 import { inspectSparklerState, isSparklerId } from "../ownership/sparkler-state";
 import { sanitizeStack } from "./savecheck";
 import { inspectGlowState } from "../ownership/glow-stick-state";
@@ -47,6 +48,10 @@ export interface SaveData {
   npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
   /** Survival hunger (optional for older saves; defaults to full). */
   hunger?: HungerState;
+  /** Active-play-only status owner; absent legacy/empty saves have no effect. */
+  playerStatus?: PlayerStatus;
+  /** Derived from raw JSON before sanitation; never trusted or serialized. */
+  playerStatusInvalid?: boolean;
   /** Education Edition Agent and Code Builder programs (optional for older saves). */
   agent?: AgentState;
   programs?: CodeProgram[];
@@ -70,7 +75,10 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, ...owned } = data;
+  const { glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const status = sanitizePlayerStatus(owned.playerStatus);
+  if (_statusInvalid || status.invalid) throw new Error("Cannot serialize invalid player status");
+  if (status.data.poison) owned.playerStatus = status.data; else delete owned.playerStatus;
   return JSON.stringify({ version: SAVE_VERSION, ...owned });
 }
 
@@ -233,6 +241,9 @@ export function parseSave(text: string): SaveData {
   };
   if (glowOwnershipIssues.length) save.glowOwnershipIssues = glowOwnershipIssues;
   if (sparklerOwnershipIssues.length) save.sparklerOwnershipIssues = sparklerOwnershipIssues;
+  const status = sanitizePlayerStatus(own(raw, "playerStatus"));
+  if (status.invalid) save.playerStatusInvalid = true;
+  else if (status.data.poison) save.playerStatus = status.data;
   // Optional sections: passed through for their own sanitizers.
   for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs", "leashes", "playerState", "snowballProjectiles", "balloons"] as const) {
     const v = own(raw, key);

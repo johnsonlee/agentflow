@@ -214,6 +214,8 @@ const specs: Omit<ItemDef, "id">[] = [
   ...SPARKLER_COLORS.map(({ itemName, displayName, iconInactive }) => ({
     name: itemName, displayName, maxStack: MAX_STACK, icon: iconInactive, chem: { kind: "product" as const },
   })),
+  // Nutrition2 follows the official Bedrock snippet; saturation3.2/stack64 are application choices.
+  material("spider_eye", "Spider Eye", { hunger: 2, saturation: 3.2 }),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

@@ -124,7 +124,7 @@ export async function spiderStringRoute(page: Page, info: TestInfo, mobile: bool
     const store = window.__craft.game!.worldDrops, original = store.planSpawnBatch.bind(store);
     const w = window as unknown as { __spiderRefusal: { attempts: unknown[][]; restore: () => void } };
     w.__spiderRefusal = { attempts: [], restore: () => { store.planSpawnBatch = original; } };
-    store.planSpawnBatch = stacks => { w.__spiderRefusal.attempts.push(structuredClone(stacks)); return null; };
+    store.planSpawnBatch = stacks => { w.__spiderRefusal.attempts.push([...structuredClone(stacks)]); return null; };
   });
   for (let i = 0; i < 4; i++) {
     if (await page.evaluate(() => (window as unknown as { __spiderRefusal: { attempts: unknown[][] } }).__spiderRefusal.attempts.length)) break;
@@ -133,14 +133,16 @@ export async function spiderStringRoute(page: Page, info: TestInfo, mobile: bool
   const refused = await page.evaluate(id => ({ health: window.__craft.game!.mobs.mobs.find(m => m.id === id)!.health, attempts: (window as unknown as { __spiderRefusal: { attempts: unknown[][] } }).__spiderRefusal.attempts, ground: window.__craft.game!.worldDrops.records }), firstId);
   expect(refused.health).toBe(1); expect(refused.attempts).toHaveLength(1); expect(refused.ground).toEqual([]);
   const rolled = refused.attempts[0] as { id: number; count: number }[];
-  expect(rolled.length).toBeLessThanOrEqual(1);
-  for (const stack of rolled) { expect(stack.id).toBe(806); expect(stack.count).toBeGreaterThanOrEqual(1); expect(stack.count).toBeLessThanOrEqual(2); }
+  expect(rolled.length).toBeLessThanOrEqual(2);
+  const stringId = 806, eyeId = 829;
+  expect(rolled.map(s => s.id)).toEqual([stringId, eyeId].filter(id => rolled.some(s => s.id === id)));
+  for (const stack of rolled) { expect([stringId, eyeId]).toContain(stack.id); expect(stack.count).toBeGreaterThanOrEqual(1); expect(stack.count).toBeLessThanOrEqual(stack.id === stringId ? 2 : 1); }
   const pendingSave = await saveQuit(); expect(pendingSave.mobs.records.find((m: { id: number }) => m.id === firstId).pendingLoot).toEqual(rolled);
   await resume(); await hit(firstId); expect(await alive(firstId)).toBe(false);
   const firstGround = await page.evaluate(() => window.__craft.game!.worldDrops.records.map(r => r.stack));
   expect(firstGround).toEqual(rolled); await collectWorldDrops(page);
   // At most24additional genuine kills; zero is valid loot, this is an acquisition loop, not a test retry.
-  const kills: { id: number; count: number }[] = [{ id: firstId, count: rolled.reduce((n, s) => n + s.count, 0) }];
+  const kills: { id: number; count: number }[] = [{ id: firstId, count: rolled.filter(s => s.id === stringId).reduce((n, s) => n + s.count, 0) }];
   for (let i = 0; i < 24 && await countStack(page, "string") < 4; i++) {
     const before = await countStack(page, "string"), id = await summon();
     for (let swing = 0; swing < 4 && await alive(id); swing++) await hit(id);
@@ -184,6 +186,6 @@ export async function spiderStringRoute(page: Page, info: TestInfo, mobile: bool
   const backup = info.outputPath("invalid-spider-anger-original.json"); await (await downloaded).saveAs(backup);
   expect(JSON.parse(await fs.readFile(backup, "utf8")).recoveryOriginalSave).toBe(corrupt);
   await snap(page, info, "invalid-spider-timer-preserves-original-save-and-backup");
-  await fs.writeFile(info.outputPath("spider-string-coverage.json"), JSON.stringify({ fixtures: "Bedrock pad, preowned sword/cobblestone/diamondarmor (actually equipped through UI), initial idle pose and helper bring-near/camera tracking; real chat summons; one refused sink; final stored invalidtimer11. No injected string/wool/health/damage/loot rolls and no RNG replacement.", controls: mobile ? "Actual acknowledged CDP touch combat and UI taps" : "Mouse combat and UI clicks", neutralHealth, savedSpider, restored, refused, rolled, pendingSave, firstGround, kills, stringsBeforeCraft: strings, craftedSave, beforeCorruption, corruptId, observations, limits: ["ground-walking summon-only Spider", "no native climb/leap/natural spawn/conditional Eye/looting", "brightness/anger/speed/damage difficulty calibration remain application model", "wool quantity1 app default, native recipe count omitted", "exact graphics and full ticket remain open", "no performance acceptance"], errors }, null, 2));
+  await fs.writeFile(info.outputPath("spider-string-coverage.json"), JSON.stringify({ fixtures: "Bedrock pad, preowned sword/cobblestone/diamondarmor (actually equipped through UI), initial idle pose and helper bring-near/camera tracking; real chat summons; one refused sink; final stored invalidtimer11. No injected string/wool/health/damage/loot rolls and no RNG replacement.", controls: mobile ? "Actual acknowledged CDP touch combat and UI taps" : "Mouse combat and UI clicks", neutralHealth, savedSpider, restored, refused, rolled, pendingSave, firstGround, kills, stringsBeforeCraft: strings, craftedSave, beforeCorruption, corruptId, observations, limits: ["ground-walking summon-only Spider", "no native climb/leap/natural spawn/looting; optional player Eye is range-checked, separate Eye route tests consumption", "brightness/anger/speed/damage difficulty calibration remain application model", "wool quantity1 app default, native recipe count omitted", "exact graphics and full ticket remain open", "no performance acceptance"], errors }, null, 2));
   expect(errors).toEqual([]);
 }

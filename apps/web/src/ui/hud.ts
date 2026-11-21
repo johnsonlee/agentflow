@@ -1,7 +1,7 @@
 import {
   HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
   cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
-  type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
+  type PlayerStatus, type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 import { blockIcon } from "./icons";
@@ -34,6 +34,7 @@ export class Hud {
   private readonly slots: HTMLElement[] = [];
   private readonly hearts = el("div", "hearts");
   private readonly hunger = el("div", "hunger");
+  private readonly playerStatus = el("div", "player-status");
   private readonly armor = el("div", "armor-meter");
   private readonly itemName = el("div", "item-name");
   private readonly debug = el("pre", "debug");
@@ -76,7 +77,10 @@ export class Hud {
     this.armor.setAttribute("aria-label", "Armor protection");
     this.armor.setAttribute("aria-valuemin", "0");
     this.armor.setAttribute("aria-valuemax", "20");
-    bottom.append(this.itemName, this.armor, stats, this.hotbar);
+    this.playerStatus.setAttribute("role", "status");
+    this.playerStatus.setAttribute("aria-label", "Active effects");
+    this.playerStatus.hidden = true;
+    bottom.append(this.itemName, this.playerStatus, this.armor, stats, this.hotbar);
     if (touch) {
       const more = el("button", "slot slot-more", "•••");
       more.setAttribute("aria-label", "Open inventory");
@@ -218,6 +222,13 @@ export class Hud {
       this.itemNameTimer -= dt;
       this.itemName.style.opacity = String(Math.min(1, this.itemNameTimer));
     }
+  }
+
+  setPlayerStatus(status: PlayerStatus): void {
+    const remaining = status.poison?.remaining;
+    this.playerStatus.hidden = remaining === undefined;
+    this.playerStatus.textContent = remaining === undefined ? "" : `Poison · ${Math.ceil(remaining)}s`;
+    this.playerStatus.dataset.effect = remaining === undefined ? "" : "poison";
   }
 
   showItemName(name: string): void {

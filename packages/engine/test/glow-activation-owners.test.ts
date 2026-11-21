@@ -104,8 +104,8 @@ describe("untimed glow state across actual engine owners", () => {
     const contents = furnaceContents(furnace); contents[0].glow!.state = "active"; expect(furnace.input).toEqual(inactive(2));
   });
 
-  it("retains existing Glow identities with the append-only Sparkler catalog sizes", () => {
-    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([573, 308, 165, 859]);
+  it("retains existing Glow identities with the append-only Spider Eye catalog sizes", () => {
+    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([574, 308, 165, 860]);
     expect(stackId("glow_stick")).toBe(426); expect(stackId("red_glow_stick")).toBe(793);
   });
 

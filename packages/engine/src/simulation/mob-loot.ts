@@ -14,8 +14,12 @@ function countBetween(min: number, max: number, rand: () => number): number {
   return Math.min(max, min + Math.floor(Math.max(0, Math.min(1, value)) * (max - min + 1)));
 }
 
-/** Current unenchanted base loot only: no fire meat conversion, rare/equipment, conditional Spider Eye, looting or sheep-state parity. */
-export function mobDrops(kind: MobKind, rand: () => number = Math.random): ItemStack[] {
+/** Agent is not classified as a native player predicate without runtime evidence. */
+export type MobLootCause = "player" | "agent" | "environment";
+export const isMobLootCause = (raw: unknown): raw is MobLootCause => raw === "player" || raw === "agent" || raw === "environment";
+
+/** Unenchanted base loot plus the retained player-only Spider Eye pool; no fire/looting parity. */
+export function mobDrops(kind: MobKind, rand: () => number = Math.random, cause: MobLootCause = "environment"): ItemStack[] {
   const spec = MOB_SPECS[kind];
   const stacks: ItemStack[] = [];
   for (const [index, entry] of [spec.drop, spec.extraDrop].entries()) {
@@ -26,16 +30,20 @@ export function mobDrops(kind: MobKind, rand: () => number = Math.random): ItemS
       : fixed;
     if (count > 0) stacks.push({ id: stackId(name), count });
   }
+  if (kind === "spider" && cause === "player") {
+    const count = countBetween(0, 1, rand);
+    if (count > 0) stacks.push({ id: stackId("spider_eye"), count });
+  }
   return stacks;
 }
 
 const plain = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
 
 /** A cached roll must be an actual batch permitted by this mob kind, including a legitimate empty roll. */
-export function sanitizePendingMobLoot(kind: MobKind, raw: unknown): ItemStack[] | null {
+export function sanitizePendingMobLoot(kind: MobKind, raw: unknown, cause?: MobLootCause): ItemStack[] | null {
   try {
-    if (!Object.prototype.hasOwnProperty.call(MOB_SPECS, kind) || !Array.isArray(raw)) return null;
-    const minimum = mobDrops(kind, () => 0), maximum = mobDrops(kind, () => 1), result: ItemStack[] = [];
+    if (!Object.prototype.hasOwnProperty.call(MOB_SPECS, kind) || !Array.isArray(raw) || cause !== undefined && !isMobLootCause(cause)) return null;
+    const minimum = mobDrops(kind, () => 0, cause), maximum = mobDrops(kind, () => 1, cause), result: ItemStack[] = [];
     let cursor = 0;
     for (const upper of maximum) {
       const lower = minimum.find((s) => s.id === upper.id)?.count ?? 0;
@@ -50,7 +58,7 @@ export function sanitizePendingMobLoot(kind: MobKind, raw: unknown): ItemStack[]
   } catch { return null; }
 }
 
-interface PendingLoot { stacks: ItemStack[]; committed: boolean; transferring: boolean }
+interface PendingLoot { cause?: MobLootCause; stacks: ItemStack[]; committed: boolean; transferring: boolean }
 
 /** One roll per mob object. Failed reservations retain that roll; committed calls never respawn it. */
 export class MobLootResolver {
@@ -63,19 +71,26 @@ export class MobLootResolver {
     return record && !record.committed ? record.stacks.map((stack) => cloneStack(stack)) : undefined;
   }
 
+  /** Absent for legacy cached batches, unresolved owners and already committed batches. */
+  exportPendingCause(mob: Mob): MobLootCause | undefined {
+    const record = this.pending.get(mob);
+    return record && !record.committed ? record.cause : undefined;
+  }
+
   /** Restores once onto a fresh live object, never overwriting another roll or a committed owner. */
-  restorePending(mob: Mob, raw: unknown): boolean {
+  restorePending(mob: Mob, raw: unknown, cause?: MobLootCause): boolean {
     if (this.pending.has(mob)) return false;
-    const stacks = sanitizePendingMobLoot(mob.kind, raw);
+    const stacks = sanitizePendingMobLoot(mob.kind, raw, cause);
     if (stacks === null) return false;
-    this.pending.set(mob, { stacks, committed: false, transferring: false });
+    this.pending.set(mob, { stacks, ...(cause === undefined ? {} : { cause }), committed: false, transferring: false });
     return true;
   }
 
-  tryDrop(mob: Mob, sink: DropSink, position: Vec3): boolean {
+  tryDrop(mob: Mob, sink: DropSink, position: Vec3, cause: MobLootCause = "environment"): boolean {
+    if (!isMobLootCause(cause)) return false;
     let record = this.pending.get(mob);
     if (!record) {
-      record = { stacks: mobDrops(mob.kind, this.rand), committed: false, transferring: false };
+      record = { stacks: mobDrops(mob.kind, this.rand, cause), cause, committed: false, transferring: false };
       this.pending.set(mob, record);
     }
     if (record.committed) return true;

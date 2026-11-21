@@ -9,8 +9,8 @@ const hash = (pixels: Uint8ClampedArray) => createHash("sha256").update(pixels).
 it("appends ten sparkler states without changing any of the 849 published tile pixels or addresses", () => {
   const names = allAtlasTextureNames();
   expect(names.slice(0, 849)).toEqual(baseline.names);
-  expect(names.slice(849)).toEqual(SPARKLER_COLORS.flatMap(color => [color.iconInactive, color.iconActive]));
-  expect(names).toHaveLength(859);
+  expect(names.slice(849, 859)).toEqual(SPARKLER_COLORS.flatMap(color => [color.iconInactive, color.iconActive]));
+  expect(names).toHaveLength(860);
   const atlas = buildAtlas(names);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {

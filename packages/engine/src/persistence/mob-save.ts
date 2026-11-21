@@ -2,7 +2,7 @@ import { createSquidState, SQUID, type SquidState } from "../simulation/aquatics
 import { SPIDER, MOB_SPECS, createMob, type Mob, type MobKind } from "../simulation/entities";
 import type { ItemStack } from "../ownership/inventory";
 import { WORLD_BORDER, type Vec3 } from "../core/math";
-import { sanitizePendingMobLoot } from "../simulation/mob-loot";
+import { sanitizePendingMobLoot, isMobLootCause, type MobLootCause } from "../simulation/mob-loot";
 
 /** JSON-safe semantic state. Native path-search objects and derived graph caches are never saved. */
 export interface MobSnapshot {
@@ -29,6 +29,8 @@ export interface MobSnapshot {
   dialogue?: string;
   /** Absence means unresolved; an empty array is a resolved zero result awaiting successful delivery. */
   pendingLoot?: ItemStack[];
+  /** Frozen attribution of a new pending roll; absent legacy rolls retain old base-only bounds. */
+  pendingLootCause?: MobLootCause;
 }
 export interface MobStateData { nextId: number; records: MobSnapshot[] }
 export interface SanitizedMobState { data: MobStateData; invalid: number; present: boolean }
@@ -71,10 +73,14 @@ function readMob(raw: unknown): MobSnapshot | null {
     result.name = name; result.dialogue = dialogue;
   }
   const pending = own(raw, "pendingLoot");
+  const hasCause = Object.prototype.hasOwnProperty.call(raw, "pendingLootCause");
+  const cause = own(raw, "pendingLootCause");
+  if (hasCause && (pending === undefined || !isMobLootCause(cause))) return null;
   if (pending !== undefined) {
-    const stacks = sanitizePendingMobLoot(kind as MobKind, pending);
+    const stacks = sanitizePendingMobLoot(kind as MobKind, pending, cause as MobLootCause | undefined);
     if (stacks === null) return null; // Never drop the roll and silently let this owner reroll.
     result.pendingLoot = stacks;
+    if (hasCause) result.pendingLootCause = cause as MobLootCause;
   }
   return result;
 }
@@ -102,7 +108,7 @@ export function sanitizeMobState(raw: unknown): SanitizedMobState {
 }
 
 /** Captures detached supported fields only; invalid live state refuses saving rather than losing ownership. */
-export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[]): MobSnapshot {
+export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[], pendingLootCause?: MobLootCause): MobSnapshot {
   const raw: Record<string, unknown> = {
     id: mob.id, kind: mob.kind, position: { ...mob.position }, velocity: { ...mob.velocity }, yaw: mob.yaw,
     health: mob.kind === "npc" && mob.health === Infinity ? "invulnerable" : mob.health, onGround: mob.onGround, thinkTimer: mob.thinkTimer,
@@ -112,6 +118,7 @@ export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[]): MobSnapshot {
   if (mob.squidState !== undefined) raw.squidState = mob.squidState;
   if (mob.kind === "npc") { raw.name = mob.name ?? "NPC"; raw.dialogue = mob.dialogue ?? ""; }
   if (pendingLoot !== undefined) raw.pendingLoot = pendingLoot;
+  if (pendingLootCause !== undefined) raw.pendingLootCause = pendingLootCause;
   const result = readMob(raw);
   if (!result) throw new Error("Cannot snapshot invalid live mob state");
   return result;
