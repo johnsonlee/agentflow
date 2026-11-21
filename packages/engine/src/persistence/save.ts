@@ -1,3 +1,7 @@
+import { sanitizeFluidState, type FluidData } from "../simulation/fluids";
+import { sanitizeGeneratorVersion, type GeneratorVersion } from "../world/generator";
+import { isKnownBlockId } from "../catalog/blocks";
+import { WORLD_HEIGHT } from "../world/chunk";
 import { sanitizeFireState, type FireData } from "../simulation/fire";
 import { inspectIgnitionOwner, isIgnitionToolId } from "../ownership/ignition-tool";
 import { sanitizeGravelHarvestState, type GravelHarvestData } from "../ownership/gravel-harvest";
@@ -19,7 +23,7 @@ import type { BlockEdit } from "../world/world";
 import type { InventoryData, ItemStack } from "../ownership/inventory";
 import { sanitizeInventoryPending } from "./savecheck";
 import type { GameMode } from "../world/rules";
-import { clampPosition, type Vec3 } from "../core/math";
+import { clampPosition, WORLD_BORDER, type Vec3 } from "../core/math";
 import type { HungerState } from "../simulation/hunger";
 import type { FurnaceState } from "../crafting/smelting";
 import type { Chalkboard } from "../education/chalkboard";
@@ -32,6 +36,11 @@ export interface SaveData {
   version: number;
   name: string;
   seed: number;
+  generatorVersion?: GeneratorVersion;
+  /** Raw diagnostics; callers preserve exact original and freeze writes/actions. */
+  generatorVersionInvalid?: boolean;
+  fluids?: FluidData;
+  fluidsInvalid?: boolean;
   mode: GameMode;
   timeOfDay: number;
   /** `position` is null when a damaged save had none (the game then uses the spawn point). */
@@ -52,7 +61,7 @@ export interface SaveData {
   sparklerOwnershipIssues?: GlowOwnershipIssue[];
   /** Whole-container diagnostics read before any raw bottle can be repaired/discarded. */
   bottleOwnershipIssues?: GlowOwnershipIssue[];
-  /** Whole empty/milk buckets are diagnosed before any raw-owner repair. */
+  /** Whole empty/milk/water/lava buckets are diagnosed before any raw-owner repair. */
   bucketOwnershipIssues?: GlowOwnershipIssue[];
   /** Derived raw new-Cow corruption diagnostic; never trusted or serialized. */
   cowStateInvalid?: boolean;
@@ -94,7 +103,12 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const generator=sanitizeGeneratorVersion(owned.generatorVersion),fluids=sanitizeFluidState(owned.fluids);
+  if(_fluidsInvalid||_generatorVersionInvalid||generator.invalid||fluids.invalid||(generator.present||fluids.present)&&!validFluidEdits(owned.edits))throw new Error("Cannot serialize invalid fluids or terrain version");
+  if(generator.present)owned.generatorVersion=generator.version;
+  if(fluids.present)owned.fluids=fluids.data;
+  if(diagnoseRawBucketOwnership(owned).length)throw new Error("Cannot serialize invalid bucket ownership");
   const toolIssues = diagnoseRawIgnitionOwnership(owned);
   if (toolIssues.some(issue => /ignition/.test(issue.reason))) throw new Error("Cannot serialize invalid ignition ownership");
   const fire = sanitizeFireState(owned.fire);
@@ -111,6 +125,17 @@ const isObj = (v: unknown): v is Obj =>
   typeof v === "object" && v !== null && !Array.isArray(v) && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
 const own = (o: Obj, k: string): unknown => (Object.prototype.hasOwnProperty.call(o, k) ? o[k] : undefined);
 const finite = (v: unknown): v is number => typeof v === "number" && Number.isFinite(v);
+
+/** New fluid/versioned worlds reject malformed edit identities before downstream sanitation. */
+function validFluidEdits(raw:unknown):boolean {
+ if(!Array.isArray(raw))return false;
+ const seen=new Set<string>();
+ for(const e of raw){
+  if(!Array.isArray(e)||e.length!==4||Reflect.ownKeys(e).length!==5||![e[0],e[1],e[2]].every(Number.isSafeInteger)||Math.abs(e[0])>WORLD_BORDER||Math.abs(e[2])>WORLD_BORDER||e[1]<0||e[1]>=WORLD_HEIGHT||!isKnownBlockId(e[3]))return false;
+  const k=`${e[0]},${e[1]},${e[2]}`;if(seen.has(k))return false;seen.add(k);
+ }
+ return Reflect.ownKeys(raw).length===raw.length+1;
+}
 
 export interface GlowOwnershipIssue { path: string; reason: string }
 
@@ -240,6 +265,8 @@ export function parseSave(text: string): SaveData {
   const bottleOwnershipIssues = diagnoseRawBottleOwnership(raw);
   const bucketOwnershipIssues = diagnoseRawBucketOwnership(raw);
   const ignitionOwnershipIssues = diagnoseRawIgnitionOwnership(raw);
+  const generator=sanitizeGeneratorVersion(own(raw,"generatorVersion")),fluids=sanitizeFluidState(own(raw,"fluids"));
+  const fluidEditsInvalid=(generator.present||fluids.present)&&!validFluidEdits(own(raw,"edits"));
   const fire = sanitizeFireState(own(raw, "fire"));
   const cowStateInvalid = diagnoseRawCowState(own(raw,"mobs"));
   const gravelHarvest = sanitizeGravelHarvestState(own(raw,"gravelHarvests"));
@@ -280,6 +307,10 @@ export function parseSave(text: string): SaveData {
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
+  if(generator.present)save.generatorVersion=generator.version;
+  if(generator.invalid)save.generatorVersionInvalid=true;
+  if(fluids.present)save.fluids=fluids.data;
+  if(fluids.invalid||fluidEditsInvalid)save.fluidsInvalid=true;
   if (glowOwnershipIssues.length) save.glowOwnershipIssues = glowOwnershipIssues;
   if (sparklerOwnershipIssues.length) save.sparklerOwnershipIssues = sparklerOwnershipIssues;
   if (bottleOwnershipIssues.length) save.bottleOwnershipIssues = bottleOwnershipIssues;

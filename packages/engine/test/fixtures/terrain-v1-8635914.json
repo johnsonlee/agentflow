@@ -1,0 +1,144 @@
+{
+  "revision": "8635914ce03bfbe01b88001f34cd566d65b26194",
+  "source": "/Users/johnsonlee/.autopilot-lan-20261121/worktrees/1/agentflow-ignition-published/packages/engine/src/world/generator.ts",
+  "generatorSHA256": "e0af41a2aa178bfb3c57c801ef0561e44942760c6e4bb0dd43bac0a959cfb398",
+  "encoding": "Uint16 little endian, actual historical generator outputs; correctness only",
+  "observedAt": "2026-11-21T19:22:39.238Z",
+  "chunks": [
+    {
+      "seed": 12345,
+      "cx": -4,
+      "cz": -4,
+      "biome": "plains",
+      "height": 32,
+      "blocksSHA256": "185b5627f2a636e48055b00c9645dde158d52ecea47919d87c28691ccee0f4d7",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": -1,
+      "cz": 0,
+      "biome": "forest",
+      "height": 38,
+      "blocksSHA256": "e1f2602095adf87f0c397a30df1af7ad40b6de477b42e67fe1763fda7ef37890",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": 0,
+      "cz": 0,
+      "biome": "plains",
+      "height": 35,
+      "blocksSHA256": "1d7774ba4a1003eac7a1b2690f914cade81c8f73331f49bf7993418476e90efc",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": 1,
+      "cz": 0,
+      "biome": "plains",
+      "height": 40,
+      "blocksSHA256": "a13b38efdab0c5008aaa0a83fe492cb3413b93c1c60f46b7be72c7af21231e19",
+      "blockCount": 24576
+    },
+    {
+      "seed": 0,
+      "cx": -2,
+      "cz": 3,
+      "biome": "ocean",
+      "height": 28,
+      "blocksSHA256": "2f137ff4d8fb5f4cd8589df79309e05d77224cdf7af1181835b3ae79e2f967e7",
+      "blockCount": 24576
+    },
+    {
+      "seed": 1,
+      "cx": 200,
+      "cz": -200,
+      "biome": "plains",
+      "height": 34,
+      "blocksSHA256": "ab7c8572da2eab6e5d6a4f6f78cba39d83109071975b3d0f96103a9df1769eac",
+      "blockCount": 24576
+    },
+    {
+      "seed": -2147483648,
+      "cx": -33,
+      "cz": -42,
+      "biome": "ocean",
+      "height": 28,
+      "blocksSHA256": "4ef2b7f8dfd607e76a697e7e69f429eba411e359b5ebd9b9d6f1d74469ee61b6",
+      "blockCount": 24576
+    },
+    {
+      "seed": 2147483647,
+      "cx": 1000,
+      "cz": 1000,
+      "biome": "plains",
+      "height": 36,
+      "blocksSHA256": "6211340fc1b76a341304e92e84fba095f9a812b24ad2acd289ecbbdc37ad38a3",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": 1874999,
+      "cz": 0,
+      "biome": "snowy",
+      "height": 32,
+      "blocksSHA256": "0a47a670d2e2277451452989c1eadd7b017d2e7b0d2a41fd95c0de03c98408a4",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": -1875000,
+      "cz": 0,
+      "biome": "plains",
+      "height": 30,
+      "blocksSHA256": "c68d67c8f4ae91015880cfc40e2dc7d9ba6e9324fe137c01767b7999f8d82a8a",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": -64,
+      "cz": -64,
+      "biome": "plains",
+      "height": 32,
+      "blocksSHA256": "6beb0b294091aa9925f1fdd39a11fde544773d9b03538eafad6c1ac03b0e8342",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": -64,
+      "cz": -62,
+      "biome": "plains",
+      "height": 37,
+      "blocksSHA256": "72faa828340a1ac08425b02a58044b356ef330db169a8a7744661edc808e182f",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": -64,
+      "cz": -50,
+      "biome": "desert",
+      "height": 33,
+      "blocksSHA256": "a4a36de7818b69d268939545dd41e94ceeac1381fafca44b55f5b4e0c006e336",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": -64,
+      "cz": -34,
+      "biome": "snowy",
+      "height": 30,
+      "blocksSHA256": "326317e72c55590b95176d77aedaa454aba73ca2fb06752a8428817055619f04",
+      "blockCount": 24576
+    },
+    {
+      "seed": 12345,
+      "cx": -64,
+      "cz": -16,
+      "biome": "forest",
+      "height": 31,
+      "blocksSHA256": "f87b63ba34e20d5540fb9a8596fac12a7e61ece9d2d1a2b9efaeb69859a93202",
+      "blockCount": 24576
+    }
+  ]
+}

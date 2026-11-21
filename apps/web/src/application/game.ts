@@ -1,5 +1,5 @@
 import {
-  igniteFire, extinguishFire, cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
+  tryUseFluidBucket, isFluidActionBusy, isFluidBlock, igniteFire, extinguishFire, cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
   BalloonStore, balloonColorOf, raycastBalloons, combineReleaseAttempts, type ReleaseAttempt,
   SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
@@ -43,6 +43,8 @@ const GLASS_BOTTLE = stackId("glass_bottle");
 const WATER_BOTTLE = stackId("water_bottle");
 const EMPTY_BUCKET = stackId("bucket");
 const MILK_BUCKET = stackId("milk_bucket");
+const WATER_BUCKET = stackId("water_bucket");
+const LAVA_BUCKET = stackId("lava_bucket");
 const WATER = blockId("water");
 const SNOWBALL = stackId("snowball");
 const LEAD = stackId("lead_rope");
@@ -100,7 +102,7 @@ export class Game {
   private recoveryOriginal: string | null = null;
   private recoverySections: string[] = [];
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire"); }
+  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids"); }
   private stopped = false;
   private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
   private readonly handleResize = () => { if (!this.stopped) this.resize(); };
@@ -110,7 +112,7 @@ export class Game {
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
   private readonly mobLoot = new MobLootResolver();
-  private get ownershipBusy(): boolean { return this.leashes.busy || this.balloons.busy; }
+  private get ownershipBusy(): boolean { return this.leashes.busy || this.balloons.busy || !!this.world && isFluidActionBusy(this.world); }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
   readonly world: World;
@@ -209,9 +211,9 @@ export class Game {
     const save = options.save;
     this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
-    this.world = new World(save?.seed ?? options.seed);
+    this.world = new World(save?.seed ?? options.seed, save ? save.generatorVersion ?? 1 : 2);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
-    this.restoreGravelHarvests(save); this.restoreFire(save);
+    this.restoreGravelHarvests(save); this.restoreFire(save); this.restoreFluids(save);
     this.farming = new FarmingSystem(this.world, save?.farming);
     this.snowballProjectiles = new SnowballProjectiles(this.world, save?.snowballProjectiles);
     if (this.snowballProjectiles.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("snowball projectiles"); }
@@ -287,7 +289,7 @@ export class Game {
       onLightSparkler: offhand => { this.tryLightSparkler(offhand); },
       onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.actionsNeedRecovery, () => this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
       ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
@@ -305,6 +307,7 @@ export class Game {
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
     for (const issue of save?.ignitionOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    if (this.recoverySections.includes("fluids")) this.loadErrors.push("Damaged liquids or terrain version (original save preserved)");
     if (this.recoverySections.includes("fire")) this.loadErrors.push("Damaged fire (original save preserved)");
     for (const issue of save?.glowOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.sparklerOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
@@ -460,7 +463,7 @@ export class Game {
 
   private tryDeathTransfer(): boolean {
     if (this.ownershipBusy || !this.deathState) return false;
-    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
+    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -563,9 +566,12 @@ export class Game {
     if (this.ownershipBusy) throw new Error("An ownership transfer is in progress");
     const gravelHarvests = this.world.gravelHarvests.exportState();
     const fire = this.world.fires.exportState();
+    const fluids = this.world.fluids.exportState();
     return serializeSave({
         name: this.name,
         seed: this.world.seed,
+        generatorVersion: this.world.generatorVersion,
+        ...(!(recoveryBackup && this.recoverySections.includes("fluids")) ? { fluids } : {}),
         mode: this.mode,
         timeOfDay: this.timeOfDay,
         player: { position: { ...this.body.position }, yaw: this.body.yaw, pitch: this.body.pitch, flying: this.body.flying },
@@ -687,6 +693,7 @@ export class Game {
       if (!this.dead && this.mode === "survival") this.updateHunger(input.sprint, wasOnGround, dt);
       if (!this.dead) this.updatePlayerStatus(dt);
       if (!this.dead) this.updateFire(dt);
+      if (!this.dead) this.updateFluids(dt);
       if (!this.dead && this.body.position.y < -20) this.hurt(MAX_HEALTH, "void");
       if (!this.dead && this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
       const light = skyAt(this.timeOfDay).light;
@@ -795,6 +802,17 @@ export class Game {
         else if (result.reason === "no-room") this.hud.message("Make room for a Water Bottle before filling one.");
         else this.hud.message("These bottles need attention before they can be filled.");
         // World water is deliberately non-consuming in this bounded application model.
+        return;
+      }
+    }
+    if (place && this.placeCooldown === 0 && held?.id === EMPTY_BUCKET) {
+      const source = raycast((x, y, z) => this.world.getBlock(x, y, z), eye, dir, REACH, id => id !== AIR);
+      const actorDistance = Math.min(mobHit?.distance ?? Infinity, balloonHit?.distance ?? Infinity);
+      if (source && isFluidBlock(source.id) && source.distance + 1e-9 < actorDistance) {
+        const result = tryUseFluidBucket(this.world, this.inventory, this.mode, source);
+        if (result.ok) this.placeCooldown = .25;
+        this.breakProgress = 0; this.eatTimer = 0;
+        this.hud.message(result.ok ? `Collected ${result.fluid}.` : result.reason === "no-room" ? "Make room for a full Bucket before collecting liquid." : "Cannot collect this liquid here.");
         return;
       }
     }
@@ -969,6 +987,16 @@ export class Game {
     }
 
     // Stations and NPCs above retain priority. Only the main hand can ignite a supported top face.
+    if (place && this.placeCooldown === 0 && (held?.id === WATER_BUCKET || held?.id === LAVA_BUCKET)) {
+      // Inclusive ray prevents pouring through a nearer liquid to an outlined solid behind it.
+      const hit = raycast((x, y, z) => this.world.getBlock(x, y, z), eye, dir, REACH, id => id !== AIR);
+      const result = hit && !isFluidBlock(hit.id) ? tryUseFluidBucket(this.world, this.inventory, this.mode, hit) : null;
+      if (result?.ok) this.placeCooldown = .25;
+      this.breakProgress = 0; this.eatTimer = 0;
+      this.hud.message(result?.ok ? `Placed ${result.fluid}.` : "Aim at a solid face with clear air beside it to pour the Bucket.");
+      return;
+    }
+
     if (place && this.placeCooldown === 0 && held?.id === stackId("flint_and_steel")) {
       const ok = t !== null && igniteFire(this.world, this.inventory, this.mode, t);
       this.placeCooldown = .25; this.breakProgress = 0;
@@ -1067,7 +1095,7 @@ export class Game {
   private selectHudHotbar(slot: number): void {
     // Saved-item recovery keeps HUD selection available for inspecting disabled actions.
     // This changes only the live selected index; all ownership/write guards stay in force.
-    if (this.dead || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire")) return;
+    if (this.ownershipBusy || this.dead || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids")) return;
     this.selectHotbar(slot);
   }
 
@@ -1124,6 +1152,19 @@ export class Game {
   }
 
   /** Restore coordinate decisions only after edits establish the actual source blocks. */
+  private restoreFluids(save: Pick<SaveData, "fluids" | "fluidsInvalid" | "generatorVersionInvalid"> | undefined): void {
+    const restored = this.world.fluids.restore(save?.fluids);
+    if (!save?.fluidsInvalid && !save?.generatorVersionInvalid && !restored.invalid) return;
+    this.cancelDrinking(); this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.recoverySections.includes("fluids")) this.recoverySections.push("fluids");
+  }
+
+  private updateFluids(dt: number): void {
+    if (this.dead || this.paused || this.stopped || this.screenOpen() || this.ownershipBusy || this.actionsNeedRecovery) return;
+    const damage = this.world.fluids.update(dt, this.mode === "survival" ? bodyBox(this.body.position) : null);
+    if (damage > 0 && this.mode === "survival") this.hurt(damage, "lava");
+  }
+
   private restoreFire(save: Pick<SaveData, "fire" | "fireInvalid"> | undefined): void {
     const restored = this.world.fires.restore(save?.fire, this.world.exportEdits());
     if (!save?.fireInvalid && !restored.invalid) return;
@@ -1286,7 +1327,7 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
-    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
+    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
     if (this.ownershipBusy) return "Items are being transferred. Retry giving them afterward";
     if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
@@ -1479,7 +1520,7 @@ export class Game {
     }
   }
 
-  private hurt(amount: number, kind: "melee" | "fall" | "starvation" | "void" | "fire" = "melee"): void {
+  private hurt(amount: number, kind: "melee" | "fall" | "starvation" | "void" | "fire" | "lava" = "melee"): void {
     if (this.ownershipBusy || this.dead || !Number.isFinite(amount) || amount <= 0 || (this.mode === "creative" && kind !== "void")) return;
     const worn = ARMOR_SLOTS.map((slot) => [slot, this.inventory.equipment[slot]?.id] as const);
     const damage = applyArmorDamage(this.inventory, amount, kind);
@@ -1624,7 +1665,7 @@ export class Game {
   /** Executes a chat line; returns the feedback shown to the player. */
   runChat(text: string): string {
     if (this.actionsNeedRecovery && text.startsWith("/")) {
-      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
+      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
       this.hud.message(reply);
       return reply;
     }

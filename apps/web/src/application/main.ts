@@ -208,7 +208,7 @@ function showHelp(): void {
     <p><b>Camera &amp; Portfolio</b>: <b>C</b> (📷) takes a photo, <b>P</b> (🖼) opens the portfolio, where you can caption, save or delete photos.</p>
     <p><b>NPCs</b>: <code>/summon npc Name</code>; right click (tap) an NPC to talk. In Creative you can edit its name and dialogue.</p>
     <h3>Crafting &amp; mobs</h3>
-    <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep, chickens and adult cows roam grassland; left click to attack (sheep drop wool). Use an empty Bucket on an adult cow for milk. Hold use to drink milk and remove active effects.</p>
+    <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep, chickens and adult cows roam grassland; left click to attack (sheep drop wool). Buckets collect and place one Water or Lava source at a time. Liquids stay in place. Water above or beside Lava turns it into Obsidian; use a Diamond Pickaxe to harvest it. Lava hurts on contact. Use an empty Bucket on an adult cow for milk. Hold use to drink milk and remove active effects.</p>
     <p>Survival death drops carried items and worn armor. Use <code>/gamerule keepInventory true</code> to keep them; this world rule is saved.</p>
     <h3>Commands</h3>
     <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /summon pig|sheep|chicken|cow|zombie|spider|squid|npc · /gamerule doMobSpawning false · /seed</p>`;

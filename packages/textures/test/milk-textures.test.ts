@@ -6,9 +6,9 @@ import baseline from "./fixtures/milk-785f7f0.json";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("preserves all862 published tile pixels and UVs while appending five original Cow resource and pail icons", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
-  expect(names).toHaveLength(870); expect(names.slice(0, 862)).toEqual(baseline.names);
+  expect(names).toHaveLength(874); expect(names.slice(0, 862)).toEqual(baseline.names);
   expect(names.slice(862, 867)).toEqual(["item_bucket", "item_milk_bucket", "item_raw_beef", "item_cooked_beef", "item_leather"]);
-  expect(new Set(names).size).toBe(870);
+  expect(new Set(names).size).toBe(874);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

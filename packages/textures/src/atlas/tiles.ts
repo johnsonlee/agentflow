@@ -1,3 +1,4 @@
+import { lavaTile, obsidianTile } from "../artwork/fluids";
 import { STATION_FACE_KEYS, STATION_FACE_FALLBACKS } from "@craft/engine";
 import { CHEMISTRY_TILE_GENERATORS, ELEMENT_BLOCK_TILE_GENERATORS, chemistryItemTile } from "../artwork/chemistry";
 import { REDSTONE_TILE_GENERATORS } from "../artwork/redstone";
@@ -312,6 +313,8 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
     });
   },
   fire: fireTile,
+  lava: lavaTile,
+  obsidian: obsidianTile,
 };
 
 /** True if `name` has an item sprite (fixed sprites, or a chemistry element/isotope/compound/product). */

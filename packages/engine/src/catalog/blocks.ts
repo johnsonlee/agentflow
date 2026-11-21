@@ -230,6 +230,12 @@ specs.push({ id: 188, name: "oak_fence", displayName: "Oak Fence", faces: faces(
 specs.push({ id: 189, name: "fire", displayName: "Fire", faces: faces("fire"),
   shape: "cross", solid: false, transparent: true, creative: false, hardness: 0, emissive: true, light: 15 });
 
+// Static source-only fluid model; numerical values are application choices.
+specs.push({ id: 190, name: "lava", displayName: "Lava", faces: faces("lava"),
+  shape: "liquid", solid: false, transparent: true, creative: false, hardness: Infinity, emissive: true, light: 15 });
+specs.push({ id: 191, name: "obsidian", displayName: "Obsidian", faces: faces("obsidian"),
+  hardness: 35, tool: "pickaxe", harvestTier: 4 });
+
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, id: explicitId, ...s }, index) => ({

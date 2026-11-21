@@ -1,3 +1,4 @@
+import { FLUID_ITEM_GENERATORS } from "./fluids";
 import { flintTile } from "./flint";
 import { flintAndSteelTile } from "./ignition";
 import { MILK_ITEM_GENERATORS } from "./milk-items";
@@ -247,3 +248,5 @@ Object.assign(ITEM_TILE_GENERATORS, MILK_ITEM_GENERATORS);
 ITEM_TILE_GENERATORS.item_flint = flintTile;
 
 ITEM_TILE_GENERATORS.item_flint_and_steel = flintAndSteelTile;
+
+Object.assign(ITEM_TILE_GENERATORS, FLUID_ITEM_GENERATORS);

@@ -138,7 +138,11 @@ export class KeyboardMouseInput {
     if (e.code === "Space" && !e.repeat && this.flyTap.press(e.timeStamp)) this.toggleFly = true;
     if (e.code.startsWith("Digit")) {
       const n = Number(e.code.slice(5));
-      if (n >= 1 && n <= 9) this.slot = n - 1;
+      if (n >= 1 && n <= 9) {
+        // An absolute choice supersedes earlier wheel input; later wheel events still apply.
+        this.slot = n - 1;
+        this.scroll = 0;
+      }
     }
     this.keys.add(e.code);
     if (["Space", "ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"].includes(e.code)) e.preventDefault();

@@ -128,7 +128,7 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
           continue;
         }
         const isLiquid = def.shape === "liquid";
-        const builder = isLiquid ? liquid : def.translucent ? translucent : solid;
+        const builder = id === WATER ? liquid : def.translucent ? translucent : solid;
         const bright = def.emissive === true;
         for (const face of FACES) {
           const nx = x + face.dir[0];
@@ -137,9 +137,9 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
           const n = get(nx, ny, nz);
           if (isOpaque(n)) continue;
           if (n === id && def.transparent && !def.name.endsWith("leaves")) continue;
-          if (isLiquid && n === WATER) continue;
+          if (isLiquid && n === id) continue;
           if (ny < 0) continue;
-          const lowerTop = isLiquid && get(x, y + 1, z) !== WATER;
+          const lowerTop = isLiquid && get(x, y + 1, z) !== id;
           // A face is lit by the cell it faces (Minecraft's flat lighting); emissive blocks are always bright.
           const light = bright ? 0xff : lightAt(nx, ny, nz);
           addFace(builder, face, x, y, z, uv(def.faces[face.key]), bright ? null : opaque, lowerTop, light);

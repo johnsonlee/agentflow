@@ -89,3 +89,5 @@ export * from "./ownership/buckets";
 export * from "./ownership/gravel-harvest";
 export * from "./ownership/ignition-tool";
 export * from "./simulation/fire";
+
+export * from "./simulation/fluids";

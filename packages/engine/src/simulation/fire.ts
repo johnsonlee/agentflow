@@ -64,6 +64,8 @@ export class FireSystem {
   clear(): void { this.records.clear(); this.contactSeconds = 0; }
   exportState(): FireData { return { version: 1, records: [...this.records.values()].map(r => ({ ...r })), contactSeconds: this.contactSeconds }; }
   hasCapacity(): boolean { return this.records.size < FIRE_MAX_RECORDS; }
+  /** Read-only ownership query; physical Fire cells may precede owner restoration during load. */
+  hasRecord(x: number, y: number, z: number): boolean { return this.records.has(key(x, y, z)); }
   /** Trusted finalizer used only after the actual block write, before observer callbacks. */
   commit(x: number, y: number, z: number): void { this.records.set(key(x, y, z), { x, y, z, remaining: FIRE_LIFETIME_SECONDS }); }
   /** A real source change invalidates the old owner. No-op same-ID writes do not call this. */

@@ -9,7 +9,7 @@ const hash = (pixels: Uint8ClampedArray) => createHash("sha256").update(pixels).
 it("keeps every old tile pixel and UV while adding distinct transparent flame and ignition sprites", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
   expect(names.slice(0, baseline.names.length)).toEqual(baseline.names);
-  expect(names.slice(baseline.names.length)).toEqual(["fire", "item_flint_and_steel"]);
+  expect(names.slice(baseline.names.length, baseline.names.length + 2)).toEqual(["fire", "item_flint_and_steel"]);
   for (const name of baseline.names) {
     const previous = baseline.tiles[name as keyof typeof baseline.tiles];
     expect(hash(generateTile(name)), name).toBe(previous.rgbaSHA256);

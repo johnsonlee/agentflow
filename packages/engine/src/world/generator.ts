@@ -5,6 +5,12 @@ import { hash3 } from "../core/random";
 
 export const SEA_LEVEL = 30;
 const SNOW_LINE = 60;
+export type GeneratorVersion = 1|2;
+export interface LavaBasin { x:number;y:number;z:number;floorY:number;rimY:number }
+export function sanitizeGeneratorVersion(raw:unknown):{version:GeneratorVersion;invalid:boolean;present:boolean}{
+ if(raw===undefined)return {version:1,invalid:false,present:false};
+ return raw===1||raw===2?{version:raw,invalid:false,present:true}:{version:1,invalid:true,present:true};
+}
 
 const B = {
   grass: blockId("grass"),
@@ -13,6 +19,7 @@ const B = {
   sand: blockId("sand"),
   gravel: blockId("gravel"),
   water: blockId("water"),
+  lava: blockId("lava"),
   bedrock: blockId("bedrock"),
   coal: blockId("coal_ore"),
   iron: blockId("iron_ore"),
@@ -38,7 +45,8 @@ export class TerrainGenerator {
   private readonly climateNoise: SimplexNoise;
   private readonly forestNoise: SimplexNoise;
 
-  constructor(readonly seed: number) {
+  constructor(readonly seed: number, readonly version:GeneratorVersion=1) {
+    if(version!==1&&version!==2)throw new RangeError("Unsupported terrain generator version");
     this.heightNoise = new SimplexNoise(seed);
     this.mountainNoise = new SimplexNoise(seed ^ 0x5bd1e995);
     this.climateNoise = new SimplexNoise(seed ^ 0x1b873593);
@@ -115,7 +123,28 @@ export class TerrainGenerator {
         this.maybeTree(chunk, x, z);
       }
     }
+    if(this.version===2)this.generateLavaBasins(chunk);
     return chunk;
+  }
+
+  /** Read-only deterministic app basin candidate; x/z must be a 32-grid center. */
+  lavaBasinAt(x:number,z:number):LavaBasin|null {
+    if(this.version!==2||!Number.isSafeInteger(x)||!Number.isSafeInteger(z)||((x%32)+32)%32!==16||((z%32)+32)%32!==16)return null;
+    const h=this.heightAt(x,z);if(h<=SEA_LEVEL+2||hash3(this.seed^0x4c415641,x,0,z)>=.02)return null;
+    return {x,y:h-1,z,floorY:h-2,rimY:h};
+  }
+
+  private generateLavaBasins(chunk:Chunk):void {
+    const x0=chunk.cx*CHUNK_SIZE,z0=chunk.cz*CHUNK_SIZE;
+    for(let gx=Math.floor((x0-18)/32);gx<=Math.floor((x0+CHUNK_SIZE+1-16)/32);gx++)for(let gz=Math.floor((z0-18)/32);gz<=Math.floor((z0+CHUNK_SIZE+1-16)/32);gz++){
+      const basin=this.lavaBasinAt(gx*32+16,gz*32+16);if(!basin)continue;
+      for(let dx=-2;dx<=2;dx++)for(let dz=-2;dz<=2;dz++){
+        const x=basin.x+dx,z=basin.z+dz,lx=x-x0,lz=z-z0;if(lx<0||lz<0||lx>=CHUNK_SIZE||lz>=CHUNK_SIZE)continue;
+        const rim=Math.abs(dx)===2||Math.abs(dz)===2,top=rim?basin.rimY:basin.y;
+        for(let y=basin.floorY;y<=top;y++)chunk.set(lx,y,lz,rim||y===basin.floorY?B.stone:B.lava);
+        for(let y=top+1;y<=Math.min(WORLD_HEIGHT-1,Math.max(this.heightAt(x,z)+9,basin.rimY+3));y++)chunk.set(lx,y,lz,0);
+      }
+    }
   }
 
   private oreAt(x: number, y: number, z: number): number {

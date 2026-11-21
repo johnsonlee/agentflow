@@ -2,12 +2,12 @@ import { isKnownId } from "../catalog/items";
 import { HOTBAR_SIZE, INVENTORY_SIZE, type ItemStack } from "./inventory";
 import { cloneStack, hasCloneableBookMetadata, insertStackIntoSlots, stackLimit } from "./stack";
 import { inspectItemState } from "./item-state";
-/** Whole-container application IDs; 16 empty / 1 milk limits are not native calibration. */
-export const BUCKET_IDS = Object.freeze({ empty: 832, milk: 833 });
+/** Whole-container application IDs; 16 empty / 1 full limits are not native calibration. */
+export const BUCKET_IDS = Object.freeze({ empty: 832, milk: 833, water: 839, lava: 840 });
 export type MilkFillResult = {ok:true} | {ok:false;reason:"not-bucket"|"invalid-state"|"no-room"};
 export type BucketInspection = {kind:"none"} | {kind:"invalid";reason:string};
 const own=(o:object,k:string)=>Object.prototype.hasOwnProperty.call(o,k);
-export function bucketKind(id:number|null|undefined):"empty"|"milk"|null {return id===BUCKET_IDS.empty?"empty":id===BUCKET_IDS.milk?"milk":null;}
+export function bucketKind(id:number|null|undefined):"empty"|"milk"|"water"|"lava"|null {return id===BUCKET_IDS.empty?"empty":id===BUCKET_IDS.milk?"milk":id===BUCKET_IDS.water?"water":id===BUCKET_IDS.lava?"lava":null;}
 export function isBucketId(id:number):boolean {return bucketKind(id)!==null;}
 export function inspectBucketOwner(raw:unknown,bulk=false):BucketInspection {
  try {
@@ -38,6 +38,18 @@ export function planMilkFill(slots:readonly(ItemStack|null)[],selected:number):M
   if(!validBucketBag(slots,selected))return {ok:false,reason:"invalid-state"};
   const source=slots[selected];if(!source||bucketKind(source.id)!=="empty")return {ok:false,reason:"not-bucket"};
   const trial=slots.map(s=>s?cloneStack(s):null),filled:ItemStack={id:BUCKET_IDS.milk,count:1};
+  if(source.count===1)trial[selected]=filled;
+  else {if(insertStackIntoSlots(trial,filled,selected)!==0)return {ok:false,reason:"no-room"};trial[selected]={id:BUCKET_IDS.empty,count:source.count-1};}
+  return {ok:true,slots:trial,index:selected,source,sourceCount:source.count};
+ }catch{return {ok:false,reason:"invalid-state"};}
+}
+
+/** Pure whole-vessel plan; caller owns and validates the actual removable world source. */
+export function planFluidFill(slots:readonly(ItemStack|null)[],selected:number,fluid:"water"|"lava"):MilkFillPlan {
+ try {
+  if(!validBucketBag(slots,selected))return {ok:false,reason:"invalid-state"};
+  const source=slots[selected];if(!source||bucketKind(source.id)!=="empty")return {ok:false,reason:"not-bucket"};
+  const trial=slots.map(s=>s?cloneStack(s):null),filled:ItemStack={id:BUCKET_IDS[fluid],count:1};
   if(source.count===1)trial[selected]=filled;
   else {if(insertStackIntoSlots(trial,filled,selected)!==0)return {ok:false,reason:"no-room"};trial[selected]={id:BUCKET_IDS.empty,count:source.count-1};}
   return {ok:true,slots:trial,index:selected,source,sourceCount:source.count};

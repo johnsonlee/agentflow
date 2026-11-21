@@ -1,3 +1,4 @@
+import { isFluidBlock } from "../simulation/fluids";
 import { extinguishFire } from "../simulation/fire";
 import { gravelOwnerSnapshot } from "../ownership/gravel-harvest";
 import type { OwnershipGuard } from "../ownership/leashes";
@@ -38,7 +39,7 @@ export function canBuildAt(world: World, mode: GameMode, x: number, y: number, z
 
 export function canBreak(world: World, mode: GameMode, x: number, y: number, z: number): boolean {
   const id = world.getBlock(x, y, z);
-  if (id === AIR || id === WATER) return false;
+  if (id === AIR || isFluidBlock(id)) return false;
   if (mode === "survival" && !Number.isFinite(blockById(id).hardness)) return false;
   return canBuildAt(world, mode, x, y, z);
 }

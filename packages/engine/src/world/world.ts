@@ -1,12 +1,14 @@
+import { FluidSystem, planFluidChanges, isLavaBlock, isWaterBlock } from "../simulation/fluids";
 import { FireSystem } from "../simulation/fire";
 import { GravelHarvestResolver } from "../ownership/gravel-harvest";
-import { AIR, isKnownBlockId, isOpaque } from "../catalog/blocks";
+import { AIR, blockId, isKnownBlockId, isOpaque } from "../catalog/blocks";
 import { WORLD_BORDER } from "../core/math";
 import { MAX_LIGHT, emission, relightBlock, spread, type LightAccess } from "./light";
 import { CHUNK_SIZE, Chunk, WORLD_HEIGHT, chunkKey, toChunkCoord, toLocalCoord } from "./chunk";
 import { TerrainGenerator } from "./generator";
 
 export type BlockEdit = [x: number, y: number, z: number, id: number];
+export interface WorldCellSnapshot { x:number;y:number;z:number;id:number;revision:number;chunk:Chunk }
 export type ChunkListener = (cx: number, cz: number) => void;
 export type BlockListener = (x: number, y: number, z: number, id: number) => void;
 
@@ -18,6 +20,12 @@ export class World {
   readonly generator: TerrainGenerator;
   readonly gravelHarvests = new GravelHarvestResolver(this);
   readonly fires = new FireSystem(this);
+  readonly fluids = new FluidSystem(this);
+  private readonly cellRevisions = new Map<string,number>();
+  private batchBusy = false;
+  private loadingChunks=0;
+  private readonly pendingBlockNotifications=new Map<string,BlockEdit>();
+  private readonly pendingChunkNotifications=new Set<string>();
   private readonly chunks = new Map<string, Chunk>();
   private readonly edits = new Map<string, Map<number, number>>();
   private readonly listeners = new Set<ChunkListener>();
@@ -44,8 +52,9 @@ export class World {
     block: (x, y, z) => this.peek(x, z)?.get(toLocalCoord(x), y, toLocalCoord(z)) ?? AIR,
   };
 
-  constructor(readonly seed: number) {
-    this.generator = new TerrainGenerator(seed);
+  constructor(readonly seed: number, readonly generatorVersion:1|2 = 1) {
+    if(generatorVersion!==1&&generatorVersion!==2)throw new RangeError("Unsupported world generator version");
+    this.generator = new TerrainGenerator(seed,generatorVersion);
   }
 
   hasChunk(cx: number, cz: number): boolean {
@@ -60,7 +69,9 @@ export class World {
       const chunkEdits = this.edits.get(key);
       if (chunkEdits) for (const [index, id] of chunkEdits) chunk.blocks[index] = id;
       this.chunks.set(key, chunk);
-      this.lightChunk(chunk);
+      this.loadingChunks++;
+      try{this.reconcileLoadedFluids(chunk);this.lightChunk(chunk);}
+      finally{this.loadingChunks--;if(this.loadingChunks===0)this.flushNotifications();}
     }
     return chunk;
   }
@@ -177,45 +188,64 @@ export class World {
     return chunk.get(toLocalCoord(x), Math.floor(y), toLocalCoord(z));
   }
 
-  /** finalize is a trusted synchronous owner commit before external observer notifications. */
-  setBlock(x: number, y: number, z: number, id: number, finalize?: () => void): void {
-    if (!isKnownBlockId(id)) return;
-    x = Math.floor(x);
-    y = Math.floor(y);
-    z = Math.floor(z);
-    if (!(y >= 0 && y < WORLD_HEIGHT) || !(Math.abs(x) <= WORLD_BORDER) || !(Math.abs(z) <= WORLD_BORDER)) return;
-    const cx = toChunkCoord(x);
-    const cz = toChunkCoord(z);
-    const lx = toLocalCoord(x);
-    const lz = toLocalCoord(z);
-    const chunk = this.getChunk(cx, cz);
-    if (chunk.get(lx, y, lz) === id) return;
-    this.mutationVersion++;
-    this.gravelHarvests.invalidate(x, y, z);
-    chunk.set(lx, y, lz, id);
+  /** Loaded physical cell identity; unload/reload and same-ID remove/reinsert defeat stale plans. */
+  captureCell(x:number,y:number,z:number):WorldCellSnapshot|undefined {
+    if(![x,y,z].every(Number.isSafeInteger)||y<0||y>=WORLD_HEIGHT||Math.abs(x)>WORLD_BORDER||Math.abs(z)>WORLD_BORDER)return undefined;
+    const chunk=this.peek(x,z);if(!chunk)return undefined;
+    return {x,y,z,id:chunk.get(toLocalCoord(x),y,toLocalCoord(z)),revision:this.cellRevisions.get(`${x},${y},${z}`)??0,chunk};
+  }
+  cellUnchanged(s:WorldCellSnapshot):boolean {
+    return this.peek(s.x,s.z)===s.chunk&&(this.cellRevisions.get(`${s.x},${s.y},${s.z}`)??0)===s.revision&&s.chunk.get(toLocalCoord(s.x),s.y,toLocalCoord(s.z))===s.id;
+  }
 
-    const key = chunkKey(cx, cz);
-    let chunkEdits = this.edits.get(key);
-    if (!chunkEdits) this.edits.set(key, (chunkEdits = new Map()));
-    chunkEdits.set(Chunk.index(lx, y, lz), id);
-    this.fires.blockChanged(x, y, z);
-    finalize?.();
-
-    this.lightTouched.clear();
-    relightBlock(this.lightAccess, x, y, z);
-    for (const touched of this.lightTouched) {
-      if (touched === key) continue;
-      const [tx, tz] = touched.split(",").map(Number);
-      this.emit(tx, tz);
+  /** Trusted synchronous owner finalization only. Fluid actions never generate unloaded targets. */
+  commitBlockBatch(edits:readonly BlockEdit[],finalize?:()=>void,expected:readonly WorldCellSnapshot[]=[],ownerValid?:()=>boolean):boolean {
+    if(this.batchBusy)return false;this.batchBusy=true;
+    const changed:BlockEdit[]=[],notifyChunks=new Set<string>();let committed=false;
+    try {
+      if(!Array.isArray(edits)||edits.length<1||edits.length>CHUNK_SIZE*CHUNK_SIZE*WORLD_HEIGHT*2)return false;
+      const staged=new Map<string,BlockEdit>();
+      for(const e of edits){
+        if(!Array.isArray(e)||e.length!==4||!isKnownBlockId(e[3])||!this.captureCell(e[0],e[1],e[2]))return false;
+        const k=`${e[0]},${e[1]},${e[2]}`;if(staged.has(k))return false;staged.set(k,[e[0],e[1],e[2],e[3]]);
+      }
+      const resolution=planFluidChanges(this,[...staged.values()]);
+      for(const e of resolution.edits)staged.set(`${e[0]},${e[1]},${e[2]}`,e);
+      // Fire invalidation historically removes a Fire above any changed support. Stage those
+      // real cells now so Fire hooks cannot expose an observer-visible half-committed batch.
+      for(const e of [...staged.values()]) {
+        const aboveKey=`${e[0]},${e[1]+1},${e[2]}`,explicitAbove=staged.get(aboveKey);
+        if(this.getLoadedBlock(e[0],e[1],e[2])===e[3]||this.getLoadedBlock(e[0],e[1]+1,e[2])!==blockId("fire")||!this.fires.hasRecord(e[0],e[1]+1,e[2]))continue;
+        // A requested replacement already removes the old Fire; never overwrite that outcome.
+        if(explicitAbove&&explicitAbove[3]!==blockId("fire"))continue;
+        staged.set(aboveKey,[e[0],e[1]+1,e[2],AIR]);
+      }
+      const captures:WorldCellSnapshot[]=[];
+      for(const e of staged.values()){const snapshot=this.captureCell(e[0],e[1],e[2]);if(!snapshot)return false;captures.push(snapshot);if(snapshot.id!==e[3])changed.push(e);}
+      if(!changed.length||!resolution.valid()||expected.some(s=>!this.cellUnchanged(s))||ownerValid&&!ownerValid()||!resolution.valid()||captures.some(s=>!this.cellUnchanged(s))||expected.some(s=>!this.cellUnchanged(s)))return false;
+      for(const[x,y,z,id]of changed){
+        const chunk=this.peek(x,z)!;chunk.set(toLocalCoord(x),y,toLocalCoord(z),id);this.mutationVersion++;this.cellRevisions.set(`${x},${y},${z}`,this.mutationVersion);this.gravelHarvests.invalidate(x,y,z);
+        const ck=chunkKey(chunk.cx,chunk.cz);let edits=this.edits.get(ck);if(!edits)this.edits.set(ck,edits=new Map());edits.set(Chunk.index(toLocalCoord(x),y,toLocalCoord(z)),id);
+        notifyChunks.add(ck);if(toLocalCoord(x)===0)notifyChunks.add(chunkKey(chunk.cx-1,chunk.cz));if(toLocalCoord(x)===CHUNK_SIZE-1)notifyChunks.add(chunkKey(chunk.cx+1,chunk.cz));if(toLocalCoord(z)===0)notifyChunks.add(chunkKey(chunk.cx,chunk.cz-1));if(toLocalCoord(z)===CHUNK_SIZE-1)notifyChunks.add(chunkKey(chunk.cx,chunk.cz+1));
+      }
+      for(const[x,y,z]of changed)this.fires.blockChanged(x,y,z);
+      finalize?.();
+      committed=true;
+      this.lightTouched.clear();for(const[x,y,z]of changed)relightBlock(this.lightAccess,x,y,z);for(const k of this.lightTouched)notifyChunks.add(k);this.lightTouched.clear();
+    }finally{this.batchBusy=false;}
+    if(committed){
+      for(const[x,y,z,id]of changed)this.notifyBlock(x,y,z,id);
+      for(const k of notifyChunks){const[cx,cz]=k.split(",").map(Number);this.emit(cx,cz);}
     }
-    this.lightTouched.clear();
-    for (const l of this.blockListeners) l(x, y, z, id);
+    return committed;
+  }
 
-    this.emit(cx, cz);
-    if (lx === 0) this.emit(cx - 1, cz);
-    if (lx === CHUNK_SIZE - 1) this.emit(cx + 1, cz);
-    if (lz === 0) this.emit(cx, cz - 1);
-    if (lz === CHUNK_SIZE - 1) this.emit(cx, cz + 1);
+  /** Valid ordinary writes preserve lazy generation; callers needing refusal use loaded batches. */
+  setBlock(x:number,y:number,z:number,id:number,finalize?:()=>void):void {
+    if(!isKnownBlockId(id)||this.batchBusy)return;x=Math.floor(x);y=Math.floor(y);z=Math.floor(z);
+    if(!(y>=0&&y<WORLD_HEIGHT)||!(Math.abs(x)<=WORLD_BORDER)||!(Math.abs(z)<=WORLD_BORDER))return;
+    this.getChunk(toChunkCoord(x),toChunkCoord(z));if(this.getLoadedBlock(x,y,z)===id)return;
+    this.commitBlockBatch([[x,y,z,id]],finalize);
   }
 
   /** Subscribes to individual block changes (after light is updated). */
@@ -249,6 +279,7 @@ export class World {
     // Import replaces logical world contents, including same-ID cells; restore decisions afterward.
     this.gravelHarvests.clear();
     this.fires.clear();
+    this.fluids.clear();
     for (const [x, y, z, id] of edits) this.setBlock(x, y, z, id);
   }
 
@@ -260,7 +291,27 @@ export class World {
     return -1;
   }
 
-  private emit(cx: number, cz: number): void {
-    for (const l of this.listeners) l(cx, cz);
+  /** Loading a neighbor can reveal the Water that cools an already loaded Lava source. */
+  private reconcileLoadedFluids(chunk:Chunk):void {
+    const seeds=new Map<string,BlockEdit>(),x0=chunk.cx*CHUNK_SIZE,z0=chunk.cz*CHUNK_SIZE;
+    const lava=(x:number,y:number,z:number)=>{if(isLavaBlock(this.getLoadedBlock(x,y,z)??AIR))seeds.set(`${x},${y},${z}`,[x,y,z,blockId("lava")]);};
+    for(let y=0;y<WORLD_HEIGHT;y++)for(let z=0;z<CHUNK_SIZE;z++)for(let x=0;x<CHUNK_SIZE;x++){
+      const id=chunk.get(x,y,z),wx=x0+x,wz=z0+z;if(isLavaBlock(id)&&[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].some(([dx,dy,dz])=>isWaterBlock(this.getLoadedBlock(wx+dx,y+dy,wz+dz)??AIR)))lava(wx,y,wz);
+      else if(isWaterBlock(id))for(const[dx,dy,dz]of[[1,0,0],[-1,0,0],[0,-1,0],[0,0,1],[0,0,-1]])lava(wx+dx,y+dy,wz+dz);
+    }
+    if(seeds.size)this.commitBlockBatch([...seeds.values()]);
+  }
+
+  private notifyBlock(x:number,y:number,z:number,id:number):void {
+    if(this.loadingChunks){this.pendingBlockNotifications.set(`${x},${y},${z}`,[x,y,z,id]);return;}
+    for(const listener of [...this.blockListeners])try{listener(x,y,z,id);}catch{/* Postcommit observation cannot undo owners. */}
+  }
+  private flushNotifications():void {
+    const blocks=[...this.pendingBlockNotifications.values()],chunks=[...this.pendingChunkNotifications];this.pendingBlockNotifications.clear();this.pendingChunkNotifications.clear();
+    for(const[x,y,z,id]of blocks)this.notifyBlock(x,y,z,id);for(const k of chunks){const[cx,cz]=k.split(",").map(Number);this.emit(cx,cz);}
+  }
+  private emit(cx:number,cz:number):void {
+    if(this.loadingChunks){this.pendingChunkNotifications.add(chunkKey(cx,cz));return;}
+    for(const listener of [...this.listeners])try{listener(cx,cz);}catch{/* Committed state remains committed. */}
   }
 }

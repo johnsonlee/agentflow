@@ -229,6 +229,8 @@ const specs: Omit<ItemDef, "id">[] = [
   material("leather", "Leather"),
   material("flint", "Flint"),
   { name: "flint_and_steel", displayName: "Flint and Steel", maxStack: 1, icon: "item_flint_and_steel", useTool: { kind: "ignition", durability: 64 } },
+  { name: "water_bucket", displayName: "Water Bucket", maxStack: 1, icon: "item_water_bucket" },
+  { name: "lava_bucket", displayName: "Lava Bucket", maxStack: 1, icon: "item_lava_bucket" },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
@@ -266,7 +268,7 @@ export function isKnownItemId(id: number): boolean {
 
 /** True for a supported inventory identity; Fire is world-only, not an owned stack. */
 export function isKnownId(id: number): boolean {
-  return isKnownBlockId(id) && id !== blockId("fire") || isKnownItemId(id);
+  return isKnownBlockId(id) && id !== blockId("fire") && id !== blockId("lava") || isKnownItemId(id);
 }
 
 export function nameOf(id: number): string {
@@ -344,7 +346,7 @@ export function baseStackId(id: number): number {
 
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
-  if (id === blockId("fire")) return null;
+  if (id === blockId("fire") || id === blockId("lava")) return null;
   if (isKnownBlockId(id)) return id;
   if (!isKnownItemId(id)) return null;
   const places = itemById(id).places;
