@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { blockAt, countStack, craftIronPickaxe, createWorld, giveSmeltingKit, look, setFood, settle, smeltIronIngot, snap, target } from "./helpers";
+import { collectWorldDrops, blockAt, countStack, craftIronPickaxe, createWorld, giveSmeltingKit, look, setFood, settle, smeltIronIngot, snap, target } from "./helpers";
 
 /** Real touch through CDP; the release is sent without waiting for the press to be handled. */
 async function finger(page: Page) {
@@ -62,7 +62,13 @@ test.describe("Mobile browser (touch): smelting, iron tools, hunger and food", (
     await touch.down(view.x, view.y);
     await expect.poll(() => blockAt(page, gold.x, gold.y, gold.z), { timeout: 20_000 }).toBe(0);
     await touch.up();
+    await expect.poll(() => page.evaluate(() => {
+      const g = window.__craft.game!, id = window.__craft.stackId("gold_ore");
+      return g.worldDrops.records.filter(r => r.stack.id === id).reduce((sum, r) => sum + r.stack.count, 0);
+    })).toBe(1);
+    await collectWorldDrops(page); // Actual ground pickup through chat/teleport, then restore the mining pose.
     await expect.poll(() => countStack(page, "gold_ore")).toBe(1);
+    expect(await page.evaluate(() => window.__craft.game!.worldDrops.records.some(r => r.stack.id === window.__craft.stackId("gold_ore")))).toBe(false);
 
     // Press-and-hold with food in hand eats it.
     await setFood(page, 10);

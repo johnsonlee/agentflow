@@ -44,3 +44,5 @@ export * from "./native-reductions";
 
 export * from "./stack";
 export * from "./world-drops";
+
+export * from "./mob-loot";

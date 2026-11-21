@@ -1,5 +1,5 @@
 import {
-  AIR, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  AIR, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
@@ -71,6 +71,7 @@ export class Game {
     if (this.keyboard.pointerLocked) this.hadPointerLock = true;
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
+  private readonly mobLoot = new MobLootResolver();
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
   readonly world: World;
@@ -172,9 +173,7 @@ export class Game {
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.worldDropsView = new WorldDropsView(this.renderer.scene, atlas, this.worldDrops);
     this.mobs = new MobManager(this.world, this.renderer.scene, (mob) => {
-      const spec = MOB_SPECS[mob.kind];
-      const stacks: ItemStack[] = [spec.drop, spec.extraDrop].filter((s): s is [string, number] => s !== undefined).map(([name, count]) => ({ id: stackId(name), count }));
-      const ok = this.worldDrops.spawnBatch(stacks, { ...mob.position, y: mob.position.y + .3 });
+      const ok = this.mobLoot.tryDrop(mob, this.dropSink, { ...mob.position, y: mob.position.y + .3 });
       if (!ok) this.hud?.message("Could not preserve mob drops; the mob remains in the world");
       return ok;
     });

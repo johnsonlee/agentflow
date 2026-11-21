@@ -14,9 +14,9 @@ export interface MobSpec {
   maxHealth: number;
   /** Walking speed in blocks per second (0 = stationary). */
   speed: number;
-  /** Dropped on death: [block or item name, count]. */
+  /** Legacy default loot tuple; mobDrops resolves active death quantities. */
   drop?: [string, number];
-  /** A second drop (Minecraft chickens also drop feathers). */
+  /** Legacy default second loot tuple (chicken feathers). */
   extraDrop?: [string, number];
   /** Attacks players (hostile mob). */
   hostile?: boolean;

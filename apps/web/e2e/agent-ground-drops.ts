@@ -1,4 +1,5 @@
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
+import fs from "node:fs/promises";
 import { collectWorldDrops, command, countStack, createWorld, look, mobExists, newestMob, parkMouse, pressMouse, snap, trackMob, bringMob, waitForTerrain } from "./helpers";
 
 /** A flat pad, pre-owned Agent stone and full player bag are fixtures. Commands/clicks own all transfers. */
@@ -65,14 +66,16 @@ export async function agentGroundDropsRoute(page: Page, info: TestInfo, mobile: 
   expect(await countStack(page, "raw_porkchop")).toBe(0); expect(await countStack(page, "cobblestone")).toBe(filler);
   const pork = await page.evaluate(() => window.__craft.stackId("raw_porkchop"));
   const loot = () => page.evaluate((id) => window.__craft.game!.worldDrops.records.filter(r => r.stack.id === id).reduce((n, r) => n + r.stack.count, 0), pork);
-  expect(await loot()).toBe(2); await page.waitForTimeout(700); expect(await loot()).toBe(2);
+  const rolledPork = await loot();
+  expect(Number.isInteger(rolledPork)).toBe(true); expect(rolledPork).toBeGreaterThanOrEqual(1); expect(rolledPork).toBeLessThanOrEqual(3);
+  await page.waitForTimeout(700); expect(await loot()).toBe(rolledPork);
   await page.evaluate(() => window.__craft.game!.save()); await page.reload();
   await press(page.getByRole("button", { name: /Continue/ })); await waitForTerrain(page);
-  expect(await loot()).toBe(2);
+  expect(await loot()).toBe(rolledPork);
   // Remove one fixture filler stack only; the later pickup is the actual automatic ground transfer.
   await page.evaluate(() => { window.__craft.game!.inventory.slots[1] = null; });
   await collectWorldDrops(page);
-  expect(await countStack(page, "raw_porkchop")).toBe(2); expect(await loot()).toBe(0);
+  expect(await countStack(page, "raw_porkchop")).toBe(rolledPork); expect(await loot()).toBe(0);
   expect(await countStack(page, "cobblestone")).toBe(filler - 64);
   await snap(page, info, "full-bag-mob-loot-survives-reload-and-pickup");
   expect(await page.evaluate(() => window.__craft.game!.inventory.slots.filter(Boolean).length)).toBe(36);
@@ -90,7 +93,9 @@ export async function agentGroundDropsRoute(page: Page, info: TestInfo, mobile: 
     const id = window.__craft.stackId(n);
     return window.__craft.game!.worldDrops.records.filter(r => r.stack.id === id).reduce((sum, r) => sum + r.stack.count, 0);
   }, name);
-  expect(await groundCount("raw_chicken")).toBe(1); expect(await groundCount("feather")).toBe(1);
+  const rolledFeather = await groundCount("feather");
+  expect(Number.isInteger(rolledFeather)).toBe(true); expect(rolledFeather).toBeGreaterThanOrEqual(0); expect(rolledFeather).toBeLessThanOrEqual(2);
+  expect(await groundCount("raw_chicken")).toBe(1);
   expect(await countStack(page, "raw_chicken")).toBe(0); expect(await countStack(page, "feather")).toBe(0);
   expect(await page.evaluate(() => window.__craft.game!.agent.slots[0])).toEqual({ id: fixture.id, count: 3 });
   // A raw zombie with one health and an open-sky column is a bounded sunlight-death fixture.
@@ -108,17 +113,27 @@ export async function agentGroundDropsRoute(page: Page, info: TestInfo, mobile: 
   }, zombie);
   await command(page, "/time set day");
   await expect.poll(() => mobExists(page, zombie), { timeout: 20_000 }).toBe(false);
-  expect(await groundCount("rotten_flesh")).toBe(1); expect(await countStack(page, "rotten_flesh")).toBe(0);
+  const rolledFlesh = await groundCount("rotten_flesh");
+  expect(Number.isInteger(rolledFlesh)).toBe(true); expect(rolledFlesh).toBeGreaterThanOrEqual(0); expect(rolledFlesh).toBeLessThanOrEqual(2);
+  expect(await countStack(page, "rotten_flesh")).toBe(0);
   await page.waitForTimeout(1200);
-  expect(await groundCount("raw_chicken")).toBe(1); expect(await groundCount("feather")).toBe(1); expect(await groundCount("rotten_flesh")).toBe(1);
+  expect(await groundCount("raw_chicken")).toBe(1); expect(await groundCount("feather")).toBe(rolledFeather); expect(await groundCount("rotten_flesh")).toBe(rolledFlesh);
   await snap(page, info, "agent-and-daylight-deaths-retain-full-bag-loot-on-ground");
   await page.evaluate(() => window.__craft.game!.save()); await page.reload();
   await press(page.getByRole("button", { name: /Continue/ })); await waitForTerrain(page);
-  expect(await groundCount("raw_chicken")).toBe(1); expect(await groundCount("feather")).toBe(1); expect(await groundCount("rotten_flesh")).toBe(1);
+  expect(await groundCount("raw_chicken")).toBe(1); expect(await groundCount("feather")).toBe(rolledFeather); expect(await groundCount("rotten_flesh")).toBe(rolledFlesh);
   await page.evaluate(() => { const slots = window.__craft.game!.inventory.slots; for (const index of [2, 3, 4]) slots[index] = null; });
   await collectWorldDrops(page);
-  expect(await countStack(page, "raw_chicken")).toBe(1); expect(await countStack(page, "feather")).toBe(1); expect(await countStack(page, "rotten_flesh")).toBe(1);
+  expect(await countStack(page, "raw_chicken")).toBe(1); expect(await countStack(page, "feather")).toBe(rolledFeather); expect(await countStack(page, "rotten_flesh")).toBe(rolledFlesh);
   expect(await page.evaluate(() => window.__craft.game!.worldDrops.records)).toEqual([]);
   expect(await countStack(page, "cobblestone")).toBe(filler - 256);
-  await snap(page, info, "agent-and-daylight-loot-reloads-and-picks-up-once"); expect(errors).toEqual([]);
+  await snap(page, info, "agent-and-daylight-loot-reloads-and-picks-up-once");
+  // Distance is a raw despawn fixture, not a kill; ordinary far-away removal must not create loot.
+  await command(page, "/summon pig"); const despawned = (await newestMob(page, "pig"))!;
+  await page.evaluate((id) => { const g = window.__craft.game!; g.mobs.mobs.find(m => m.id === id)!.position.x = g.body.position.x + 120; }, despawned);
+  await expect.poll(() => mobExists(page, despawned)).toBe(false);
+  expect(await page.evaluate(() => window.__craft.game!.worldDrops.records)).toEqual([]);
+  expect(await countStack(page, "raw_porkchop")).toBe(rolledPork);
+  await fs.writeFile(info.outputPath("actual-native-base-loot-rolls.json"), JSON.stringify({ rng: "uncontrolled session Math.random; source ranges only, not measured native distribution", pig: { rolled: rolledPork, range: [1, 3], route: "player/full bag/save/pickup" }, chicken: { meat: 1, feather: rolledFeather, featherRange: [0, 2], route: "Agent/full bag/save/pickup" }, zombie: { flesh: rolledFlesh, range: [0, 2], route: "daylight/full bag/save/pickup" }, despawn: { extraWorldDrops: 0 } }, null, 2));
+  expect(errors).toEqual([]);
 }

@@ -11,6 +11,9 @@ const firstEmpty = (page: Page) => page.evaluate(() => window.__craft.game!.inve
 test.describe("PC browser: the survival route to a Book and Quill (review c7d91dcd)", () => {
   test("bookshelf -> books, chicken -> feather, coal -> ink sac, then craft a Book and Quill", async ({ page }, testInfo) => {
     test.setTimeout(240_000);
+    // Isolated ingredient fixture: midpoint RNG is installed before the session resolver is created.
+    // This still requires the actual chicken kill; natural range/AI coverage lives in Agent ground-drop routes.
+    await page.addInitScript(() => { Math.random = () => .5; });
     await createWorld(page, { mode: "survival" });
     await settle(page);
     await command(page, "/give bookshelf");

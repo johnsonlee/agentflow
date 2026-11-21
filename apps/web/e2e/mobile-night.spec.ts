@@ -71,7 +71,9 @@ test.describe("Mobile browser (touch): light and hostile mobs", () => {
     await collectWorldDrops(page); // Actual ground pickup through the chat/teleport fixture, then restore the pose.
     await stop();
     await expect(page.locator(".chat-line", { hasText: "Zombie was defeated" })).toHaveCount(1);
-    expect(await countStack(page, "rotten_flesh")).toBe(1);
+    const rolledFlesh = await countStack(page, "rotten_flesh");
+    expect(Number.isInteger(rolledFlesh)).toBe(true); expect(rolledFlesh).toBeGreaterThanOrEqual(0); expect(rolledFlesh).toBeLessThanOrEqual(2);
+    await testInfo.attach("actual-zombie-base-loot-roll", { body: JSON.stringify({ rotten_flesh: rolledFlesh, range: [0, 2], rng: "uncontrolled session roll" }), contentType: "application/json" });
   });
 
   test("survival: a zombie behind a wall walks around it and reaches the player", async ({ page }, testInfo) => {
