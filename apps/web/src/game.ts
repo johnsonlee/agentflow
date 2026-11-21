@@ -1,5 +1,5 @@
 import {
-  AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  SnowballProjectiles, tryThrowSnowball, bodyBox, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
@@ -18,6 +18,7 @@ import { AgentView } from "./agentView";
 import { CodeBuilderScreen } from "./codeBuilder";
 import { WorldRenderer } from "./renderer";
 import { WorldDropsView } from "./worldDropsView";
+import { SnowballProjectilesView } from "./snowballProjectilesView";
 
 export const SAVE_KEY = "craft.save.v1";
 const REACH = 5;
@@ -31,6 +32,7 @@ const CHEMISTRY_STATIONS = new Map<number, ChemistryKind>(
   (["element_constructor", "compound_creator", "material_reducer", "lab_table"] as const).map((k) => [blockId(k), k]),
 );
 
+const SNOWBALL = stackId("snowball");
 const GLOW_STICK = stackId("glow_stick");
 const SUPER_FERTILIZER = stackId("super_fertilizer");
 /** Light level of a held glow stick (as when placed). */
@@ -59,6 +61,11 @@ export interface GameEvents {
 /** Owns the world simulation, player, input and HUD for one play session. */
 export class Game {
   private static activeWriter: Game | null = null;
+  readonly snowballProjectiles: SnowballProjectiles;
+  private readonly snowballProjectilesView: SnowballProjectilesView;
+  private snowballImpacts: SnowballImpact[] = [];
+  /** Bounded actual simulation outcomes for read-only diagnostics; detached from store/view ownership. */
+  get recentSnowballImpacts(): readonly SnowballImpact[] { return structuredClone(this.snowballImpacts); }
   readonly worldDrops: WorldDrops;
   private readonly worldDropsView: WorldDropsView;
   saveError = "";
@@ -168,6 +175,8 @@ export class Game {
     this.world = new World(save?.seed ?? options.seed);
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
     this.farming = new FarmingSystem(this.world, save?.farming);
+    this.snowballProjectiles = new SnowballProjectiles(this.world, save?.snowballProjectiles);
+    if (this.snowballProjectiles.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("snowball projectiles"); }
     this.worldDrops = new WorldDrops(this.world, save?.worldDrops);
     if (this.worldDrops.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("world drops"); }
     // Redstone: component states are blocks (in the edits); pending ticks are saved separately.
@@ -177,6 +186,7 @@ export class Game {
     this.timeOfDay = save?.timeOfDay ?? 0.05;
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.worldDropsView = new WorldDropsView(this.renderer.scene, atlas, this.worldDrops);
+    this.snowballProjectilesView = new SnowballProjectilesView(this.renderer.scene, atlas, this.snowballProjectiles);
     this.mobs = new MobManager(this.world, this.renderer.scene, (mob) => {
       const ok = this.mobLoot.tryDrop(mob, this.dropSink, { ...mob.position, y: mob.position.y + .3 });
       if (!ok) this.hud?.message("Could not preserve mob drops; the mob remains in the world");
@@ -240,6 +250,7 @@ export class Game {
     this.loadErrors = loaded.errors;
     if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
     if (creatures.invalid) this.loadErrors.push(`${creatures.invalid} damaged creature entries (original save preserved)`);
+    if (this.snowballProjectiles.loadIssues) this.loadErrors.push(`${this.snowballProjectiles.loadIssues} damaged snowball-projectile entries (original save preserved)`);
     if (this.worldDrops.loadIssues) this.loadErrors.push(`${this.worldDrops.loadIssues} damaged world-drop entries`);
     if (boards.dropped + furnaces.dropped > 0) this.loadErrors.push(`${boards.dropped + furnaces.dropped} damaged chalkboard/furnace entries`);
     this.agentView = new AgentView(this.renderer.scene, this.agent);
@@ -305,6 +316,7 @@ export class Game {
     window.removeEventListener("resize", this.handleResize);
     window.removeEventListener("pagehide", this.handlePageHide);
     this.runner?.stop(); this.keyboard.dispose(); this.farming.dispose();
+    this.snowballProjectilesView.dispose(); this.snowballProjectiles.dispose();
     this.worldDropsView.dispose(); this.worldDrops.dispose(); this.mobs.dispose();
     this.agentView.dispose(); this.chalkViews.dispose();
     this.root.remove(); this.renderer.dispose();
@@ -386,6 +398,7 @@ export class Game {
         inventory: this.inventory.toJSON(),
         inventoryPending: this.inventoryScreen.pendingItems(),
         playerState: { health: this.health, ...(this.deathState ? { death: this.deathState } : {}) },
+        snowballProjectiles: this.snowballProjectiles.toJSON(),
         worldDrops: this.worldDrops.toJSON(),
         edits: this.world.exportEdits(),
         mobs: this.mobs.exportState(this.mobLoot),
@@ -492,6 +505,13 @@ export class Game {
       if (!this.dead) this.mobs.update(dt, this.body.position, light, this.clock, target, (light - 0.2) / 0.8);
       if (!this.dead && target) this.takeMobHits(dt);
       if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt);
+      if (!this.dead && !this.screenOpen()) {
+        const impacts = this.snowballProjectiles.update(dt, this.mobs.mobs.filter(m => m.health > 0).map(m => ({ id: m.id, box: bodyBox(m.position, MOB_SPECS[m.kind].width, MOB_SPECS[m.kind].height) })));
+        if (impacts.length) {
+          this.snowballImpacts = [...this.snowballImpacts, ...impacts].slice(-16);
+          this.snowballProjectilesView.impact(impacts);
+        }
+      }
     } else {
       this.target = null;
       this.mobTarget = null;
@@ -521,6 +541,7 @@ export class Game {
     cam.rotation.set(this.body.pitch, this.body.yaw, 0);
     this.renderer.updateChunks(this.renderer.isAreaReady(1) ? 6 : 30);
     this.worldDropsView.update(this.clock, cam.position, this.renderer.renderDistance * 16);
+    this.snowballProjectilesView.update(active && !this.dead && !this.screenOpen() ? dt : 0, cam, this.renderer.renderDistance * 16);
 
     const underwater = blockAtEyes((x, y, z) => this.world.getBlock(x, y, z), this.body) === "water";
     this.hud.setUnderwater(underwater);
@@ -582,6 +603,10 @@ export class Game {
       return;
     }
     this.eatTimer = 0;
+    // A non-NPC actor does not consume the use edge: snowballs can be aimed at supported mobs.
+    if (place && held?.id === SNOWBALL && this.placeCooldown === 0 && this.mobTarget && this.mobTarget.kind !== "npc") {
+      this.throwSnowball(); return;
+    }
     if (this.mobTarget) {
       this.target = null;
       this.breakProgress = 0;
@@ -656,6 +681,9 @@ export class Game {
       return;
     }
 
+    // Interactive blocks above keep priority; otherwise a snowball also throws into empty sky.
+    if (place && held?.id === SNOWBALL && this.placeCooldown === 0) { this.throwSnowball(); return; }
+
     // Hoe use precedes generic placement; authorization and successful-use wear are engine-owned.
     if (place && t && this.placeCooldown === 0 && tool?.kind === "hoe") {
       if (tillSoil(this.world, this.inventory, this.mode, t)) this.placeCooldown = 0.25;
@@ -699,6 +727,20 @@ export class Game {
       const canonical = baseStackId(t.id);
       if (isKnownId(canonical) && (isItem(canonical) || tryBlockById(canonical)?.creative)) this.inventory.pick(canonical);
     }
+  }
+
+  /** One use edge allocates a consumed projectile owner before removing its source item. */
+  private throwSnowball(): boolean {
+    const held = this.inventory.selectedStack();
+    if (this.dead || this.paused || this.screenOpen() || held?.id !== SNOWBALL || held.count < 1) return false;
+    const direction = lookDirection(this.body.yaw, this.body.pitch);
+    // Eye offset follows one native variant; forward muzzle distance/cooldown are explicit application choices.
+    const origin = { x: this.body.position.x + direction.x * .3, y: this.body.position.y + EYE_HEIGHT - .1 + direction.y * .3, z: this.body.position.z + direction.z * .3 };
+    const key = tryThrowSnowball(this.inventory, this.mode, origin, direction, this.snowballProjectiles);
+    if (key === null) return false;
+    this.placeCooldown = .25;
+    this.breakProgress = 0; this.breakKey = "";
+    return true;
   }
 
   /**

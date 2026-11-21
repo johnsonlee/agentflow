@@ -1,6 +1,7 @@
 import { sanitizePlayerState, validatePlayerDeathOwnership, type PlayerStateData } from "./player-death";
 import type { MobStateData } from "./mob-save";
 import type { WorldDropsData } from "./world-drops";
+import type { SnowballProjectilesData } from "./snowball-projectiles";
 import { sanitizeFarmingState, type FarmingState } from "./farming";
 import type { BlockEdit } from "./world";
 import type { InventoryData, ItemStack } from "./inventory";
@@ -51,6 +52,8 @@ export interface SaveData {
   worldDrops?: WorldDropsData;
   /** Optional v1 live mob owners; validated separately without truncating valid records. */
   mobs?: MobStateData;
+  /** Consumed in-flight snowballs; strict loader reports present corruption before overwrite. */
+  snowballProjectiles?: SnowballProjectilesData;
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
@@ -120,7 +123,7 @@ export function parseSave(text: string): SaveData {
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
   // Optional sections: passed through for their own sanitizers.
-  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs", "playerState"] as const) {
+  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs", "playerState", "snowballProjectiles"] as const) {
     const v = own(raw, key);
     if (v !== undefined) (save as unknown as Obj)[key] = v;
   }

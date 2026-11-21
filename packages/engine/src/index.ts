@@ -50,3 +50,5 @@ export * from "./mob-loot";
 export * from "./mob-save";
 
 export * from "./player-death";
+
+export * from "./snowball-projectiles";
