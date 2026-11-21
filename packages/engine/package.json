@@ -1,0 +1,9 @@
+{
+  "name": "@craft/engine",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Rendering-agnostic voxel engine: blocks, chunks, terrain, physics, meshing, raycasting",
+  "type": "module",
+  "main": "src/index.ts",
+  "types": "src/index.ts"
+}

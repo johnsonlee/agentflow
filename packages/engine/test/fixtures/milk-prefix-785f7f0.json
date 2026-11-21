@@ -1,0 +1,101 @@
+{
+  "baseRevision": "785f7f09eb3ca92445e6f415dc991d9041c3ef7a",
+  "counts": {
+    "items": 576,
+    "blocks": 308,
+    "recipes": 166,
+    "tiles": 862
+  },
+  "itemsSHA256": "4883a45d9e6dff155e898f71aab4dd92c31f7885445b3484f59baea4b51988da",
+  "blocksSHA256": "5b911340311a4dd9b076a72242846682aa7cb16d4763b8e51908d1a103ae5e8d",
+  "recipesSHA256": "e8e41770401727e168896a17cf0429186792f74ccb79b77f85ea49af78b41b72",
+  "namesSHA256": "e6767b813cd74d52894a605e145785cfcbe85a352f76dc0f12e6e98408be7624",
+  "oldMobSpecs": {
+    "pig": {
+      "kind": "pig",
+      "displayName": "Pig",
+      "width": 0.9,
+      "height": 0.9,
+      "maxHealth": 10,
+      "speed": 1.2,
+      "drop": [
+        "raw_porkchop",
+        2
+      ]
+    },
+    "sheep": {
+      "kind": "sheep",
+      "displayName": "Sheep",
+      "width": 0.9,
+      "height": 1.3,
+      "maxHealth": 8,
+      "speed": 1.1,
+      "drop": [
+        "white_wool",
+        1
+      ]
+    },
+    "chicken": {
+      "kind": "chicken",
+      "displayName": "Chicken",
+      "width": 0.4,
+      "height": 0.7,
+      "maxHealth": 4,
+      "speed": 1,
+      "drop": [
+        "raw_chicken",
+        1
+      ],
+      "extraDrop": [
+        "feather",
+        1
+      ]
+    },
+    "npc": {
+      "kind": "npc",
+      "displayName": "NPC",
+      "width": 0.6,
+      "height": 1.9,
+      "maxHealth": null,
+      "speed": 0
+    },
+    "zombie": {
+      "kind": "zombie",
+      "displayName": "Zombie",
+      "width": 0.6,
+      "height": 1.95,
+      "maxHealth": 20,
+      "speed": 2.3,
+      "drop": [
+        "rotten_flesh",
+        1
+      ],
+      "hostile": true
+    },
+    "spider": {
+      "kind": "spider",
+      "displayName": "Spider",
+      "width": 1.4,
+      "height": 0.9,
+      "maxHealth": 16,
+      "speed": 2.4,
+      "drop": [
+        "string",
+        1
+      ],
+      "hostile": true
+    },
+    "squid": {
+      "kind": "squid",
+      "displayName": "Squid",
+      "width": 0.95,
+      "height": 0.95,
+      "maxHealth": 10,
+      "speed": 0,
+      "drop": [
+        "ink_sac",
+        1
+      ]
+    }
+  }
+}

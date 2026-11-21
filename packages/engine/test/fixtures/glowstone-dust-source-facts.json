@@ -1,0 +1,196 @@
+{
+  "sourceDestination": "https://downloads.minecrafteduservices.com/retailbuilds/MacOS/Minecraft_Education_1.26.33.0.dmg",
+  "sourceClient": {
+    "CFBundleIdentifier": "com.microsoft.minecraft-edu",
+    "CFBundleShortVersionString": "1.26.33",
+    "CFBundleVersion": "1.26.33.0",
+    "CFBundleExecutable": "minecraft-edu",
+    "LSMinimumSystemVersion": "10.15"
+  },
+  "installer": {
+    "bytes": 810354021,
+    "sha256": "80bb151b1db4e46edc503230bc8ece25210fff94b7d73d6774559a054398a91e"
+  },
+  "targetAccepted": false,
+  "activeRuntimeBindingVerified": false,
+  "primaryArticles": [
+    {
+      "url": "https://www.minecraft.net/en-us/article/redstone-dust",
+      "published": "2025-04-26",
+      "verifiedAt": "2026-11-21T00:45:09.036562+00:00",
+      "boundedFact": "Ordinary iron-pick ore yield4\u20135; Fortune canincrease; noexactnativeRNGsamplingproved"
+    },
+    {
+      "url": "https://www.minecraft.net/en-us/article/block-week-glowstone",
+      "published": "2018-04-20",
+      "verifiedAt": "2026-11-21T00:45:09.036568+00:00",
+      "boundedFact": "Unenchanted harvest2\u20134dust; fourdust in2x2 reconstructsblock; SilkTouchexception"
+    }
+  ],
+  "sources": [
+    {
+      "path": "behavior_packs/vanilla/recipes/glowstone.json",
+      "bytes": 364,
+      "sha256": "d7f6e4448e4e642c83b67c7761a55a199c09269f66c5744c0ddaa04b8bf2dbbb",
+      "table": {
+        "format_version": "1.12",
+        "minecraft:recipe_shaped": {
+          "description": {
+            "identifier": "minecraft:glowstone"
+          },
+          "tags": [
+            "crafting_table"
+          ],
+          "pattern": [
+            "##",
+            "##"
+          ],
+          "key": {
+            "#": {
+              "item": "minecraft:glowstone_dust"
+            }
+          },
+          "result": {
+            "item": "minecraft:glowstone"
+          }
+        }
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.20.10/recipes/glowstone.json",
+      "bytes": 446,
+      "sha256": "91dbcc67b7611e4901d47d7a78d24cccca227d120883969493812b131a12c820",
+      "table": {
+        "format_version": "1.20.10",
+        "minecraft:recipe_shaped": {
+          "description": {
+            "identifier": "minecraft:glowstone"
+          },
+          "tags": [
+            "crafting_table"
+          ],
+          "pattern": [
+            "##",
+            "##"
+          ],
+          "key": {
+            "#": {
+              "item": "minecraft:glowstone_dust"
+            }
+          },
+          "unlock": [
+            {
+              "item": "minecraft:glowstone_dust"
+            }
+          ],
+          "result": {
+            "item": "minecraft:glowstone"
+          }
+        }
+      }
+    },
+    {
+      "path": "behavior_packs/chemistry/recipes/reducer_glowstone_gem.json",
+      "bytes": 736,
+      "sha256": "b4be6148c2bfb5e7ff6f0d074a8c4e9c2841393fb6bb1e4d5949b6142abb85d7",
+      "table": {
+        "format_version": "1.14",
+        "minecraft:recipe_material_reduction": {
+          "description": {
+            "identifier": "minecraft:glowstone_dust"
+          },
+          "input": "minecraft:glowstone_dust",
+          "output": [
+            {
+              "count": 20,
+              "item": "minecraft:element_18"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_5"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_36"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_10"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_0"
+            }
+          ],
+          "tags": "material_reducer"
+        }
+      }
+    },
+    {
+      "path": "behavior_packs/chemistry/recipes/reducer_glowstone.json",
+      "bytes": 726,
+      "sha256": "50bf6478b64db2495dbccc3c897e0c496b4c9cb7d3df9327ae3162740e347004",
+      "table": {
+        "format_version": "1.14",
+        "minecraft:recipe_material_reduction": {
+          "description": {
+            "identifier": "minecraft:glowstone"
+          },
+          "input": "minecraft:glowstone",
+          "output": [
+            {
+              "count": 20,
+              "item": "minecraft:element_18"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_5"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_36"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_10"
+            },
+            {
+              "count": 20,
+              "item": "minecraft:element_0"
+            }
+          ],
+          "tags": "material_reducer"
+        }
+      }
+    },
+    {
+      "path": "behavior_packs/chemistry/recipes/reducer_redstone_gem.json",
+      "bytes": 538,
+      "sha256": "6e5c9abfddfb54b2c631bbe8aba9a6f62f75bf3f08416a6acfa1252d3a9483c0",
+      "table": {
+        "format_version": "1.14",
+        "minecraft:recipe_material_reduction": {
+          "description": {
+            "identifier": "minecraft:redstone"
+          },
+          "input": "minecraft:redstone",
+          "output": [
+            {
+              "count": 31,
+              "item": "minecraft:element_6"
+            },
+            {
+              "count": 31,
+              "item": "minecraft:element_92"
+            },
+            {
+              "count": 38,
+              "item": "minecraft:element_0"
+            }
+          ],
+          "tags": "material_reducer"
+        }
+      }
+    }
+  ]
+}

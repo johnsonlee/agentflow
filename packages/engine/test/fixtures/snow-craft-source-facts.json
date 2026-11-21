@@ -1,0 +1,26 @@
+[
+  {
+    "path": "behavior_packs/vanilla/recipes/snow.json",
+    "sha256": "46311dae0d7f7b6d647d6d4eba46ae15739b345bc9c69a8ec82a5a8005d6a496",
+    "pattern": [
+      "##",
+      "##"
+    ],
+    "input": "minecraft:snowball",
+    "result": {
+      "item": "minecraft:snow"
+    }
+  },
+  {
+    "path": "behavior_packs/vanilla_1.20.10/recipes/snow.json",
+    "sha256": "83e2e26494b447e216f1e3d91a811fe2e3c21a2d18a13d654ca0196485654864",
+    "pattern": [
+      "##",
+      "##"
+    ],
+    "input": "minecraft:snowball",
+    "result": {
+      "item": "minecraft:snow"
+    }
+  }
+]

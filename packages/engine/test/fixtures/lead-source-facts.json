@@ -1,0 +1,98 @@
+{
+  "workingReference": "Official-currentEducation1.26.33.0; activepack/runtimecalibrationnotproved",
+  "installer": {
+    "bytes": 810354021,
+    "sha256": "80bb151b1db4e46edc503230bc8ece25210fff94b7d73d6774559a054398a91e",
+    "url": "https://downloads.minecrafteduservices.com/retailbuilds/MacOS/Minecraft_Education_1.26.33.0.dmg"
+  },
+  "sources": [
+    {
+      "path": "behavior_packs/vanilla/recipes/lead.json",
+      "bytes": 440,
+      "sha256": "791aed7871568b992524998c4412a453e8056006fc2281438e85b6a53499117b",
+      "manifestMatches": true,
+      "identifier": "minecraft:lead",
+      "formatVersion": "1.12",
+      "pattern": [
+        "~~ ",
+        "~O ",
+        "  ~"
+      ],
+      "key": {
+        "~": {
+          "item": "minecraft:string"
+        },
+        "O": {
+          "item": "minecraft:slime_ball"
+        }
+      },
+      "resultLiteral": {
+        "item": "minecraft:lead",
+        "count": 2
+      },
+      "countFieldPresent": true,
+      "countLiteral": 2,
+      "tags": [
+        "crafting_table"
+      ]
+    },
+    {
+      "path": "behavior_packs/vanilla_1.20.10/recipes/lead.json",
+      "bytes": 521,
+      "sha256": "c41e3a51610637921f90fae745869f483a9d278a76e8d949315fffb61b7896e7",
+      "manifestMatches": true,
+      "identifier": "minecraft:lead",
+      "formatVersion": "1.20.10",
+      "pattern": [
+        "~~ ",
+        "~O ",
+        "  ~"
+      ],
+      "key": {
+        "~": {
+          "item": "minecraft:string"
+        },
+        "O": {
+          "item": "minecraft:slime_ball"
+        }
+      },
+      "resultLiteral": {
+        "item": "minecraft:lead",
+        "count": 2
+      },
+      "countFieldPresent": true,
+      "countLiteral": 2,
+      "tags": [
+        "crafting_table"
+      ]
+    },
+    {
+      "path": "behavior_packs/vanilla_1.21.90/recipes/lead.json",
+      "bytes": 450,
+      "sha256": "06a433a59d4487f9f6b32b5838d50ab4484736f6f401a22b8c3917ae80e80634",
+      "manifestMatches": true,
+      "identifier": "minecraft:lead",
+      "formatVersion": "1.21.90",
+      "pattern": [
+        "~~ ",
+        "~~ ",
+        "  ~"
+      ],
+      "key": {
+        "~": {
+          "item": "minecraft:string"
+        }
+      },
+      "resultLiteral": {
+        "item": "minecraft:lead",
+        "count": 2
+      },
+      "countFieldPresent": true,
+      "countLiteral": 2,
+      "tags": [
+        "crafting_table"
+      ]
+    }
+  ],
+  "limits": "Explicit modern five-string variant selected. Older slime variant conflict and active native binding remain unverified. Stack64 and rope behavior are application models."
+}

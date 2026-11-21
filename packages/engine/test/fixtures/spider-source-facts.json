@@ -1,0 +1,245 @@
+{
+  "sourceDestination": "https://downloads.minecrafteduservices.com/retailbuilds/MacOS/Minecraft_Education_1.26.33.0.dmg",
+  "installer": {
+    "bytes": 810354021,
+    "sha256": "80bb151b1db4e46edc503230bc8ece25210fff94b7d73d6774559a054398a91e"
+  },
+  "clientVersion": "1.26.33.0",
+  "activeRuntimeBindingVerified": false,
+  "entities": [
+    {
+      "path": "behavior_packs/vanilla/entities/spider.json",
+      "bytes": 8815,
+      "sha256": "d99cb76fe8cb0dea38bd64b78407b9c2d5e5397348ee1c7ab95661f3eab13e05",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 3
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.15/entities/spider.json",
+      "bytes": 8547,
+      "sha256": "e1eb3427b432959b51f39676359f172c2719b7d47935126993f5358402c9c7fb",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 3
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.16/entities/spider.json",
+      "bytes": 8854,
+      "sha256": "58e630254451f4a10177ec9a7f7d886f211adee6c3718bb7fb4ca5e51e766c33",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 3
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.16.100/entities/spider.json",
+      "bytes": 8919,
+      "sha256": "9b50f853b2009e394e796c70f923060156faee6284c32a68809bd329cca6dd11",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 3
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.17.0/entities/spider.json",
+      "bytes": 8974,
+      "sha256": "ad3ea3f0a41fd9578ed0c5fa45a85ccd8d25f11ff96ffb97533a3bbb0235129e",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 3
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.18.20/entities/spider.json",
+      "bytes": 8975,
+      "sha256": "6b86daf37ebee03bf5e74f6f66cd2a61e0ac315a66375f2b07c7eeff2f411618",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.20.50/entities/spider.json",
+      "bytes": 8944,
+      "sha256": "d6e7d71693b7e2e388d8fecc34aa516257c98b4c7315b88f4fe28dd796760b28",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.20.80/entities/spider.json",
+      "bytes": 8915,
+      "sha256": "ecea0367cd2f138e82e899cea92d2b6eb695f5c163112ab8d607274849eba545",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.21.0/entities/spider.json",
+      "bytes": 9147,
+      "sha256": "0825a48c9f7046526d3389280879000924ad4a27ad484915cd15a8a2509ed6a9",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.21.100/entities/spider.json",
+      "bytes": 10185,
+      "sha256": "9961c59f2e4b597e7b3846b83aa3e2ba90a4b6c1629dc8988805f23228116b72",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.21.130/entities/spider.json",
+      "bytes": 13166,
+      "sha256": "c7666ec73f14b3655a773fce4d97722d5b6b2ecb07391a892d0b134299942f88",
+      "health": {
+        "max": 16,
+        "value": 16
+      },
+      "collision_box": {
+        "height": 0.9,
+        "width": 1.4
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.21.60/entities/spider.json",
+      "bytes": 9118,
+      "sha256": "d5b2c72c2fe8d7162c58f5d1295ddf5f0df63c2bbbc70d0c3d4e1204bae7c76e",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.21.90/entities/spider.json",
+      "bytes": 9002,
+      "sha256": "61ffefe6b11be842afd8a54629fb2aff525c1b8cbe5e4b758438d62c502af352",
+      "health": {
+        "value": 16,
+        "max": 16
+      },
+      "collision_box": {
+        "width": 1.4,
+        "height": 0.9
+      },
+      "attack": {
+        "damage": 2
+      }
+    },
+    {
+      "path": "behavior_packs/vanilla_1.26.0/entities/spider.json",
+      "bytes": 12785,
+      "sha256": "3f36094e7d6b9b2c703b59277d3e560a606ce33eb1454838a5cbdcbad44d7567",
+      "health": {
+        "max": 16,
+        "value": 16
+      },
+      "collision_box": {
+        "height": 0.9,
+        "width": 1.4
+      },
+      "attack": {
+        "damage": 2
+      }
+    }
+  ],
+  "loot": {
+    "path": "behavior_packs/vanilla/loot_tables/entities/spider.json",
+    "bytes": 1788,
+    "sha256": "f3153ce03eedeb73e7219c2121893bc3d7a495d942da114871cd338a5add9595",
+    "stringCount": {
+      "min": 0,
+      "max": 2
+    }
+  },
+  "qualification": "Facts only from retained text. Attack3 older vs2 later; application selects2. String inclusive uniform sampling, maxStack64, speed2.4, ground path, brightnessnormalized/anger10/cooldown/reach/knockback are application models. No climbing/leap/naturalspawn/Eye/looting/native pixel fidelity proof."
+}
