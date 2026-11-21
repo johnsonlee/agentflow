@@ -1,7 +1,12 @@
+import { allAtlasTextureNames, STATION_FACE_KEYS } from "@craft/engine";
 import { createHash } from "node:crypto";
 import { expect, it, vi } from "vitest";
 import { GLOW_STICK_COLORS, itemTextureNames, textureNames } from "@craft/engine";
 import { MAX_PACK_BYTES, MAX_PACK_NAME_LENGTH, buildAtlas, generateTile, parseLocalTexturePack, sha256Hex, type SourceTile } from "../src";
+// Historical pixel/UV assertions below keep their exact prior key sets. Full833 is tested separately.
+const stationKeys = new Set(STATION_FACE_KEYS);
+const historical825Names = () => allAtlasTextureNames().filter(key => !stationKeys.has(key));
+
 const addedGlowKeys = new Set(GLOW_STICK_COLORS.filter(color => color.color !== "green").map(color => color.icon));
 const hash = (data: Uint8Array | Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 const bytes = (raw: unknown) => new TextEncoder().encode(JSON.stringify(raw));
@@ -53,7 +58,7 @@ it("rejects duplicate, unknown, malformed dimensions and noncanonical or wrong-s
 });
 
 it("keeps the actual frozen f7 default809 atlas bytes, source pixels, layout and UVs unchanged", () => {
-  const currentNames = [...new Set([...textureNames(), ...itemTextureNames()])];
+  const currentNames = historical825Names();
   expect(currentNames).toHaveLength(825); expect(currentNames).toContain("item_snowball");
   // The appended snowball has its own tile; the complete published809-tile prefix stays exact.
   const names = currentNames.filter(name => name !== "item_lead" && name !== "item_string" && name !== "item_snowball" && !addedGlowKeys.has(name)), atlas = buildAtlas(names);
@@ -63,7 +68,7 @@ it("keeps the actual frozen f7 default809 atlas bytes, source pixels, layout and
   for (const name of names) {
     const expected = generateTile(name); expect(atlas.tilePixels(name)).toEqual(expected); expect(atlas.sourceTile(name)).toEqual({ width: 16, height: 16, rgba: expected });
   }
-  expect(atlas.report).toEqual({ appliedKeys: [], fallbackKeys: names, source16Count: 809, source32Count: 0, expanded16To32Count: 0 });
+  expect(atlas.report).toEqual({ appliedKeys: [], directAppliedKeys: [], inheritedAppliedKeys: [], fallbackKeys: names, source16Count: 809, source32Count: 0, expanded16To32Count: 0 });
   const small = buildAtlas(["dirt", "stone", "sand"]), eps = .01 / 32;
   expect(small.uv("stone")).toEqual([.5 + eps, .5 - eps, 1 - eps, eps]);
 });
@@ -78,7 +83,7 @@ it("packs mixed32/16 RGBA without downsampling or Canvas loss, explicitly expand
   for (let y = 0; y < 32; y++) for (let x = 0; x < 32; x++) expect([...expanded.slice((y * 32 + x) * 4, (y * 32 + x) * 4 + 4)]).toEqual([...rawA.slice((Math.floor(y / 2) * 16 + Math.floor(x / 2)) * 4, (Math.floor(y / 2) * 16 + Math.floor(x / 2)) * 4 + 4)]);
   expect([...expanded.slice(0, 8)]).toEqual([21,43,65,0,21,43,65,0]); expect([...atlas.tilePixels("element_block_1_H").slice(0, 4)]).toEqual([111,77,33,0]);
   const eps = .01 / 64; expect(atlas.uv("element_block_1_H")).toEqual([.5 + eps, .5 - eps, 1 - eps, eps]);
-  expect(atlas.report).toEqual({ appliedKeys: names.slice(0, 2), fallbackKeys: names.slice(2), source16Count: 3, source32Count: 1, expanded16To32Count: 3 });
+  expect(atlas.report).toEqual({ appliedKeys: names.slice(0, 2), directAppliedKeys: names.slice(0, 2), inheritedAppliedKeys: [], fallbackKeys: names.slice(2), source16Count: 3, source32Count: 1, expanded16To32Count: 3 });
   for (const name of names.slice(2)) expect(atlas.sourceTile(name).rgba).toEqual(generateTile(name));
   a.rgba.fill(0); b.rgba.fill(0); expect(atlas.sourceTile("stone").rgba).toEqual(rawA); expect(atlas.sourceTile("element_block_1_H").rgba).toEqual(rawB);
   const returned = atlas.sourceTile("stone"); returned.rgba.fill(0); expect(atlas.sourceTile("stone").rgba).toEqual(rawA);
@@ -86,7 +91,7 @@ it("packs mixed32/16 RGBA without downsampling or Canvas loss, explicitly expand
 });
 
 it("rejects bad direct atlas overrides and cannot accidentally infer either unmatched binding", () => {
-  const names = [...new Set([...textureNames(), ...itemTextureNames()])];
+  const names = historical825Names();
   for (const [key, value] of [["not_a_key", tile(16)], ["stone", { ...tile(16), height: 32 }], ["stone", { ...tile(16), rgba: new Uint8ClampedArray(4) }]] as Array<[string,SourceTile]>) expect(() => buildAtlas(names, new Map([[key,value]]))).toThrow();
   const atlas = buildAtlas(names, new Map([["stone", tile(32)]]));
   expect(atlas.report.appliedKeys).toEqual(["stone"]); expect(atlas.report.fallbackKeys).toContain("chem_station_top"); expect(atlas.report.fallbackKeys).toContain("item_compound_magnesium_nitrate");

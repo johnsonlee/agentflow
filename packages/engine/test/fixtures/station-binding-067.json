@@ -1,0 +1,5682 @@
+{
+  "revision": "067667199d2d504df28bf2c1e4749cf8ec3de119",
+  "blockDefs": [
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "none",
+      "creative": false,
+      "hardness": 0,
+      "name": "air",
+      "displayName": "Air",
+      "faces": {
+        "top": "none",
+        "side": "none",
+        "bottom": "none"
+      },
+      "id": 0
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.9,
+      "name": "grass",
+      "displayName": "Grass Block",
+      "faces": {
+        "top": "grass_top",
+        "side": "grass_side",
+        "bottom": "dirt"
+      },
+      "tool": "shovel",
+      "id": 1,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.75,
+      "name": "dirt",
+      "displayName": "Dirt",
+      "faces": {
+        "top": "dirt",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "tool": "shovel",
+      "id": 2
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 2.25,
+      "name": "stone",
+      "displayName": "Stone",
+      "faces": {
+        "top": "stone",
+        "side": "stone",
+        "bottom": "stone"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 3,
+      "drop": 4
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 3,
+      "name": "cobblestone",
+      "displayName": "Cobblestone",
+      "faces": {
+        "top": "cobblestone",
+        "side": "cobblestone",
+        "bottom": "cobblestone"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 4
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 3,
+      "name": "oak_planks",
+      "displayName": "Oak Planks",
+      "faces": {
+        "top": "oak_planks",
+        "side": "oak_planks",
+        "bottom": "oak_planks"
+      },
+      "tool": "axe",
+      "id": 5
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 3,
+      "name": "oak_log",
+      "displayName": "Oak Log",
+      "faces": {
+        "top": "oak_log_top",
+        "side": "oak_log",
+        "bottom": "oak_log_top"
+      },
+      "tool": "axe",
+      "id": 6
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.3,
+      "name": "oak_leaves",
+      "displayName": "Oak Leaves",
+      "faces": {
+        "top": "oak_leaves",
+        "side": "oak_leaves",
+        "bottom": "oak_leaves"
+      },
+      "id": 7
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.75,
+      "name": "sand",
+      "displayName": "Sand",
+      "faces": {
+        "top": "sand",
+        "side": "sand",
+        "bottom": "sand"
+      },
+      "tool": "shovel",
+      "id": 8
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.9,
+      "name": "gravel",
+      "displayName": "Gravel",
+      "faces": {
+        "top": "gravel",
+        "side": "gravel",
+        "bottom": "gravel"
+      },
+      "tool": "shovel",
+      "id": 9
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "liquid",
+      "creative": false,
+      "hardness": null,
+      "name": "water",
+      "displayName": "Water",
+      "faces": {
+        "top": "water",
+        "side": "water",
+        "bottom": "water"
+      },
+      "id": 10
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "glass",
+      "displayName": "Glass",
+      "faces": {
+        "top": "glass",
+        "side": "glass",
+        "bottom": "glass"
+      },
+      "id": 11
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 3,
+      "name": "bricks",
+      "displayName": "Bricks",
+      "faces": {
+        "top": "bricks",
+        "side": "bricks",
+        "bottom": "bricks"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 12
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": null,
+      "name": "bedrock",
+      "displayName": "Bedrock",
+      "faces": {
+        "top": "bedrock",
+        "side": "bedrock",
+        "bottom": "bedrock"
+      },
+      "id": 13
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 4.5,
+      "name": "coal_ore",
+      "displayName": "Coal Ore",
+      "faces": {
+        "top": "coal_ore",
+        "side": "coal_ore",
+        "bottom": "coal_ore"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 14
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 4.5,
+      "name": "iron_ore",
+      "displayName": "Iron Ore",
+      "faces": {
+        "top": "iron_ore",
+        "side": "iron_ore",
+        "bottom": "iron_ore"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 2,
+      "id": 15
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 4.5,
+      "name": "gold_ore",
+      "displayName": "Gold Ore",
+      "faces": {
+        "top": "gold_ore",
+        "side": "gold_ore",
+        "bottom": "gold_ore"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 3,
+      "id": 16
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 4.5,
+      "name": "diamond_ore",
+      "displayName": "Diamond Ore",
+      "faces": {
+        "top": "diamond_ore",
+        "side": "diamond_ore",
+        "bottom": "diamond_ore"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 3,
+      "id": 17
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 3,
+      "name": "birch_log",
+      "displayName": "Birch Log",
+      "faces": {
+        "top": "birch_log_top",
+        "side": "birch_log",
+        "bottom": "birch_log_top"
+      },
+      "tool": "axe",
+      "id": 18
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.3,
+      "name": "birch_leaves",
+      "displayName": "Birch Leaves",
+      "faces": {
+        "top": "birch_leaves",
+        "side": "birch_leaves",
+        "bottom": "birch_leaves"
+      },
+      "id": 19
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.9,
+      "name": "snowy_grass",
+      "displayName": "Snowy Grass Block",
+      "faces": {
+        "top": "snow",
+        "side": "grass_snow_side",
+        "bottom": "dirt"
+      },
+      "tool": "shovel",
+      "id": 20,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.3,
+      "name": "snow",
+      "displayName": "Snow Block",
+      "faces": {
+        "top": "snow",
+        "side": "snow",
+        "bottom": "snow"
+      },
+      "tool": "shovel",
+      "id": 21
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "white_wool",
+      "displayName": "White Wool",
+      "faces": {
+        "top": "white_wool",
+        "side": "white_wool",
+        "bottom": "white_wool"
+      },
+      "id": 22
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "red_wool",
+      "displayName": "Red Wool",
+      "faces": {
+        "top": "red_wool",
+        "side": "red_wool",
+        "bottom": "red_wool"
+      },
+      "id": 23
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "orange_wool",
+      "displayName": "Orange Wool",
+      "faces": {
+        "top": "orange_wool",
+        "side": "orange_wool",
+        "bottom": "orange_wool"
+      },
+      "id": 24
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "yellow_wool",
+      "displayName": "Yellow Wool",
+      "faces": {
+        "top": "yellow_wool",
+        "side": "yellow_wool",
+        "bottom": "yellow_wool"
+      },
+      "id": 25
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "lime_wool",
+      "displayName": "Lime Wool",
+      "faces": {
+        "top": "lime_wool",
+        "side": "lime_wool",
+        "bottom": "lime_wool"
+      },
+      "id": 26
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "blue_wool",
+      "displayName": "Blue Wool",
+      "faces": {
+        "top": "blue_wool",
+        "side": "blue_wool",
+        "bottom": "blue_wool"
+      },
+      "id": 27
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "purple_wool",
+      "displayName": "Purple Wool",
+      "faces": {
+        "top": "purple_wool",
+        "side": "purple_wool",
+        "bottom": "purple_wool"
+      },
+      "id": 28
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "black_wool",
+      "displayName": "Black Wool",
+      "faces": {
+        "top": "black_wool",
+        "side": "black_wool",
+        "bottom": "black_wool"
+      },
+      "id": 29
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "glowstone",
+      "displayName": "Glowstone",
+      "faces": {
+        "top": "glowstone",
+        "side": "glowstone",
+        "bottom": "glowstone"
+      },
+      "emissive": true,
+      "light": 15,
+      "id": 30
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 2.25,
+      "name": "bookshelf",
+      "displayName": "Bookshelf",
+      "faces": {
+        "top": "oak_planks",
+        "side": "bookshelf",
+        "bottom": "oak_planks"
+      },
+      "tool": "axe",
+      "id": 31
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 3.75,
+      "name": "crafting_table",
+      "displayName": "Crafting Table",
+      "faces": {
+        "top": "crafting_table_top",
+        "side": "crafting_table_side",
+        "bottom": "oak_planks"
+      },
+      "tool": "axe",
+      "id": 32
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": true,
+      "hardness": 0,
+      "name": "dandelion",
+      "displayName": "Dandelion",
+      "faces": {
+        "top": "dandelion",
+        "side": "dandelion",
+        "bottom": "dandelion"
+      },
+      "needsSupport": true,
+      "replaceable": true,
+      "id": 33
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": true,
+      "hardness": 0,
+      "name": "poppy",
+      "displayName": "Poppy",
+      "faces": {
+        "top": "poppy",
+        "side": "poppy",
+        "bottom": "poppy"
+      },
+      "needsSupport": true,
+      "replaceable": true,
+      "id": 34
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": true,
+      "hardness": 0,
+      "name": "tall_grass",
+      "displayName": "Tall Grass",
+      "faces": {
+        "top": "tall_grass",
+        "side": "tall_grass",
+        "bottom": "tall_grass"
+      },
+      "needsSupport": true,
+      "replaceable": true,
+      "id": 35
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": null,
+      "name": "allow",
+      "displayName": "Allow",
+      "faces": {
+        "top": "allow",
+        "side": "allow",
+        "bottom": "allow"
+      },
+      "id": 36
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": null,
+      "name": "deny",
+      "displayName": "Deny",
+      "faces": {
+        "top": "deny",
+        "side": "deny",
+        "bottom": "deny"
+      },
+      "id": 37
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": null,
+      "name": "border",
+      "displayName": "Border",
+      "faces": {
+        "top": "border",
+        "side": "border",
+        "bottom": "border"
+      },
+      "id": 38
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 5.25,
+      "name": "furnace",
+      "displayName": "Furnace",
+      "faces": {
+        "top": "furnace_top",
+        "side": "furnace_front",
+        "bottom": "furnace_top"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 39
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": true,
+      "hardness": 0,
+      "name": "torch",
+      "displayName": "Torch",
+      "faces": {
+        "top": "torch",
+        "side": "torch",
+        "bottom": "torch"
+      },
+      "emissive": true,
+      "light": 14,
+      "id": 40
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "none",
+      "creative": true,
+      "hardness": 1.5,
+      "name": "chalkboard_slate",
+      "displayName": "Slate",
+      "faces": {
+        "top": "chalkboard",
+        "side": "chalkboard",
+        "bottom": "chalkboard"
+      },
+      "id": 41
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "none",
+      "creative": true,
+      "hardness": 1.5,
+      "name": "chalkboard_poster",
+      "displayName": "Poster",
+      "faces": {
+        "top": "chalkboard",
+        "side": "chalkboard",
+        "bottom": "chalkboard"
+      },
+      "id": 42
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "none",
+      "creative": true,
+      "hardness": 1.5,
+      "name": "chalkboard_board",
+      "displayName": "Board",
+      "faces": {
+        "top": "chalkboard",
+        "side": "chalkboard",
+        "bottom": "chalkboard"
+      },
+      "id": 43
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 5,
+      "name": "element_constructor",
+      "displayName": "Element Constructor",
+      "faces": {
+        "top": "chem_station_top",
+        "side": "element_constructor_side",
+        "bottom": "chem_station_top"
+      },
+      "tool": "pickaxe",
+      "id": 44
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 5,
+      "name": "compound_creator",
+      "displayName": "Compound Creator",
+      "faces": {
+        "top": "chem_station_top",
+        "side": "compound_creator_side",
+        "bottom": "chem_station_top"
+      },
+      "tool": "pickaxe",
+      "id": 45
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 5,
+      "name": "material_reducer",
+      "displayName": "Material Reducer",
+      "faces": {
+        "top": "chem_station_top",
+        "side": "material_reducer_side",
+        "bottom": "chem_station_top"
+      },
+      "tool": "pickaxe",
+      "id": 46
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 5,
+      "name": "lab_table",
+      "displayName": "Lab Table",
+      "faces": {
+        "top": "chem_station_top",
+        "side": "lab_table_side",
+        "bottom": "chem_station_top"
+      },
+      "tool": "pickaxe",
+      "id": 47
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.75,
+      "name": "ice",
+      "displayName": "Ice",
+      "faces": {
+        "top": "ice",
+        "side": "ice",
+        "bottom": "ice"
+      },
+      "tool": "pickaxe",
+      "id": 48
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1.5,
+      "name": "placed_heat_block",
+      "displayName": "Heat Block",
+      "faces": {
+        "top": "heat_block",
+        "side": "heat_block",
+        "bottom": "heat_block"
+      },
+      "id": 49
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": false,
+      "hardness": 0,
+      "name": "placed_underwater_torch",
+      "displayName": "Underwater Torch",
+      "faces": {
+        "top": "underwater_torch_block",
+        "side": "underwater_torch_block",
+        "bottom": "underwater_torch_block"
+      },
+      "emissive": true,
+      "light": 14,
+      "waterproof": true,
+      "id": 50
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": false,
+      "hardness": 0,
+      "name": "placed_glow_stick",
+      "displayName": "Glow Stick",
+      "faces": {
+        "top": "glow_stick_block",
+        "side": "glow_stick_block",
+        "bottom": "glow_stick_block"
+      },
+      "emissive": true,
+      "light": 10,
+      "waterproof": true,
+      "id": 51
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 4.5,
+      "name": "redstone_ore",
+      "displayName": "Redstone Ore",
+      "faces": {
+        "top": "redstone_ore",
+        "side": "redstone_ore",
+        "bottom": "redstone_ore"
+      },
+      "tool": "pickaxe",
+      "harvestTier": 3,
+      "id": 52
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_0",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_0",
+        "side": "redstone_dust_0",
+        "bottom": "redstone_dust_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 53
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_1",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_1",
+        "side": "redstone_dust_1",
+        "bottom": "redstone_dust_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 54
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_2",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_2",
+        "side": "redstone_dust_2",
+        "bottom": "redstone_dust_2"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 55
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_3",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_3",
+        "side": "redstone_dust_3",
+        "bottom": "redstone_dust_3"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 56
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_4",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_4",
+        "side": "redstone_dust_4",
+        "bottom": "redstone_dust_4"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 57
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_5",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_5",
+        "side": "redstone_dust_5",
+        "bottom": "redstone_dust_5"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 58
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_6",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_6",
+        "side": "redstone_dust_6",
+        "bottom": "redstone_dust_6"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 59
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_7",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_7",
+        "side": "redstone_dust_7",
+        "bottom": "redstone_dust_7"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 60
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_8",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_8",
+        "side": "redstone_dust_8",
+        "bottom": "redstone_dust_8"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 61
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_9",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_9",
+        "side": "redstone_dust_9",
+        "bottom": "redstone_dust_9"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 62
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_10",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_10",
+        "side": "redstone_dust_10",
+        "bottom": "redstone_dust_10"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 63
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_11",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_11",
+        "side": "redstone_dust_11",
+        "bottom": "redstone_dust_11"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 64
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_12",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_12",
+        "side": "redstone_dust_12",
+        "bottom": "redstone_dust_12"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 65
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_13",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_13",
+        "side": "redstone_dust_13",
+        "bottom": "redstone_dust_13"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 66
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_14",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_14",
+        "side": "redstone_dust_14",
+        "bottom": "redstone_dust_14"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 67
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_wire_15",
+      "displayName": "Redstone Dust",
+      "faces": {
+        "top": "redstone_dust_15",
+        "side": "redstone_dust_15",
+        "bottom": "redstone_dust_15"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.03125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 68
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": true,
+      "hardness": 0,
+      "name": "lever",
+      "displayName": "Lever",
+      "faces": {
+        "top": "lever_off",
+        "side": "lever_off",
+        "bottom": "lever_off"
+      },
+      "id": 69
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": false,
+      "hardness": 0,
+      "name": "lever_on",
+      "displayName": "Lever",
+      "faces": {
+        "top": "lever_on",
+        "side": "lever_on",
+        "bottom": "lever_on"
+      },
+      "id": 70,
+      "drop": 69
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": true,
+      "hardness": 0.75,
+      "name": "stone_button",
+      "displayName": "Stone Button",
+      "faces": {
+        "top": "stone_button",
+        "side": "stone_button",
+        "bottom": "stone_button"
+      },
+      "box": [
+        0.3125,
+        0,
+        0.375,
+        0.6875,
+        0.125,
+        0.625
+      ],
+      "needsSupport": true,
+      "id": 71
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.75,
+      "name": "stone_button_on",
+      "displayName": "Stone Button",
+      "faces": {
+        "top": "stone_button",
+        "side": "stone_button",
+        "bottom": "stone_button"
+      },
+      "box": [
+        0.3125,
+        0,
+        0.375,
+        0.6875,
+        0.0625,
+        0.625
+      ],
+      "needsSupport": true,
+      "id": 72,
+      "drop": 71
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": true,
+      "hardness": 0.75,
+      "name": "stone_pressure_plate",
+      "displayName": "Stone Pressure Plate",
+      "faces": {
+        "top": "pressure_plate",
+        "side": "pressure_plate",
+        "bottom": "pressure_plate"
+      },
+      "box": [
+        0.0625,
+        0,
+        0.0625,
+        0.9375,
+        0.0625,
+        0.9375
+      ],
+      "needsSupport": true,
+      "tool": "pickaxe",
+      "id": 73
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.75,
+      "name": "stone_pressure_plate_on",
+      "displayName": "Stone Pressure Plate",
+      "faces": {
+        "top": "pressure_plate",
+        "side": "pressure_plate",
+        "bottom": "pressure_plate"
+      },
+      "box": [
+        0.0625,
+        0,
+        0.0625,
+        0.9375,
+        0.03125,
+        0.9375
+      ],
+      "needsSupport": true,
+      "tool": "pickaxe",
+      "id": 74,
+      "drop": 73
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": true,
+      "hardness": 0,
+      "name": "redstone_torch",
+      "displayName": "Redstone Torch",
+      "faces": {
+        "top": "redstone_torch_on",
+        "side": "redstone_torch_on",
+        "bottom": "redstone_torch_on"
+      },
+      "emissive": true,
+      "light": 7,
+      "id": 75
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": false,
+      "hardness": 0,
+      "name": "redstone_torch_off",
+      "displayName": "Redstone Torch",
+      "faces": {
+        "top": "redstone_torch_off",
+        "side": "redstone_torch_off",
+        "bottom": "redstone_torch_off"
+      },
+      "id": 76,
+      "drop": 75
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "redstone_lamp",
+      "displayName": "Redstone Lamp",
+      "faces": {
+        "top": "redstone_lamp_off",
+        "side": "redstone_lamp_off",
+        "bottom": "redstone_lamp_off"
+      },
+      "id": 77
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 0.45,
+      "name": "redstone_lamp_on",
+      "displayName": "Redstone Lamp",
+      "faces": {
+        "top": "redstone_lamp_on",
+        "side": "redstone_lamp_on",
+        "bottom": "redstone_lamp_on"
+      },
+      "emissive": true,
+      "light": 15,
+      "id": 78,
+      "drop": 77
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": true,
+      "hardness": 0,
+      "name": "repeater",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_1_0",
+        "side": "repeater_side",
+        "bottom": "repeater_0_1_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_1_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_1_0",
+        "side": "repeater_side",
+        "bottom": "repeater_0_1_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 80,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_1_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_1_1",
+        "side": "repeater_side",
+        "bottom": "repeater_0_1_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 81,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_2_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_2_0",
+        "side": "repeater_side",
+        "bottom": "repeater_0_2_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 82,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_2_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_2_1",
+        "side": "repeater_side",
+        "bottom": "repeater_0_2_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 83,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_3_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_3_0",
+        "side": "repeater_side",
+        "bottom": "repeater_0_3_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 84,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_3_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_3_1",
+        "side": "repeater_side",
+        "bottom": "repeater_0_3_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 85,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_4_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_4_0",
+        "side": "repeater_side",
+        "bottom": "repeater_0_4_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 86,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_0_4_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_0_4_1",
+        "side": "repeater_side",
+        "bottom": "repeater_0_4_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 87,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_1_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_1_0",
+        "side": "repeater_side",
+        "bottom": "repeater_1_1_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 88,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_1_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_1_1",
+        "side": "repeater_side",
+        "bottom": "repeater_1_1_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 89,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_2_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_2_0",
+        "side": "repeater_side",
+        "bottom": "repeater_1_2_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 90,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_2_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_2_1",
+        "side": "repeater_side",
+        "bottom": "repeater_1_2_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 91,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_3_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_3_0",
+        "side": "repeater_side",
+        "bottom": "repeater_1_3_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 92,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_3_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_3_1",
+        "side": "repeater_side",
+        "bottom": "repeater_1_3_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 93,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_4_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_4_0",
+        "side": "repeater_side",
+        "bottom": "repeater_1_4_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 94,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_1_4_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_1_4_1",
+        "side": "repeater_side",
+        "bottom": "repeater_1_4_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 95,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_1_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_1_0",
+        "side": "repeater_side",
+        "bottom": "repeater_2_1_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 96,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_1_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_1_1",
+        "side": "repeater_side",
+        "bottom": "repeater_2_1_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 97,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_2_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_2_0",
+        "side": "repeater_side",
+        "bottom": "repeater_2_2_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 98,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_2_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_2_1",
+        "side": "repeater_side",
+        "bottom": "repeater_2_2_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 99,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_3_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_3_0",
+        "side": "repeater_side",
+        "bottom": "repeater_2_3_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 100,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_3_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_3_1",
+        "side": "repeater_side",
+        "bottom": "repeater_2_3_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 101,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_4_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_4_0",
+        "side": "repeater_side",
+        "bottom": "repeater_2_4_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 102,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_2_4_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_2_4_1",
+        "side": "repeater_side",
+        "bottom": "repeater_2_4_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 103,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_1_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_1_0",
+        "side": "repeater_side",
+        "bottom": "repeater_3_1_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 104,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_1_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_1_1",
+        "side": "repeater_side",
+        "bottom": "repeater_3_1_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 105,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_2_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_2_0",
+        "side": "repeater_side",
+        "bottom": "repeater_3_2_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 106,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_2_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_2_1",
+        "side": "repeater_side",
+        "bottom": "repeater_3_2_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 107,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_3_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_3_0",
+        "side": "repeater_side",
+        "bottom": "repeater_3_3_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 108,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_3_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_3_1",
+        "side": "repeater_side",
+        "bottom": "repeater_3_3_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 109,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_4_0",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_4_0",
+        "side": "repeater_side",
+        "bottom": "repeater_3_4_0"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 110,
+      "drop": 79
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0,
+      "name": "repeater_3_4_1",
+      "displayName": "Redstone Repeater",
+      "faces": {
+        "top": "repeater_3_4_1",
+        "side": "repeater_side",
+        "bottom": "repeater_3_4_1"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.125,
+        1
+      ],
+      "needsSupport": true,
+      "id": 111,
+      "drop": 79
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_0_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 112
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_0_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 113
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_1_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 114
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_1_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "axe",
+      "id": 115
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_2_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "axe",
+      "id": 116
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_2_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 117
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_3_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 118
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_lower_3_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_lower",
+        "side": "door_wooden_lower",
+        "bottom": "door_wooden_lower"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 119
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_0_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 120
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_0_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 121
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_1_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 122
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_1_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "axe",
+      "id": 123
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_2_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "axe",
+      "id": 124
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_2_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 125
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_3_0",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 126
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 4.5,
+      "name": "door_wooden_upper_3_1",
+      "displayName": "Wooden Door",
+      "faces": {
+        "top": "door_wooden_upper",
+        "side": "door_wooden_upper",
+        "bottom": "door_wooden_upper"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "axe",
+      "id": 127
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_0_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 128
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_0_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 129
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_1_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 130
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_1_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 131
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_2_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 132
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_2_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 133
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_3_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 134
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_lower_3_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_lower",
+        "side": "door_iron_lower",
+        "bottom": "door_iron_lower"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 135
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_0_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 136
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_0_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 137
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_1_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        0.1875,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 138
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_1_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 139
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_2_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        1,
+        0.1875
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 140
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_2_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 141
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_3_0",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0.8125,
+        0,
+        0,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 142
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 7.5,
+      "name": "door_iron_upper_3_1",
+      "displayName": "Iron Door",
+      "faces": {
+        "top": "door_iron_upper",
+        "side": "door_iron_upper",
+        "bottom": "door_iron_upper"
+      },
+      "box": [
+        0,
+        0,
+        0.8125,
+        1,
+        1,
+        1
+      ],
+      "tool": "pickaxe",
+      "harvestTier": 1,
+      "id": 143
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_0",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_dry",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 144,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_1",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_wet",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 145,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_2",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_wet",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 146,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_3",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_wet",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 147,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_4",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_wet",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 148,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_5",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_wet",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 149,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_6",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_wet",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 150,
+      "drop": 2
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "box",
+      "creative": false,
+      "hardness": 0.9,
+      "name": "farmland_7",
+      "displayName": "Farmland",
+      "faces": {
+        "top": "farmland_wet",
+        "side": "dirt",
+        "bottom": "dirt"
+      },
+      "box": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "collisionBox": [
+        0,
+        0,
+        0,
+        1,
+        0.9375,
+        1
+      ],
+      "tool": "shovel",
+      "id": 151,
+      "drop": 2
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_0",
+      "displayName": "Wheat (age 0)",
+      "faces": {
+        "top": "wheat_stage_0",
+        "side": "wheat_stage_0",
+        "bottom": "wheat_stage_0"
+      },
+      "needsSupport": true,
+      "id": 152
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_1",
+      "displayName": "Wheat (age 1)",
+      "faces": {
+        "top": "wheat_stage_1",
+        "side": "wheat_stage_1",
+        "bottom": "wheat_stage_1"
+      },
+      "needsSupport": true,
+      "id": 153
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_2",
+      "displayName": "Wheat (age 2)",
+      "faces": {
+        "top": "wheat_stage_2",
+        "side": "wheat_stage_2",
+        "bottom": "wheat_stage_2"
+      },
+      "needsSupport": true,
+      "id": 154
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_3",
+      "displayName": "Wheat (age 3)",
+      "faces": {
+        "top": "wheat_stage_3",
+        "side": "wheat_stage_3",
+        "bottom": "wheat_stage_3"
+      },
+      "needsSupport": true,
+      "id": 155
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_4",
+      "displayName": "Wheat (age 4)",
+      "faces": {
+        "top": "wheat_stage_4",
+        "side": "wheat_stage_4",
+        "bottom": "wheat_stage_4"
+      },
+      "needsSupport": true,
+      "id": 156
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_5",
+      "displayName": "Wheat (age 5)",
+      "faces": {
+        "top": "wheat_stage_5",
+        "side": "wheat_stage_5",
+        "bottom": "wheat_stage_5"
+      },
+      "needsSupport": true,
+      "id": 157
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_6",
+      "displayName": "Wheat (age 6)",
+      "faces": {
+        "top": "wheat_stage_6",
+        "side": "wheat_stage_6",
+        "bottom": "wheat_stage_6"
+      },
+      "needsSupport": true,
+      "id": 158
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "cross",
+      "creative": false,
+      "hardness": 0,
+      "name": "wheat_7",
+      "displayName": "Wheat (age 7)",
+      "faces": {
+        "top": "wheat_stage_7",
+        "side": "wheat_stage_7",
+        "bottom": "wheat_stage_7"
+      },
+      "needsSupport": true,
+      "id": 159
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": true,
+      "hardness": 0,
+      "name": "blue_torch",
+      "displayName": "Blue Torch",
+      "faces": {
+        "top": "blue_torch",
+        "side": "blue_torch",
+        "bottom": "blue_torch"
+      },
+      "emissive": true,
+      "light": 14,
+      "id": 160
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": true,
+      "hardness": 0,
+      "name": "red_torch",
+      "displayName": "Red Torch",
+      "faces": {
+        "top": "red_torch",
+        "side": "red_torch",
+        "bottom": "red_torch"
+      },
+      "emissive": true,
+      "light": 14,
+      "id": 161
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": true,
+      "hardness": 0,
+      "name": "purple_torch",
+      "displayName": "Purple Torch",
+      "faces": {
+        "top": "purple_torch",
+        "side": "purple_torch",
+        "bottom": "purple_torch"
+      },
+      "emissive": true,
+      "light": 14,
+      "id": 162
+    },
+    {
+      "solid": false,
+      "transparent": true,
+      "shape": "torch",
+      "creative": true,
+      "hardness": 0,
+      "name": "green_torch",
+      "displayName": "Green Torch",
+      "faces": {
+        "top": "green_torch",
+        "side": "green_torch",
+        "bottom": "green_torch"
+      },
+      "emissive": true,
+      "light": 14,
+      "id": 163
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1,
+      "name": "element_0",
+      "displayName": "Unknown Element",
+      "faces": {
+        "top": "element_block_0_unknown",
+        "side": "element_block_0_unknown",
+        "bottom": "element_block_0_unknown"
+      },
+      "id": 32768
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_1",
+      "displayName": "Hydrogen",
+      "faces": {
+        "top": "element_block_1_H",
+        "side": "element_block_1_H",
+        "bottom": "element_block_1_H"
+      },
+      "id": 32769
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_2",
+      "displayName": "Helium",
+      "faces": {
+        "top": "element_block_2_He",
+        "side": "element_block_2_He",
+        "bottom": "element_block_2_He"
+      },
+      "id": 32770
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_3",
+      "displayName": "Lithium",
+      "faces": {
+        "top": "element_block_3_Li",
+        "side": "element_block_3_Li",
+        "bottom": "element_block_3_Li"
+      },
+      "id": 32771
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_4",
+      "displayName": "Beryllium",
+      "faces": {
+        "top": "element_block_4_Be",
+        "side": "element_block_4_Be",
+        "bottom": "element_block_4_Be"
+      },
+      "id": 32772
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_5",
+      "displayName": "Boron",
+      "faces": {
+        "top": "element_block_5_B",
+        "side": "element_block_5_B",
+        "bottom": "element_block_5_B"
+      },
+      "id": 32773
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_6",
+      "displayName": "Carbon",
+      "faces": {
+        "top": "element_block_6_C",
+        "side": "element_block_6_C",
+        "bottom": "element_block_6_C"
+      },
+      "id": 32774
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_7",
+      "displayName": "Nitrogen",
+      "faces": {
+        "top": "element_block_7_N",
+        "side": "element_block_7_N",
+        "bottom": "element_block_7_N"
+      },
+      "id": 32775
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_8",
+      "displayName": "Oxygen",
+      "faces": {
+        "top": "element_block_8_O",
+        "side": "element_block_8_O",
+        "bottom": "element_block_8_O"
+      },
+      "id": 32776
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_9",
+      "displayName": "Fluorine",
+      "faces": {
+        "top": "element_block_9_F",
+        "side": "element_block_9_F",
+        "bottom": "element_block_9_F"
+      },
+      "id": 32777
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_10",
+      "displayName": "Neon",
+      "faces": {
+        "top": "element_block_10_Ne",
+        "side": "element_block_10_Ne",
+        "bottom": "element_block_10_Ne"
+      },
+      "id": 32778
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_11",
+      "displayName": "Sodium",
+      "faces": {
+        "top": "element_block_11_Na",
+        "side": "element_block_11_Na",
+        "bottom": "element_block_11_Na"
+      },
+      "id": 32779
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_12",
+      "displayName": "Magnesium",
+      "faces": {
+        "top": "element_block_12_Mg",
+        "side": "element_block_12_Mg",
+        "bottom": "element_block_12_Mg"
+      },
+      "id": 32780
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_13",
+      "displayName": "Aluminium",
+      "faces": {
+        "top": "element_block_13_Al",
+        "side": "element_block_13_Al",
+        "bottom": "element_block_13_Al"
+      },
+      "id": 32781
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_14",
+      "displayName": "Silicon",
+      "faces": {
+        "top": "element_block_14_Si",
+        "side": "element_block_14_Si",
+        "bottom": "element_block_14_Si"
+      },
+      "id": 32782
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_15",
+      "displayName": "Phosphorus",
+      "faces": {
+        "top": "element_block_15_P",
+        "side": "element_block_15_P",
+        "bottom": "element_block_15_P"
+      },
+      "id": 32783
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_16",
+      "displayName": "Sulfur",
+      "faces": {
+        "top": "element_block_16_S",
+        "side": "element_block_16_S",
+        "bottom": "element_block_16_S"
+      },
+      "id": 32784
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_17",
+      "displayName": "Chlorine",
+      "faces": {
+        "top": "element_block_17_Cl",
+        "side": "element_block_17_Cl",
+        "bottom": "element_block_17_Cl"
+      },
+      "id": 32785
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_18",
+      "displayName": "Argon",
+      "faces": {
+        "top": "element_block_18_Ar",
+        "side": "element_block_18_Ar",
+        "bottom": "element_block_18_Ar"
+      },
+      "id": 32786
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_19",
+      "displayName": "Potassium",
+      "faces": {
+        "top": "element_block_19_K",
+        "side": "element_block_19_K",
+        "bottom": "element_block_19_K"
+      },
+      "id": 32787
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_20",
+      "displayName": "Calcium",
+      "faces": {
+        "top": "element_block_20_Ca",
+        "side": "element_block_20_Ca",
+        "bottom": "element_block_20_Ca"
+      },
+      "id": 32788
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_21",
+      "displayName": "Scandium",
+      "faces": {
+        "top": "element_block_21_Sc",
+        "side": "element_block_21_Sc",
+        "bottom": "element_block_21_Sc"
+      },
+      "id": 32789
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_22",
+      "displayName": "Titanium",
+      "faces": {
+        "top": "element_block_22_Ti",
+        "side": "element_block_22_Ti",
+        "bottom": "element_block_22_Ti"
+      },
+      "id": 32790
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_23",
+      "displayName": "Vanadium",
+      "faces": {
+        "top": "element_block_23_V",
+        "side": "element_block_23_V",
+        "bottom": "element_block_23_V"
+      },
+      "id": 32791
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_24",
+      "displayName": "Chromium",
+      "faces": {
+        "top": "element_block_24_Cr",
+        "side": "element_block_24_Cr",
+        "bottom": "element_block_24_Cr"
+      },
+      "id": 32792
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_25",
+      "displayName": "Manganese",
+      "faces": {
+        "top": "element_block_25_Mn",
+        "side": "element_block_25_Mn",
+        "bottom": "element_block_25_Mn"
+      },
+      "id": 32793
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_26",
+      "displayName": "Iron",
+      "faces": {
+        "top": "element_block_26_Fe",
+        "side": "element_block_26_Fe",
+        "bottom": "element_block_26_Fe"
+      },
+      "id": 32794
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_27",
+      "displayName": "Cobalt",
+      "faces": {
+        "top": "element_block_27_Co",
+        "side": "element_block_27_Co",
+        "bottom": "element_block_27_Co"
+      },
+      "id": 32795
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_28",
+      "displayName": "Nickel",
+      "faces": {
+        "top": "element_block_28_Ni",
+        "side": "element_block_28_Ni",
+        "bottom": "element_block_28_Ni"
+      },
+      "id": 32796
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_29",
+      "displayName": "Copper",
+      "faces": {
+        "top": "element_block_29_Cu",
+        "side": "element_block_29_Cu",
+        "bottom": "element_block_29_Cu"
+      },
+      "id": 32797
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_30",
+      "displayName": "Zinc",
+      "faces": {
+        "top": "element_block_30_Zn",
+        "side": "element_block_30_Zn",
+        "bottom": "element_block_30_Zn"
+      },
+      "id": 32798
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_31",
+      "displayName": "Gallium",
+      "faces": {
+        "top": "element_block_31_Ga",
+        "side": "element_block_31_Ga",
+        "bottom": "element_block_31_Ga"
+      },
+      "id": 32799
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_32",
+      "displayName": "Germanium",
+      "faces": {
+        "top": "element_block_32_Ge",
+        "side": "element_block_32_Ge",
+        "bottom": "element_block_32_Ge"
+      },
+      "id": 32800
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_33",
+      "displayName": "Arsenic",
+      "faces": {
+        "top": "element_block_33_As",
+        "side": "element_block_33_As",
+        "bottom": "element_block_33_As"
+      },
+      "id": 32801
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_34",
+      "displayName": "Selenium",
+      "faces": {
+        "top": "element_block_34_Se",
+        "side": "element_block_34_Se",
+        "bottom": "element_block_34_Se"
+      },
+      "id": 32802
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_35",
+      "displayName": "Bromine",
+      "faces": {
+        "top": "element_block_35_Br",
+        "side": "element_block_35_Br",
+        "bottom": "element_block_35_Br"
+      },
+      "id": 32803
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_36",
+      "displayName": "Krypton",
+      "faces": {
+        "top": "element_block_36_Kr",
+        "side": "element_block_36_Kr",
+        "bottom": "element_block_36_Kr"
+      },
+      "id": 32804
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_37",
+      "displayName": "Rubidium",
+      "faces": {
+        "top": "element_block_37_Rb",
+        "side": "element_block_37_Rb",
+        "bottom": "element_block_37_Rb"
+      },
+      "id": 32805
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_38",
+      "displayName": "Strontium",
+      "faces": {
+        "top": "element_block_38_Sr",
+        "side": "element_block_38_Sr",
+        "bottom": "element_block_38_Sr"
+      },
+      "id": 32806
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_39",
+      "displayName": "Yttrium",
+      "faces": {
+        "top": "element_block_39_Y",
+        "side": "element_block_39_Y",
+        "bottom": "element_block_39_Y"
+      },
+      "id": 32807
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_40",
+      "displayName": "Zirconium",
+      "faces": {
+        "top": "element_block_40_Zr",
+        "side": "element_block_40_Zr",
+        "bottom": "element_block_40_Zr"
+      },
+      "id": 32808
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_41",
+      "displayName": "Niobium",
+      "faces": {
+        "top": "element_block_41_Nb",
+        "side": "element_block_41_Nb",
+        "bottom": "element_block_41_Nb"
+      },
+      "id": 32809
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_42",
+      "displayName": "Molybdenum",
+      "faces": {
+        "top": "element_block_42_Mo",
+        "side": "element_block_42_Mo",
+        "bottom": "element_block_42_Mo"
+      },
+      "id": 32810
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_43",
+      "displayName": "Technetium",
+      "faces": {
+        "top": "element_block_43_Tc",
+        "side": "element_block_43_Tc",
+        "bottom": "element_block_43_Tc"
+      },
+      "id": 32811
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_44",
+      "displayName": "Ruthenium",
+      "faces": {
+        "top": "element_block_44_Ru",
+        "side": "element_block_44_Ru",
+        "bottom": "element_block_44_Ru"
+      },
+      "id": 32812
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_45",
+      "displayName": "Rhodium",
+      "faces": {
+        "top": "element_block_45_Rh",
+        "side": "element_block_45_Rh",
+        "bottom": "element_block_45_Rh"
+      },
+      "id": 32813
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_46",
+      "displayName": "Palladium",
+      "faces": {
+        "top": "element_block_46_Pd",
+        "side": "element_block_46_Pd",
+        "bottom": "element_block_46_Pd"
+      },
+      "id": 32814
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_47",
+      "displayName": "Silver",
+      "faces": {
+        "top": "element_block_47_Ag",
+        "side": "element_block_47_Ag",
+        "bottom": "element_block_47_Ag"
+      },
+      "id": 32815
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_48",
+      "displayName": "Cadmium",
+      "faces": {
+        "top": "element_block_48_Cd",
+        "side": "element_block_48_Cd",
+        "bottom": "element_block_48_Cd"
+      },
+      "id": 32816
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_49",
+      "displayName": "Indium",
+      "faces": {
+        "top": "element_block_49_In",
+        "side": "element_block_49_In",
+        "bottom": "element_block_49_In"
+      },
+      "id": 32817
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_50",
+      "displayName": "Tin",
+      "faces": {
+        "top": "element_block_50_Sn",
+        "side": "element_block_50_Sn",
+        "bottom": "element_block_50_Sn"
+      },
+      "id": 32818
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_51",
+      "displayName": "Antimony",
+      "faces": {
+        "top": "element_block_51_Sb",
+        "side": "element_block_51_Sb",
+        "bottom": "element_block_51_Sb"
+      },
+      "id": 32819
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_52",
+      "displayName": "Tellurium",
+      "faces": {
+        "top": "element_block_52_Te",
+        "side": "element_block_52_Te",
+        "bottom": "element_block_52_Te"
+      },
+      "id": 32820
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_53",
+      "displayName": "Iodine",
+      "faces": {
+        "top": "element_block_53_I",
+        "side": "element_block_53_I",
+        "bottom": "element_block_53_I"
+      },
+      "id": 32821
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_54",
+      "displayName": "Xenon",
+      "faces": {
+        "top": "element_block_54_Xe",
+        "side": "element_block_54_Xe",
+        "bottom": "element_block_54_Xe"
+      },
+      "id": 32822
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_55",
+      "displayName": "Caesium",
+      "faces": {
+        "top": "element_block_55_Cs",
+        "side": "element_block_55_Cs",
+        "bottom": "element_block_55_Cs"
+      },
+      "id": 32823
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_56",
+      "displayName": "Barium",
+      "faces": {
+        "top": "element_block_56_Ba",
+        "side": "element_block_56_Ba",
+        "bottom": "element_block_56_Ba"
+      },
+      "id": 32824
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_57",
+      "displayName": "Lanthanum",
+      "faces": {
+        "top": "element_block_57_La",
+        "side": "element_block_57_La",
+        "bottom": "element_block_57_La"
+      },
+      "id": 32825
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_58",
+      "displayName": "Cerium",
+      "faces": {
+        "top": "element_block_58_Ce",
+        "side": "element_block_58_Ce",
+        "bottom": "element_block_58_Ce"
+      },
+      "id": 32826
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_59",
+      "displayName": "Praseodymium",
+      "faces": {
+        "top": "element_block_59_Pr",
+        "side": "element_block_59_Pr",
+        "bottom": "element_block_59_Pr"
+      },
+      "id": 32827
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_60",
+      "displayName": "Neodymium",
+      "faces": {
+        "top": "element_block_60_Nd",
+        "side": "element_block_60_Nd",
+        "bottom": "element_block_60_Nd"
+      },
+      "id": 32828
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_61",
+      "displayName": "Promethium",
+      "faces": {
+        "top": "element_block_61_Pm",
+        "side": "element_block_61_Pm",
+        "bottom": "element_block_61_Pm"
+      },
+      "id": 32829
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_62",
+      "displayName": "Samarium",
+      "faces": {
+        "top": "element_block_62_Sm",
+        "side": "element_block_62_Sm",
+        "bottom": "element_block_62_Sm"
+      },
+      "id": 32830
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_63",
+      "displayName": "Europium",
+      "faces": {
+        "top": "element_block_63_Eu",
+        "side": "element_block_63_Eu",
+        "bottom": "element_block_63_Eu"
+      },
+      "id": 32831
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_64",
+      "displayName": "Gadolinium",
+      "faces": {
+        "top": "element_block_64_Gd",
+        "side": "element_block_64_Gd",
+        "bottom": "element_block_64_Gd"
+      },
+      "id": 32832
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_65",
+      "displayName": "Terbium",
+      "faces": {
+        "top": "element_block_65_Tb",
+        "side": "element_block_65_Tb",
+        "bottom": "element_block_65_Tb"
+      },
+      "id": 32833
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_66",
+      "displayName": "Dysprosium",
+      "faces": {
+        "top": "element_block_66_Dy",
+        "side": "element_block_66_Dy",
+        "bottom": "element_block_66_Dy"
+      },
+      "id": 32834
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_67",
+      "displayName": "Holmium",
+      "faces": {
+        "top": "element_block_67_Ho",
+        "side": "element_block_67_Ho",
+        "bottom": "element_block_67_Ho"
+      },
+      "id": 32835
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_68",
+      "displayName": "Erbium",
+      "faces": {
+        "top": "element_block_68_Er",
+        "side": "element_block_68_Er",
+        "bottom": "element_block_68_Er"
+      },
+      "id": 32836
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_69",
+      "displayName": "Thulium",
+      "faces": {
+        "top": "element_block_69_Tm",
+        "side": "element_block_69_Tm",
+        "bottom": "element_block_69_Tm"
+      },
+      "id": 32837
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_70",
+      "displayName": "Ytterbium",
+      "faces": {
+        "top": "element_block_70_Yb",
+        "side": "element_block_70_Yb",
+        "bottom": "element_block_70_Yb"
+      },
+      "id": 32838
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_71",
+      "displayName": "Lutetium",
+      "faces": {
+        "top": "element_block_71_Lu",
+        "side": "element_block_71_Lu",
+        "bottom": "element_block_71_Lu"
+      },
+      "id": 32839
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_72",
+      "displayName": "Hafnium",
+      "faces": {
+        "top": "element_block_72_Hf",
+        "side": "element_block_72_Hf",
+        "bottom": "element_block_72_Hf"
+      },
+      "id": 32840
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_73",
+      "displayName": "Tantalum",
+      "faces": {
+        "top": "element_block_73_Ta",
+        "side": "element_block_73_Ta",
+        "bottom": "element_block_73_Ta"
+      },
+      "id": 32841
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_74",
+      "displayName": "Tungsten",
+      "faces": {
+        "top": "element_block_74_W",
+        "side": "element_block_74_W",
+        "bottom": "element_block_74_W"
+      },
+      "id": 32842
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_75",
+      "displayName": "Rhenium",
+      "faces": {
+        "top": "element_block_75_Re",
+        "side": "element_block_75_Re",
+        "bottom": "element_block_75_Re"
+      },
+      "id": 32843
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_76",
+      "displayName": "Osmium",
+      "faces": {
+        "top": "element_block_76_Os",
+        "side": "element_block_76_Os",
+        "bottom": "element_block_76_Os"
+      },
+      "id": 32844
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_77",
+      "displayName": "Iridium",
+      "faces": {
+        "top": "element_block_77_Ir",
+        "side": "element_block_77_Ir",
+        "bottom": "element_block_77_Ir"
+      },
+      "id": 32845
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_78",
+      "displayName": "Platinum",
+      "faces": {
+        "top": "element_block_78_Pt",
+        "side": "element_block_78_Pt",
+        "bottom": "element_block_78_Pt"
+      },
+      "id": 32846
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_79",
+      "displayName": "Gold",
+      "faces": {
+        "top": "element_block_79_Au",
+        "side": "element_block_79_Au",
+        "bottom": "element_block_79_Au"
+      },
+      "id": 32847
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_80",
+      "displayName": "Mercury",
+      "faces": {
+        "top": "element_block_80_Hg",
+        "side": "element_block_80_Hg",
+        "bottom": "element_block_80_Hg"
+      },
+      "id": 32848
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_81",
+      "displayName": "Thallium",
+      "faces": {
+        "top": "element_block_81_Tl",
+        "side": "element_block_81_Tl",
+        "bottom": "element_block_81_Tl"
+      },
+      "id": 32849
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_82",
+      "displayName": "Lead",
+      "faces": {
+        "top": "element_block_82_Pb",
+        "side": "element_block_82_Pb",
+        "bottom": "element_block_82_Pb"
+      },
+      "id": 32850
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_83",
+      "displayName": "Bismuth",
+      "faces": {
+        "top": "element_block_83_Bi",
+        "side": "element_block_83_Bi",
+        "bottom": "element_block_83_Bi"
+      },
+      "id": 32851
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_84",
+      "displayName": "Polonium",
+      "faces": {
+        "top": "element_block_84_Po",
+        "side": "element_block_84_Po",
+        "bottom": "element_block_84_Po"
+      },
+      "id": 32852
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_85",
+      "displayName": "Astatine",
+      "faces": {
+        "top": "element_block_85_At",
+        "side": "element_block_85_At",
+        "bottom": "element_block_85_At"
+      },
+      "id": 32853
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_86",
+      "displayName": "Radon",
+      "faces": {
+        "top": "element_block_86_Rn",
+        "side": "element_block_86_Rn",
+        "bottom": "element_block_86_Rn"
+      },
+      "id": 32854
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_87",
+      "displayName": "Francium",
+      "faces": {
+        "top": "element_block_87_Fr",
+        "side": "element_block_87_Fr",
+        "bottom": "element_block_87_Fr"
+      },
+      "id": 32855
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_88",
+      "displayName": "Radium",
+      "faces": {
+        "top": "element_block_88_Ra",
+        "side": "element_block_88_Ra",
+        "bottom": "element_block_88_Ra"
+      },
+      "id": 32856
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_89",
+      "displayName": "Actinium",
+      "faces": {
+        "top": "element_block_89_Ac",
+        "side": "element_block_89_Ac",
+        "bottom": "element_block_89_Ac"
+      },
+      "id": 32857
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_90",
+      "displayName": "Thorium",
+      "faces": {
+        "top": "element_block_90_Th",
+        "side": "element_block_90_Th",
+        "bottom": "element_block_90_Th"
+      },
+      "id": 32858
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_91",
+      "displayName": "Protactinium",
+      "faces": {
+        "top": "element_block_91_Pa",
+        "side": "element_block_91_Pa",
+        "bottom": "element_block_91_Pa"
+      },
+      "id": 32859
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_92",
+      "displayName": "Uranium",
+      "faces": {
+        "top": "element_block_92_U",
+        "side": "element_block_92_U",
+        "bottom": "element_block_92_U"
+      },
+      "id": 32860
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_93",
+      "displayName": "Neptunium",
+      "faces": {
+        "top": "element_block_93_Np",
+        "side": "element_block_93_Np",
+        "bottom": "element_block_93_Np"
+      },
+      "id": 32861
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_94",
+      "displayName": "Plutonium",
+      "faces": {
+        "top": "element_block_94_Pu",
+        "side": "element_block_94_Pu",
+        "bottom": "element_block_94_Pu"
+      },
+      "id": 32862
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_95",
+      "displayName": "Americium",
+      "faces": {
+        "top": "element_block_95_Am",
+        "side": "element_block_95_Am",
+        "bottom": "element_block_95_Am"
+      },
+      "id": 32863
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_96",
+      "displayName": "Curium",
+      "faces": {
+        "top": "element_block_96_Cm",
+        "side": "element_block_96_Cm",
+        "bottom": "element_block_96_Cm"
+      },
+      "id": 32864
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_97",
+      "displayName": "Berkelium",
+      "faces": {
+        "top": "element_block_97_Bk",
+        "side": "element_block_97_Bk",
+        "bottom": "element_block_97_Bk"
+      },
+      "id": 32865
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_98",
+      "displayName": "Californium",
+      "faces": {
+        "top": "element_block_98_Cf",
+        "side": "element_block_98_Cf",
+        "bottom": "element_block_98_Cf"
+      },
+      "id": 32866
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_99",
+      "displayName": "Einsteinium",
+      "faces": {
+        "top": "element_block_99_Es",
+        "side": "element_block_99_Es",
+        "bottom": "element_block_99_Es"
+      },
+      "id": 32867
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_100",
+      "displayName": "Fermium",
+      "faces": {
+        "top": "element_block_100_Fm",
+        "side": "element_block_100_Fm",
+        "bottom": "element_block_100_Fm"
+      },
+      "id": 32868
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_101",
+      "displayName": "Mendelevium",
+      "faces": {
+        "top": "element_block_101_Md",
+        "side": "element_block_101_Md",
+        "bottom": "element_block_101_Md"
+      },
+      "id": 32869
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_102",
+      "displayName": "Nobelium",
+      "faces": {
+        "top": "element_block_102_No",
+        "side": "element_block_102_No",
+        "bottom": "element_block_102_No"
+      },
+      "id": 32870
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_103",
+      "displayName": "Lawrencium",
+      "faces": {
+        "top": "element_block_103_Lr",
+        "side": "element_block_103_Lr",
+        "bottom": "element_block_103_Lr"
+      },
+      "id": 32871
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_104",
+      "displayName": "Rutherfordium",
+      "faces": {
+        "top": "element_block_104_Rf",
+        "side": "element_block_104_Rf",
+        "bottom": "element_block_104_Rf"
+      },
+      "id": 32872
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_105",
+      "displayName": "Dubnium",
+      "faces": {
+        "top": "element_block_105_Db",
+        "side": "element_block_105_Db",
+        "bottom": "element_block_105_Db"
+      },
+      "id": 32873
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_106",
+      "displayName": "Seaborgium",
+      "faces": {
+        "top": "element_block_106_Sg",
+        "side": "element_block_106_Sg",
+        "bottom": "element_block_106_Sg"
+      },
+      "id": 32874
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_107",
+      "displayName": "Bohrium",
+      "faces": {
+        "top": "element_block_107_Bh",
+        "side": "element_block_107_Bh",
+        "bottom": "element_block_107_Bh"
+      },
+      "id": 32875
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_108",
+      "displayName": "Hassium",
+      "faces": {
+        "top": "element_block_108_Hs",
+        "side": "element_block_108_Hs",
+        "bottom": "element_block_108_Hs"
+      },
+      "id": 32876
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_109",
+      "displayName": "Meitnerium",
+      "faces": {
+        "top": "element_block_109_Mt",
+        "side": "element_block_109_Mt",
+        "bottom": "element_block_109_Mt"
+      },
+      "id": 32877
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_110",
+      "displayName": "Darmstadtium",
+      "faces": {
+        "top": "element_block_110_Ds",
+        "side": "element_block_110_Ds",
+        "bottom": "element_block_110_Ds"
+      },
+      "id": 32878
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_111",
+      "displayName": "Roentgenium",
+      "faces": {
+        "top": "element_block_111_Rg",
+        "side": "element_block_111_Rg",
+        "bottom": "element_block_111_Rg"
+      },
+      "id": 32879
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_112",
+      "displayName": "Copernicium",
+      "faces": {
+        "top": "element_block_112_Cn",
+        "side": "element_block_112_Cn",
+        "bottom": "element_block_112_Cn"
+      },
+      "id": 32880
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_113",
+      "displayName": "Nihonium",
+      "faces": {
+        "top": "element_block_113_Nh",
+        "side": "element_block_113_Nh",
+        "bottom": "element_block_113_Nh"
+      },
+      "id": 32881
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_114",
+      "displayName": "Flerovium",
+      "faces": {
+        "top": "element_block_114_Fl",
+        "side": "element_block_114_Fl",
+        "bottom": "element_block_114_Fl"
+      },
+      "id": 32882
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_115",
+      "displayName": "Moscovium",
+      "faces": {
+        "top": "element_block_115_Mc",
+        "side": "element_block_115_Mc",
+        "bottom": "element_block_115_Mc"
+      },
+      "id": 32883
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_116",
+      "displayName": "Livermorium",
+      "faces": {
+        "top": "element_block_116_Lv",
+        "side": "element_block_116_Lv",
+        "bottom": "element_block_116_Lv"
+      },
+      "id": 32884
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_117",
+      "displayName": "Tennessine",
+      "faces": {
+        "top": "element_block_117_Ts",
+        "side": "element_block_117_Ts",
+        "bottom": "element_block_117_Ts"
+      },
+      "id": 32885
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": false,
+      "hardness": 1,
+      "name": "element_118",
+      "displayName": "Oganesson",
+      "faces": {
+        "top": "element_block_118_Og",
+        "side": "element_block_118_Og",
+        "bottom": "element_block_118_Og"
+      },
+      "id": 32886
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "magenta_wool",
+      "displayName": "Magenta Wool",
+      "faces": {
+        "top": "magenta_wool",
+        "side": "magenta_wool",
+        "bottom": "magenta_wool"
+      },
+      "id": 164
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "light_blue_wool",
+      "displayName": "Light Blue Wool",
+      "faces": {
+        "top": "light_blue_wool",
+        "side": "light_blue_wool",
+        "bottom": "light_blue_wool"
+      },
+      "id": 165
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "pink_wool",
+      "displayName": "Pink Wool",
+      "faces": {
+        "top": "pink_wool",
+        "side": "pink_wool",
+        "bottom": "pink_wool"
+      },
+      "id": 166
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "gray_wool",
+      "displayName": "Gray Wool",
+      "faces": {
+        "top": "gray_wool",
+        "side": "gray_wool",
+        "bottom": "gray_wool"
+      },
+      "id": 167
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "light_gray_wool",
+      "displayName": "Light Gray Wool",
+      "faces": {
+        "top": "light_gray_wool",
+        "side": "light_gray_wool",
+        "bottom": "light_gray_wool"
+      },
+      "id": 168
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "cyan_wool",
+      "displayName": "Cyan Wool",
+      "faces": {
+        "top": "cyan_wool",
+        "side": "cyan_wool",
+        "bottom": "cyan_wool"
+      },
+      "id": 169
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "brown_wool",
+      "displayName": "Brown Wool",
+      "faces": {
+        "top": "brown_wool",
+        "side": "brown_wool",
+        "bottom": "brown_wool"
+      },
+      "id": 170
+    },
+    {
+      "solid": true,
+      "transparent": false,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 1.2,
+      "name": "green_wool",
+      "displayName": "Green Wool",
+      "faces": {
+        "top": "green_wool",
+        "side": "green_wool",
+        "bottom": "green_wool"
+      },
+      "id": 171
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "white_stained_glass",
+      "displayName": "White Stained Glass",
+      "faces": {
+        "top": "white_stained_glass",
+        "side": "white_stained_glass",
+        "bottom": "white_stained_glass"
+      },
+      "translucent": true,
+      "id": 172
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "orange_stained_glass",
+      "displayName": "Orange Stained Glass",
+      "faces": {
+        "top": "orange_stained_glass",
+        "side": "orange_stained_glass",
+        "bottom": "orange_stained_glass"
+      },
+      "translucent": true,
+      "id": 173
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "magenta_stained_glass",
+      "displayName": "Magenta Stained Glass",
+      "faces": {
+        "top": "magenta_stained_glass",
+        "side": "magenta_stained_glass",
+        "bottom": "magenta_stained_glass"
+      },
+      "translucent": true,
+      "id": 174
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "light_blue_stained_glass",
+      "displayName": "Light Blue Stained Glass",
+      "faces": {
+        "top": "light_blue_stained_glass",
+        "side": "light_blue_stained_glass",
+        "bottom": "light_blue_stained_glass"
+      },
+      "translucent": true,
+      "id": 175
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "yellow_stained_glass",
+      "displayName": "Yellow Stained Glass",
+      "faces": {
+        "top": "yellow_stained_glass",
+        "side": "yellow_stained_glass",
+        "bottom": "yellow_stained_glass"
+      },
+      "translucent": true,
+      "id": 176
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "lime_stained_glass",
+      "displayName": "Lime Stained Glass",
+      "faces": {
+        "top": "lime_stained_glass",
+        "side": "lime_stained_glass",
+        "bottom": "lime_stained_glass"
+      },
+      "translucent": true,
+      "id": 177
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "pink_stained_glass",
+      "displayName": "Pink Stained Glass",
+      "faces": {
+        "top": "pink_stained_glass",
+        "side": "pink_stained_glass",
+        "bottom": "pink_stained_glass"
+      },
+      "translucent": true,
+      "id": 178
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "gray_stained_glass",
+      "displayName": "Gray Stained Glass",
+      "faces": {
+        "top": "gray_stained_glass",
+        "side": "gray_stained_glass",
+        "bottom": "gray_stained_glass"
+      },
+      "translucent": true,
+      "id": 179
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "light_gray_stained_glass",
+      "displayName": "Light Gray Stained Glass",
+      "faces": {
+        "top": "light_gray_stained_glass",
+        "side": "light_gray_stained_glass",
+        "bottom": "light_gray_stained_glass"
+      },
+      "translucent": true,
+      "id": 180
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "cyan_stained_glass",
+      "displayName": "Cyan Stained Glass",
+      "faces": {
+        "top": "cyan_stained_glass",
+        "side": "cyan_stained_glass",
+        "bottom": "cyan_stained_glass"
+      },
+      "translucent": true,
+      "id": 181
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "purple_stained_glass",
+      "displayName": "Purple Stained Glass",
+      "faces": {
+        "top": "purple_stained_glass",
+        "side": "purple_stained_glass",
+        "bottom": "purple_stained_glass"
+      },
+      "translucent": true,
+      "id": 182
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "blue_stained_glass",
+      "displayName": "Blue Stained Glass",
+      "faces": {
+        "top": "blue_stained_glass",
+        "side": "blue_stained_glass",
+        "bottom": "blue_stained_glass"
+      },
+      "translucent": true,
+      "id": 183
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "brown_stained_glass",
+      "displayName": "Brown Stained Glass",
+      "faces": {
+        "top": "brown_stained_glass",
+        "side": "brown_stained_glass",
+        "bottom": "brown_stained_glass"
+      },
+      "translucent": true,
+      "id": 184
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "green_stained_glass",
+      "displayName": "Green Stained Glass",
+      "faces": {
+        "top": "green_stained_glass",
+        "side": "green_stained_glass",
+        "bottom": "green_stained_glass"
+      },
+      "translucent": true,
+      "id": 185
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "red_stained_glass",
+      "displayName": "Red Stained Glass",
+      "faces": {
+        "top": "red_stained_glass",
+        "side": "red_stained_glass",
+        "bottom": "red_stained_glass"
+      },
+      "translucent": true,
+      "id": 186
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "cube",
+      "creative": true,
+      "hardness": 0.45,
+      "name": "black_stained_glass",
+      "displayName": "Black Stained Glass",
+      "faces": {
+        "top": "black_stained_glass",
+        "side": "black_stained_glass",
+        "bottom": "black_stained_glass"
+      },
+      "translucent": true,
+      "id": 187
+    },
+    {
+      "solid": true,
+      "transparent": true,
+      "shape": "fence",
+      "creative": true,
+      "hardness": 3,
+      "name": "oak_fence",
+      "displayName": "Oak Fence",
+      "faces": {
+        "top": "oak_planks",
+        "side": "oak_planks",
+        "bottom": "oak_planks"
+      },
+      "tool": "axe",
+      "id": 188
+    }
+  ],
+  "itemDefsSHA256": "4092e025bf668b1396bec1a219df77e28c60ce7bfd3173fc54c32057318aea87",
+  "recipesSHA256": "378ba8eecfead86bde6d609ca4378ac9c6021087ae762a430d997e6ac412e0fe",
+  "blockDefsSHA256": "e557f3c7234c9b65fb58284892ec9b1d4f9f2789c3cf01b4864b48883037e8bc"
+}

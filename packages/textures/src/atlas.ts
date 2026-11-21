@@ -1,9 +1,13 @@
+import { STATION_FACE_FALLBACKS } from "@craft/engine";
 import { TILE_SIZE } from "./pixels";
 import { generateTile } from "./tiles";
 import type { SourceTile } from "./resource-pack";
 
 export interface AtlasSourceReport {
+  /** Effective replaced slots, including inherited station faces. */
   appliedKeys: readonly string[];
+  directAppliedKeys: readonly string[];
+  inheritedAppliedKeys: readonly { readonly key: string; readonly fromKey: string }[];
   fallbackKeys: readonly string[];
   /** Counts every effective source tile, including original procedural fallback. */
   source16Count: number;
@@ -44,12 +48,22 @@ export function buildAtlas(names: readonly string[], overrides?: ReadonlyMap<str
     if (!source || (source.width !== 16 && source.width !== 32) || source.height !== source.width || !(source.rgba instanceof Uint8ClampedArray) || source.rgba.length !== source.width * source.height * 4) throw new Error(`Invalid atlas source raster ${name}`);
     sources.set(name, { width: source.width, height: source.height, rgba: Uint8ClampedArray.from(source.rgba) });
   }
+  const directAppliedKeys = unique.filter(name => sources.has(name));
+  const inheritedAppliedKeys: { readonly key: string; readonly fromKey: string }[] = [];
+  // Validate and clone every explicit record before deriving any legacy aliases. Specific wins.
+  for (const name of unique) {
+    if (sources.has(name) || !Object.prototype.hasOwnProperty.call(STATION_FACE_FALLBACKS, name)) continue;
+    const fromKey = STATION_FACE_FALLBACKS[name], source = sources.get(fromKey);
+    if (!source) continue;
+    sources.set(name, { width: source.width, height: source.height, rgba: Uint8ClampedArray.from(source.rgba) });
+    inheritedAppliedKeys.push(Object.freeze({ key: name, fromKey }));
+  }
   const appliedKeys = unique.filter(name => sources.has(name)), fallbackKeys = unique.filter(name => !sources.has(name));
   for (const name of fallbackKeys) sources.set(name, { width: TILE_SIZE, height: TILE_SIZE, rgba: generateTile(name) });
   const tileSize = [...sources.values()].some(source => source.width === 32) ? 32 : TILE_SIZE;
   const source32Count = [...sources.values()].filter(source => source.width === 32).length;
   const source16Count = sources.size - source32Count;
-  const report: AtlasSourceReport = Object.freeze({ appliedKeys: Object.freeze(appliedKeys), fallbackKeys: Object.freeze(fallbackKeys), source16Count, source32Count, expanded16To32Count: tileSize === 32 ? source16Count : 0 });
+  const report: AtlasSourceReport = Object.freeze({ appliedKeys: Object.freeze(appliedKeys), directAppliedKeys: Object.freeze(directAppliedKeys), inheritedAppliedKeys: Object.freeze(inheritedAppliedKeys), fallbackKeys: Object.freeze(fallbackKeys), source16Count, source32Count, expanded16To32Count: tileSize === 32 ? source16Count : 0 });
   let columns = 1;
   while (columns * columns < unique.length) columns *= 2;
   const width = columns * tileSize;

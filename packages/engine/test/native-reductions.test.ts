@@ -1,3 +1,4 @@
+import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
@@ -67,7 +68,7 @@ it("rejects the sulfur material/atom name collision and leaves unsupported/unkno
 
 it("keeps every complete pre-increment block/item definition and atom identity unchanged", () => {
   expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
-  expect(digest(BLOCKS.slice(0, 307))).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
+  expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
   expect(digest(BLOCKS.slice(0, 307).map(({ id, name }) => [id, name]))).toBe(baseline.allBlockIDNamesSHA256);
   expect(digest(ITEMS.slice(0, 535).map(({ id, name }) => [id, name]))).toBe(baseline.allItemIDNamesSHA256);
   expect(digest(ITEMS.filter((i) => i.chem?.kind === "element" || i.chem?.kind === "isotope").map((i) => [i.id, i.chem!.kind, i.chem!.z, i.chem!.symbol, i.chem!.mass])))

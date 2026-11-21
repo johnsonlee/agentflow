@@ -1,3 +1,4 @@
+import { STATION_FACE_TEXTURES } from "./station-textures";
 import { DYE_COLORS } from "./dyes";
 /**
  * Compact block registry. Stable low and extended IDs are stored in Uint16 chunk arrays;
@@ -116,10 +117,10 @@ const specs: BlockSpec[] = [
   { name: "chalkboard_poster", displayName: "Poster", faces: faces("chalkboard"), solid: false, transparent: true, shape: "none", hardness: 1.5 },
   { name: "chalkboard_board", displayName: "Board", faces: faces("chalkboard"), solid: false, transparent: true, shape: "none", hardness: 1.5 },
   // Education Edition chemistry stations (use them to open their screens).
-  { name: "element_constructor", displayName: "Element Constructor", faces: faces("chem_station_top", "element_constructor_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
-  { name: "compound_creator", displayName: "Compound Creator", faces: faces("chem_station_top", "compound_creator_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
-  { name: "material_reducer", displayName: "Material Reducer", faces: faces("chem_station_top", "material_reducer_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
-  { name: "lab_table", displayName: "Lab Table", faces: faces("chem_station_top", "lab_table_side", "chem_station_top"), hardness: 5, tool: "pickaxe" },
+  { name: "element_constructor", displayName: "Element Constructor", faces: faces(STATION_FACE_TEXTURES.element_constructor.top, "element_constructor_side", STATION_FACE_TEXTURES.element_constructor.bottom), hardness: 5, tool: "pickaxe" },
+  { name: "compound_creator", displayName: "Compound Creator", faces: faces(STATION_FACE_TEXTURES.compound_creator.top, "compound_creator_side", STATION_FACE_TEXTURES.compound_creator.bottom), hardness: 5, tool: "pickaxe" },
+  { name: "material_reducer", displayName: "Material Reducer", faces: faces(STATION_FACE_TEXTURES.material_reducer.top, "material_reducer_side", STATION_FACE_TEXTURES.material_reducer.bottom), hardness: 5, tool: "pickaxe" },
+  { name: "lab_table", displayName: "Lab Table", faces: faces(STATION_FACE_TEXTURES.lab_table.top, "lab_table_side", STATION_FACE_TEXTURES.lab_table.bottom), hardness: 5, tool: "pickaxe" },
   // Lab Table products once placed (the items place these; breaking one gives the item back), and ice.
   { name: "ice", displayName: "Ice", faces: faces("ice"), hardness: 0.75, tool: "pickaxe" },
   { name: "placed_heat_block", displayName: "Heat Block", faces: faces("heat_block"), hardness: 1.5, creative: false },

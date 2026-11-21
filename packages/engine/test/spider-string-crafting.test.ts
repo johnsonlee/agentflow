@@ -1,3 +1,4 @@
+import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
@@ -9,7 +10,7 @@ const string = (count = 1) => ({ id: stackId("string"), count });
 it("appends string and its wool recipe while preserving every published item, block and recipe", () => {
   expect([ITEMS.slice(0, 551).length, BLOCKS.slice(0, 307).length, RECIPES.slice(0, 142).length]).toEqual([551, 307, 142]);
   expect(digest(ITEMS.slice(0, 550))).toBe(before.itemDefsSHA256);
-  expect(digest(BLOCKS.slice(0, 307))).toBe(before.blockDefsSHA256);
+  expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(before.blockDefsSHA256);
   expect(digest(RECIPES.slice(0, 141))).toBe(before.recipesSHA256);
   expect(ITEMS.slice(0, 550).map(i => [i.id, i.name])).toEqual(before.itemIDs);
   expect(RECIPES.slice(0, 141).map(r => r.id)).toEqual(before.recipeIDs);

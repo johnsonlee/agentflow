@@ -1,3 +1,4 @@
+import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
@@ -17,7 +18,7 @@ it("pins the explicit modern recipe while retaining the conflicting older slime 
 });
 it("appends Lead807 and one recipe without changing published item/block/recipe identities", () => {
   expect([ITEMS.length, BLOCKS.length, RECIPES.length]).toEqual([552, 308, 144]);
-  expect(digest(ITEMS.slice(0, 551))).toBe(baseline.itemDefsSHA256); expect(digest(BLOCKS)).toBe(baseline.blockDefsSHA256);
+  expect(digest(ITEMS.slice(0, 551))).toBe(baseline.itemDefsSHA256); expect(digest(withLegacyStationFaces(BLOCKS))).toBe(baseline.blockDefsSHA256);
   expect(digest(RECIPES.slice(0, 143))).toBe(baseline.recipesSHA256); expect(ITEMS.slice(0, 551).map(i => [i.id, i.name])).toEqual(baseline.itemIDs);
   for (const [id, name] of baseline.itemIDs as [number, string][]) expect(stackId(name)).toBe(id);
   expect(stackId("lead_rope")).toBe(807); expect(stackId("lead")).toBe(484); expect(itemById(484).chem).toMatchObject({ kind: "element", z: 82 }); expect(new Set(ITEMS.map(i => i.name)).size).toBe(552); expect(maxStackOf(807)).toBe(64); expect(placedBlockOf(807)).toBeNull(); expect(ITEMS.at(-1)?.icon).toBe("item_lead");

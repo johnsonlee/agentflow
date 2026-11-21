@@ -1,3 +1,4 @@
+import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
@@ -15,7 +16,7 @@ const floor = { getLoadedBlock: (_x: number, y: number, _z: number) => y === 0 ?
 const position = { x: .5, y: 1, z: .5 };
 
 it("preserves complete307blocks/535items/127other recipes/22native rows and appends one distinct ordinary material", () => {
-  expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(hash(BLOCKS.slice(0, 307))).toBe(baseline.blockDefsSHA256);
+  expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(hash(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(baseline.blockDefsSHA256);
   expect(ITEMS.slice(0, 537)).toHaveLength(537); expect(hash(ITEMS.slice(0, 535))).toBe(baseline.itemDefsSHA256);
   expect(RECIPES.slice(0, 128)).toHaveLength(128); expect(hash(RECIPES.slice(0, 128).filter((r) => r.id !== "glowstone").map((r) => r.id === "snow_block" ? { ...r, key: { "#": "snow" }, note: "Minecraft uses snowballs" } : r))).toBe(baseline.other127RecipesSHA256);
   expect(baseline.previousGlowstoneRecipe).toEqual({ id: "glowstone", pattern: ["##", "##"], key: { "#": "gold_ore" }, result: ["glowstone", 1], note: "Minecraft uses glowstone dust" });

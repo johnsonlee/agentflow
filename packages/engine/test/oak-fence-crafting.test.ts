@@ -1,3 +1,4 @@
+import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
@@ -22,7 +23,7 @@ it("pins the retained canonical oak recipe and explicit output count while keepi
 });
 it("adds one explicit unused low-block identity without changing published definitions or recipes", () => {
   expect([ITEMS.slice(0, 551).length, BLOCKS.slice(0, 308).length, RECIPES.slice(0, 143).length]).toEqual([551, 308, 143]);
-  expect(digest(ITEMS.slice(0, 551))).toBe(before.itemDefsSHA256); expect(digest(BLOCKS.slice(0, 307))).toBe(before.blockDefsSHA256);
+  expect(digest(ITEMS.slice(0, 551))).toBe(before.itemDefsSHA256); expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(before.blockDefsSHA256);
   expect(digest(RECIPES.slice(0, 142))).toBe(before.recipesSHA256);
   expect(BLOCKS.slice(0, 307).map(b => [b.id, b.name])).toEqual(before.blockIDs);
   expect(blockId("oak_fence")).toBe(188); expect(BLOCKS.at(-1)?.name).toBe("oak_fence");

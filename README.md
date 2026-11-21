@@ -61,6 +61,19 @@ On the title screen, open **Resource Packs**, import a compatible JSON file, rev
 
 This application format accepts explicit texture keys with square 16×16 or 32×32 RGBA pixels, up to 8 MiB per file. A mixed pack uses 32-pixel atlas cells and expands 16-pixel sources by nearest-neighbor 2×; original source pixels and content hashes remain available in pack details and diagnostics. Standard Minecraft ZIP/`.mcpack` files and automatic native-pack selection are not supported. The importer supplies no Education artwork or proof of native rendering equivalence.
 
+The four chemistry stations have separate top and bottom keys:
+
+| Station | Top | Bottom |
+| --- | --- | --- |
+| Element Constructor | `element_constructor_top` | `element_constructor_bottom` |
+| Compound Creator | `compound_creator_top` | `compound_creator_bottom` |
+| Material Reducer | `material_reducer_top` | `material_reducer_bottom` |
+| Lab Table | `lab_table_top` | `lab_table_bottom` |
+
+An older pack containing `chem_station_top` also supplies these eight faces. A dedicated key takes priority over that shared image, including when the two images have different source sizes. Pack details distinguish supplied images from the texture slots they replace: one shared image covers nine slots, including its retained legacy slot. Without overrides, the eight faces keep the original shared artwork. Horizontal side bindings are unchanged.
+
+For package consumers, `allAtlasTextureNames()` from `@craft/engine` supplies the complete supported key list in stable atlas order. New keys append to the catalog; retired keys remain available to older local packs.
+
 To prepare a file from your own PNGs, use the optional Python/Pillow converter. Create a mapping beside the images, for example `mapping.json`:
 
 ```json

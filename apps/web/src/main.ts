@@ -1,4 +1,4 @@
-import { tryBlockById, blockId, itemTextureNames, parseSave, seedFromString, stackId, textureNames, type GameMode, type SaveData } from "@craft/engine";
+import { tryBlockById, blockId, allAtlasTextureNames, parseSave, seedFromString, stackId, type GameMode, type SaveData } from "@craft/engine";
 import { buildAtlas, MAX_PACK_BYTES, parseLocalTexturePack, type ParsedLocalTexturePack, type TextureAtlas } from "@craft/textures";
 import { readLocalTexturePack, writeLocalTexturePack } from "./resourcePackStore";
 import { blockIcon } from "./icons";
@@ -6,7 +6,7 @@ import { Game, SAVE_KEY } from "./game";
 import "./style.css";
 
 const app = document.getElementById("app")!;
-const textureKeys = [...new Set([...textureNames(), ...itemTextureNames()])];
+const textureKeys = allAtlasTextureNames();
 const originalAtlas = buildAtlas(textureKeys);
 let atlas = originalAtlas;
 interface LocalPack { pack: ParsedLocalTexturePack; bytes: Uint8Array<ArrayBuffer>; atlas: TextureAtlas }
@@ -113,13 +113,13 @@ function showResourcePacks(message = ""): void {
     const applied = choice?.atlas.report.appliedKeys.length ?? 0;
     coverage.textContent = `${applied} of ${textureKeys.length} textures replaced; ${textureKeys.length - applied} use original artwork.`;
     previews.replaceChildren();
-    for (const name of ["stone", "glass", "oak_log", "diamond_ore", "iron_ingot"]) {
+    for (const name of ["stone", "glass", "oak_log", "diamond_ore", "iron_ingot", "element_constructor", "compound_creator", "material_reducer", "lab_table"]) {
       const image = el("img"); image.src = blockIcon(active, stackId(name), 48); image.alt = name.replaceAll("_", " "); previews.append(image);
     }
     details.replaceChildren(el("summary", "", "Pack details"));
     if (choice) {
       const report = choice.atlas.report;
-      details.append(el("p", "", `${report.source16Count} source tiles at 16×16; ${report.source32Count} at 32×32. ${report.expanded16To32Count} tiles expanded by 2×.`), el("p", "pack-hash", `SHA-256: ${choice.pack.contentSha256}`));
+      details.append(el("p", "", `Images supplied: ${choice.pack.tiles.size}. Textures replaced directly: ${report.directAppliedKeys.length}. Station faces using the shared image: ${report.inheritedAppliedKeys.length}. ${report.source16Count} effective tiles at 16×16; ${report.source32Count} at 32×32. ${report.expanded16To32Count} tiles expanded by 2×.`), el("p", "pack-hash", `SHA-256: ${choice.pack.contentSha256}`));
     } else details.append(el("p", "", "Original generated artwork."));
   };
   const busy = (value: boolean) => { resourceBusy = value; for (const control of s.querySelectorAll<HTMLButtonElement | HTMLInputElement>("button,input")) control.disabled = value; };
