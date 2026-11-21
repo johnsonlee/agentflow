@@ -6,7 +6,7 @@ import {
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, maxStackOf, loadPrograms, startProgram, type AgentCommand,
-  clampPosition, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
+  clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
 import type { TextureAtlas } from "@craft/textures";
@@ -63,6 +63,7 @@ export class Game {
   private readonly worldDropsView: WorldDropsView;
   saveError = "";
   private recoveryOriginal: string | null = null;
+  private recoverySections: string[] = [];
   private stopped = false;
   private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
   private readonly handleResize = () => { if (!this.stopped) this.resize(); };
@@ -164,7 +165,7 @@ export class Game {
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
     this.farming = new FarmingSystem(this.world, save?.farming);
     this.worldDrops = new WorldDrops(this.world, save?.worldDrops);
-    if (this.worldDrops.loadIssues) this.recoveryOriginal = localStorage.getItem(SAVE_KEY);
+    if (this.worldDrops.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("world drops"); }
     // Redstone: component states are blocks (in the edits); pending ticks are saved separately.
     this.redstone = new Redstone(this.world);
     if (save) this.redstone.restore(sanitizeScheduled(save.redstone), this.world.exportEdits());
@@ -176,9 +177,14 @@ export class Game {
       const ok = this.mobLoot.tryDrop(mob, this.dropSink, { ...mob.position, y: mob.position.y + .3 });
       if (!ok) this.hud?.message("Could not preserve mob drops; the mob remains in the world");
       return ok;
-    });
-    // Every optional save section is sanitized (strict, own-property checks); bad entries are dropped.
-    for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
+    }, (mob) => this.mobLoot.exportPending(mob) !== undefined);
+    const creatures = sanitizeMobState(save?.mobs);
+    if (creatures.present) this.mobs.restore(creatures.data, this.mobLoot);
+    else for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
+    if (creatures.invalid) {
+      this.recoveryOriginal = localStorage.getItem(SAVE_KEY);
+      this.recoverySections.push("creatures");
+    }
     this.hunger = sanitizeHunger(save?.hunger) ?? createHunger();
     const furnaces = sanitizeFurnaces(save?.furnaces);
     for (const f of furnaces.furnaces) this.furnaces.set(furnaceKey(f.x, f.y, f.z), f.state);
@@ -219,6 +225,7 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    if (creatures.invalid) this.loadErrors.push(`${creatures.invalid} damaged creature entries (original save preserved)`);
     if (this.worldDrops.loadIssues) this.loadErrors.push(`${this.worldDrops.loadIssues} damaged world-drop entries`);
     if (boards.dropped + furnaces.dropped > 0) this.loadErrors.push(`${boards.dropped + furnaces.dropped} damaged chalkboard/furnace entries`);
     this.agentView = new AgentView(this.renderer.scene, this.agent);
@@ -246,7 +253,7 @@ export class Game {
     if (this.inventoryScreen.restorePending(this.inventory, this.mode, sanitizeInventoryPending(save?.inventoryPending))) this.suspendInput();
 
     if (this.portfolio.dropped > 0) this.loadErrors.push(`${this.portfolio.dropped} damaged portfolio photos`);
-    for (const err of this.loadErrors) this.hud.message(`Dropped damaged saved data: ${err}`);
+    for (const err of this.loadErrors) this.hud.message(`Saved data needs attention: ${err}`);
     this.hud.message(this.touch
       ? "Move with the left stick, drag to look, tap to place, hold to break."
       : "Click to play. WASD move, mouse look, left click break, right click place, E inventory, / commands.");
@@ -335,6 +342,7 @@ export class Game {
         inventoryPending: this.inventoryScreen.pendingItems(),
         worldDrops: this.worldDrops.toJSON(),
         edits: this.world.exportEdits(),
+        mobs: this.mobs.exportState(this.mobLoot),
         npcs: this.mobs.exportNpcs(),
         hunger: { ...this.hunger },
         chalkboards: [...this.chalkboards.values()].map((b) => ({ ...b })),
@@ -352,8 +360,8 @@ export class Game {
 
   save(): boolean {
     if (this.stopped || Game.activeWriter !== this) return false;
-    if (this.recoveryOriginal !== null) {
-      this.saveError = "Damaged world drops were found. The original save is preserved; export a recovery backup before leaving.";
+    if (this.recoverySections.length > 0) {
+      this.saveError = `Damaged ${this.recoverySections.join(" and ")} were found. The original save is preserved; export a recovery backup. Saving and quitting remain blocked until the saved data is repaired.`;
       this.hud.message(this.saveError); return false;
     }
     try {
@@ -1050,6 +1058,7 @@ export class Game {
           z,
         };
         // NPCs face the player.
+        if (this.mobs.idsExhausted) { reply = "Creature IDs are exhausted; no creature was summoned"; break; }
         const mob = this.mobs.spawn(cmd.kind, { x: spot.x, y: spot.y + 0.01, z: spot.z }, { name: cmd.name, yaw: this.body.yaw + Math.PI });
         reply = `Summoned new ${mob.kind === "npc" ? (mob.name ?? "NPC") : MOB_SPECS[mob.kind].displayName}`;
         break;

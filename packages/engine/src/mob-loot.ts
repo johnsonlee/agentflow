@@ -29,12 +29,48 @@ export function mobDrops(kind: MobKind, rand: () => number = Math.random): ItemS
   return stacks;
 }
 
+const plain = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value) && (Object.getPrototypeOf(value) === Object.prototype || Object.getPrototypeOf(value) === null);
+
+/** A cached roll must be an actual batch permitted by this mob kind, including a legitimate empty roll. */
+export function sanitizePendingMobLoot(kind: MobKind, raw: unknown): ItemStack[] | null {
+  try {
+    if (!Object.prototype.hasOwnProperty.call(MOB_SPECS, kind) || !Array.isArray(raw)) return null;
+    const minimum = mobDrops(kind, () => 0), maximum = mobDrops(kind, () => 1), result: ItemStack[] = [];
+    let cursor = 0;
+    for (const upper of maximum) {
+      const lower = minimum.find((s) => s.id === upper.id)?.count ?? 0;
+      const candidate = raw[cursor];
+      if (plain(candidate) && Object.prototype.hasOwnProperty.call(candidate, "id") && candidate.id === upper.id) {
+        const count = Object.prototype.hasOwnProperty.call(candidate, "count") ? candidate.count : undefined;
+        if (!Number.isSafeInteger(count) || (count as number) < Math.max(1, lower) || (count as number) > upper.count || Object.keys(candidate).some((key) => key !== "id" && key !== "count")) return null;
+        result.push({ id: upper.id, count: count as number }); cursor++;
+      } else if (lower > 0) return null;
+    }
+    return cursor === raw.length ? result : null;
+  } catch { return null; }
+}
+
 interface PendingLoot { stacks: ItemStack[]; committed: boolean; transferring: boolean }
 
 /** One roll per mob object. Failed reservations retain that roll; committed calls never respawn it. */
 export class MobLootResolver {
   private readonly pending = new WeakMap<Mob, PendingLoot>();
   constructor(private readonly rand: () => number = Math.random) {}
+
+  /** Undefined means never resolved/already delivered; [] is a pending zero-result roll. */
+  exportPending(mob: Mob): ItemStack[] | undefined {
+    const record = this.pending.get(mob);
+    return record && !record.committed ? record.stacks.map((stack) => cloneStack(stack)) : undefined;
+  }
+
+  /** Restores once onto a fresh live object, never overwriting another roll or a committed owner. */
+  restorePending(mob: Mob, raw: unknown): boolean {
+    if (this.pending.has(mob)) return false;
+    const stacks = sanitizePendingMobLoot(mob.kind, raw);
+    if (stacks === null) return false;
+    this.pending.set(mob, { stacks, committed: false, transferring: false });
+    return true;
+  }
 
   tryDrop(mob: Mob, sink: DropSink, position: Vec3): boolean {
     let record = this.pending.get(mob);

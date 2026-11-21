@@ -1,7 +1,8 @@
 import * as THREE from "three";
 import {
   MOB_SPECS, PASSIVE_MOBS, PATHFINDING, SEA_LEVEL, onBlockChangedNear, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
-  raycastMob, skyDarken, skyOf, stackId, stepMob,
+  raycastMob, skyDarken, skyOf, stackId, stepMob, mobSnapshot, restoreMobSnapshot,
+  type MobStateData, type MobLootResolver,
   type Mob, type MobKind, type Vec3, type World,
 } from "@craft/engine";
 
@@ -199,18 +200,42 @@ export class MobManager {
     private readonly world: World,
     private readonly scene: THREE.Scene,
     private readonly onDeath: (mob: Mob, cause: MobDeathCause) => boolean = () => true,
+    private readonly hasPendingLoot: (mob: Mob) => boolean = () => false,
   ) {
     // Opening (or closing) a shelter near the player or a zombie ends that zombie's path back-off.
     this.unsubscribeBlock = world.onBlockChanged((x, y, z) => onBlockChangedNear(this.mobs, x, y, z, this.lastPlayer));
   }
 
+  get idsExhausted(): boolean { return this.nextId >= Number.MAX_SAFE_INTEGER; }
+
   spawn(kind: MobKind, position: Vec3, extra: { name?: string; dialogue?: string; yaw?: number } = {}): Mob {
+    if (this.nextId >= Number.MAX_SAFE_INTEGER) throw new Error("Creature IDs are exhausted; no creature was summoned");
     const mob = createMob(this.nextId++, kind, position, extra);
+    this.register(mob);
+    return mob;
+  }
+
+  /** Restore stable IDs before registering their models; the new section owns all kinds. */
+  restore(data: MobStateData, loot: MobLootResolver): void {
+    this.nextId = data.nextId;
+    for (const snapshot of data.records) {
+      const mob = restoreMobSnapshot(snapshot);
+      if (snapshot.pendingLoot !== undefined && !loot.restorePending(mob, snapshot.pendingLoot)) throw new Error("Invalid pending creature loot");
+      this.register(mob);
+    }
+  }
+
+  exportState(loot: MobLootResolver): MobStateData {
+    return { nextId: this.nextId, records: this.mobs.map(mob => mobSnapshot(mob, loot.exportPending(mob))) };
+  }
+
+  private register(mob: Mob): void {
     this.mobs.push(mob);
     const model = buildModel(mob);
     this.models.set(mob.id, model);
+    model.position.set(mob.position.x, mob.position.y, mob.position.z);
+    model.rotation.y = mob.yaw;
     this.scene.add(model);
-    return mob;
   }
 
   remove(mob: Mob): void {
@@ -255,8 +280,9 @@ export class MobManager {
     this.rotation++;
     for (const mob of order) {
       const dist = Math.hypot(mob.position.x - player.x, mob.position.z - player.z);
+      // A refused fatal transfer still owns its cached loot, even outside the simulation radius.
       if (mob.kind !== "npc" && dist > DESPAWN_DISTANCE) {
-        this.remove(mob);
+        if (!this.hasPendingLoot(mob)) this.remove(mob);
         continue;
       }
       if (mob.position.y < -10) {
@@ -329,9 +355,10 @@ export class MobManager {
 
   /** Natural hostile spawning: a few tries per tick on the surface and in caves (see canHostileSpawn). */
   private spawnHostileNear(player: Vec3, darken: number): void {
+    if (this.nextId >= Number.MAX_SAFE_INTEGER) return;
     const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
     const light = (x: number, y: number, z: number) => this.world.getLight(x, y, z);
-    for (let attempt = 0; attempt < 4 && this.hostileCount() < MAX_HOSTILES; attempt++) {
+    for (let attempt = 0; attempt < 4 && this.hostileCount() < MAX_HOSTILES && this.nextId < Number.MAX_SAFE_INTEGER; attempt++) {
       const angle = this.rand() * Math.PI * 2;
       // Minecraft: no closer than 24 blocks to the player.
       const r = 24 + this.rand() * 20;
@@ -355,6 +382,7 @@ export class MobManager {
   }
 
   private spawnNear(player: Vec3): void {
+    if (this.nextId >= Number.MAX_SAFE_INTEGER) return;
     if (this.animalCount() >= MAX_ANIMALS) return;
     const grass = blockId("grass");
     const angle = this.rand() * Math.PI * 2;
@@ -368,7 +396,7 @@ export class MobManager {
     const herd = 2 + Math.floor(this.rand() * 2);
     const spec = MOB_SPECS[kind];
     const get = (bx: number, by: number, bz: number) => this.world.getBlock(bx, by, bz);
-    for (let i = 0; i < herd && this.animalCount() < MAX_ANIMALS; i++) {
+    for (let i = 0; i < herd && this.animalCount() < MAX_ANIMALS && this.nextId < Number.MAX_SAFE_INTEGER; i++) {
       const at = { x: x + 0.5 + i * 0.7, y: h + 1.05, z: z + 0.5 };
       // Only spawn where the whole body fits (wide animals can overlap neighbouring columns).
       if (boxCollides(get, bodyBox(at, spec.width, spec.height))) continue;

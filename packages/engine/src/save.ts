@@ -1,3 +1,4 @@
+import type { MobStateData } from "./mob-save";
 import type { WorldDropsData } from "./world-drops";
 import { sanitizeFarmingState, type FarmingState } from "./farming";
 import type { BlockEdit } from "./world";
@@ -43,6 +44,8 @@ export interface SaveData {
   farming?: FarmingState;
   /** Optional v1 world-owned items; WorldDrops validates and reports corrupt records before save overwrite. */
   worldDrops?: WorldDropsData;
+  /** Optional v1 live mob owners; validated separately without truncating valid records. */
+  mobs?: MobStateData;
 }
 
 export function serializeSave(data: Omit<SaveData, "version">): string {
@@ -112,7 +115,7 @@ export function parseSave(text: string): SaveData {
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true) },
   };
   // Optional sections: passed through for their own sanitizers.
-  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops"] as const) {
+  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs"] as const) {
     const v = own(raw, key);
     if (v !== undefined) (save as unknown as Obj)[key] = v;
   }
