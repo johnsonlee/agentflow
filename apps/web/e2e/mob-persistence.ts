@@ -153,7 +153,32 @@ export async function mobPersistenceRoute(page: Page, info: TestInfo, mobile: bo
   expect(JSON.parse(await fs.readFile(backupPath, "utf8")).recoveryOriginalSave).toBe(corrupt);
   await press(page.getByRole("button", { name: "Save & Quit to Title" })); await expect(page.locator(".pause-screen")).toBeVisible();
   expect(await page.evaluate(() => localStorage.getItem("craft.save.v1"))).toBe(corrupt);
+  const assertStatusVisible = async () => {
+    const bounds = await page.locator(".pause-screen .save-status").evaluate(status => {
+      const panel = status.closest(".panel")!, box = status.getBoundingClientRect(), clip = panel.getBoundingClientRect();
+      return { top: box.top, bottom: box.bottom, left: box.left, right: box.right, clipTop: Math.max(clip.top + panel.clientTop, 0), clipBottom: Math.min(clip.top + panel.clientTop + panel.clientHeight, innerHeight), clipLeft: Math.max(clip.left + panel.clientLeft, 0), clipRight: Math.min(clip.left + panel.clientLeft + panel.clientWidth, innerWidth) };
+    });
+    expect(bounds.top).toBeGreaterThanOrEqual(bounds.clipTop - 1); expect(bounds.bottom).toBeLessThanOrEqual(bounds.clipBottom + 1);
+    expect(bounds.left).toBeGreaterThanOrEqual(bounds.clipLeft - 1); expect(bounds.right).toBeLessThanOrEqual(bounds.clipRight + 1);
+  };
+  await assertStatusVisible();
   await snap(page, info, "damaged-creature-original-preserved-even-after-export-request");
+  if (mobile) {
+    // Reuse the actual corrupt-save recovery flow at landscape and a narrow portrait viewport.
+    for (const viewport of [{ width: 915, height: 412 }, { width: 375, height: 667 }]) {
+      await page.setViewportSize(viewport);
+      await press(page.getByRole("button", { name: "Save & Quit to Title" }));
+      await expect(page.locator(".save-status")).toContainText("Original save preserved"); await assertStatusVisible();
+      await snap(page, info, `recovery-warning-fully-visible-${viewport.width}x${viewport.height}`);
+      const downloaded = page.waitForEvent("download"); await press(page.getByRole("button", { name: "Export world backup" }));
+      await (await downloaded).saveAs(info.outputPath(`recovery-backup-${viewport.width}x${viewport.height}.json`));
+      await expect(page.locator(".save-status")).toContainText("Backup download requested"); await assertStatusVisible();
+      await snap(page, info, `recovery-backup-status-fully-visible-${viewport.width}x${viewport.height}`);
+      await press(page.getByRole("button", { name: "Save & Quit to Title" })); await assertStatusVisible();
+      expect(await page.evaluate(() => localStorage.getItem("craft.save.v1"))).toBe(corrupt);
+      await expect(page.locator(".pause-screen")).toBeVisible();
+    }
+  }
   await fs.writeFile(info.outputPath("mob-persistence-evidence.json"), JSON.stringify({ fixtures: "raw living entities/idle poses, loaded bedrock pad/zombie cage/night; one sink refusal; legacy section deletion; corrupt pending fixture. No loot injection or RNG override.", first, loaded, refused, pending, dead, allocated, compatibility, legacy, errors }, null, 2));
   expect(errors).toEqual([]);
 }

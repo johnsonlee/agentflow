@@ -37,7 +37,7 @@ describe("chat commands", () => {
   it("parses /gamerule", () => {
     expect(parseCommand("/gamerule doMobSpawning false")).toEqual({ type: "gamerule", rule: "doMobSpawning", value: false });
     expect(parseCommand("/gamerule doDaylightCycle true")).toEqual({ type: "gamerule", rule: "doDaylightCycle", value: true });
-    expect(parseCommand("/gamerule keepInventory true").type).toBe("error");
+    expect(parseCommand("/gamerule keepInventory true")).toEqual({ type: "gamerule", rule: "keepInventory", value: true });
     expect(parseCommand("/gamerule doMobSpawning maybe").type).toBe("error");
   });
 

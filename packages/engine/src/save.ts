@@ -1,3 +1,4 @@
+import { sanitizePlayerState, validatePlayerDeathOwnership, type PlayerStateData } from "./player-death";
 import type { MobStateData } from "./mob-save";
 import type { WorldDropsData } from "./world-drops";
 import { sanitizeFarmingState, type FarmingState } from "./farming";
@@ -26,8 +27,12 @@ export interface SaveData {
   /** Held/crafting stacks, recovered through the inventory UI after loading. */
   inventoryPending?: ItemStack[];
   edits: BlockEdit[];
-  /** Game rules (optional for older saves; both default to true). */
-  gamerules?: { doMobSpawning: boolean; doDaylightCycle: boolean };
+  /** Game rules: mob/daylight default true; keepInventory defaults false (also in legacy saves). */
+  gamerules?: { doMobSpawning: boolean; doDaylightCycle: boolean; keepInventory?: boolean };
+  /** Optional v1 health/death lifecycle; invalid present data is reported before overwrite. */
+  playerState?: PlayerStateData;
+  /** Derived read-only diagnostic, never trusted from serialized JSON or written by the game. */
+  playerStateOwnershipInvalid?: boolean;
   /** Education Edition NPCs placed in the world (optional for older saves). */
   npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
   /** Survival hunger (optional for older saves; defaults to full). */
@@ -112,12 +117,15 @@ export function parseSave(text: string): SaveData {
     inventoryPending: sanitizeInventoryPending(own(raw, "inventoryPending")),
     farming: sanitizeFarmingState(own(raw, "farming")),
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
-    gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true) },
+    gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
   // Optional sections: passed through for their own sanitizers.
-  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs"] as const) {
+  for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs", "playerState"] as const) {
     const v = own(raw, key);
     if (v !== undefined) (save as unknown as Obj)[key] = v;
   }
+  // Diagnose raw ownership before the regular legacy loaders can repair/truncate it. The game
+  // must preserve the original save instead of overwriting a pending/completed death with loss.
+  if (sanitizePlayerState(own(raw, "playerState")).data.death && !validatePlayerDeathOwnership(own(raw, "inventory"), own(raw, "inventoryPending"))) save.playerStateOwnershipInvalid = true;
   return save;
 }

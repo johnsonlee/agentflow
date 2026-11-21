@@ -1,5 +1,5 @@
 import {
-  AIR, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, eat, furnaceContents, tickFurnace,
@@ -21,7 +21,7 @@ import { WorldDropsView } from "./worldDropsView";
 
 export const SAVE_KEY = "craft.save.v1";
 const REACH = 5;
-const MAX_HEALTH = 20;
+const MAX_HEALTH = MAX_PLAYER_HEALTH;
 const PITCH_LIMIT = Math.PI / 2 - 0.01;
 const CREATIVE_REPEAT = 0.25;
 const CRAFTING_TABLE = blockId("crafting_table");
@@ -62,6 +62,10 @@ export class Game {
   readonly worldDrops: WorldDrops;
   private readonly worldDropsView: WorldDropsView;
   saveError = "";
+  deathError = "";
+  private deathState: PlayerDeathState | undefined;
+  private readonly deathTransfer = new PlayerDeathTransfer();
+  private keepInventory = false;
   private recoveryOriginal: string | null = null;
   private recoverySections: string[] = [];
   private stopped = false;
@@ -190,6 +194,12 @@ export class Game {
     for (const f of furnaces.furnaces) this.furnaces.set(furnaceKey(f.x, f.y, f.z), f.state);
     this.mobs.spawning = save?.gamerules?.doMobSpawning ?? options.spawnAnimals ?? true;
     this.daylightCycle = save?.gamerules?.doDaylightCycle ?? true;
+    this.keepInventory = save?.gamerules?.keepInventory ?? false;
+    const playerState = sanitizePlayerState(save?.playerState);
+    this.health = playerState.data.health; this.deathState = playerState.data.death; this.dead = this.health === 0;
+    if (playerState.invalid) {
+      this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("player state");
+    }
 
     this.spawn = this.findSpawn();
     this.body = createPlayerBody(save?.player.position ?? this.spawn);
@@ -198,11 +208,14 @@ export class Game {
     this.body.pitch = save?.player.pitch ?? 0;
     this.body.flying = save?.player.flying ?? false;
     this.inventory = save ? Inventory.fromJSON(save.inventory) : this.starterInventory();
+    if (this.dead && (save?.playerStateOwnershipInvalid || !validatePlayerDeathOwnership(save?.inventory, save?.inventoryPending))) {
+      this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("player state");
+    }
 
     this.keyboard = new KeyboardMouseInput(canvas, { mouseButtons: !options.touch });
     this.touch = options.touch ? new TouchControls(canvas, this.root) : null;
     this.hud = new Hud(this.root, atlas, {
-      onSelectSlot: (slot) => this.inventory.select(slot),
+      onSelectSlot: (slot) => { if (!this.dead) this.inventory.select(slot); },
       onOpenInventory: () => this.toggleInventory(),
       onPause: () => this.pause(),
       onChat: () => this.openChat(),
@@ -225,6 +238,7 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    if (playerState.invalid) this.loadErrors.push("Damaged player state (original save preserved)");
     if (creatures.invalid) this.loadErrors.push(`${creatures.invalid} damaged creature entries (original save preserved)`);
     if (this.worldDrops.loadIssues) this.loadErrors.push(`${this.worldDrops.loadIssues} damaged world-drop entries`);
     if (boards.dropped + furnaces.dropped > 0) this.loadErrors.push(`${boards.dropped + furnaces.dropped} damaged chalkboard/furnace entries`);
@@ -251,6 +265,15 @@ export class Game {
     window.addEventListener("pagehide", this.handlePageHide);
     this.resize();
     if (this.inventoryScreen.restorePending(this.inventory, this.mode, sanitizeInventoryPending(save?.inventoryPending))) this.suspendInput();
+    if (this.dead) {
+      this.inventoryScreen.freezeForDeath(); this.suspendInput();
+      if (this.deathState?.phase === "complete" && !this.deathState.keepInventory &&
+          (this.inventory.slots.some(Boolean) || ARMOR_SLOTS.some(slot => this.inventory.equipment[slot]) || this.inventoryScreen.pendingItems().length > 0)) {
+        this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("player state");
+        this.loadErrors.push("Completed death still owns player items (original save preserved)");
+      }
+      if (this.deathState?.phase === "pending") this.deathError = "Items await transfer. Respawn retries it; your carried items remain preserved until then.";
+    }
 
     if (this.portfolio.dropped > 0) this.loadErrors.push(`${this.portfolio.dropped} damaged portfolio photos`);
     for (const err of this.loadErrors) this.hud.message(`Saved data needs attention: ${err}`);
@@ -299,7 +322,7 @@ export class Game {
   }
 
   pause(): void {
-    if (this.paused) return;
+    if (this.paused || this.dead) return;
     this.paused = true;
     this.keyboard.reset();
     if (document.pointerLockElement) document.exitPointerLock();
@@ -308,27 +331,49 @@ export class Game {
   }
 
   resume(): void {
+    if (this.dead) return;
     this.paused = false;
     this.lastTime = performance.now();
     if (!this.touch) this.keyboard.requestPointerLock();
   }
 
   setMode(mode: GameMode): void {
+    if (this.dead) return;
     this.mode = mode;
     if (mode === "survival") this.body.flying = false;
     this.health = MAX_HEALTH;
     this.hud.message(`Game mode set to ${mode === "creative" ? "Creative" : "Survival"}`);
   }
 
-  respawn(): void {
-    this.dead = false;
-    this.health = MAX_HEALTH;
-    this.hunger = createHunger();
-    this.body.position = { ...this.spawn };
-    this.body.velocity = { x: 0, y: 0, z: 0 };
-    this.fallStart = null;
-    this.lastTime = performance.now();
-    if (!this.touch) this.keyboard.requestPointerLock();
+  /** A failed item transfer keeps the same death overlay and all original owners. */
+  respawn(): boolean {
+    if (!this.dead || !this.deathState || !this.tryDeathTransfer()) return false;
+    this.dead = false; this.paused = false; this.deathState = undefined; this.deathError = "";
+    this.health = MAX_HEALTH; this.hunger = createHunger();
+    this.body.position = { ...this.spawn }; this.body.velocity = { x: 0, y: 0, z: 0 };
+    this.fallStart = null; this.lastPos = { x: this.spawn.x, z: this.spawn.z }; this.lastTime = performance.now();
+    if (this.inventoryScreen.resumePending()) this.suspendInput(); else this.resumeInput();
+    return true;
+  }
+
+  private tryDeathTransfer(): boolean {
+    if (!this.deathState) return false;
+    if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
+    let validOwners = false;
+    try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
+    if (!validOwners) {
+      this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+      this.recoverySections.push("player state");
+      this.deathError = "Damaged player items. Export a backup and repair them before respawning.";
+      return false;
+    }
+    let ok = false;
+    try {
+      ok = this.deathTransfer.tryTransfer(this.inventory, this.inventoryScreen.pendingItems(), this.deathState,
+        this.dropSink, () => this.inventoryScreen.clearTransferredPending());
+    } catch { ok = false; }
+    this.deathError = ok ? "" : "Items could not be transferred. They remain safe here. Respawn retries the transfer; you can also export a backup.";
+    return ok;
   }
 
   private savePayload(): string {
@@ -340,6 +385,7 @@ export class Game {
         player: { position: { ...this.body.position }, yaw: this.body.yaw, pitch: this.body.pitch, flying: this.body.flying },
         inventory: this.inventory.toJSON(),
         inventoryPending: this.inventoryScreen.pendingItems(),
+        playerState: { health: this.health, ...(this.deathState ? { death: this.deathState } : {}) },
         worldDrops: this.worldDrops.toJSON(),
         edits: this.world.exportEdits(),
         mobs: this.mobs.exportState(this.mobLoot),
@@ -352,7 +398,7 @@ export class Game {
           const [x, y, z] = key.split(",").map(Number);
           return { x, y, z, state };
         }),
-        gamerules: { doMobSpawning: this.mobs.spawning, doDaylightCycle: this.daylightCycle },
+        gamerules: { doMobSpawning: this.mobs.spawning, doDaylightCycle: this.daylightCycle, keepInventory: this.keepInventory },
         redstone: this.redstone.exportScheduled(),
         farming: this.farming.toJSON(),
       });
@@ -361,7 +407,7 @@ export class Game {
   save(): boolean {
     if (this.stopped || Game.activeWriter !== this) return false;
     if (this.recoverySections.length > 0) {
-      this.saveError = `Damaged ${this.recoverySections.join(" and ")} were found. The original save is preserved; export a recovery backup. Saving and quitting remain blocked until the saved data is repaired.`;
+      this.saveError = `Damaged ${[...new Set(this.recoverySections)].join(" and ")}. Original save preserved. Export a backup; repair the saved data before saving or quitting.`;
       this.hud.message(this.saveError); return false;
     }
     try {
@@ -437,15 +483,15 @@ export class Game {
         autoJump: this.touch !== null,
       }, dt);
       this.updateFall(wasOnGround);
-      if (this.mode === "survival") this.updateHunger(input.sprint, wasOnGround, dt);
-      if (this.body.position.y < -20) this.hurt(MAX_HEALTH, "void");
-      if (this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
+      if (!this.dead && this.mode === "survival") this.updateHunger(input.sprint, wasOnGround, dt);
+      if (!this.dead && this.body.position.y < -20) this.hurt(MAX_HEALTH, "void");
+      if (!this.dead && this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
       const light = skyAt(this.timeOfDay).light;
       // Hostile mobs ignore creative players (as in Minecraft).
       const target = this.mode === "survival" ? this.body.position : null;
-      this.mobs.update(dt, this.body.position, light, this.clock, target, (light - 0.2) / 0.8);
-      if (target) this.takeMobHits(dt);
-      this.interact(input.breaking, input.place, input.using, input.pick, dt);
+      if (!this.dead) this.mobs.update(dt, this.body.position, light, this.clock, target, (light - 0.2) / 0.8);
+      if (!this.dead && target) this.takeMobHits(dt);
+      if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt);
     } else {
       this.target = null;
       this.mobTarget = null;
@@ -704,6 +750,7 @@ export class Game {
   }
 
   openCodeBuilder(): void {
+    if (this.dead) return;
     if (this.screenOpen()) return;
     this.suspendInput();
     this.codeBuilder.show();
@@ -711,6 +758,7 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
+    if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
     if (!held) return "Select a stack in your hotbar first";
     // Creative has unlimited blocks: give a full stack without taking any.
@@ -726,6 +774,7 @@ export class Game {
 
   /** Starts a Code Builder program (stopping any running one). Invalid programs are refused with a message. */
   runProgram(program: CodeProgram): boolean {
+    if (this.dead) return false;
     this.runner?.stop();
     this.runner = null;
     const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true);
@@ -787,7 +836,7 @@ export class Game {
         this.mobs.attack(mob, 4, this.body.yaw, "agent");
         return true;
       },
-      giveToPlayer: (stack) => this.inventory.addStack(stack),
+      giveToPlayer: (stack) => this.dead ? stack.count : this.inventory.addStack(stack),
       worldDrop: this.dropSink,
       collect: (agent, filterId) => this.worldDrops.tryPickup({ x: agent.x + .5, y: agent.y, z: agent.z + .5 }, (stack) => giveAgent(agent, stack), filterId),
       destroyContents: (x, y, z) => {
@@ -838,6 +887,7 @@ export class Game {
   /** Zombies in reach hit the player (3 damage, 1 s cooldown) and knock them back. */
   private takeMobHits(dt: number): void {
     for (const mob of this.mobs.mobs) {
+      if (this.dead) break;
       const damage = mobAttack(mob, this.body.position, dt);
       if (damage === 0 || this.dead) continue;
       const kb = knockbackFrom(mob, this.body.position);
@@ -884,7 +934,7 @@ export class Game {
   }
 
   private hurt(amount: number, kind: "melee" | "fall" | "starvation" | "void" = "melee"): void {
-    if (!Number.isFinite(amount) || amount <= 0 || (this.mode === "creative" && kind !== "void")) return;
+    if (this.dead || !Number.isFinite(amount) || amount <= 0 || (this.mode === "creative" && kind !== "void")) return;
     const worn = ARMOR_SLOTS.map((slot) => [slot, this.inventory.equipment[slot]?.id] as const);
     const damage = applyArmorDamage(this.inventory, amount, kind);
     for (const [slot, id] of worn) {
@@ -895,14 +945,19 @@ export class Game {
     if (this.health === 0 || this.body.position.y < -20) {
       this.dead = true;
       this.health = 0;
-      this.keyboard.reset();
-      if (document.pointerLockElement) document.exitPointerLock();
+      this.deathState = { phase: "pending", position: { ...this.body.position }, keepInventory: this.keepInventory };
+      // Flush the editor while its book still belongs to the player, then freeze every modal.
+      this.bookScreen.hide(); this.inventoryScreen.freezeForDeath();
+      this.npcDialog.hide(); this.chalkDialog.hide(); this.portfolioScreen.hide(); this.codeBuilder.hide();
+      this.chat.hide(); this.suspendInput();
+      this.breakProgress = 0; this.eatTimer = 0; this.target = null; this.mobTarget = null;
+      this.tryDeathTransfer();
       this.events.onDeath();
     }
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (!this.running || this.chat.open) return;
+    if (!this.running || this.dead || this.chat.open) return;
     if (this.chalkDialog.open || this.bookScreen.open || this.codeBuilder.open) {
       if (e.code === "Escape") this.closeDialog(this.chalkDialog.open ? this.chalkDialog : this.bookScreen.open ? this.bookScreen : this.codeBuilder);
       return;
@@ -940,6 +995,7 @@ export class Game {
   }
 
   private toggleInventory(): void {
+    if (this.dead) return;
     if (this.inventoryScreen.open) {
       if (this.inventoryScreen.hide()) this.resumeInput();
     } else {
@@ -948,6 +1004,7 @@ export class Game {
   }
 
   private openInventory(kind: InventoryKind): void {
+    if (this.dead) return;
     this.suspendInput();
     const furnace = kind === "furnace" && this.openFurnace ? (this.furnaces.get(this.openFurnace) ?? null) : null;
     this.inventoryScreen.show(this.inventory, this.mode, kind, furnace);
@@ -970,6 +1027,7 @@ export class Game {
   }
 
   private togglePortfolio(): void {
+    if (this.dead) return;
     if (this.portfolioScreen.open) {
       this.portfolioScreen.hide();
       this.resumeInput();
@@ -981,6 +1039,7 @@ export class Game {
 
   /** Education Edition camera: captures the current view (without the HUD) into the portfolio. */
   takePhoto(): void {
+    if (this.dead) return;
     const r = this.renderer;
     r.render(skyAt(this.timeOfDay), false, 0);
     const src = r.canvas;
@@ -996,6 +1055,7 @@ export class Game {
   }
 
   private openChat(prefix = ""): void {
+    if (this.dead) return;
     this.keyboard.reset();
     this.keyboard.enabled = false;
     if (document.pointerLockElement) document.exitPointerLock();
@@ -1003,6 +1063,7 @@ export class Game {
   }
 
   private resumeInput(): void {
+    if (this.dead) return;
     this.keyboard.enabled = true;
     this.lastTime = performance.now();
     if (!this.touch && !this.paused) this.keyboard.requestPointerLock();
@@ -1010,6 +1071,7 @@ export class Game {
 
   /** Executes a chat line; returns the feedback shown to the player. */
   runChat(text: string): string {
+    if (this.dead) return "Respawn before using commands";
     if (!text.startsWith("/")) {
       this.hud.message(`<Player> ${text}`);
       return text;
@@ -1065,7 +1127,8 @@ export class Game {
       }
       case "gamerule":
         if (cmd.rule === "doMobSpawning") this.mobs.spawning = cmd.value;
-        else this.daylightCycle = cmd.value;
+        else if (cmd.rule === "doDaylightCycle") this.daylightCycle = cmd.value;
+        else this.keepInventory = cmd.value;
         reply = `Game rule ${cmd.rule} is now set to: ${cmd.value}`;
         break;
       case "seed":

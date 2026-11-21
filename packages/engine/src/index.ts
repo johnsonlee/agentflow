@@ -48,3 +48,5 @@ export * from "./world-drops";
 export * from "./mob-loot";
 
 export * from "./mob-save";
+
+export * from "./player-death";

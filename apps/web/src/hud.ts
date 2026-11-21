@@ -326,6 +326,23 @@ export class InventoryScreen {
     return structuredClone([...this.recovery, ...this.grid, this.cursor, this.lookup].filter((stack): stack is ItemStack => stack !== null));
   }
 
+  /** Freeze modal interaction without moving any owned grid/cursor/recovery items. */
+  freezeForDeath(): void { this.root.hidden = true; }
+
+  /** Nonthrowing ownership finalization after the entire death batch has committed. */
+  clearTransferredPending(): void {
+    this.grid = []; this.cursor = null; this.lookup = null; this.recovery = [];
+    this.furnace = null; this.chem = null; this.recovering = false;
+  }
+
+  /** Kept items stay in their original screen owner, including when a full bag cannot accept them. */
+  resumePending(): boolean {
+    if (this.pendingItems().length === 0) return false;
+    const pending = this.pendingItems(), inventory = this.inventory!, mode = this.mode;
+    this.clearTransferredPending();
+    return this.restorePending(inventory, mode, pending);
+  }
+
   /** True when the screen has a work area (crafting grid or chemistry station): the palette fills the cursor. */
   private get working(): boolean {
     return this.width > 0 || this.chem !== null;

@@ -10,7 +10,7 @@ export type Command =
   | { type: "tp"; x: number; y: number; z: number; relative: [boolean, boolean, boolean] }
   | { type: "give"; id: number; count: number }
   | { type: "summon"; kind: MobKind; name?: string }
-  | { type: "gamerule"; rule: "doMobSpawning" | "doDaylightCycle"; value: boolean }
+  | { type: "gamerule"; rule: "doMobSpawning" | "doDaylightCycle" | "keepInventory"; value: boolean }
   | { type: "seed" }
   | { type: "agent"; action: "tp" }
   | { type: "code"; command: string }
@@ -27,7 +27,7 @@ export const COMMAND_HELP = [
   "/tp <x> <y> <z>  (~ for relative)",
   "/give <block|item> [count]",
   "/summon <pig|sheep|chicken|zombie|npc> [name]",
-  "/gamerule <doMobSpawning|doDaylightCycle> <true|false>",
+  "/gamerule <doMobSpawning|doDaylightCycle|keepInventory> <true|false>",
   "/seed",
   "/agent tp  (bring your Agent to you)",
   "/code <name>  (run a Code Builder program by its chat command)",
@@ -101,9 +101,9 @@ export function parseCommand(input: string): Command {
       return name ? { type: "summon", kind, name } : { type: "summon", kind };
     }
     case "gamerule": {
-      const rule = args[0] === "doMobSpawning" || args[0] === "doDaylightCycle" ? args[0] : null;
+      const rule = args[0] === "keepinventory" ? "keepInventory" : args[0] === "doMobSpawning" || args[0] === "doDaylightCycle" || args[0] === "keepInventory" ? args[0] : null;
       const value = args[1] === "true" ? true : args[1] === "false" ? false : null;
-      if (!rule || value === null) return { type: "error", message: "Usage: /gamerule <doMobSpawning|doDaylightCycle> <true|false>" };
+      if (!rule || value === null) return { type: "error", message: "Usage: /gamerule <doMobSpawning|doDaylightCycle|keepInventory> <true|false>" };
       return { type: "gamerule", rule, value };
     }
     case "seed":

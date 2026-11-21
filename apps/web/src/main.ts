@@ -114,6 +114,7 @@ function showHelp(): void {
     <p><b>NPCs</b>: <code>/summon npc Name</code>; right click (tap) an NPC to talk. In Creative you can edit its name and dialogue.</p>
     <h3>Crafting &amp; mobs</h3>
     <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep and chickens roam grassland; left click to attack (sheep drop wool).</p>
+    <p>Survival death drops carried items and worn armor. Use <code>/gamerule keepInventory true</code> to keep them; this world rule is saved.</p>
     <h3>Commands</h3>
     <p>/gamemode creative|survival · /time set day|night|noon|midnight · /tp x y z · /give glass 64 · /summon pig|sheep|chicken|npc · /gamerule doMobSpawning false · /seed</p>`;
   app.replaceChildren(screen("help-screen", el("h2", "", "How to Play"), list, button("Back", showTitle)));
@@ -134,6 +135,7 @@ function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?:
     }, { onPause: showPause, onDeath: showDeath });
     loading.remove();
     game.start();
+    if (game.dead) showDeath();
   });
 }
 
@@ -141,6 +143,12 @@ function overlay(className: string, ...children: HTMLElement[]): HTMLElement {
   const s = screen(`overlay ${className}`, ...children);
   app.appendChild(s);
   return s;
+}
+
+/** Reveal updated recovery feedback inside the existing scrollable menu without moving focus. */
+function showSaveStatus(status: HTMLElement, message: string): void {
+  status.textContent = message;
+  status.scrollIntoView({ block: "nearest", inline: "nearest" });
 }
 
 function showPause(): void {
@@ -176,12 +184,12 @@ function showPause(): void {
     modeButton,
     field,
     button("Save & Quit to Title", () => {
-      if (!g.stop()) { saveStatus.textContent = g.saveError; return; }
+      if (!g.stop()) { showSaveStatus(saveStatus, g.saveError); return; }
       document.removeEventListener("keydown", onKey);
       game = null;
       showTitle();
     }),
-    button("Export world backup", () => { g.exportSaveBackup(); saveStatus.textContent = "Backup download requested. Keep the downloaded file before leaving."; }),
+    button("Export world backup", () => { g.exportSaveBackup(); showSaveStatus(saveStatus, "Backup download requested. Keep the downloaded file before leaving."); }),
     saveStatus,
   );
   const onKey = (e: KeyboardEvent) => {
@@ -194,17 +202,18 @@ function showPause(): void {
 }
 
 function showDeath(): void {
-  if (!game) return;
+  if (!game || app.querySelector(".death-screen")) return;
   const g = game;
   const status = el("p", "save-status"); status.setAttribute("role", "alert");
   const s = overlay("death-screen", el("h2", "", "You died!"), button("Respawn", () => {
+    if (!g.respawn()) { showSaveStatus(status, g.deathError || "Respawn could not complete. Your items remain preserved."); return; }
     s.remove();
-    g.respawn();
   }, "mc-button primary"), button("Title Screen", () => {
-    if (!g.stop()) { status.textContent = g.saveError; return; }
+    if (!g.stop()) { showSaveStatus(status, g.saveError); return; }
     game = null;
     showTitle();
-  }), button("Export world backup", () => { g.exportSaveBackup(); status.textContent = "Backup download requested. Keep the downloaded file before leaving."; }), status);
+  }), button("Export world backup", () => { g.exportSaveBackup(); showSaveStatus(status, "Backup download requested. Keep the downloaded file before leaving."); }), status);
+  if (g.deathError) showSaveStatus(status, g.deathError);
 }
 
 // Test / automation hook: lets end-to-end tests observe and drive the game deterministically.

@@ -137,7 +137,7 @@ describe("review 8d7fc44b: every chat command, the save's top level and the port
           if (parsed.type === "time") expect(Number.isFinite(parsed.timeOfDay), line).toBe(true);
           if (parsed.type === "give") expect(isKnownId(parsed.id), line).toBe(true);
           if (parsed.type === "summon") expect(["pig", "sheep", "chicken", "npc", "zombie"], line).toContain(parsed.kind);
-          if (parsed.type === "gamerule") expect(["doMobSpawning", "doDaylightCycle"], line).toContain(parsed.rule);
+          if (parsed.type === "gamerule") expect(["doMobSpawning", "doDaylightCycle", "keepInventory"], line).toContain(parsed.rule);
           if (parsed.type === "tp") expect([parsed.x, parsed.y, parsed.z].every(Number.isFinite), line).toBe(true);
           // /code takes a free word; it is only ever compared against validated program triggers.
           if (parsed.type === "code") expect(typeof parsed.command, line).toBe("string");
@@ -166,7 +166,7 @@ describe("review 8d7fc44b: every chat command, the save's top level and the port
       expect(s!.mode, String(bad)).toBe("creative");
       expect(typeof s!.name).toBe("string");
       expect(Number.isFinite(s!.timeOfDay)).toBe(true);
-      expect(s!.gamerules).toEqual({ doMobSpawning: true, doDaylightCycle: true });
+      expect(s!.gamerules).toEqual({ doMobSpawning: true, doDaylightCycle: true, keepInventory: false });
       // (Numbers and booleans are valid position/yaw/pitch/flying values; other kinds must be repaired.)
       if (typeof bad !== "number" && typeof bad !== "boolean") expect(s!.player).toEqual({ position: null, yaw: 0, pitch: 0, flying: false });
       expect(Array.isArray(s!.inventory.slots) && Array.isArray(s!.edits)).toBe(true);
