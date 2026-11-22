@@ -227,11 +227,16 @@ export const LEGACY_MATERIAL_REDUCTIONS: ReadonlyArray<readonly [string, Readonl
 /** Active material table: source-native ordered outputs plus explicit legacy compatibility rows.
  * "?" is the Unknown Element0 material, not a scientific atomic symbol/proton count.
  */
+function nativeReductionRows(appendAfterLegacy: boolean) {
+  return NATIVE_MATERIAL_REDUCTIONS.filter(row => (row.appendAfterLegacy === true) === appendAfterLegacy)
+    .map(row => [row.input, row.output.map(([z, count]) => [
+      z === 0 ? "?" : ELEMENTS.find(element => element.z === z)!.symbol, count,
+    ] as const)] as const);
+}
 export const REDUCTIONS: ReadonlyArray<readonly [string, ReadonlyArray<readonly [string, number]>]> = [
-  ...NATIVE_MATERIAL_REDUCTIONS.map((row) => [row.input, row.output.map(([z, count]) => [
-    z === 0 ? "?" : ELEMENTS.find((element) => element.z === z)!.symbol, count,
-  ] as const)] as const),
+  ...nativeReductionRows(false),
   ...LEGACY_MATERIAL_REDUCTIONS,
+  ...nativeReductionRows(true),
 ];
 
 /** Products of the chemistry stations (items, in registry order). */

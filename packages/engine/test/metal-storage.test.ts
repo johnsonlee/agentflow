@@ -4,7 +4,7 @@ import {expect,it} from 'vitest';
 import {BLOCKS,ITEMS,RECIPES,METAL_STORAGE_BLOCKS,Inventory,World,WorldDrops,SingleChest,
   blockId,blockById,stackId,elementBlockId,canHarvest,toolOf,craftOnce,matchRecipe,
   placeBlock,breakBlock,createAgent,runAgentCommand,parseSave,serializeSave,sanitizeAgent,
-  NATIVE_MATERIAL_REDUCTIONS,reduceMaterial,type ItemStack,type CraftingGrid,type SaveData} from '../src';
+  NATIVE_MATERIAL_REDUCTIONS,REDUCTIONS,reduceMaterial,type ItemStack,type CraftingGrid,type SaveData} from '../src';
 const baseline=JSON.parse(readFileSync(new URL('./fixtures/metal-storage-prefix-391.json',import.meta.url),'utf8'));
 const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value,(_,x)=>x===Infinity?'Infinity':x)).digest('hex');
 const stack=(name:string,count=1):ItemStack=>({id:stackId(name),count});
@@ -55,4 +55,4 @@ it('three ordinary block identities survive edits, bag, pending cursor, Agent, C
  expect(stackId('iron')).not.toBe(stackId('iron_ingot'));expect(stackId('gold')).not.toBe(stackId('gold_ingot'));expect(stackId('carbon')).not.toBe(stackId('diamond'));
 });
 
-it('three ordinary storage reducers append exact native64+36 outputs without altering27 retained rows or treating atoms as blocks',()=>{expect(hash(NATIVE_MATERIAL_REDUCTIONS.slice(0,27))).toBe(baseline.nativeReductionPrefix.hash);expect(NATIVE_MATERIAL_REDUCTIONS).toHaveLength(30);for(const [name,element,z]of [['iron_block','iron',26],['gold_block','gold',79],['diamond_block','carbon',6]]as const){expect(reduceMaterial(blockId(name))).toEqual([stack(element,64),stack(element,36)]);expect(reduceMaterial(blockId(name))!.reduce((n,s)=>n+s.count,0)).toBe(100);expect(reduceMaterial(stackId(element))).toBeNull();expect(reduceMaterial(elementBlockId(z))).toBeNull();}});
+it('three ordinary storage reducers append exact native64+36 outputs without altering27 retained rows or treating atoms as blocks',()=>{expect(hash(NATIVE_MATERIAL_REDUCTIONS.slice(0,27))).toBe(baseline.nativeReductionPrefix.hash);expect(NATIVE_MATERIAL_REDUCTIONS).toHaveLength(30);expect(hash(REDUCTIONS.slice(0,29))).toBe(baseline.derivedReductionPrefix.hash);expect(REDUCTIONS.slice(29).map(([name])=>name)).toEqual(['iron_block','gold_block','diamond_block']);for(const [name,element,z]of [['iron_block','iron',26],['gold_block','gold',79],['diamond_block','carbon',6]]as const){expect(reduceMaterial(blockId(name))).toEqual([stack(element,64),stack(element,36)]);expect(reduceMaterial(blockId(name))!.reduce((n,s)=>n+s.count,0)).toBe(100);expect(reduceMaterial(stackId(element))).toBeNull();expect(reduceMaterial(elementBlockId(z))).toBeNull();}});
