@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import baseline from "./fixtures/spider-eye-8e4c66c.json";
 import { describe, expect, it } from "vitest";
 import { Inventory, POISON, ITEMS, BLOCKS, RECIPES, allAtlasTextureNames, createHunger, createMob, createPlayerStatus, applyPoison, clearPlayerStatus, tickPlayerStatus, sanitizePlayerStatus,
@@ -10,9 +11,9 @@ describe("player-conditional Spider Eye acquisition", () => {
   it("preserves every inherited catalog and recipe prefix exactly", () => {
     expect(JSON.parse(JSON.stringify(ITEMS.slice(0,573)))).toEqual(baseline.items);
     expect(JSON.parse(JSON.stringify(BLOCKS.slice(0,308)))).toEqual(baseline.blocks);
-    expect(JSON.parse(JSON.stringify(RECIPES.slice(0,165)))).toEqual(baseline.recipes);
+    expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(RECIPES.slice(0,165))))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,859)).toEqual(baseline.names);
-    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([594, 321, 171, 892]);
+    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([594, 322, 171, 893]);
   });
   it("appends ID829 and samples String before the eligible Eye pool only", () => {
     expect(ITEMS[573]).toMatchObject({ id: 829, name: "spider_eye", food: { hunger: 2, saturation: 3.2 } });

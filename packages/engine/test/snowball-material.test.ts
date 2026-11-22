@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -21,8 +22,8 @@ it("appends item537 with application stack16 and retains all307 block identities
   expect(BLOCKS.slice(0, 307)).toHaveLength(307);
   expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(baseline.blockDefsSHA256);
   expect(digest(ITEMS.slice(0, 536))).toBe(baseline.itemDefsSHA256);
-  expect(RECIPES.slice(0, 128).map((r) => r.id)).toEqual(baseline.recipeIDs);
-  expect(digest(RECIPES.slice(0, 128).filter((r) => r.id !== "snow_block"))).toBe(baseline.other127RecipesSHA256);
+  expect(withLegacyBirchRecipes(RECIPES.slice(0, 128)).map((r) => r.id)).toEqual(baseline.recipeIDs);
+  expect(digest(withLegacyBirchRecipes(RECIPES.slice(0, 128)).filter((r) => r.id !== "snow_block"))).toBe(baseline.other127RecipesSHA256);
   expect(digest(NATIVE_MATERIAL_REDUCTIONS.slice(0, 23))).toBe(baseline.nativeRowsSHA256);
   expect(itemById(792)).toEqual({ name: "snowball", displayName: "Snowball", maxStack: 16, icon: "item_snowball", id: 792 });
   expect(ITEMS[535].name).toBe("glowstone_dust");
@@ -66,7 +67,7 @@ it("stages one complete world batch with external metadata and wears only after 
 });
 
 it("crafts the existing snow_block ID from a real2x2 snowball grid, consuming only its four cells", () => {
-  expect(RECIPES.slice(0, 128)).toHaveLength(128);
+  expect(withLegacyBirchRecipes(RECIPES.slice(0, 128))).toHaveLength(128);
   expect(RECIPES.find((r) => r.id === "snow_block")).toEqual({ id: "snow_block", pattern: ["##", "##"], key: { "#": "snowball" }, result: ["snow", 1] });
   const grid: CraftingGrid = Array.from({ length: 4 }, () => st("snowball", 2));
   expect(matchRecipe(grid, 2)?.recipe.id).toBe("snow_block"); expect(craftOnce(grid, 2)).toEqual(st("snow"));
@@ -82,7 +83,7 @@ it("pins the actual reducer source bytes and preserves native duplicate-H source
   expect(createHash("sha256").update(raw).digest("hex")).toBe("b7677d4d8ab3dc65d832d420369570fc3203cd908bb950310a66778deece5dba");
   const source = JSON.parse(raw.toString())["minecraft:recipe_material_reduction"];
   const row = NATIVE_MATERIAL_REDUCTIONS.find(r=>r.input==="snowball")!;
-  expect(NATIVE_MATERIAL_REDUCTIONS.slice(0,24)).toHaveLength(24); expect(NATIVE_MATERIAL_REDUCTIONS.slice(24).map(r=>r.input)).toEqual(["netherrack","soul_sand"]); expect(LEGACY_MATERIAL_REDUCTIONS).toHaveLength(2);
+  expect(NATIVE_MATERIAL_REDUCTIONS.slice(0,24)).toHaveLength(24); expect(NATIVE_MATERIAL_REDUCTIONS.slice(24,26).map(r=>r.input)).toEqual(["netherrack","soul_sand"]); expect(LEGACY_MATERIAL_REDUCTIONS).toHaveLength(2);
   expect(row.inputKind).toBe("item"); expect(row.nativeIdentifier).toBe(source.input);
   expect(row.output).toEqual(source.output.map((s: { item: string; count: number }) => [Number(s.item.split("_").at(-1)), s.count]));
   expect(reduceMaterial(792)).toEqual([st("hydrogen", 64), st("hydrogen", 3), st("oxygen", 33)]);

@@ -1,4 +1,5 @@
-import { gravelOwnerSnapshot } from "../ownership/gravel-harvest";
+import { harvestOwnerSnapshot } from "../ownership/harvest-owner";
+import {reserveHarvestSource} from "../world/harvest-source";
 import { joinLeashRefundSink, type ReleaseAttempt } from "../ownership/leashes";
 import { placementIntersectsFenceGeometry } from "../catalog/block-geometry";
 import { bodyBox } from "../simulation/physics";
@@ -197,61 +198,47 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
       if (id === blockId("fire")) return { ok: extinguishFire(world, t.x, t.y, t.z), message: "Fire extinguished" };
-      const portalDependency=id===blockId("brewing_stand")||world.portals.hasDependency(t.x,t.y,t.z)||netherWartAge(id)!==null||netherWartAge(world.getBlock(t.x,t.y+1,t.z))!==null;
-      const portalEdits:import("../world/world").BlockEdit[]=[[t.x,t.y,t.z,AIR]];
-      if(portalDependency){
-        const portalAbove=world.getBlock(t.x,t.y+1,t.z),portalPartner=doorPartner(world,t.x,t.y,t.z);
-        if(portalPartner)portalEdits.push([...portalPartner,AIR]);if(tryBlockById(portalAbove)?.needsSupport)portalEdits.push([t.x,t.y+1,t.z,AIR]);
-      }
-      const portalSource=portalDependency?world.reserveBlockBatch(portalEdits):null;
-      if(portalDependency&&!portalSource)return {ok:false,message:"Portal source is unavailable"};
+      const source=reserveHarvestSource(world,t.x,t.y,t.z);
+      if(!source)return {ok:false,message:"Harvest source is unavailable"};
       try {
+      const selected=agent.selected,slots=agent.slots,owner=harvestOwnerSnapshot(slots,selected,AGENT_SLOTS);
+      if(!owner)return {ok:false,message:id===blockId("gravel")?"Invalid gravel harvest owner":"Invalid harvest owner"};
       const attempt = env.beginDestroyOwnership?.(t.x, t.y, t.z) ?? { kind: "none" as const };
       if (attempt.kind === "refused") return { ok: false, message: attempt.reason };
       const lease = attempt.kind === "ready" ? attempt.lease : null;
       try {
         if (lease && !env.worldDrop) return { ok: false, message: "Leashed sources require atomic world drops" };
-        const above = world.getBlock(t.x, t.y + 1, t.z);
+        const above = source.above;
         const supported = tryBlockById(above)?.needsSupport === true;
         const contents = env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [];
         const contentsSource = JSON.stringify(contents);
-        const gravel = id === blockId("gravel"), strictOwner=gravel||id===blockId("brewing_stand")||netherWartAge(id)!==null||netherWartAge(above)!==null, selected = agent.selected, slots = agent.slots;
-        const gravelOwner = strictOwner ? gravelOwnerSnapshot(slots, selected, AGENT_SLOTS) : null;
-        if (strictOwner && !gravelOwner) return { ok: false, message: "Invalid gravel harvest owner" };
+        const gravel = id === blockId("gravel");
         const gravelPlan = gravel ? world.gravelHarvests.plan(t.x, t.y, t.z, env.gravelRand) : null;
         if (gravel && !gravelPlan) return { ok: false, message: "Cannot resolve gravel harvest" };
         const drops = [...(gravelPlan ? [gravelPlan.stack] : blockDrops(id)), ...(supported ? blockDrops(above) : []), ...contents];
         const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
-        const partner = doorPartner(world, t.x, t.y, t.z), partnerId = partner ? world.getBlock(...partner) : null;
+        const partner=source.partner,partnerId=source.partnerId;
         const sourceValid = () => {
           try {
-            return (!portalSource||portalSource.valid()) && (!strictOwner || (!gravel||gravelPlan!.valid()) && agent.slots === slots && agent.selected === selected && gravelOwner!()) && (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
-              (!partner || world.getBlock(...partner) === partnerId) && (!lease || JSON.stringify(env.destroyContents?.(t.x, t.y, t.z) ?? []) === contentsSource);
+            return source.valid() && (!gravel||gravelPlan!.valid()) && agent.slots === slots && agent.selected === selected && owner() && (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
+              (!partner || world.getBlock(...partner) === partnerId) && JSON.stringify(env.destroyContents?.(t.x, t.y, t.z) ?? []) === contentsSource;
           } catch { return false; }
         };
-        if (strictOwner && !sourceValid()) return { ok: false, message: "Gravel source changed" };
+        if (!sourceValid()) return { ok: false, message: "Gravel source changed" };
         if (env.worldDrop) {
           const sink = lease ? joinLeashRefundSink(lease, env.worldDrop, sourceValid) : env.worldDrop;
           const batch = sink(drops, { x: t.x + .5, y: t.y + .5, z: t.z + .5 });
-          if (!batch || (lease || strictOwner || portalSource) && !sourceValid() || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
+          if (!batch || !sourceValid() || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
         } else {
           if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
           if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
-          if (strictOwner && !sourceValid()) return { ok: false, message: "Gravel source changed" };
+          if (!sourceValid()) return { ok: false, message: "Gravel source changed" };
         }
-        if(portalSource){
-          const committed=portalSource.commit(()=>{if(!env.worldDrop)for(const stack of drops)addToAgent(agent,stack);});
-          if(!committed)return {ok:false,message:"Portal source changed"};
-          env.afterDestroy?.(t.x,t.y,t.z);return {ok:true};
-        }
-        world.setBlock(t.x, t.y, t.z, AIR);
-        if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
-        if (supported) world.setBlock(t.x, t.y + 1, t.z, AIR);
-        if (!env.worldDrop) for (const stack of drops) addToAgent(agent, stack);
-        env.afterDestroy?.(t.x, t.y, t.z);
-        return { ok: true };
+        const committed=source.commit(()=>{if(!env.worldDrop)for(const stack of drops)addToAgent(agent,stack);});
+        if(!committed)return {ok:false,message:"Harvest source changed"};
+        env.afterDestroy?.(t.x,t.y,t.z);return {ok:true};
       } finally { lease?.cancel(); }
-      } finally {portalSource?.release();}
+      } finally {source.release();}
     }
     case "detect": {
       const t = target(cmd.dir);

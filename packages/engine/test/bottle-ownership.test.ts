@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import { describe, expect, it } from "vitest";
 import baseline from "./fixtures/bottles-0d75051.json";
 import { Inventory, ITEMS, BLOCKS, RECIPES, allAtlasTextureNames, stackId, bottleKind, matchRecipe, craftOnce, inspectBottleOwner, sanitizeStack, parseSave, serializeSave, diagnoseRawBottleOwnership, sanitizeAgent, createAgent, giveAgent, runAgentCommand, World, WorldDrops, AIR, blockId, createFurnace, setFurnaceInput, tickFurnace, PlayerDeathTransfer, type PlayerDeathState, type ItemStack } from "../src/index";
@@ -9,7 +10,7 @@ describe("whole glass/water bottle ownership",()=>{
   it("preserves every old definition/recipe/texture identity and appends only the two whole bottles",()=>{
     expect(JSON.parse(JSON.stringify(ITEMS.slice(0,574)))).toEqual(baseline.items);
     expect(JSON.parse(JSON.stringify(BLOCKS.slice(0,308)))).toEqual(baseline.blocks);
-    expect(JSON.parse(JSON.stringify(RECIPES.slice(0,165)))).toEqual(baseline.recipes);
+    expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(RECIPES.slice(0,165))))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,860)).toEqual(baseline.names);
     expect(ITEMS.slice(574,576).map(i=>[i.id,i.name,i.maxStack])).toEqual([[830,"glass_bottle",64],[831,"water_bottle",1]]);
     expect(bottleKind(830)).toBe("empty");expect(bottleKind(831)).toBe("water");expect(bottleKind(stackId("spider_eye"))).toBeNull();

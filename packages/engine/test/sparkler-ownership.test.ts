@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import { describe, expect, it } from "vitest";
 import baseline from "./fixtures/sparklers-83eee13.json";
 import { ITEMS, BLOCKS, RECIPES, SPARKLER_COLORS, allAtlasTextureNames, Inventory, cloneStack, craftOnce, createAgent, giveAgent,
@@ -14,9 +15,9 @@ describe("five Journal-supported Sparklers and real offhand owners",()=>{
   it("preserves every old definition, recipe and atlas identity as an exact prefix",()=>{
     expect(JSON.parse(JSON.stringify(ITEMS.slice(0,568)))).toEqual(baseline.items);
     expect(JSON.parse(JSON.stringify(BLOCKS.slice(0,308)))).toEqual(baseline.blocks);
-    expect(JSON.parse(JSON.stringify(RECIPES.slice(0,160)))).toEqual(baseline.recipes);
+    expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(RECIPES.slice(0,160))))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,849)).toEqual(baseline.names);
-    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([594, 321, 171, 892]);
+    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([594, 322, 171, 893]);
     expect(Object.isFrozen(SPARKLER_COLORS)).toBe(true); expect(SPARKLER_COLORS.every(Object.isFrozen)).toBe(true);
   });
   it("crafts all five vertical chloride/Mg/stick grids and refuses wrong color chemistry and short grids",()=>{

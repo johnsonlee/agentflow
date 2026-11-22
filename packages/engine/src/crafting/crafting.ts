@@ -14,6 +14,8 @@ export interface Recipe {
   /** Shaped recipe rows; each character maps through `key`, space = empty. */
   pattern?: string[];
   key?: Record<string, string>;
+  /** Available Oak/Birch subset of the declared native plank tag, matched per occupied cell. */
+  keyTags?: Readonly<Record<string, "planks">>;
   /** Shapeless ingredients (block or item names). */
   ingredients?: string[];
   result: [block: string, count: number];
@@ -25,10 +27,10 @@ export interface Recipe {
 function toolRecipes(material: ToolMaterial, head: string): Recipe[] {
   const key = { "#": head, "|": "stick" };
   return [
-    { id: `${material}_pickaxe`, pattern: ["###", " | ", " | "], key, result: [`${material}_pickaxe`, 1] },
-    { id: `${material}_axe`, pattern: ["##", "#|", " |"], key, result: [`${material}_axe`, 1] },
-    { id: `${material}_shovel`, pattern: ["#", "|", "|"], key, result: [`${material}_shovel`, 1] },
-    { id: `${material}_sword`, pattern: ["#", "#", "|"], key, result: [`${material}_sword`, 1] },
+    { id: `${material}_pickaxe`, pattern: ["###", " | ", " | "], key, keyTags: material === "wooden" ? { "#": "planks" } : undefined, result: [`${material}_pickaxe`, 1] },
+    { id: `${material}_axe`, pattern: ["##", "#|", " |"], key, keyTags: material === "wooden" ? { "#": "planks" } : undefined, result: [`${material}_axe`, 1] },
+    { id: `${material}_shovel`, pattern: ["#", "|", "|"], key, keyTags: material === "wooden" ? { "#": "planks" } : undefined, result: [`${material}_shovel`, 1] },
+    { id: `${material}_sword`, pattern: ["#", "#", "|"], key, keyTags: material === "wooden" ? { "#": "planks" } : undefined, result: [`${material}_sword`, 1] },
   ];
 }
 
@@ -69,7 +71,7 @@ export const DYE_RECIPES: readonly Recipe[] = [
 
 /** Recipes for the blocks and items this game models; provisional rules carry a note. */
 export const RECIPES: readonly Recipe[] = [
-  { id: "stick", pattern: ["#", "#"], key: { "#": "oak_planks" }, result: ["stick", 4] },
+  { id: "stick", pattern: ["#", "#"], key: { "#": "oak_planks" }, keyTags: { "#": "planks" }, result: ["stick", 4] },
   ...toolRecipes("wooden", "oak_planks"),
   ...toolRecipes("stone", "cobblestone"),
   ...toolRecipes("iron", "iron_ingot"),
@@ -78,6 +80,7 @@ export const RECIPES: readonly Recipe[] = [
   ...(["wooden", "stone", "iron", "golden", "diamond"] as const).map((m) => ({
     id: `${m}_hoe`, pattern: ["HH", " |", " |"],
     key: { H: m === "wooden" ? "oak_planks" : m === "stone" ? "cobblestone" : m === "iron" ? "iron_ingot" : m === "golden" ? "gold_ingot" : "diamond", "|": "stick" },
+    keyTags: m === "wooden" ? { H: "planks" as const } : undefined,
     result: [`${m}_hoe`, 1] as [string, number],
   })),
   { id: "bread", pattern: ["WWW"], key: { W: "wheat" }, result: ["bread", 1] },
@@ -96,9 +99,9 @@ export const RECIPES: readonly Recipe[] = [
   { id: "book_and_quill", ingredients: ["book", "ink_sac", "feather"], result: ["book_and_quill", 1] },
   { id: "furnace", pattern: ["###", "# #", "###"], key: { "#": "cobblestone" }, result: ["furnace", 1] },
   { id: "oak_planks", ingredients: ["oak_log"], result: ["oak_planks", 4] },
-  { id: "oak_planks_from_birch", ingredients: ["birch_log"], result: ["oak_planks", 4], note: "Minecraft yields birch planks" },
-  { id: "crafting_table", pattern: ["##", "##"], key: { "#": "oak_planks" }, result: ["crafting_table", 1] },
-  { id: "bookshelf", pattern: ["###", "BBB", "###"], key: { "#": "oak_planks", B: "book" }, result: ["bookshelf", 1], note: "Oak-plank subset; native broader plank-tag membership is not modeled" },
+  { id: "birch_planks", ingredients: ["birch_log"], result: ["birch_planks", 4] },
+  { id: "crafting_table", pattern: ["##", "##"], key: { "#": "oak_planks" }, keyTags: { "#": "planks" }, result: ["crafting_table", 1] },
+  { id: "bookshelf", pattern: ["###", "BBB", "###"], key: { "#": "oak_planks", B: "book" }, keyTags: { "#": "planks" }, result: ["bookshelf", 1], note: "Available Oak/Birch subset of the declared plank tag; other wood species remain unmodeled" },
   { id: "snow_block", pattern: ["##", "##"], key: { "#": "snowball" }, result: ["snow", 1] },
   ...DYE_RECIPES,
   // Official 2019 dye article teaches white wool + dye; exact current Education counts are unverified.
@@ -183,12 +186,15 @@ function trim(grid: CraftingGrid, width: number): number[][] {
   return rows.slice(r0, r1 + 1).map((row) => row.slice(c0, c1 + 1));
 }
 
+const plankTagIds = new Set([stackId("oak_planks"), stackId("birch_planks")]);
+
 function shapedMatches(recipe: Recipe, cells: number[][]): boolean {
   const pattern = recipe.pattern!;
   if (pattern.length !== cells.length || pattern[0].length !== cells[0].length) return false;
-  const expect = (ch: string) => (ch === " " ? 0 : stackId(recipe.key![ch]));
-  const direct = pattern.every((row, r) => [...row].every((ch, c) => expect(ch) === cells[r][c]));
-  const mirrored = pattern.every((row, r) => [...row].every((ch, c) => expect(ch) === cells[r][row.length - 1 - c]));
+  const accepts = (ch: string, id: number) => ch === " " ? id === 0
+    : recipe.keyTags?.[ch] === "planks" ? plankTagIds.has(id) : stackId(recipe.key![ch]) === id;
+  const direct = pattern.every((row, r) => [...row].every((ch, c) => accepts(ch, cells[r][c])));
+  const mirrored = pattern.every((row, r) => [...row].every((ch, c) => accepts(ch, cells[r][row.length - 1 - c])));
   return direct || mirrored;
 }
 

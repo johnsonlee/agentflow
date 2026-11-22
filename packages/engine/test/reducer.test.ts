@@ -25,7 +25,7 @@ it("matches the historical Journal p11 grass image, including oxygen split64+6 a
 
 it("retains explicit unverified glass/charcoal compatibility and compound/isotope semantics", () => {
   expect(LEGACY_MATERIAL_REDUCTIONS).toEqual([["glass", [["Si", 1], ["O", 2]]], ["charcoal", [["C", 1]]]]);
-  expect(REDUCTIONS).toHaveLength(28); expect(REDUCTIONS.filter(([name])=>name!=="netherrack"&&name!=="soul_sand")).toHaveLength(26); // 26 source rows (including two Nether materials) plus the two retained legacy entries.
+  expect(REDUCTIONS).toHaveLength(29); expect(REDUCTIONS.filter(([name])=>name!=="netherrack"&&name!=="soul_sand")).toHaveLength(27); // 27 source bindings (including Birch and two Nether materials) plus the two retained legacy entries.
   expect(reduceMaterial(stackId("glass"))).toEqual([stack("silicon"), stack("oxygen", 2)]);
   expect(reduceMaterial(stackId("charcoal"))).toEqual([stack("carbon")]);
   expect(reduceMaterial(stackId("water_compound"))).toEqual([stack("hydrogen", 2), stack("oxygen", 1)]);

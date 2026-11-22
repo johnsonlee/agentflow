@@ -31,7 +31,7 @@ it("preserves every prior block/item/atom identity and appends dyes and explicit
     expect(blockById(blockId(`${color.name}_wool`)).faces.side).toBe(`${color.name}_wool`);
   }
   expect(BLOCKS.slice(283, 291).map((b) => [b.id, b.name])).toEqual(newWools.map((c, i) => [164 + i, `${c}_wool`]));
-  expect(blockId("element_118")).toBe(32886); expect(isKnownBlockId(202)).toBe(false); expect(isItem(164)).toBe(false);
+  expect(blockId("element_118")).toBe(32886); expect(isKnownBlockId(203)).toBe(false); expect(isItem(164)).toBe(false);
 });
 
 it("matches all 17 available-input primary-source recipes with exact output counts in arbitrary cells", () => {

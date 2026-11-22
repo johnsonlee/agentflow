@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -38,14 +39,14 @@ it("pins fourteen literal catalog identities, excluding both red-art placeholder
 
 it("retains all537 old item definitions,307 blocks,128 recipes and exact old green owners", () => {
   expect([baseline.items, baseline.blocks, baseline.recipes]).toEqual([537, 307, 128]);
-  expect(ITEMS.slice(0, 550)).toHaveLength(550); expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(RECIPES.slice(0, 141)).toHaveLength(141);
+  expect(ITEMS.slice(0, 550)).toHaveLength(550); expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(withLegacyBirchRecipes(RECIPES.slice(0, 141))).toHaveLength(141);
   expect(digest(ITEMS.slice(0, 537))).toBe(baseline.itemDefsSHA256); expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(baseline.blockDefsSHA256);
-  expect(digest(RECIPES.slice(0, 128))).toBe(baseline.recipesSHA256); expect(RECIPES.slice(0, 128).map(r => r.id)).toEqual(baseline.recipeIDs);
+  expect(digest(withLegacyBirchRecipes(RECIPES.slice(0, 128)))).toBe(baseline.recipesSHA256); expect(withLegacyBirchRecipes(RECIPES.slice(0, 128)).map(r => r.id)).toEqual(baseline.recipeIDs);
   expect(itemById(stackId("glow_stick"))).toEqual(baseline.oldGreenItem); expect(RECIPES.find(r => r.id === "glow_stick")).toEqual(baseline.oldGreenRecipe);
   expect(placedBlockOf(stackId("glow_stick"))).toBe(blockId("placed_glow_stick"));
   expect(ITEMS.slice(537, 550).map(i => i.id)).toEqual(Array.from({ length: 13 }, (_, i) => 793 + i));
   expect(ITEMS.slice(537, 550).map(i => i.name)).toEqual(GLOW_STICK_COLORS.filter(c => c.color !== "green").map(c => c.itemName));
-  expect(new Set(ITEMS.slice(0, 550).map(i => i.name)).size).toBe(550); expect(new Set(RECIPES.slice(0, 141).map(r => r.id)).size).toBe(141);
+  expect(new Set(ITEMS.slice(0, 550).map(i => i.name)).size).toBe(550); expect(new Set(withLegacyBirchRecipes(RECIPES.slice(0, 141)).map(r => r.id)).size).toBe(141);
 });
 
 it("crafts each matching color from the nine Journal cells with exactly six polyethylene and provisional output1", () => {

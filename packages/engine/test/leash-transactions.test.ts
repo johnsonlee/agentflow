@@ -94,13 +94,13 @@ it("player fence destruction publishes fence+all linked Leads+contents once befo
   expect(plans).toBe(1); expect(commits).toBe(1); expect(f.w.getBlock(1, 1, 0)).toBe(AIR); expect(f.inv.selectedStack()?.damage).toBe(11); expect(f.store.records).toEqual([]); expect(total(f.drops.records.map(r => r.stack))).toBe(3);
 });
 
-it("guarded block destruction rejects source changes after planning without publishing drops or consuming links", () => {
+it("guarded fence destruction blocks callback support insertion and publishes one real refund receipt", () => {
   const f = fixture(); f.w.setBlock(1, 1, 0, F); f.store.retieToFence([1], { x: 1, y: 1, z: 0 }, f.ctx); const selected = lease(f.store, f.ctx); let commits = 0;
   try {
-    const sink = joinLeashRefundSink(selected, () => { f.w.setBlock(1, 2, 0, blockId("torch")); return { commit: () => { commits++; return true; } }; });
-    expect(breakBlock(f.w, f.inv, "survival", 1, 1, 0, () => .5, [], sink, { valid: selected.valid, afterReceiverCommit: () => {} })).toBe(false);
+    const sink = joinLeashRefundSink(selected, (stacks, at) => { f.w.setBlock(1, 2, 0, blockId("torch")); expect(f.w.getBlock(1, 2, 0)).toBe(AIR); const receipt=f.drops.planSpawnBatch(stacks,at)!; return { commit: () => { commits++; return receipt.commit(); } }; });
+    expect(breakBlock(f.w, f.inv, "survival", 1, 1, 0, () => .5, [], sink, { valid: selected.valid, afterReceiverCommit: () => {} })).toBe(true);
   } finally { selected.cancel(); }
-  expect(commits).toBe(0); expect(f.w.getBlock(1, 1, 0)).toBe(F); expect(f.store.records).toHaveLength(1);
+  expect(commits).toBe(1); expect(f.w.getBlock(1, 1, 0)).toBe(AIR); expect(f.w.getBlock(1,2,0)).toBe(AIR); expect(f.store.records).toHaveLength(0); expect(f.drops.records.map(r=>r.stack)).toEqual([{id:F,count:1},{id:L(),count:1}]);
 });
 
 it("Agent hook refuses recursive destruction before planning, joins one batch and refuses leashed legacy inventory", () => {

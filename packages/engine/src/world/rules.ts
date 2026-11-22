@@ -1,6 +1,7 @@
 import { isFluidBlock } from "../simulation/fluids";
 import { extinguishFire } from "../simulation/fire";
-import { gravelOwnerSnapshot } from "../ownership/gravel-harvest";
+import { harvestOwnerSnapshot } from "../ownership/harvest-owner";
+import {reserveHarvestSource,type HarvestSource} from "./harvest-source";
 import type { OwnershipGuard } from "../ownership/leashes";
 import { placementIntersectsFenceGeometry } from "../catalog/block-geometry";
 import type { DropSink } from "../ownership/world-drops";
@@ -70,34 +71,28 @@ export function breakTime(mode: GameMode, id: number, tool: ToolSpec | null = nu
  * Plants resting on the block are broken too. Returns false if the action is not allowed.
  */
 export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard): boolean {
-  if(world.blockSourceLeaseBusy)return false;
-  if(world.getBlock(x,y,z)!==blockId("brewing_stand")&&!world.portals.hasDependency(x,y,z)&&netherWartAge(world.getBlock(x,y,z))===null&&netherWartAge(world.getBlock(x,y+1,z))===null)return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard);
-  if(!canBreak(world,mode,x,y,z))return false;
-  const edits:import("./world").BlockEdit[]=[[x,y,z,AIR]],partner=doorPartner(world,x,y,z),above=world.getBlock(x,y+1,z);
-  if(partner)edits.push([...partner,AIR]);if(tryBlockById(above)?.needsSupport)edits.push([x,y+1,z,AIR]);
-  const lease=world.reserveBlockBatch(edits);if(!lease)return false;
-  try{return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard,lease);}finally{lease.release();}
+  if(world.blockSourceLeaseBusy||!canBreak(world,mode,x,y,z))return false;
+  if(world.getBlock(x,y,z)===blockId("fire"))return extinguishFire(world,x,y,z);
+  const source=reserveHarvestSource(world,x,y,z);if(!source)return false;
+  try{return breakBlockImpl(world,inventory,mode,x,y,z,source,rand,externalDrops,sink,ownershipGuard);}
+  finally{source.release();}
 }
-function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard, portalBatch?:import("./world").BlockSourceLease): boolean {
+function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, source:HarvestSource, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard): boolean {
   if (ownershipGuard && (!sink || !ownershipGuard.valid())) return false;
   if (!canBreak(world, mode, x, y, z)) return false;
-  const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
+  const id = source.id, above = source.above;
   if (id === blockId("fire")) return extinguishFire(world, x, y, z);
   const gravel = mode === "survival" && id === blockId("gravel");
-  const strictOwner=gravel||id===blockId("brewing_stand")||netherWartAge(id)!==null||netherWartAge(above)!==null;
-  const selectedBeforeTool = strictOwner ? inventory.selected : undefined;
-  const sourceToolStack = inventory.selectedStack();
-  const tool = toolOf(sourceToolStack?.id);
-  const selected = inventory.selected, selectedSource = ownershipGuard ? JSON.stringify(inventory.selectedStack()) : "";
-  const gravelSlots = inventory.slots;
-  const gravelOwner = strictOwner ? gravelOwnerSnapshot(gravelSlots, selected, 36, true) : null;
-  if (strictOwner && (selectedBeforeTool !== selected || selected < 0 || selected >= 9 || !gravelOwner)) return false;
+  const selected = inventory.selected, slots = inventory.slots;
+  const owner = harvestOwnerSnapshot(slots, selected, 36, true);
+  if (selected < 0 || selected >= 9 || !owner) return false;
+  const sourceToolStack = inventory.selectedStack(), tool = toolOf(sourceToolStack?.id);
+  const selectedSource = ownershipGuard ? JSON.stringify(sourceToolStack) : "";
   const gravelPlan = gravel ? world.gravelHarvests.plan(x, y, z, rand) : null;
   if (gravel && !gravelPlan) return false;
   // An acknowledged receiver may change hotbar selection. Its committed drops cannot be
   // rolled back, so finish this action against its captured tool, never the new selection.
   const wearHarvestTool = () => {
-    if (id !== blockId("brewing_stand")) { inventory.damageSelected(1); return; }
     if (!sourceToolStack || !tool) return;
     sourceToolStack.damage = (sourceToolStack.damage ?? 0) + 1;
     if (sourceToolStack.damage >= tool.durability) {
@@ -105,11 +100,9 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
       if (owner >= 0) inventory.slots[owner] = null;
     }
   };
-  const guardedPartner = ownershipGuard ? doorPartner(world, x, y, z) : null;
-  const partnerId = guardedPartner ? world.getBlock(...guardedPartner) : null;
+  const guardedPartner = source.partner, partnerId = source.partnerId;
   const sourceValid = () => {
-    if (strictOwner && (gravel&&!gravelPlan!.valid() || world.getBlock(x, y + 1, z) !== above || inventory.slots !== gravelSlots || inventory.selected !== selected || !gravelOwner!())) return false;
-    if(portalBatch&&!portalBatch.valid())return false;
+    if (!source.valid() || gravel && !gravelPlan!.valid() || inventory.slots !== slots || inventory.selected !== selected || !owner()) return false;
     if (!ownershipGuard) return true;
     try {
       return ownershipGuard.valid() && world.getBlock(x, y, z) === id && world.getBlock(x, y + 1, z) === above &&
@@ -120,7 +113,7 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
   const drops: ItemStack[] = [...(mode === "survival" ? [
     ...(canHarvest(id, tool) ? gravelPlan ? [gravelPlan.stack] : blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
   ] : []), ...externalDrops];
-  if (strictOwner && !sourceValid()) return false;
+  if (!sourceValid()) return false;
   // Optional world receiver stages the complete resolved batch before source removal.
   if (sink) {
     const batch = sink(drops, { x: x + .5, y: y + .5, z: z + .5 });
@@ -130,19 +123,12 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
   } else {
     const trial = Inventory.fromJSON(inventory.toJSON());
     if (drops.some((stack) => trial.addStack(stack) > 0)) return false;
-    if (strictOwner && !sourceValid()) return false;
+    if (!sourceValid()) return false;
   }
-  const partner = ownershipGuard ? guardedPartner : doorPartner(world, x, y, z);
-  if(portalBatch)return portalBatch.commit(()=>{
+  return source.commit(()=>{
     if(!sink)for(const stack of drops)inventory.addStack(stack);
     if(mode==="survival"&&tool&&blockById(id).hardness>0)wearHarvestTool();
   });
-  world.setBlock(x, y, z, AIR);
-  if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
-  if (supported) world.setBlock(x, y + 1, z, AIR);
-  if (!sink) for (const stack of drops) inventory.addStack(stack);
-  if (mode === "survival" && tool && blockById(id).hardness > 0) wearHarvestTool();
-  return true;
 }
 
 /** Hoe use obeys build rules and consumes durability only after a successful transformation. */
@@ -242,7 +228,7 @@ export function plantNetherWart(world:World,owner:{slots:(ItemStack|null)[];sele
  if(world.blockSourceLeaseBusy||![x,y,z].every(Number.isSafeInteger)||y<1||y>=WORLD_HEIGHT||(mode!=="survival"&&mode!=="creative"))return false;
  const slots=owner.slots,index=owner.selected;
  if(index<0||index>=selectable)return false;
- const stable=gravelOwnerSnapshot(slots,index,size);if(!stable)return false;
+ const stable=harvestOwnerSnapshot(slots,index,size);if(!stable)return false;
  const stack=slots[index];if(!stack||stack.id!==842||Reflect.ownKeys(stack).some(k=>k!=="id"&&k!=="count"))return false;
  const target=world.captureCell(x,y,z),support=world.captureCell(x,y-1,z);
  if(!target||target.id!==AIR||!support||support.id!==blockId("soul_sand")||!canBuildAt(world,mode,x,y,z))return false;

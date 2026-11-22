@@ -163,9 +163,9 @@ export async function fluidHarvestRoute(page: Page, info: TestInfo, mobile: bool
       await press(result); await press(inv.locator(`[data-slot="${destination}"]`));
     };
     await press(inv.locator(`[data-slot="${await slotOf("birch_log")}"]`)); await press(cell(0));
-    await putResult("Oak Planks"); expect(await countStack(page, "birch_log")).toBe(0); expect(await countStack(page, "oak_planks")).toBe(4);
-    const planks = await slotOf("oak_planks"); await press(inv.locator(`[data-slot="${planks}"]`)); await press(cell(0)); await press(cell(3)); await press(inv.locator(`[data-slot="${planks}"]`));
-    await putResult("Stick"); expect(await countStack(page, "stick")).toBe(4); expect(await countStack(page, "oak_planks")).toBe(2);
+    await putResult("Birch Planks"); expect(await countStack(page, "birch_log")).toBe(0); expect(await countStack(page, "birch_planks")).toBe(4);
+    const planks = await slotOf("birch_planks"); await press(inv.locator(`[data-slot="${planks}"]`)); await press(cell(0)); await press(cell(3)); await press(inv.locator(`[data-slot="${planks}"]`));
+    await putResult("Stick"); expect(await countStack(page, "stick")).toBe(4); expect(await countStack(page, "birch_planks")).toBe(2);
     const diamonds = await slotOf("diamond"); await press(inv.locator(`[data-slot="${diamonds}"]`)); for (const i of [0, 1, 2]) await press(cell(i));
     const sticks = await slotOf("stick"); await press(inv.locator(`[data-slot="${sticks}"]`)); await press(cell(4)); await press(cell(7)); await press(inv.locator(`[data-slot="${sticks}"]`));
     await expect(result.locator("img")).toHaveAttribute("alt", "Diamond Pickaxe"); await snap(page, info, "three-genuine-diamonds-two-crafted-sticks-pickaxe-recipe");
@@ -201,7 +201,7 @@ export async function fluidHarvestRoute(page: Page, info: TestInfo, mobile: bool
     await snap(page, info, "cold-owned-obsidian-and-diamond-pickaxe-wear-one");
     await fs.writeFile(info.outputPath("fluid-harvest-coverage.json"), JSON.stringify({ fixtureSHA256, initialRaw, locations, observations, fixtureMutations, toolBefore, toolAfter, validRaw, errors,
       fixtures: "ActualpreviousscopeddesktopfluidvalidRaw continuation; preownedIronAxe/Pickaxe andTable inherited; neighbor-onlychambers/bedrockfloors/Torchvisibility, commandteleports/camera and actualbodypickupnavigation. Everytargetore/generatoridentity/liveID/noedit asserted beforeactualhold; no Diamond/tool/Obsidian/HP/ground/clock outcomes injected.",
-      notCovered: ["freshprimitiveSurvivalchain", "excavationthroughdeepcover (declaredneighborchamberfixture)", "allowner/death/Creative/AgentUIedgecases", "nativeorechance/hardness/damage/graphics", "existingappBirchLog→OakPlanks subset (nativeBirchPlanksidentitynotimplemented)", "portals/Nether/brewing/fullEducation/performance/physicalphone"] }, null, 2));
+      notCovered: ["freshprimitiveSurvivalchain", "excavationthroughdeepcover (declaredneighborchamberfixture)", "allowner/death/Creative/AgentUIedgecases", "nativeorechance/hardness/damage/graphics", "portals/Nether/brewing/fullEducation/performance/physicalphone"] }, null, 2));
     expect(errors).toEqual([]); stage = "complete";
   } catch (error) { failure = String(error); throw error; }
   finally {

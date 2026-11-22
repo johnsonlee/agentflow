@@ -75,6 +75,20 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(checked.returncode, 0, checked.stderr)
         self.assertEqual(checked.stdout.strip(), report["packSha256"] + " 3")
 
+    def test_explicit_birch_mapping_preserves_key_and_pixels_without_oak_alias(self):
+        self.write_manifest([{"key": "birch_planks", "path": "rgba.png"}])
+        keys = self.root / "keys.json"
+        keys.write_text(json.dumps(["oak_planks", "birch_planks"]))
+        result = self.run_cli("--keys-json", str(keys))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        pack = json.loads(self.output.read_bytes())
+        report = json.loads(self.report.read_bytes())
+        self.assertEqual([tile["key"] for tile in pack["tiles"]], ["birch_planks"])
+        rgba = base64.b64decode(pack["tiles"][0]["rgbaBase64"], validate=True)
+        self.assertEqual(rgba, Image.open(self.source).convert("RGBA").tobytes())
+        self.assertEqual(report["tiles"][0]["rgbaSha256"], hashlib.sha256(rgba).hexdigest())
+        self.assertEqual(report["packSha256"], hashlib.sha256(self.output.read_bytes()).hexdigest())
+
     def test_default_conversion_explicitly_defers_known_keys_to_application(self):
         self.write_manifest([{"key": "explicit_future_key", "path": "rgba.png"}])
         self.assertEqual(self.run_cli().returncode, 0)

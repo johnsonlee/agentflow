@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import {it,expect} from "vitest";
 import {createHash} from "node:crypto";
 import prefix from "./fixtures/flint-prefix-240b979.json";
@@ -6,8 +7,8 @@ const at={x:1,y:80,z:1},g=()=>blockId("gravel"),hash=(v:unknown)=>createHash("sh
 const setup=()=>{const w=new World(12345);w.setBlock(at.x,at.y,at.z,g());w.setBlock(at.x,at.y+1,at.z,0);return w;};
 const mine=(w:World,inv:Inventory,rand=()=>0,sink?:Parameters<typeof breakBlock>[8])=>breakBlock(w,inv,"survival",at.x,at.y,at.z,rand,[],sink);
 it("preserves all old registries and canonical Gravel identity while appending only Flint",()=>{
- expect(hash(ITEMS.slice(0,581))).toBe(prefix.itemsSHA256);expect(hash(BLOCKS.slice(0,308))).toBe(prefix.blocksSHA256);expect(hash(RECIPES.slice(0,167))).toBe(prefix.recipesSHA256);expect(hash(allAtlasTextureNames().slice(0,867))).toBe(prefix.namesSHA256);
- expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([594, 321, 171, 892]);expect(ITEMS[581]).toMatchObject({id:837,name:"flint",maxStack:64,icon:"item_flint"});
+ expect(hash(ITEMS.slice(0,581))).toBe(prefix.itemsSHA256);expect(hash(BLOCKS.slice(0,308))).toBe(prefix.blocksSHA256);expect(hash(withLegacyBirchRecipes(RECIPES.slice(0,167)))).toBe(prefix.recipesSHA256);expect(hash(allAtlasTextureNames().slice(0,867))).toBe(prefix.namesSHA256);
+ expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([594, 322, 171, 893]);expect(ITEMS[581]).toMatchObject({id:837,name:"flint",maxStack:64,icon:"item_flint"});
  expect(blockDrops(g(),()=>0)).toEqual([{id:837,count:1}]);expect(blockDrops(g(),()=>.1)).toEqual([{id:g(),count:1}]);expect(dropOf(g())).toBe(g());expect(baseStackId(g())).toBe(g());
 });
 it("retains the first refused player decision across cold restore and shared Agent delivery",()=>{
@@ -15,19 +16,19 @@ it("retains the first refused player decision across cold restore and shared Age
  const cold=new World(12345);cold.importEdits(w.exportEdits());expect(cold.gravelHarvests.restore(w.gravelHarvests.exportState()).invalid).toBe(0);const agent=createAgent(1,80,2,2),drops=new WorldDrops(cold);
  expect(runAgentCommand(cold,agent,{op:"destroy",dir:"forward"},{gravelRand:()=>{throw Error("reroll");},worldDrop:drops.planSpawnBatch.bind(drops)}).ok).toBe(true);expect(drops.records.map(r=>r.stack)).toEqual([{id:837,count:1}]);expect(cold.gravelHarvests.exportState().records).toEqual([]);
 });
-it("invalidates real same-ID replacement/import but not no-op same-ID writes; ABA during RNG cannot mint output",()=>{
+it("invalidates real same-ID replacement/import but not no-op same-ID writes; leased RNG callback cannot replace its source",()=>{
  const w=setup();expect(w.gravelHarvests.plan(at.x,at.y,at.z,()=>0)?.stack.id).toBe(837);w.setBlock(at.x,at.y,at.z,g());expect(w.gravelHarvests.plan(at.x,at.y,at.z,()=>{throw Error("no reroll");})?.stack.id).toBe(837);
  w.setBlock(at.x,at.y,at.z,0);w.setBlock(at.x,at.y,at.z,g());expect(w.gravelHarvests.plan(at.x,at.y,at.z,()=>.9)?.stack.id).toBe(g());w.importEdits([[at.x,at.y,at.z,g()]]);expect(w.gravelHarvests.exportState().records).toEqual([]);
- const inv=new Inventory();expect(mine(w,inv,()=>{w.setBlock(at.x,at.y,at.z,0);w.setBlock(at.x,at.y,at.z,g());return 0;})).toBe(false);expect(inv.slots.every(x=>x===null)).toBe(true);expect(w.gravelHarvests.exportState().records).toEqual([]);
+ const inv=new Inventory();let draws=0;expect(mine(w,inv,()=>{draws++;w.setBlock(at.x,at.y,at.z,0);expect(w.getBlock(at.x,at.y,at.z)).toBe(g());w.setBlock(at.x,at.y,at.z,g());return 0;})).toBe(true);expect(draws).toBe(1);expect(inv.slots.filter(Boolean)).toEqual([{id:837,count:1}]);expect(w.getBlock(at.x,at.y,at.z)).toBe(0);expect(w.gravelHarvests.exportState().records).toEqual([]);
 });
 it("refuses invalid/throwing RNG without cache/world/tool changes and keeps unrelated block RNG untouched",()=>{
  for(const value of [NaN,Infinity,-1,1,2,"throw"]){const w=setup(),inv=new Inventory();inv.slots[0]={id:stackId("iron_shovel"),count:1,damage:2};const before=inv.toJSON();expect(mine(w,inv,()=>{if(value==="throw")throw Error("bad");return value as number;})).toBe(false);expect(inv.toJSON()).toEqual(before);expect(w.gravelHarvests.exportState().records).toEqual([]);expect(w.getBlock(at.x,at.y,at.z)).toBe(g());}
  const w=setup(),inv=new Inventory();w.setBlock(at.x,at.y,at.z,blockId("dirt"));expect(mine(w,inv,()=>{throw Error("ordinary dirt must not draw");})).toBe(true);
 });
-it("checks selected tool/source even without legacy ownership guard after RNG and receiver reservation",()=>{
+it("rejects selected-owner changes and pins source through receiver reservation",()=>{
  for(const defect of ["rng-selection","sink-selection","sink-source"]){const w=setup(),inv=new Inventory();inv.slots[0]={id:stackId("iron_shovel"),count:1,damage:2};let commit=0;
- const rand=()=>{if(defect==="rng-selection")inv.selected=1;return 0;};const sink=()=>{if(defect==="sink-selection")inv.slots[0]!.damage=3;if(defect==="sink-source"){w.setBlock(at.x,at.y,at.z,0);w.setBlock(at.x,at.y,at.z,g());}return {commit:()=>{commit++;return true;}};};
- expect(mine(w,inv,rand,sink)).toBe(false);expect(commit).toBe(0);expect(w.getBlock(at.x,at.y,at.z)).toBe(g());expect(inv.slots.filter(s=>s?.id===837)).toEqual([]);
+ const rand=()=>{if(defect==="rng-selection")inv.selected=1;return 0;};const sink=()=>{if(defect==="sink-selection")inv.slots[0]!.damage=3;if(defect==="sink-source"){w.setBlock(at.x,at.y,at.z,0);expect(w.getBlock(at.x,at.y,at.z)).toBe(g());w.setBlock(at.x,at.y,at.z,g());}return {commit:()=>{commit++;return true;}};};
+ const success=defect==="sink-source";expect(mine(w,inv,rand,sink)).toBe(success);expect(commit).toBe(success?1:0);expect(w.getBlock(at.x,at.y,at.z)).toBe(success?0:g());expect(inv.slots.filter(s=>s?.id===837)).toEqual([]);expect(inv.slots[0]?.damage).toBe(success||defect==="sink-selection"?3:2);
  }
 });
 it("diagnoses malformed raw decisions before repair and rejects mismatched loaded sources, ignoring spoof flags",()=>{
@@ -56,7 +57,7 @@ it("refuses invalid owned stacks before drawing and keeps Creative removal draw/
 });
 it("shares Agent direct full-bag retry decisions and rejects late Agent source/owner changes",()=>{
  const w=setup(),agent=createAgent(1,80,2,2);for(let i=0;i<27;i++)agent.slots[i]={id:blockId("stone"),count:64};let draws=0;expect(runAgentCommand(w,agent,{op:"destroy",dir:"forward"},{gravelRand:()=>{draws++;return .9;}}).ok).toBe(false);expect(draws).toBe(1);agent.slots[26]=null;expect(runAgentCommand(w,agent,{op:"destroy",dir:"forward"},{gravelRand:()=>{throw Error("Agent reroll");}}).ok).toBe(true);expect(agent.slots[26]).toEqual({id:g(),count:1});
- for(const defect of ["selection","source","late-slot"]){const w=setup(),agent=createAgent(1,80,2,2);let commits=0;expect(runAgentCommand(w,agent,{op:"destroy",dir:"forward"},{gravelRand:()=>0,worldDrop:()=>{if(defect==="selection")agent.selected=1;if(defect==="source"){w.setBlock(at.x,at.y,at.z,0);w.setBlock(at.x,at.y,at.z,g());}if(defect==="late-slot")Object.defineProperty(agent.slots,"26",{value:null,writable:false});return{commit:()=>{commits++;return true;}};}}).ok).toBe(false);expect(commits).toBe(0);expect(w.getBlock(at.x,at.y,at.z)).toBe(g());}
+ for(const defect of ["selection","source","late-slot"]){const w=setup(),agent=createAgent(1,80,2,2);let commits=0;expect(runAgentCommand(w,agent,{op:"destroy",dir:"forward"},{gravelRand:()=>0,worldDrop:()=>{if(defect==="selection")agent.selected=1;if(defect==="source"){w.setBlock(at.x,at.y,at.z,0);expect(w.getBlock(at.x,at.y,at.z)).toBe(g());w.setBlock(at.x,at.y,at.z,g());}if(defect==="late-slot")Object.defineProperty(agent.slots,"26",{value:null,writable:false});return{commit:()=>{commits++;return true;}};}}).ok).toBe(defect==="source");expect(commits).toBe(defect==="source"?1:0);expect(w.getBlock(at.x,at.y,at.z)).toBe(defect==="source"?0:g());expect(agent.slots.every(s=>s===null)).toBe(true);}
 });
 it("bounds strict pending state, rejects corrupt sparse/accessor owners and keeps probe/export/reentry safe",()=>{
  const invalid=[{version:1,records:Array(1)},{version:1,records:[{x:1.2,y:80,z:1,flint:true}]},{version:1,records:[{x:1,y:-1,z:1,flint:true}]},{version:1,records:[{...at,flint:false}],extra:1},{version:1,records:Array.from({length:4097},(_,x)=>({x,y:80,z:1,flint:false}))}];

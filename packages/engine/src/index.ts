@@ -123,3 +123,6 @@ export type { BrewingData, BrewingSlot, BrewingContentsLease } from "./crafting/
 export {readBrewingStandOwners} from "./persistence/brewing-save";
 export type {SavedBrewingStand,BrewingOwnershipIssue} from "./persistence/brewing-save";
 export {diagnoseRawBrewingItemOwnership} from "./persistence/save";
+
+export * from "./world/harvest-source";
+export * from "./ownership/harvest-owner";

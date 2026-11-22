@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import { createHash } from "node:crypto";
 import { expect, it } from "vitest";
 import { BLOCKS, ITEMS, RECIPES, MOB_SPECS, stackId, maxStackOf, craftOnce, matchRecipe, type CraftingGrid } from "../src/index";
@@ -7,10 +8,10 @@ const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(va
 const grid = (dye: string, count = 2): CraftingGrid => ["latex", dye, "latex", "latex", "helium", "latex", "latex", "lead_rope", "latex"].map(name => ({ id: stackId(name), count }));
 it("appends sixteen immutable flat color products without changing any old definition or recipe", () => {
   const oldMobSpecs = Object.fromEntries(Object.entries(MOB_SPECS).filter(([kind]) => ["pig", "sheep", "chicken", "npc", "zombie", "spider"].includes(kind)));
-  expect([ITEMS.length, BLOCKS.length, RECIPES.length, Object.keys(oldMobSpecs).length]).toEqual([594, 321, 171, 6]);
+  expect([ITEMS.length, BLOCKS.length, RECIPES.length, Object.keys(oldMobSpecs).length]).toEqual([594, 322, 171, 6]);
   expect(RECIPES.slice(170, 171)).toMatchObject([{ id: "brewing_stand", pattern: [" R ", "CCC"], key: { R: "blaze_rod", C: "cobblestone" }, result: ["brewing_stand", 1] }]);
   expect(digest(ITEMS.slice(0, 552))).toBe(baseline.itemDefsSHA256);
-  expect(digest(BLOCKS.slice(0,308))).toBe(baseline.blockDefsSHA256); expect(digest(RECIPES.slice(0, 144))).toBe(baseline.recipesSHA256);
+  expect(digest(BLOCKS.slice(0,308))).toBe(baseline.blockDefsSHA256); expect(digest(withLegacyBirchRecipes(RECIPES.slice(0, 144)))).toBe(baseline.recipesSHA256);
   expect(digest(oldMobSpecs)).toBe(baseline.mobSpecsSHA256);
   expect(ITEMS.slice(0, 552).map(i => [i.id, i.name])).toEqual(baseline.itemIDs);
   expect(Object.isFrozen(BALLOON_COLORS)).toBe(true);

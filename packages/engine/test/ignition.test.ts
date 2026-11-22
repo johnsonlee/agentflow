@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import { it, expect } from "vitest";
 import * as E from "../src";
 import baseline from "./fixtures/ignition-prefix-8933e09.json";
@@ -25,9 +26,9 @@ it("crafts one usable non-mining ignition tool from Iron and Flint in either gri
 it("preserves every inherited definition/recipe/key while appending only the usable tool and hidden Fire", () => {
   expect(JSON.parse(JSON.stringify(E.ITEMS.slice(0, 582)))).toEqual(baseline.items);
   expect(JSON.parse(JSON.stringify(E.BLOCKS.slice(0, 308)))).toEqual(baseline.blocks);
-  expect(JSON.parse(JSON.stringify(E.RECIPES.slice(0, 167)))).toEqual(baseline.recipes);
+  expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(E.RECIPES.slice(0, 167))))).toEqual(baseline.recipes);
   expect(E.allAtlasTextureNames().slice(0, 868)).toEqual(baseline.names);
-  expect([E.ITEMS.length, E.BLOCKS.length, E.RECIPES.length, E.allAtlasTextureNames().length]).toEqual([594, 321, 171, 892]);
+  expect([E.ITEMS.length, E.BLOCKS.length, E.RECIPES.length, E.allAtlasTextureNames().length]).toEqual([594, 322, 171, 893]);
   expect(E.allAtlasTextureNames().slice(868,870)).toEqual(["fire", "item_flint_and_steel"]);
   expect(E.blockDrops(E.blockId("fire"))).toEqual([]); expect(E.creativeBlocks().some(b => b.name === "fire")).toBe(false);
 });

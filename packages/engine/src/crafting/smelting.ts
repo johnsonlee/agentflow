@@ -33,6 +33,8 @@ export const FUELS: Readonly<Record<string, number>> = {
   coal: 80,
   charcoal: 80,
   oak_planks: 15,
+  // Same bounded furnace policy as Oak; native burn-time calibration remains unverified.
+  birch_planks: 15,
   oak_log: 15,
   birch_log: 15,
   stick: 5,

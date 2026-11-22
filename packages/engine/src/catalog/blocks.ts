@@ -252,6 +252,9 @@ for(let age=0;age<4;age++)specs.push({id:197+age,name:`nether_wart_${age}`,displ
 // Original bounded stand profile; physical parts are shared by meshing, collision and targeting.
 specs.push({id:201,name:"brewing_stand",displayName:"Brewing Stand",faces:faces("brewing_stand_base","brewing_stand_rod","brewing_stand_base"),shape:"brewing_stand",solid:true,transparent:true,hardness:.75,tool:"pickaxe",harvestTier:1,needsSupport:true});
 
+// Append-only Birch identity; existing saved Oak Planks remain Oak.
+specs.push({id:202,name:"birch_planks",displayName:"Birch Planks",faces:faces("birch_planks"),hardness:3,tool:"axe"});
+
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, id: explicitId, ...s }, index) => ({

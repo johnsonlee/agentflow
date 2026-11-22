@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import {expect,it} from "vitest";
 import {blockId,BLOCKS,blockById} from "../src/catalog/blocks";
 import {itemId,ITEMS,isKnownId,dropCount,placedBlockOf} from "../src/catalog/items";
@@ -25,7 +26,7 @@ it("uses real smelting/crafting and ordered retained reducer declarations",()=>{
  expect(smeltResult(blockId("netherrack"))).toBe(itemId("nether_brick"));
  expect(RECIPES.find(r=>r.id==="blaze_powder")).toMatchObject({ingredients:["blaze_rod"],result:["blaze_powder",2]});
  expect(RECIPES.find(r=>r.id==="nether_bricks")).toMatchObject({pattern:["##","##"],key:{"#":"nether_brick"},result:["nether_bricks",1]});
- expect(RECIPES.slice(0,168)).toEqual(baseline.recipes);
+ expect(withLegacyBirchRecipes(RECIPES.slice(0,168))).toEqual(baseline.recipes);
  expect(NATIVE_MATERIAL_REDUCTIONS.find(r=>r.input==="soul_sand")?.output).toEqual([[14,37],[8,3],[0,29],[0,1],[0,30]]);
 });
 it("generates real roofed caverns and Lava inside the existing96-block buffer",()=>{

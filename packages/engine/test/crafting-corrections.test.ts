@@ -1,3 +1,4 @@
+import { withLegacyBirchRecipes } from "./helpers/legacy-birch-recipes";
 import { withLegacyStationFaces } from "./helpers/legacy-station-faces";
 import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
@@ -23,12 +24,12 @@ function roundTrip(f: FurnaceState): FurnaceState {
 it("preserves prior registry prefixes, other125 recipes (snow is checked separately), old9 smelts and all fuels", () => {
   expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
   expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
-  expect(RECIPES.slice(0, 128)).toHaveLength(128);
-  expect(RECIPES.slice(0, 128).filter((r) => r.id !== "bookshelf" && r.id !== "glowstone" && r.id !== "snow_block")).toEqual(fixture.unchangedRecipes.filter((r: { id: string }) => r.id !== "glowstone" && r.id !== "snow_block"));
+  expect(withLegacyBirchRecipes(RECIPES.slice(0, 128))).toHaveLength(128);
+  expect(withLegacyBirchRecipes(RECIPES.slice(0, 128)).filter((r) => r.id !== "bookshelf" && r.id !== "glowstone" && r.id !== "snow_block")).toEqual(fixture.unchangedRecipes.filter((r: { id: string }) => r.id !== "glowstone" && r.id !== "snow_block"));
   expect(Object.keys(SMELTING_RECIPES).filter(name=>name!=="netherrack")).toHaveLength(12);
   expect(SMELTING_RECIPES.netherrack).toBe("nether_brick");
   for (const [input, output] of Object.entries(fixture.previousSmelting)) expect(SMELTING_RECIPES[input]).toBe(output);
-  expect(FUELS).toEqual(fixture.previousFuels); expect(SMELT_SECONDS).toBe(10);
+  expect(FUELS.birch_planks).toBe(15); const {birch_planks,...oldFuels}=FUELS; expect(oldFuels).toEqual(fixture.previousFuels); expect(SMELT_SECONDS).toBe(10);
 });
 
 it("matches five source-pinned factual transforms without registering broader tag membership", () => {
