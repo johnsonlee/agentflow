@@ -251,6 +251,7 @@ export class CodeBuilderScreen {
     language.addEventListener("change", () => { if (language.value === "javascript" || language.value === "python") { this.importLanguage = language.value; this.render(); } }); languageLabel.append(language);
     const nameLabel = el("label", "cb-import-field", "New program name");
     const name = el("input", "mc-input"); name.setAttribute("aria-label", "New program name"); name.value = draft.name; name.placeholder = this.defaultImportName(); nameLabel.append(name); fields.append(languageLabel, nameLabel);
+    const issue = el("p", "cb-import-status", draft.issue?.message ?? ""); issue.id = `${this.importId}-issue`; issue.setAttribute("role", "alert");
     const sourceLabel = el("label", "cb-import-field", "Source code");
     const source = el("textarea", "mc-input cb-import-source"); source.setAttribute("aria-label", "Source code"); source.setAttribute("spellcheck", "false"); source.setAttribute("autocapitalize", "off"); source.setAttribute("autocomplete", "off"); source.setAttribute("autocorrect", "off"); source.value = draft.source;
     source.placeholder = this.importLanguage === "javascript" ? "agent.move(FORWARD, 1);" : "agent.move(FORWARD, 1)";
@@ -262,7 +263,6 @@ export class CodeBuilderScreen {
     details.append(el("p", "", "Commands: move, turn, place, destroy, and slot selection. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
     const example = this.importLanguage === "javascript" ? 'agent.setSlot(1);\nfor (let step = 0; step < 2; step++) {\n    agent.move(FORWARD, 1);\n}\nif (agent.blockIs("stone", UP)) {\n    agent.turn(RIGHT_TURN);\n}' : 'agent.set_slot(1)\nfor step in range(2):\n    agent.move(FORWARD, 1)\nif agent.block_is("stone", UP):\n    agent.turn(TurnDirection.RIGHT)';
     details.append(el("pre", "", example), el("p", "", "Exact block names are an application extension. detect uses this game's any-solid-block rule, which differs from native MakeCode. Limits: 16 KiB of UTF-8 source, 4,096 tokens, 2,000 blocks, four nesting levels and 100 repeats. Oversized text is rejected in full, never cut off. Strings have no escapes; loop counters cannot shadow constants or keywords."));
-    const issue = el("p", "cb-import-status", draft.issue?.message ?? ""); issue.id = `${this.importId}-issue`; issue.setAttribute("role", "alert");
     source.setAttribute("aria-describedby", `${policy.id} ${issue.id}`); source.setAttribute("aria-invalid", draft.issue?.focus === "source" ? "true" : "false");
     name.setAttribute("aria-invalid", draft.issue?.focus === "name" ? "true" : "false"); name.setAttribute("aria-describedby", issue.id);
     const clearIssue = () => { draft.issue = undefined; issue.textContent = ""; source.setAttribute("aria-invalid", "false"); name.setAttribute("aria-invalid", "false"); };
@@ -271,7 +271,7 @@ export class CodeBuilderScreen {
     const actions = el("div", "cb-import-actions");
     const back = el("button", "mc-button", "Back to blocks"); back.addEventListener("click", () => { this.importing = false; this.render("import"); });
     const convert = el("button", "mc-button primary", "Create block program"); convert.addEventListener("click", () => this.convertDraft());
-    actions.append(back, convert); view.append(header, note, fields, sourceLabel, policy, persistence, details, issue, actions); this.panel.replaceChildren(view);
+    actions.append(back, convert); view.append(header, note, fields, issue, sourceLabel, policy, persistence, details, actions); this.panel.replaceChildren(view);
     if (draft.issue?.focus === "back") back.focus();
     else if (draft.issue?.focus === "name") name.focus();
     else {
@@ -279,6 +279,7 @@ export class CodeBuilderScreen {
       const diagnostic = draft.issue?.diagnostic;
       if (diagnostic) { const range = diagnosticSelection(draft.source, diagnostic); source.setSelectionRange(range.start, range.end); }
     }
+    if (draft.issue) issue.scrollIntoView({ block: "nearest" });
   }
 
   /** A drop zone listing `blocks` at nesting `depth`; tapping it makes it the tap target. */
