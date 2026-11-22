@@ -40,6 +40,31 @@ export async function sourceWorkspaceRoute(page: Page, info: TestInfo, mobile: b
   };
   const close = async () => { await press(code.getByRole("button", { name: "Close Code Builder", exact: true })); await expect(code).toBeHidden(); };
   const pause = async () => { if (mobile) await press(page.getByRole("button", { name: "Pause", exact: true })); else await page.keyboard.press("Escape"); await expect(page.locator(".pause-screen")).toBeVisible(); };
+  // Nearest-edge automation can stop at a fractional clipped edge. Prove that a
+  // user can reveal each control with wheel/touch input, then keep ratio=1.
+  const revealColdControl = async (control: Locator, checkpoint: string, key: string) => {
+    await control.scrollIntoViewIfNeeded();
+    for (let attempt = 0; attempt < 4; attempt++) {
+      const before = await control.evaluate(e => {
+        const r = e.getBoundingClientRect(), p = e.closest(".code-panel")! as HTMLElement, b = p.getBoundingClientRect();
+        return { top: r.top, bottom: r.bottom, panelTop: b.top + p.clientTop + 8, panelBottom: b.top + p.clientTop + p.clientHeight - 8, scrollTop: p.scrollTop };
+      });
+      if (before.top >= before.panelTop && before.bottom <= before.panelBottom) return;
+      const box = (await panel.boundingBox())!, delta = before.top < before.panelTop ? Math.max(30, before.panelTop - before.top) : Math.min(-30, before.panelBottom - before.bottom);
+      const shift = Math.max(-box.height * .3, Math.min(box.height * .3, delta));
+      if (mobile) {
+        finger = await page.context().newCDPSession(page); const x = box.x + 5, y = box.y + box.height / 2;
+        try {
+          await finger.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 204 }] });
+          for (let i = 1; i <= 8; i++) { await finger.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y + shift * i / 8, id: 204 }] }); await page.waitForTimeout(18); }
+          await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
+        } finally { await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }).catch(() => {}); await finger.detach(); finger = null; }
+      } else { await page.mouse.move(box.x + 5, box.y + box.height / 2); await page.mouse.wheel(0, -shift); }
+      await page.waitForTimeout(200);
+      const after = await control.evaluate(e => { const r = e.getBoundingClientRect(), p = e.closest(".code-panel")!; return { top: r.top, bottom: r.bottom, scrollTop: p.scrollTop }; });
+      pans.push({ checkpoint, key, attempt, before, after, shift, method: mobile ? "actual CDP touch on panel padding; no DOM scroll writes" : "actual mouse wheel on panel padding; no DOM scroll writes" });
+    }
+  };
   const cold = async (file: string, expected: CodeWorkspaceData, programs: CodeProgram[]) => {
     await close(); await pause(); await press(page.getByRole("button", { name: "Save & Quit to Title", exact: true }));
     await expect(page.getByRole("heading", { name: "AgentFlow Craft", exact: true })).toBeVisible();
@@ -49,7 +74,7 @@ export async function sourceWorkspaceRoute(page: Page, info: TestInfo, mobile: b
     await page.reload(); await press(page.getByRole("button", { name: /Continue/ })); await waitForTerrain(page); await open();
     expect(JSON.parse((await read()).raw!).codeWorkspace).toEqual(expected); await expect(language()).toHaveValue(expected.language); await expect(source()).toHaveValue(expected.drafts[expected.language].source); await expect(name()).toHaveValue(expected.drafts[expected.language].name);
     for (const [key, control] of [["language", language()], ["name", name()], ["source", source()]] as const) {
-      await control.scrollIntoViewIfNeeded(); await expect(control).toBeInViewport({ ratio: 1 });
+      await revealColdControl(control, file, key); await expect(control).toBeInViewport({ ratio: 1 });
       const fact = await control.evaluate(e => { const r = e.getBoundingClientRect(), hit = document.elementFromPoint(r.x + r.width / 2, r.y + r.height / 2); return { rect: { x: r.x, y: r.y, width: r.width, height: r.height }, font: parseFloat(getComputedStyle(e).fontSize), uncovered: hit === e || !!hit && e.contains(hit) }; });
       expect(fact.rect.width).toBeGreaterThanOrEqual(44); expect(fact.rect.height).toBeGreaterThanOrEqual(44); expect(fact.font).toBeGreaterThanOrEqual(16); expect(fact.uncovered).toBe(true); coldGeometry.push({ checkpoint: file, key, viewport: size, ...fact });
       if (key === "name") await snap(file + "-cold-restored-name-language");
