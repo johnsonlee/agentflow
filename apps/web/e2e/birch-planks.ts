@@ -4,7 +4,7 @@ import {Inventory,createAgent,blockId,stackId,serializeSave,type SaveData} from 
 import {lookAtCell,aimAtTop,parkMouse,target,waitForTerrain,snap} from './helpers';
 export function birchFixture():SaveData{
  const bag=new Inventory();bag.slots[0]={id:blockId('birch_log'),count:8};bag.slots[1]={id:blockId('oak_planks'),count:4};bag.slots[2]={id:stackId('iron_ore'),count:1};bag.slots[3]={id:stackId('iron_axe'),count:1,damage:7};
- const edits:SaveData['edits']=[];for(let x=-12;x<=12;x++)for(let z=-12;z<=12;z++){edits.push([x,79,z,blockId('stone')]);for(let y=80;y<=84;y++)edits.push([x,y,z,0]);}edits.push([-3,80,-3,blockId('furnace')],[-1,80,-3,blockId('material_reducer')]);
+ const edits:SaveData['edits']=[];for(let x=-12;x<=12;x++)for(let z=-12;z<=12;z++){edits.push([x,79,z,blockId('stone')]);for(let y=80;y<=84;y++){if(y===80&&z===-3&&(x===-3||x===-1))continue;edits.push([x,y,z,0]);}}edits.push([-3,80,-3,blockId('furnace')],[-1,80,-3,blockId('material_reducer')]);
  return{version:1,name:'Birch raw ingredient browser scope',seed:12345,generatorVersion:2,mode:'survival',timeOfDay:.25,player:{position:{x:.5,y:80,z:2.5},yaw:0,pitch:0,flying:false},playerState:{health:20},inventory:bag.toJSON(),agent:createAgent(6,80,0,2),programs:[],edits,gamerules:{doMobSpawning:false,doDaylightCycle:false}};
 }
 export async function birchRoute(page:Page,info:TestInfo,mobile:boolean){
