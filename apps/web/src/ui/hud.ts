@@ -107,13 +107,43 @@ export class Hud {
       ] as const) {
         const action = el("button", "touch-top-button", text);
         action.setAttribute("aria-label", label);
-        action.addEventListener("pointerdown", e => e.stopPropagation());
+        let secondaryId: number | null = null, secondaryClickId: number | null = null;
+        const available = () => !this.disposed && !action.disabled && !action.hidden;
+        const inside = (e: PointerEvent) => {
+          const r = action.getBoundingClientRect();
+          return Number.isFinite(e.clientX) && Number.isFinite(e.clientY) && e.clientX >= r.left && e.clientX < r.right && e.clientY >= r.top && e.clientY < r.bottom;
+        };
+        action.addEventListener("pointerdown", e => {
+          e.stopPropagation();
+          if (e.pointerId === secondaryClickId) secondaryClickId = null;
+          if (!available()) { secondaryId = null; return; }
+          if (e.pointerType === "touch" && e.isPrimary === false && secondaryId === null && inside(e)) { secondaryId = e.pointerId; secondaryClickId = e.pointerId; }
+        });
+        action.addEventListener("pointermove", e => {
+          if (e.pointerId === secondaryId && (!available() || !inside(e))) secondaryId = null;
+        });
+        for (const type of ["pointercancel", "lostpointercapture"] as const) action.addEventListener(type, e => {
+          if (e.pointerId === secondaryId) secondaryId = null;
+        });
+        action.addEventListener("pointerup", e => {
+          if (e.pointerType !== "touch" || e.pointerId !== secondaryId) return;
+          e.stopPropagation(); secondaryId = null;
+          if (!available() || !inside(e)) return;
+          // Chromium does not synthesize click for a secondary touch. Its completed
+          // in-bounds release is the activation; primary touch still waits for click.
+          activate();
+        });
         for (const type of ["keydown", "keyup"] as const) action.addEventListener(type, e => {
           if (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter") e.stopPropagation();
         });
-        // Opening a modal on pointerdown can send the same gesture's click to
-        // a newly exposed control. Activate only after the button receives click.
-        action.addEventListener("click", e => { e.stopPropagation(); activate(); });
+        // Keep primary/mouse/keyboard activation after click, avoiding modal click-through.
+        // Suppress click for the recognized secondary gesture, including canceled/dragged contacts.
+        // click.isPrimary can be false even for a normal primary tap: match only known IDs.
+        action.addEventListener("click", e => {
+          e.stopPropagation();
+          if (e.pointerType === "touch" && e.pointerId === secondaryClickId || !available()) return;
+          activate();
+        });
         top.appendChild(action);
       }
       this.root.appendChild(top);

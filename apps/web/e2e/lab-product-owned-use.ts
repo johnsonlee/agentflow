@@ -1,7 +1,7 @@
 import {expect,type Page,type TestInfo,type Locator} from '@playwright/test';
 import fs from 'node:fs/promises';
 import {Inventory,blockId,stackId,serializeSave,farmlandId,wheatId,type SaveData} from '@craft/engine';
-import {waitForTerrain,snap,lookAtCell,parkMouse,pressMouse,target} from './helpers';
+import {waitForTerrain,snap,lookAtCell,aimAtTop,parkMouse,pressMouse,target} from './helpers';
 
 type Cell={x:number;y:number;z:number};
 const crops:Cell[]=[8,16,24].map(x=>({x,y:80,z:8}));
@@ -34,7 +34,7 @@ export async function labProductOwnedUseRoute(page:Page,info:TestInfo,mobile:boo
  const aim=async(p:Cell)=>{await command(`/tp ${p.x+.5} 80 ${p.z+4.5}`);if(!mobile)await parkMouse(page);await lookAtCell(page,p.x,p.y,p.z);await expect.poll(()=>target(page)).toMatchObject(p);};
  const use=async()=>{await page.waitForFunction(()=>((window.__craft.game! as unknown as{placeCooldown:number}).placeCooldown)===0);const before=await read(),aimed=await target(page);if(mobile){const v=page.viewportSize()!;await page.touchscreen.tap(v.width*.65,v.height*.42);}else await pressMouse(page,'right');await expect.poll(()=>page.evaluate(()=>((window.__craft.game! as unknown as{placeCooldown:number}).placeCooldown))).toBeGreaterThan(0);actions.push({order:actions.length+1,stage,aimed,before,after:await read(),actualControl:mobile?'touchscreen.tap':'mouse right down/up',processedLabCooldown:true});};
  const exactCargo=(state:Awaited<ReturnType<typeof read>>)=>{expect(state.bag.slots[3]).toEqual(save.inventory.slots[3]);expect(state.bag.slots[4]).toEqual(save.inventory.slots[4]);expect(state.drops.records).toEqual([]);expect(state.loadErrors).toEqual([]);};
- const viewIce=async(index:number,label:string)=>{const p=pools[index][1];await command(`/tp ${p.x+.5} 80 16.5`);if(!mobile)await parkMouse(page);await lookAtCell(page,p.x,p.y,p.z);await expect.poll(()=>target(page)).toMatchObject({...p,id:blockId('ice')});await snap(page,info,`${prefix}-${label}`);};
+ const viewIce=async(index:number,label:string)=>{const p=pools[index][1];await command(`/tp ${p.x+.5} 80 16.5`);if(!mobile)await parkMouse(page);await aimAtTop(page,p.x,p.y,p.z);await expect.poll(()=>target(page)).toMatchObject({...p,id:blockId('ice')});await snap(page,info,`${prefix}-${label}`);};
  const cold=async(label:string)=>{
   stage=label;if(mobile)await press(page.getByRole('button',{name:'Pause',exact:true}));else await page.keyboard.press('Escape');
   const before=await read();await press(page.getByRole('button',{name:'Save & Quit to Title',exact:true}));
