@@ -173,6 +173,8 @@ export const RECIPES: readonly Recipe[] = [
   {id:'book',ingredients:['paper','paper','paper','leather'],result:['book',1]},
   // Four shapes/material counts declared in Education 1.26.33's recipe files.
   ...armorRecipes("leather", "leather"),
+  // Education1.26.33 declares one reeds input -> one Sugar; reuse the existing Sugar owner.
+  { id: "sugar_from_cane", pattern: ["#"], key: { "#": "sugar_cane" }, result: ["sugar", 1] },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];
