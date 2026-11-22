@@ -1,3 +1,4 @@
+import {writablePlacementCell,placementCellsWithinWorld}from"../world/placement-bounds";
 import {hayAxisOf,hayPlacementId} from "../catalog/hay-block";
 import {inspectCaneItemOwner} from '../ownership/cane-items';
 import {SUGAR_CANE_ITEM_ID} from '../catalog/cane-profile';
@@ -169,24 +170,27 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       agent.facing = (agent.facing + (cmd.side === "left" ? 3 : 1)) % 4;
       return { ok: true };
     case "place": {
-      const t = target(cmd.dir),stack=agent.slots[agent.selected];
+      const t = target(cmd.dir);
+      if(!writablePlacementCell(t.x,t.y,t.z))return {ok:false,message:"Can't place outside the world"};
+      const stack=agent.slots[agent.selected];
       if(inspectCaneItemOwner(stack).kind==='invalid')return{ok:false,message:'Invalid Sugar Cane item'};
       if(stack?.id===SUGAR_CANE_ITEM_ID)return{ok:plantSugarCane(world,agent,'survival',t.x,t.y,t.z,AGENT_SLOTS,AGENT_SLOTS),message:'Sugar Cane needs an empty spot on supported soil beside water'};
+      let placed = stack ? placedBlockOf(stack.id) : null;
+      if(placed!==null&&hayAxisOf(placed)!==null)placed=hayPlacementId({x:t.x-agent.x,y:t.y-agent.y,z:t.z-agent.z});
+      const cells:Array<[number,number,number,number]>|null=placed===null?null:orientedPlacement(placed,t.x,t.y,t.z,agent.facing)??[[t.x,t.y,t.z,placed]];
+      if(cells&&!placementCellsWithinWorld(cells))return {ok:false,message:"That placement would extend outside the world"};
       const here = world.getBlock(t.x, t.y, t.z);
       if (here !== AIR && !tryBlockById(here)?.replaceable && tryBlockById(here)?.shape !== "liquid") return { ok: false, message: "Something is in the way" };
       if(stack?.id===842)return {ok:plantNetherWart(world,agent,"survival",t.x,t.y,t.z,AGENT_SLOTS,AGENT_SLOTS),message:"Wart requires Soul Sand and an unchanged owned item"};
       // Blocks, and items that place a block (redstone dust, doors, lab products).
       // Stateful glow has no block metadata owner. Refuse before world writes or source debit.
       if (stack && (Object.prototype.hasOwnProperty.call(stack, "glow") || Object.prototype.hasOwnProperty.call(stack, "sparkler"))) return { ok: false, message: "Stateful Glow sticks and Sparklers cannot be placed" };
-      let placed = stack ? placedBlockOf(stack.id) : null;
-      if(placed!==null&&hayAxisOf(placed)!==null)placed=hayPlacementId({x:t.x-agent.x,y:t.y-agent.y,z:t.z-agent.z});
-      if (!stack || placed === null) return { ok: false, message: "No block in the selected slot" };
+      if (!stack || placed === null || cells === null) return { ok: false, message: "No block in the selected slot" };
       // Education Edition: the Agent obeys Allow/Deny like a survival player.
       if (!canBuildAt(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Building isn't allowed here (Deny)" };
       // Same support rules as the player: dust, buttons, plates and repeaters need a solid block below.
       if (!hasSupport(world, blockById(placed), t.x, t.y, t.z, here)) return { ok: false, message: "That needs a block to stand on" };
       // Repeaters point the way the Agent faces; doors face it and need the cell above (inside the world).
-      const cells = orientedPlacement(placed, t.x, t.y, t.z, agent.facing) ?? [[t.x, t.y, t.z, placed]];
       if (!extraCellsFree(world, cells)) return { ok: false, message: "Something is in the way" };
       // New fence only: fixed centered.6x1 Agent footprint, not a retrofit of legacy actor physics.
       const get = world.getBlock.bind(world), feet = env.playerFeet?.();

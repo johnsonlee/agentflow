@@ -1,3 +1,4 @@
+import {writablePlacementCell,placementCellsWithinWorld}from"./placement-bounds";
 import {hayAxisOf,hayPlacementId} from "../catalog/hay-block";
 import {inspectCaneItemOwner} from '../ownership/cane-items';
 import {plantSugarCaneOwned} from './sugar-cane';
@@ -172,7 +173,7 @@ export function hasSupport(world: World, def: BlockDef, x: number, y: number, z:
 
 /** Extra cells of a multi-cell placement (a door's upper half) must be free and inside the world. */
 export function extraCellsFree(world: World, cells: ReadonlyArray<readonly [number, number, number, number]>): boolean {
-  return cells.slice(1).every(([cx, cy, cz]) => cy >= 0 && cy < WORLD_HEIGHT && world.getBlock(cx, cy, cz) === AIR);
+  return placementCellsWithinWorld(cells) && cells.slice(1).every(([cx, cy, cz]) => world.getBlock(cx, cy, cz) === AIR);
 }
 
 /**
@@ -193,7 +194,7 @@ export function placeBlock(
   placementNormal?: Vec3,
 ): boolean {
   if(world.blockSourceLeaseBusy)return false;
-  if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT) return false;
+  if (!writablePlacementCell(x,y,z)) return false;
   const stack = inventory.selectedStack();
   if(inspectCaneItemOwner(stack).kind==="invalid")return false;
   if(stack?.id===SUGAR_CANE_ITEM_ID)return plantSugarCane(world,inventory,mode,x,y,z);
@@ -205,14 +206,16 @@ export function placeBlock(
   let placed = stack ? placedBlockOf(stack.id) : null;
   if(placed!==null&&hayAxisOf(placed)!==null)placed=hayPlacementId(placementNormal);
   if (!stack || placed === null) return false;
+  // Reject the entire oriented batch before reading even its valid first cell.
+  const cells = orientedPlacement(placed, x, y, z, look);
+  if (!placementCellsWithinWorld(cells ?? [[x,y,z,placed]])) return false;
   const target = world.getBlock(x, y, z);
   if (target !== AIR && target !== WATER && !tryBlockById(target)?.replaceable) return false;
   const def = blockById(placed);
   if (def.solid && def.shape !== "fence" && bodyOverlapsBlock(playerFeet, x, y, z)) return false;
   if (!hasSupport(world, def, x, y, z, target)) return false;
   if (!canBuildAt(world, mode, x, y, z)) return false;
-  // Repeaters point where the player looks; doors face the player and need the cell above free.
-  const cells = orientedPlacement(placed, x, y, z, look);
+  // Repeaters point where the player looks; doors also need their upper cell free.
   if (placementIntersectsFenceGeometry(world.getBlock.bind(world), cells ?? [[x, y, z, placed]], playerBox(playerFeet))) return false;
   if (cells) {
     // A door needs its upper cell free and inside the world (not at the top layer).
