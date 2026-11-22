@@ -222,11 +222,17 @@ errors, empty/zero-action snippets, cancellation, and invalid pending block work
 do not save or replace programs. Diagnostics show the line and column and select
 the source range. A current invalid block program must be repaired first.
 
-Each language keeps its code/name/error draft across language switches, Back, and
-closing/reopening Code Builder within the same open game. Only converted block
-programs are saved with the world; code drafts are intentionally lost on reload or
-leaving the game. Oversized input remains visible and is rejected rather than
-silently truncated. The conversion form uses plaintext, labelled controls, 16 px
+Each language keeps its code/name draft and the selected language with this world,
+including invalid or unsupported code that needs repair. World saves, backups and
+cold reload retain this text separately from block programs; loading it never
+compiles or runs it. Diagnostic messages remain session-only. Application storage
+limits are 64 KiB of UTF-8 per source, 4 KiB per draft name and 1 MiB per envelope;
+the converter still accepts at most 16 KiB. Oversized input remains visible and is
+never truncated. A world checkpoint keeps the last persistable draft while excess
+text stays in RAM; shorten or copy it before quitting or voluntary world travel.
+A mandatory death/world replacement can end that unpersistable RAM text. This
+optional application-owned `codeWorkspace` extension is not a native MakeCode
+project, IndexedDB workspace, `.mkcd` file or source/block roundtrip format. The conversion form uses plaintext, labelled controls, 16 px
 text and 44 px new touch targets with scrolling for phone orientations. This does
 not claim that every older block-editor layout or physical device has been fixed
 or tested.
@@ -234,4 +240,4 @@ or tested.
 
 Code Builder now offers a **Saved program or draft** picker. Numbered options distinguish programs with the same name. Editing uses a detached working copy: selecting, editing, and saving never changes an already-running program's code. Choose **Run** explicitly to run the selected saved version. Switching preserves valid edits; invalid working edits stay available for repair. **New** retains an empty session draft that can be selected again.
 
-Valid block edits are included in world autosaves, backups, and Save & Quit, without requiring **Save program**. A failed browser write leaves the session edit available. Invalid uncommitted edits keep the last valid saved AST safe during necessary world checkpoints and death; alive Save & Quit and voluntary world travel require repairing that draft first. Private invalid block edits and original text-import drafts are session-only and can end with a mandatory death/world replacement. No new save fields or text workspace persistence are added. The original JS/Python subset conversion, separate Run, and per-language text drafts remain available.
+Valid block edits are included in world autosaves, backups, and Save & Quit, without requiring **Save program**. A failed browser write leaves the session edit available. Invalid uncommitted edits keep the last valid saved AST safe during necessary world checkpoints and death; alive Save & Quit and voluntary world travel require repairing that draft first. Private invalid block edits remain session-only and can end with a mandatory death/world replacement. Text drafts within the storage bounds now persist through the optional world-owned workspace, even when their syntax or conversion name is invalid. A malformed stored workspace preserves the exact original for recovery rather than being silently dropped. A successful disk write stays successful even if editor acknowledgment becomes stale; newer RAM edits keep voluntary Save & Quit open for retry. The original JS/Python subset conversion and separate Run remain unchanged.

@@ -1,7 +1,7 @@
-import { validateProgram, type CodeProgram } from "@craft/engine";
+import { validateProgram, type CodeProgram, type CodeWorkspaceData } from "@craft/engine";
 interface Entry { id: number; source: CodeProgram | null; index: number; working: CodeProgram; baseline: string; initial: string }
 interface Plan { entry: Entry; entrySource: CodeProgram | null; source: CodeProgram | null; index: number; sourceJSON: string; workingJSON: string; staged: CodeProgram }
-export type ProgramSnapshot = { ok: false; error: string } | { ok: true; programs: CodeProgram[]; warning: string; accept(): boolean };
+export type ProgramSnapshot = { ok: false; error: string } | { ok: true; programs: CodeProgram[]; codeWorkspace?: CodeWorkspaceData; warning: string; accept(): boolean };
 export interface ProgramChoice { value: string; label: string; selected: boolean }
 const copy = (p: CodeProgram): CodeProgram => structuredClone(p);
 const json = (p: CodeProgram): string => JSON.stringify(p);

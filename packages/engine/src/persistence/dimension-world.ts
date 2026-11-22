@@ -16,6 +16,7 @@ export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[num
 const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
+  "codeWorkspaceInvalid",
   "recyclingOwnershipIssues", "caneOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",

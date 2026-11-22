@@ -150,3 +150,5 @@ export * from "./ownership/furnace-contents";
 export * from "./catalog/hay-block";
 
 export * from "./automation/text-compiler";
+
+export * from "./persistence/code-workspace";

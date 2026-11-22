@@ -1,3 +1,4 @@
+import { emptyCodeWorkspace, hasCodeWorkspace, readCodeWorkspace, type CodeWorkspaceData } from "@craft/engine";
 import {
   AGENT_DIRECTIONS, AGENT_SLOTS, CODE_BLOCK_CHOICES, MAX_NESTING, MAX_REPEAT, compileAgentText, validateProgram, type AgentTextLanguage, type TextDiagnostic, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
 } from "@craft/engine";
@@ -26,6 +27,7 @@ const PALETTE: Array<{ id: string; label: string; kind: "command" | "loop" | "lo
 ];
 
 export interface CodeBuilderHost {
+  codeWorkspace?: CodeWorkspaceData;
   programs: CodeProgram[];
   run(program: CodeProgram): void;
   stop(): void;
@@ -57,11 +59,20 @@ export class CodeBuilderScreen {
   private importing = false;
   private importLanguage: AgentTextLanguage = "javascript";
   private readonly importId = `cb-import-${++importPanelId}`;
-  // UI-instance drafts only: never attached to CodeProgram or serialized world data.
+  // Text drafts are separate data; they never mutate CodeProgram or execute on load.
   private readonly codeDrafts: Record<AgentTextLanguage, CodeDraft> = { javascript: { source: "", name: "" }, python: { source: "", name: "" } };
+
+  private savedSourceWorkspace?: CodeWorkspaceData;
 
   constructor(container: HTMLElement, private readonly host: CodeBuilderHost, private readonly onClose: () => void) {
     this.workspace = new CodeProgramWorkspace(this.host.programs);
+    const restored = readCodeWorkspace(host.codeWorkspace);
+    if (restored.kind === "valid") {
+      this.savedSourceWorkspace = restored.data;
+      this.importLanguage = restored.data.language;
+      this.codeDrafts.javascript = { ...restored.data.drafts.javascript };
+      this.codeDrafts.python = { ...restored.data.drafts.python };
+    }
     this.root.hidden = true;
     this.root.appendChild(this.panel);
     for (const type of ["keydown", "keyup", "keypress"]) this.panel.addEventListener(type, e => { if (this.importing && !this.root.hidden) e.stopPropagation(); });
@@ -86,8 +97,27 @@ export class CodeBuilderScreen {
   }
 
   /** Pure world-checkpoint stage. Invalid UI work leaves last valid owned programs intact. */
-  prepareProgramSnapshot(): ProgramSnapshot { return this.workspace.prepareSnapshot(); }
-  uncommittedProgramIssue(): string | null { return this.workspace.unsavedIssue(); }
+  prepareProgramSnapshot(): ProgramSnapshot {
+    const blocks = this.workspace.prepareSnapshot();
+    if (!blocks.ok) return blocks;
+    const text = this.sourceSnapshot();
+    return { ...blocks, codeWorkspace: text.workspace, warning: [blocks.warning, text.issue].filter(Boolean).join(" "), accept: () => {
+      // Called after a successful world write. Keep newer RAM text.
+      this.savedSourceWorkspace = text.workspace && structuredClone(text.workspace);
+      return blocks.accept();
+    } };
+  }
+  private sourceSnapshot(): { workspace?: CodeWorkspaceData; issue: string | null } {
+    const data = emptyCodeWorkspace(); data.language = this.importLanguage;
+    for (const language of ["javascript", "python"] as const) data.drafts[language] = { source: this.codeDrafts[language].source, name: this.codeDrafts[language].name };
+    const checked = readCodeWorkspace(data);
+    if (checked.kind !== "valid") return { workspace: this.savedSourceWorkspace && structuredClone(this.savedSourceWorkspace), issue: "Source drafts exceed storage limits (64 KiB UTF-8 per source, 4 KiB per name). The last saved drafts are kept in world checkpoints; current text remains in this game. Shorten or copy the text before quitting or changing worlds." };
+    return { workspace: hasCodeWorkspace(checked.data) ? checked.data : undefined, issue: null };
+  }
+  uncommittedProgramIssue(): string | null { return this.workspace.unsavedIssue() ?? this.sourceSnapshot().issue; }
+  private sourcePersistenceNote(): string {
+    return this.sourceSnapshot().issue ?? "Text drafts and the selected language save with this world, including syntax errors. Loading text never runs it. Storage: 64 KiB UTF-8 per source and 4 KiB per name; conversion remains limited to 16 KiB. This is application-owned draft storage, not a native MakeCode project. The Agent uses only the items it already carries.";
+  }
   private resetTarget(): void { this.target = this.program.blocks; this.targetDepth = 0; this.dragging = null; }
   private commit(): boolean {
     const committed = this.workspace.commitCurrent();
@@ -276,7 +306,7 @@ export class CodeBuilderScreen {
     sourceLabel.append(source);
     const policy = el("p", "cb-import-note", this.importLanguage === "javascript" ? "Body-only JavaScript: native onChat callbacks and function wrappers are unsupported." : "Python subset: use exactly four spaces per indentation level. Functions and imports are unsupported.");
     policy.id = `${this.importId}-policy`;
-    const persistence = el("p", "cb-import-note", "Converted blocks save with your world. Original code drafts last only while this game is open; they are not restored after a reload. The Agent uses only the items it already carries.");
+    const persistence = el("p", "cb-import-note", this.sourcePersistenceNote());
     const details = el("details", "cb-import-help"); details.append(el("summary", "", "Supported subset and limits"));
     details.append(el("p", "", "Commands: move, turn, place, destroy, and slot selection. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
     const example = this.importLanguage === "javascript" ? 'agent.setSlot(1);\nfor (let step = 0; step < 2; step++) {\n    agent.move(FORWARD, 1);\n}\nif (agent.blockIs("stone", UP)) {\n    agent.turn(RIGHT_TURN);\n}' : 'agent.set_slot(1)\nfor step in range(2):\n    agent.move(FORWARD, 1)\nif agent.block_is("stone", UP):\n    agent.turn(TurnDirection.RIGHT)';
@@ -284,8 +314,8 @@ export class CodeBuilderScreen {
     source.setAttribute("aria-describedby", `${policy.id} ${issue.id}`); source.setAttribute("aria-invalid", draft.issue?.focus === "source" ? "true" : "false");
     name.setAttribute("aria-invalid", draft.issue?.focus === "name" ? "true" : "false"); name.setAttribute("aria-describedby", issue.id);
     const clearIssue = () => { draft.issue = undefined; issue.textContent = ""; source.setAttribute("aria-invalid", "false"); name.setAttribute("aria-invalid", "false"); };
-    source.addEventListener("input", () => { draft.source = source.value; clearIssue(); });
-    name.addEventListener("input", () => { draft.name = name.value; clearIssue(); });
+    source.addEventListener("input", () => { draft.source = source.value; clearIssue(); persistence.textContent = this.sourcePersistenceNote(); });
+    name.addEventListener("input", () => { draft.name = name.value; clearIssue(); persistence.textContent = this.sourcePersistenceNote(); });
     const actions = el("div", "cb-import-actions");
     const back = el("button", "mc-button", "Back to blocks"); back.addEventListener("click", () => { this.importing = false; this.render("import"); });
     const convert = el("button", "mc-button primary", "Create block program"); convert.addEventListener("click", () => this.convertDraft());

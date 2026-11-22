@@ -1,3 +1,4 @@
+import { readCodeWorkspace, type CodeWorkspaceData } from "./code-workspace";
 import {hasBusyFurnaceOwnership} from "../ownership/furnace-contents";
 import { diagnoseRawRecyclingOwnership, type RecyclingOwnershipIssue } from "./recycling-ownership";
 import {diagnoseRawCaneOwnership} from './cane-ownership';
@@ -108,6 +109,10 @@ export interface SaveData {
   /** Education Edition Agent and Code Builder programs (optional for older saves). */
   agent?: AgentState;
   programs?: CodeProgram[];
+  /** Bounded application text drafts; never executable or native project files. */
+  codeWorkspace?: CodeWorkspaceData;
+  /** Derived from malformed present data, never trusted from JSON or serialized. */
+  codeWorkspaceInvalid?: boolean;
   /** Education Edition chalkboards (optional for older saves). */
   chalkboards?: Chalkboard[];
   /** Furnaces with their contents and progress (optional for older saves). */
@@ -135,6 +140,8 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
+  const codeWorkspace = readCodeWorkspace(data.codeWorkspace);
+  if (data.codeWorkspaceInvalid || codeWorkspace.kind === "invalid") throw new Error("Cannot serialize invalid source workspace");
   if(hasBusyFurnaceOwnership(data))throw new Error("Cannot serialize busy Furnace ownership");
   if(data.recyclingOwnershipIssues?.length||diagnoseRawRecyclingOwnership(data).length)throw new Error("Cannot serialize unsafe recycling equipment ownership");
   if(data.caneOwnershipIssues?.length||diagnoseRawCaneOwnership(data).length)throw new Error("Cannot serialize invalid Cane/Paper ownership");
@@ -146,7 +153,8 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   const brewing=readBrewingStandOwners(data,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",data.seed,data.generatorVersion??1,x,y,z));
   if(data.brewingOwnershipIssues?.length||brewing.issues.length||diagnoseRawBrewingItemOwnership(data).length)throw new Error("Cannot serialize invalid brewing ownership");
   if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
-  const { recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  if (codeWorkspace.kind === "valid") owned.codeWorkspace = codeWorkspace.data;
   if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
   if(brewing.present)owned.brewingStands=brewing.stations;
   if(chests.present)owned.chests=chests.stations;
@@ -417,6 +425,9 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
+  const codeWorkspace = readCodeWorkspace(own(raw, "codeWorkspace"));
+  if (codeWorkspace.kind === "valid") save.codeWorkspace = codeWorkspace.data;
+  if (codeWorkspace.kind === "invalid") save.codeWorkspaceInvalid = true;
   if (dimensions.kind === "valid") save.dimensions = dimensions.data;
   if (dimensions.kind === "invalid") { save.dimensionsInvalid = true; save.dimensionOwnershipIssues = dimensions.issues; }
   if(brewing.present)save.brewingStands=brewing.stations;
