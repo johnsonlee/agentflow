@@ -61,7 +61,7 @@ export class CodeBuilderScreen {
   constructor(container: HTMLElement, private readonly host: CodeBuilderHost, private readonly onClose: () => void) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
-    for (const type of ["keydown", "keyup", "keypress"]) this.panel.addEventListener(type, e => { if (this.importing) e.stopPropagation(); });
+    for (const type of ["keydown", "keyup", "keypress"]) this.panel.addEventListener(type, e => { if (this.importing && !this.root.hidden) e.stopPropagation(); });
     container.appendChild(this.root);
   }
 

@@ -53,3 +53,6 @@ it('all input keyboard phases stop at the import panel while text/newlines remai
 it('invalid conversion metadata focuses the name field without mutating programs or dropping code',()=>{
  const{parent,host}=fixture([oldProgram()]);open(parent);input(field(parent,'Source code'),'agent.place(UP);');input(field(parent,'New program name'),'x'.repeat(81));click(button(parent,'Create block program'));expect(active).toBe(field(parent,'New program name'));expect(field(parent,'New program name').attributes['aria-invalid']).toBe('true');expect(field(parent,'Source code').value).toBe('agent.place(UP);');expect(host.programs).toHaveLength(1);expect(host.save).not.toHaveBeenCalled();
 });
+it('hidden import panel releases keyboard propagation so gameplay can reopen Code Builder without losing drafts',()=>{
+ const{parent,ui}=fixture([oldProgram()]);open(parent);const source=field(parent,'Source code');input(source,'agent.move(FORWARD, steps);');const gameplayKey=vi.fn();parent.addEventListener('keydown',gameplayKey);ui.hide();source.dispatchEvent(Object.assign(new Event('keydown',{bubbles:true}),{code:'KeyK'}));expect(gameplayKey).toHaveBeenCalledTimes(1);ui.show();open(parent);expect(field(parent,'Source code').value).toBe('agent.move(FORWARD, steps);');
+});
