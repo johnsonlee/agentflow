@@ -1,5 +1,5 @@
 import {
-  BREWING_PROFILE, type BrewingStand, type BrewingSlot, HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
+  sanitizePlayerStatus, BREWING_PROFILE, type BrewingStand, type BrewingSlot, HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
   cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
   type PlayerStatus, type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
@@ -44,6 +44,7 @@ export class Hud {
   private readonly damage = el("div", "damage-flash");
   private readonly water = el("div", "underwater");
   private readonly cameraFlash = el("div", "camera-flash");
+  private readonly nauseaCue = el("div", "nausea-vignette");
   private itemNameTimer = 0;
   private lastSignature = "";
   private selectedSignature = "";
@@ -60,7 +61,9 @@ export class Hud {
     callbacks: HudCallbacks,
     touch: boolean,
   ) {
-    this.root.append(this.water, this.damage, this.cameraFlash, el("div", "crosshair"), this.log, this.debug);
+    this.nauseaCue.hidden = true;
+    this.nauseaCue.setAttribute("aria-hidden", "true");
+    this.root.append(this.water, this.nauseaCue, this.damage, this.cameraFlash, el("div", "crosshair"), this.log, this.debug);
     for (let i = 0; i < HOTBAR_SIZE; i++) {
       const slot = el("button", "slot");
       slot.dataset.slot = String(i);
@@ -227,10 +230,18 @@ export class Hud {
   }
 
   setPlayerStatus(status: PlayerStatus): void {
-    const remaining = status.poison?.remaining;
-    this.playerStatus.hidden = remaining === undefined;
-    this.playerStatus.textContent = remaining === undefined ? "" : `Poison · ${Math.ceil(remaining)}s`;
-    this.playerStatus.dataset.effect = remaining === undefined ? "" : "poison";
+    // Frozen recovery UI must not evaluate malformed owner accessors.
+    status = sanitizePlayerStatus(status).data;
+    const labels: string[] = [], effects: string[] = [];
+    if (status.poison) { labels.push(`Poison · ${Math.ceil(status.poison.remaining)}s`); effects.push("poison"); }
+    for (const [key, label] of [["weakness", "Weakness"], ["blindness", "Blindness"], ["nausea", "Nausea"]] as const) {
+      const effect = status[key];
+      if (effect) { labels.push(`${label} ${effect.amplifier + 1} · ${Math.ceil(effect.remaining)}s`); effects.push(key); }
+    }
+    this.playerStatus.hidden = labels.length === 0;
+    this.playerStatus.textContent = labels.join(" | ");
+    this.playerStatus.dataset.effect = effects.join(" ");
+    this.nauseaCue.hidden = status.nausea === undefined;
   }
 
   showItemName(name: string): void {

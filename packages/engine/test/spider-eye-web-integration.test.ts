@@ -1,3 +1,4 @@
+import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Inventory, World, MobLootResolver, createHunger, createMob, createPlayerStatus, freshStack, parseSave, stackId } from "../src";
 import { Game, SAVE_KEY } from "../../../apps/web/src/application/game";
@@ -13,7 +14,7 @@ class Cell {
   setAttribute(key: string, value: string) { this.attributes[key] = value; } addEventListener() {} click() {} remove() {}
 }
 function game() {
-  const g = Object.assign(Object.create(Game.prototype), { brewingStands: new Map(), brewingIssues: [] });
+  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] });
   const ownership = () => ({ busy: false, records: [], beginRelease: vi.fn(() => ({ kind: "none" })), reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: createPlayerStatus(), leashes: ownership(), balloons: ownership(),
     recoverySections: [], recoveryOriginal: null, stopped: false, dead: false, paused: false, mode: "survival", health: 20,
@@ -83,7 +84,7 @@ it("raw invalid status survives parser sanitation, blocks actual actions and sav
 it("actual cold restore detaches remaining duration/phase and HUD exposes a readable effect then removes it", () => {
   const g = game(), saved = { playerStatus: { poison: { remaining: 3.4, elapsed: .6 } } }; g.restorePlayerStatus(saved);
   expect(g.playerStatus).toEqual(saved.playerStatus); expect(g.playerStatus.poison).not.toBe(saved.playerStatus.poison); g.updatePlayerStatus(.65); expect(g.health).toBe(19);
-  const hud = Object.create(Hud.prototype); hud.playerStatus = new Cell(); hud.setPlayerStatus(g.playerStatus); expect(hud.playerStatus.textContent).toBe("Poison · 3s"); expect(hud.playerStatus.hidden).toBe(false);
+  const hud = Object.create(Hud.prototype); hud.playerStatus = new Cell(); hud.nauseaCue = new Cell(); hud.setPlayerStatus(g.playerStatus); expect(hud.playerStatus.textContent).toBe("Poison · 3s"); expect(hud.playerStatus.hidden).toBe(false);
   g.updatePlayerStatus(3); hud.setPlayerStatus(g.playerStatus); expect(hud.playerStatus.hidden).toBe(true); expect(hud.playerStatus.textContent).toBe("");
 });
 it("actual lethal damage and acknowledged respawn clear Poison even with keepInventory", () => {

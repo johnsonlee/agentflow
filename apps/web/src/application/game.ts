@@ -1,4 +1,5 @@
 import {
+  PlayerStatusOwner, hasPlayerStatus, applyTimedStatus, outgoingMeleeDamage, isDrinkablePotionId, MEDICINE_DRINK_SECONDS, finishMedicineDrink, finishOwnedMilkDrink,
   BrewingStand, readBrewingStandOwners, diagnoseRawBrewingItemOwnership, type BrewingOwnershipIssue,
   prepareOverworldRespawn as prepareRespawnWorld, replaceDimensionWorld, parseSave, PortalContact, preparePortalArrival, createPortalRouteSave, type PortalContactTicket, type DimensionWorldState, captureDimensionWorld, readBlazeOwners, type BlazeOwnershipIssue, readDimensionArchive, createDimensionGeneratedBlockProbe, type DimensionsData, type DimensionSaveIssue,
   tryUsePortalIgnition, isPortalActionBusy, tryUseFluidBucket, isFluidActionBusy, isFluidBlock, igniteFire, extinguishFire, cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
@@ -6,7 +7,7 @@ import {
   diagnoseRawWartSupport, diagnoseRawWartOwnership, SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
-  MILK_DRINK_SECONDS, finishMilkDrink, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, createPlayerStatus, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
+  MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, loadPrograms, startProgram, type AgentCommand,
@@ -138,7 +139,7 @@ export class Game {
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
   private readonly mobLoot = new MobLootResolver();
-  private get transferBusy(): boolean { return [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
+  private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
   private get ownershipBusy(): boolean { return this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy; }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
@@ -156,7 +157,11 @@ export class Game {
   /** Survival hunger (food bar, saturation, exhaustion). */
   hunger: HungerState;
   /** Active simulation time only; Poison timings are an explicit application model. */
-  playerStatus: PlayerStatus = createPlayerStatus();
+  private readonly statusOwner = new PlayerStatusOwner();
+  get playerStatus(): PlayerStatus { return this.statusOwner.current; }
+  set playerStatus(value: PlayerStatus) { if (this.statusOwner.busy) return; if (!this.statusOwner.replace(value)) this.markPlayerStatusRecovery(true); }
+  private statusVisualSeconds = 0;
+  private readonly motionPreference: MediaQueryList | null = null;
   /** Furnace contents by block position ("x,y,z"); they keep smelting while the world runs. */
   readonly furnaces = new Map<string, FurnaceState>();
   readonly brewingStands = new Map<string,BrewingStand>();
@@ -240,6 +245,7 @@ export class Game {
     this.root.className = "game";
     this.root.hidden = this.prepared;
     if (!this.prepared) container.appendChild(this.root);
+    this.motionPreference = typeof window.matchMedia === "function" ? window.matchMedia("(prefers-reduced-motion: reduce)") : null;
     const canvas = this.canvas = document.createElement("canvas");
     canvas.className = "game-canvas";
     this.root.appendChild(canvas);
@@ -928,7 +934,7 @@ export class Game {
         mobs: this.mobs.exportState(this.mobLoot),
         npcs: this.mobs.exportNpcs(),
         hunger: { ...this.hunger },
-        ...(this.playerStatus.poison && !(recoveryBackup && this.recoverySections.includes("player status")) ? { playerStatus: structuredClone(this.playerStatus) } : {}),
+        ...(hasPlayerStatus(this.playerStatus) && !(recoveryBackup && this.recoverySections.includes("player status")) ? { playerStatus: structuredClone(this.playerStatus) } : {}),
         chalkboards: [...this.chalkboards.values()].map((b) => ({ ...b })),
         agent: { ...this.agent, slots: this.agent.slots.map((s) => (s ? { ...s } : null)) },
         programs: this.programs,
@@ -1096,7 +1102,11 @@ export class Game {
     // A held glow stick lights the area around the player (Education Edition).
     this.heldLight = this.inventory.selectedStack()?.id === GLOW_STICK ? HELD_GLOW_LIGHT : 0;
     this.renderer.setHeldLight(this.heldLight, cam.position);
-    this.renderer.render(skyAt(this.timeOfDay,this.world.dimension), underwater, dt);
+    const visualStatus = sanitizePlayerStatus(this.playerStatus);
+    this.renderer.render(skyAt(this.timeOfDay,this.world.dimension), underwater, dt, {
+      blindness: !visualStatus.invalid && !!visualStatus.data.blindness,
+      nauseaRoll: !visualStatus.invalid && visualStatus.data.nausea && !this.motionPreference?.matches ? Math.sin(this.statusVisualSeconds * 2) * .015 : 0,
+    });
     this.hud.setDebug(this.debugText());
 
     this.autosaveTimer += dt;
@@ -1128,7 +1138,7 @@ export class Game {
       (!mobHit || balloonHit.distance < mobHit.distance) ? balloonHit : null;
     const held = this.inventory.selectedStack();
     const stationTarget = this.target !== null && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE || this.target.id === BREWING_STAND || CHEMISTRY_STATIONS.has(this.target.id) || chalkboardSizeOf(this.target.id) !== null);
-    const drinking = using && (held?.id === WATER_BOTTLE || held?.id === MILK_BUCKET) && !this.mobTarget && !this.balloonTarget && !stationTarget;
+    const drinking = using && (held?.id === WATER_BOTTLE || held?.id === MILK_BUCKET || isDrinkablePotionId(held?.id)) && !this.mobTarget && !this.balloonTarget && !stationTarget;
     if (!drinking) this.cancelDrinking();
     if (place && this.placeCooldown === 0 && held?.id === GLASS_BOTTLE) {
       // Normal outline/break targeting keeps ignoring liquids. This separate physical ray uses
@@ -1253,8 +1263,9 @@ export class Game {
         this.attackCooldown = 0.4;
         // Held tools hit harder (swords most); the bare-hand damage keeps the game's balance.
         const tool = toolOf(this.inventory.selectedStack()?.id);
-        const damage = tool?.attack ?? (this.mode === "creative" ? 4 : 2);
-        const killed = this.mobs.attack(mob, damage, this.body.yaw);
+        const damage = outgoingMeleeDamage(this.playerStatus, tool?.attack ?? (this.mode === "creative" ? 4 : 2));
+        // A zero-strength swing keeps its cooldown/wear policy but does not publish a hit.
+        const killed = damage > 0 ? this.mobs.attack(mob, damage, this.body.yaw) : false;
         if (this.mode === "survival") addExhaustion(this.hunger, EXHAUSTION.attack);
         // Minecraft: a hit wears a sword by one use and other tools by two.
         if (tool && this.mode === "survival") this.wearTool(tool.kind === "sword" ? 1 : 2);
@@ -1455,17 +1466,17 @@ export class Game {
   /** Held duration and finite-container behavior are application choices, not native calibration. */
   private drinkSelectedContainer(dt: number): void {
     const slot = this.inventory.selected, source = this.inventory.selectedStack();
-    if (!Number.isFinite(dt) || dt <= 0 || !source || source.id !== WATER_BOTTLE && source.id !== MILK_BUCKET) { this.cancelDrinking(); return; }
-    const milk = source.id === MILK_BUCKET;
+    if (!Number.isFinite(dt) || dt <= 0 || !source || source.id !== WATER_BOTTLE && source.id !== MILK_BUCKET && !isDrinkablePotionId(source.id)) { this.cancelDrinking(); return; }
+    const milk = source.id === MILK_BUCKET, potion = isDrinkablePotionId(source.id), label = displayNameOf(source.id);
     if (!this.drinkOwner || this.drinkOwner.slot !== slot || this.drinkOwner.source !== source || this.drinkOwner.id !== source.id || this.drinkOwner.count !== source.count || this.drinkOwner.mode !== this.mode) {
       this.drinkOwner = { slot, source, id: source.id, count: source.count, mode: this.mode, elapsed: 0 };
-      this.hud.message(milk ? "Keep holding to drink milk." : "Keep holding to drink water.");
+      this.hud.message(potion ? `Keep holding to use ${label}.` : milk ? "Keep holding to drink milk." : "Keep holding to drink water.");
     }
     this.drinkOwner.elapsed += dt;
-    if (this.drinkOwner.elapsed + 1e-10 < (milk ? MILK_DRINK_SECONDS : WATER_DRINK_SECONDS)) return;
-    const ok = milk ? finishMilkDrink(this.inventory, this.playerStatus) : this.inventory.drinkSelectedWaterBottle().ok;
+    if (this.drinkOwner.elapsed + 1e-10 < (potion ? MEDICINE_DRINK_SECONDS : milk ? MILK_DRINK_SECONDS : WATER_DRINK_SECONDS)) return;
+    const ok = potion ? finishMedicineDrink(this.inventory, this.statusOwner) : milk ? finishOwnedMilkDrink(this.inventory, this.statusOwner) : this.inventory.drinkSelectedWaterBottle().ok;
     this.cancelDrinking();
-    this.hud.message(milk ? ok ? "Drank milk; active effects cleared and the Bucket is empty." : "This milk needs attention before it can be used." : ok ? "Drank water; the Glass Bottle is empty." : "This bottle needs attention before it can be used.");
+    this.hud.message(potion ? ok ? `Used ${label}; the Glass Bottle is empty.` : "This potion needs attention before it can be used." : milk ? ok ? "Drank milk; active effects cleared and the Bucket is empty." : "This milk needs attention before it can be used." : ok ? "Drank water; the Glass Bottle is empty." : "This bottle needs attention before it can be used.");
   }
 
   /** Diagnose the raw section before sanitation can erase malformed timed state. */
@@ -1485,6 +1496,7 @@ export class Game {
   private updatePlayerStatus(dt: number): void {
     this.markPlayerStatusRecovery();
     if (this.dead || this.paused || this.screenOpen() || this.actionsNeedRecovery) return;
+    if (Number.isFinite(dt) && dt > 0) this.statusVisualSeconds = hasPlayerStatus(this.playerStatus) ? this.statusVisualSeconds + dt : 0;
     const change = tickPlayerStatus(this.playerStatus, dt, this.health, this.mode === "survival");
     if (change < 0) {
       this.health = Math.max(1, this.health + change);
@@ -2098,6 +2110,20 @@ export class Game {
         this.setMode(cmd.mode);
         reply = `Set own game mode to ${cmd.mode}`;
         break;
+      case "effect": {
+        this.cancelDrinking();
+        this.markPlayerStatusRecovery();
+        if (this.actionsNeedRecovery) { reply = "Damaged player status. Export a backup before continuing."; break; }
+        if (cmd.action === "clear") {
+          const next = sanitizePlayerStatus(this.playerStatus).data;
+          clearPlayerStatus(next, cmd.effect);
+          reply = this.statusOwner.replace(next) ? "Cleared status effects." : "Status effects are being transferred. Try again afterward.";
+        } else {
+          const ok = applyTimedStatus(this.playerStatus, cmd.effect, cmd.seconds, cmd.amplifier);
+          reply = ok ? `Applied ${cmd.effect} for ${cmd.seconds}s.` : "This effect cannot be applied to the current player status.";
+        }
+        break;
+      }
       case "time":
         this.timeOfDay = cmd.timeOfDay;
         reply = `Set the time to ${Math.round(cmd.timeOfDay * 24000)}`;

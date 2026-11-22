@@ -1,3 +1,4 @@
+import { TIMED_STATUS, type TimedStatusKind, type PlayerStatusKind } from "../simulation/status-effects";
 import { ITEMS } from "../catalog/items";
 import { BLOCKS } from "../catalog/blocks";
 import { WORLD_BORDER } from "../core/math";
@@ -11,6 +12,8 @@ export type Command =
   | { type: "give"; id: number; count: number }
   | { type: "summon"; kind: MobKind; name?: string }
   | { type: "gamerule"; rule: "doMobSpawning" | "doDaylightCycle" | "keepInventory"; value: boolean }
+  | { type: "effect"; action: "apply"; effect: TimedStatusKind; seconds: number; amplifier: number }
+  | { type: "effect"; action: "clear"; effect?: PlayerStatusKind }
   | { type: "seed" }
   | { type: "agent"; action: "tp" }
   | { type: "code"; command: string }
@@ -31,6 +34,8 @@ export const COMMAND_HELP = [
   "/tp <x> <y> <z>  (~ for relative)",
   "/give <block|item> [count]",
   SUMMON_HELP,
+  "/effect <@s|@p|@a> <weakness|blindness|nausea> [seconds] [amplifier]",
+  "/effect <@s|@p|@a> clear [poison|weakness|blindness|nausea]",
   "/gamerule <doMobSpawning|doDaylightCycle|keepInventory> <true|false>",
   "/seed",
   "/agent tp  (bring your Agent to you)",
@@ -103,6 +108,23 @@ export function parseCommand(input: string): Command {
       }
       const name = args.slice(1).join(" ").trim().slice(0, 64);
       return name ? { type: "summon", kind, name } : { type: "summon", kind };
+    }
+    case "effect": {
+      const usage = "Usage: /effect <@s|@p|@a> <weakness|blindness|nausea> [seconds] [amplifier], or /effect <@s|@p|@a> clear [effect]";
+      const bad = (): Command => ({ type: "error", message: usage });
+      if (!["@s", "@p", "@a"].includes(args[0] ?? "")) return bad();
+      const kind = (args[1] ?? "").toLowerCase().replace(/^minecraft:/, "");
+      const kinds: readonly TimedStatusKind[] = ["weakness", "blindness", "nausea"];
+      if (kind === "clear") {
+        const effect = args[2]?.toLowerCase().replace(/^minecraft:/, "");
+        if (args.length > 3 || effect !== undefined && !["poison", ...kinds].includes(effect)) return bad();
+        return effect === undefined ? { type: "effect", action: "clear" } : { type: "effect", action: "clear", effect: effect as PlayerStatusKind };
+      }
+      if (!kinds.includes(kind as TimedStatusKind) || args.length > 4) return bad();
+      const seconds = args[2] === undefined ? TIMED_STATUS.defaultSeconds : Number(args[2]);
+      const amplifier = args[3] === undefined ? 0 : Number(args[3]);
+      if (!Number.isSafeInteger(seconds) || seconds < 0 || seconds > TIMED_STATUS.maximumSeconds || !Number.isSafeInteger(amplifier) || amplifier < 0 || amplifier > TIMED_STATUS.maximumAmplifier) return bad();
+      return seconds === 0 ? { type: "effect", action: "clear", effect: kind as TimedStatusKind } : { type: "effect", action: "apply", effect: kind as TimedStatusKind, seconds, amplifier };
     }
     case "gamerule": {
       const rule = args[0] === "keepinventory" ? "keepInventory" : args[0] === "doMobSpawning" || args[0] === "doDaylightCycle" || args[0] === "keepInventory" ? args[0] : null;

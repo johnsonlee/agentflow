@@ -1,3 +1,4 @@
+import {registerInventoryOwner,isInventoryBusy} from './inventory-lease';
 import { planMilkFill, inspectBucketOwner, type MilkFillResult } from "./buckets";
 import { planBottleFill, planBottleDrink, inspectBottleOwner, type BottleFillResult, type BottleDrinkResult } from "./bottles";
 import { inspectItemState } from "./item-state";
@@ -40,20 +41,26 @@ export class Inventory {
   offhand: ItemStack | null = null;
   readonly equipment: Record<ArmorSlot, ItemStack | null> = { head: null, chest: null, legs: null, feet: null };
 
+  constructor(){registerInventoryOwner(this,this.slots);}
+  get busy():boolean{return isInventoryBusy(this);}
+
   selectedStack(): ItemStack | null {
     return this.slots[this.selected];
   }
 
   select(slot: number): void {
+    if(isInventoryBusy(this))return;
     this.selected = ((slot % HOTBAR_SIZE) + HOTBAR_SIZE) % HOTBAR_SIZE;
   }
 
   scroll(delta: number): void {
+    if(isInventoryBusy(this))return;
     this.select(this.selected + Math.sign(delta));
   }
 
   /** Adds items, filling existing stacks first. Returns the number that did not fit. */
   add(id: number, count = 1): number {
+    if(isInventoryBusy(this))return count;
     return this.addStack(freshStack(id, count));
   }
 
@@ -62,11 +69,13 @@ export class Inventory {
    * Returns the number of items that did not fit.
    */
   addStack(stack: ItemStack): number {
+    if(isInventoryBusy(this)){const count=Object.getOwnPropertyDescriptor(stack,'count')?.value;return Number.isSafeInteger(count)&&count>0?count:1;}
     return insertStackIntoSlots(this.slots, stack);
   }
 
   /** One synchronous ownership commit. UI/clock/callbacks are deliberately absent. */
   activateSelectedGlow(): GlowActivationResult {
+    if(isInventoryBusy(this))return{ok:false,reason:"invalid-state"};
     const plan = planGlowActivation(this.slots, this.selected);
     if (!plan.ok) return plan;
     for (let index = 0; index < this.slots.length; index++) this.slots[index] = plan.slots[index];
@@ -75,6 +84,7 @@ export class Inventory {
 
   /** Caller verifies reachable water/lifecycle; this is one whole-container ownership commit. */
   fillSelectedBottle(): BottleFillResult {
+    if(isInventoryBusy(this))return{ok:false,reason:"invalid-state"};
     const plan=planBottleFill(this.slots,this.selected);
     if (!plan.ok) return plan;
     for(let index=0;index<this.slots.length;index++) this.slots[index]=plan.slots[index];
@@ -83,6 +93,7 @@ export class Inventory {
 
   /** Caller earns the held-use duration and verifies lifecycle; commit keeps one finite container. */
   drinkSelectedWaterBottle(): BottleDrinkResult {
+    if(isInventoryBusy(this))return{ok:false,reason:"invalid-state"};
     const plan = planBottleDrink(this.slots, this.selected);
     if (!plan.ok) return plan;
     if (this.selected !== plan.index || this.slots[plan.index] !== plan.source || inspectBottleOwner(plan.source).kind === "invalid")
@@ -93,6 +104,7 @@ export class Inventory {
 
   /** Caller verifies a live reachable adult Cow without a pending death; no animal is consumed. */
   fillSelectedMilkBucket(): MilkFillResult {
+    if(isInventoryBusy(this))return{ok:false,reason:"invalid-state"};
     const slots=this.slots, selected=this.selected;
     // Every cell is a destination in this detached-plan commit. Refuse accessors and locked
     // data cells before any write, including unrelated late cells that could otherwise throw.
@@ -110,6 +122,7 @@ export class Inventory {
 
   /** Offhand accepts Sparklers only; refusal leaves both owners unchanged. */
   setOffhand(stack: ItemStack | null): boolean {
+    if(isInventoryBusy(this))return false;
     if (stack && (!isSparklerId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
       || inspectItemState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))) return false;
     this.offhand = stack ? cloneStack(stack) : null;
@@ -117,6 +130,7 @@ export class Inventory {
   }
 
   swapSelectedOffhand(): boolean {
+    if(isInventoryBusy(this))return false;
     if (!Number.isInteger(this.selected) || this.selected < 0 || this.selected >= HOTBAR_SIZE) return false;
     const main = this.selectedStack(), off = this.offhand;
     const valid = (stack: ItemStack | null) => stack === null || isSparklerId(stack.id) && Number.isSafeInteger(stack.count)
@@ -128,6 +142,7 @@ export class Inventory {
   }
 
   activateSelectedSparkler(): SparklerActivationResult {
+    if(isInventoryBusy(this))return{ok:false,reason:"invalid-state"};
     if (!Number.isInteger(this.selected) || this.selected < 0 || this.selected >= HOTBAR_SIZE) return { ok: false, reason: "invalid-state" };
     const plan = planSparklerActivation(this.slots, this.selectedStack(), this.selected);
     if (!plan.ok) return plan;
@@ -136,6 +151,7 @@ export class Inventory {
   }
 
   activateOffhandSparkler(): SparklerActivationResult {
+    if(isInventoryBusy(this))return{ok:false,reason:"invalid-state"};
     if (!Number.isInteger(this.selected) || this.selected < 0 || this.selected >= HOTBAR_SIZE) return { ok: false, reason: "invalid-state" };
     const plan = planSparklerActivation(this.slots, this.offhand, this.selected);
     if (!plan.ok) return plan;
@@ -150,6 +166,7 @@ export class Inventory {
    * Does nothing for non-tools.
    */
   damageSelected(uses = 1): boolean {
+    if(isInventoryBusy(this))return false;
     const stack = this.slots[this.selected];
     const tool = toolOf(stack?.id);
     if (!stack || !tool) return false;
@@ -163,6 +180,7 @@ export class Inventory {
 
   /** Exchanges a cursor stack with a matching equipment slot, without losing either item. */
   swapEquipment(slot: ArmorSlot, incoming: ItemStack | null): { ok: boolean; stack: ItemStack | null } {
+    if(isInventoryBusy(this))return{ok:false,stack:incoming};
     if (!ARMOR_SLOTS.includes(slot)) return { ok: false, stack: incoming };
     const clean = incoming === null ? null : sanitizeStack(incoming);
     if (incoming !== null && (!clean || clean.count !== 1 || armorOf(clean.id)?.slot !== slot)) return { ok: false, stack: incoming };
@@ -173,6 +191,7 @@ export class Inventory {
 
   /** Equips one inventory piece; any previous piece takes its vacated bag slot, even in a full bag. */
   equipFromSlot(index: number): boolean {
+    if(isInventoryBusy(this))return false;
     if (!Number.isInteger(index) || index < 0 || index >= INVENTORY_SIZE) return false;
     const stack = this.slots[index];
     const armor = armorOf(stack?.id);
@@ -185,6 +204,7 @@ export class Inventory {
 
   /** Moves a piece into the bag only if it fits; a full bag leaves equipment unchanged. */
   unequip(slot: ArmorSlot): boolean {
+    if(isInventoryBusy(this))return false;
     if (!ARMOR_SLOTS.includes(slot)) return false;
     const piece = this.equipment[slot];
     if (!piece || this.spaceFor(piece.id) < 1) return false;
@@ -195,6 +215,7 @@ export class Inventory {
 
   /** Removes one item from the selected hotbar slot. Returns the removed block id or null. */
   takeSelected(): number | null {
+    if(isInventoryBusy(this))return null;
     const stack = this.slots[this.selected];
     if (!stack) return null;
     stack.count--;
@@ -204,6 +225,7 @@ export class Inventory {
 
   /** Creative pick: puts a block in the hotbar, reusing a slot that already holds it. */
   pick(id: number, legacy = false): void {
+    if(isInventoryBusy(this))return;
     if (!isKnownId(id)) return;
     id = baseStackId(id);
     // Only an explicit old placed-green block pick creates its legacy item owner.
@@ -218,6 +240,7 @@ export class Inventory {
 
   /** Refusal leaves both owners unchanged. Callers must check true before debiting a cursor/source. */
   setSlot(slot: number, stack: ItemStack | null): boolean {
+    if(isInventoryBusy(this))return false;
     if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_SIZE) return false;
     if (stack && (!isKnownId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
       || inspectItemState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))) return false;
@@ -231,6 +254,7 @@ export class Inventory {
   spaceForStack(stack: ItemStack): number { return spaceForStackInSlots(this.slots, stack); }
 
   swap(a: number, b: number): void {
+    if(isInventoryBusy(this))return;
     const t = this.slots[a];
     this.slots[a] = this.slots[b];
     this.slots[b] = t;

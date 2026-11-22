@@ -1,3 +1,4 @@
+import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Inventory, createAgent, freshStack, parseSave, stackId } from "../src";
 import { Game } from "../../../apps/web/src/application/game";
@@ -24,7 +25,7 @@ function screen() {
   return value;
 }
 function game() {
-  const value = Object.assign(Object.create(Game.prototype), { brewingStands: new Map(), brewingIssues: [] });
+  const value = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] });
   const ownership = () => ({ busy: false, reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(value, { inventory: new Inventory(), leashes: ownership(), balloons: ownership(), recoverySections: [], recoveryOriginal: null,
     stopped: false, dead: false, paused: false, screenOpen: () => false, hud: { message: vi.fn() }, glowStickView: { update: vi.fn(), shake: vi.fn() },

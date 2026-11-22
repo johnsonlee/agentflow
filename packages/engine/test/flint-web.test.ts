@@ -1,9 +1,10 @@
+import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Inventory, World, createHunger, blockId, freshStack, stackId, parseSave, createAgent } from "../src";
 import { Game } from "../../../apps/web/src/application/game";
 class Cell { click() {} remove() {} }
 function game(world: World = new World(12345)) {
-  const g = Object.assign(Object.create(Game.prototype), { brewingStands: new Map(), brewingIssues: [] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
+  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { world, inventory: new Inventory(), hunger: createHunger(), playerStatus: {}, recoverySections: [], recoveryOriginal: null, drinkOwner: { elapsed: .7 }, leashes: ownership(), balloons: ownership(), paused: false, dead: false, stopped: false, mode: "survival", health: 20,
     body: { position: { x: .5, y: 32, z: .5 }, yaw: 0, pitch: 0, velocity: { x: 0, y: 0, z: 0 } }, hud: { message: vi.fn(), flashDamage: vi.fn() }, keyboard: { reset: vi.fn() }, screenOpen: () => false,
     markLeashRecovery: vi.fn(), markBalloonRecovery: vi.fn(), leashContext: () => ({}), name: "Gravel decisions", savePayload: vi.fn(() => '{"version":1}') });

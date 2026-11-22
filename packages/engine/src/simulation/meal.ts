@@ -7,6 +7,7 @@ import { applyPoison, sanitizePlayerStatus, type PlayerStatus } from "./status-e
 /** Completed use is one synchronous inventory/hunger/status commit, after validating all owners.
  * A food source is a plain id/count owner; unrelated book/wear/activation metadata is refused. */
 export function finishMeal(inventory: Inventory, hunger: HungerState, status: PlayerStatus, rand: () => number = Math.random): boolean {
+  if (inventory.busy) return false;
   const index = inventory.selected, source = inventory.selectedStack();
   if (!Number.isInteger(index) || index < 0 || index >= HOTBAR_SIZE || !source || Object.getPrototypeOf(source) !== Object.prototype
     || Object.keys(source).some(k => k !== "id" && k !== "count") || !Object.prototype.hasOwnProperty.call(source, "id") || !Object.prototype.hasOwnProperty.call(source, "count")

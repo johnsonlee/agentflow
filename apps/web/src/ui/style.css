@@ -502,10 +502,15 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 @media (max-width:620px), (max-height:500px) { .sparkler-actions { gap:4px; max-width:330px; } .sparkler-action { min-height:32px; padding:4px 7px; font-size:12px; } .held-sparkler { top:70px; bottom:auto; right:12px; width:86px; } .held-sparkler.offhand { left:12px; } .held-sparkler img { width:48px; height:48px; } .sparkler-spark { left:43px; top:10px; } }
 @media (prefers-reduced-motion:reduce) { .sparkler-spark { animation:none; display:none; } }
 
-.player-status { padding: 3px 8px; background: rgba(12, 26, 9, .88); border: 1px solid #85ad62; color: #d8efb2; font-size: 13px; line-height: 1.3; text-shadow: 1px 1px #111; white-space: nowrap; }
+.player-status { padding: 3px 8px; background: rgba(12, 26, 9, .88); border: 1px solid #85ad62; color: #d8efb2; font-size: 13px; line-height: 1.3; text-shadow: 1px 1px #111; white-space: normal; max-width: min(90vw, 680px); overflow-wrap: anywhere; text-align: center; }
 .player-status[hidden] { display: none; }
 
 .brewing-station { display:flex;flex-direction:column;align-items:center;gap:10px;margin:10px auto; }
 .brewing-inputs,.brewing-bottles { display:flex;justify-content:center;gap:14px; }
 .brewing-station progress { width:160px;accent-color:#9d7ac9; }
 .brewing-station p { margin:0;font-size:12px; }
+
+/* Original static nausea cue. It never moves the HUD/crosshair or intercepts input. */
+.nausea-vignette { position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(80,62,105,.14) 100%); }
+.nausea-vignette[hidden] { display:none; }
+@media (prefers-reduced-motion:reduce) { .nausea-vignette { animation:none;transition:none; } }

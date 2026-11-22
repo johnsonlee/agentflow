@@ -1,9 +1,10 @@
+import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, expect, it, vi } from "vitest";
 import { Inventory, blockId, createHunger, freshStack, stackId } from "../src";
 import { KeyboardMouseInput } from "../../input/src/devices/keyboard-mouse";
 import { Game } from "../../../apps/web/src/application/game";
 function game(cells: Record<string, number> = {}) {
-  const g = Object.assign(Object.create(Game.prototype), { brewingStands: new Map(), brewingIssues: [] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
+  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: {}, recoverySections: [], recoveryOriginal: null, drinkOwner: null,
     leashes: ownership(), balloons: ownership(), paused: false, dead: false, stopped: false, running: true, touch: true, mode: "survival", health: 20,
     world: { getBlock: (x: number, y: number, z: number) => cells[`${x},${y},${z}`] ?? 0, setBlock: vi.fn() }, body: { position: { x: .5, y: 32, z: .5 }, yaw: 0, pitch: 0, velocity: { x: 0, y: 0, z: 0 } },

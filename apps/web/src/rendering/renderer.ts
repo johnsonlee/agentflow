@@ -11,7 +11,14 @@ interface ChunkEntry {
 const CLOUD_HEIGHT = 110;
 
 /** Three.js view of the world: chunk meshes, sky, sun/moon, clouds and block selection. */
+/** Original bounded view cues, not measured Education visual equivalence. */
+export interface PlayerStatusViewEffects { blindness?: boolean; nauseaRoll?: number }
+export interface PlayerStatusView { blindness: boolean; roll: number; fogNear: number; fogFar: number }
+
 export class WorldRenderer {
+  private statusView: PlayerStatusView = { blindness: false, roll: 0, fogNear: 20, fogFar: 100 };
+  /** Detached diagnostics of the last draw request; never exposes camera or fog ownership. */
+  get lastStatusView(): PlayerStatusView { return { ...this.statusView }; }
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   readonly camera = new THREE.PerspectiveCamera(70, 1, 0.05, 1000);
@@ -232,7 +239,7 @@ export class WorldRenderer {
     this.heldPos.value.set(at.x, at.y, at.z);
   }
 
-  render(sky: SkyState, underwater: boolean, dt: number): void {
+  render(sky: SkyState, underwater: boolean, dt: number, effects?: PlayerStatusViewEffects): void {
     const nether = this.world.dimension === "nether";
     if (nether) sky = skyAt(0,"nether");
     this.sun.visible = !nether; this.moon.visible = !nether; this.clouds.visible = !nether;
@@ -249,6 +256,11 @@ export class WorldRenderer {
       this.fog.far = far * 0.95;
       this.scene.background = this.skyColor;
     }
+    const blindness = effects?.blindness === true;
+    if (blindness) { this.fog.near = Math.min(this.fog.near, 1); this.fog.far = Math.min(this.fog.far, 6); }
+    const requestedRoll = effects?.nauseaRoll;
+    const roll = typeof requestedRoll === "number" && Number.isFinite(requestedRoll) ? Math.max(-.015, Math.min(.015, requestedRoll)) : 0;
+    this.statusView = { blindness, roll, fogNear: this.fog.near, fogFar: this.fog.far };
     this.camera.far = far * 3;
     this.camera.updateProjectionMatrix();
 
@@ -267,7 +279,11 @@ export class WorldRenderer {
     this.clouds.position.set(Math.round(cam.x / 64) * 64 + this.cloudOffset - 512, CLOUD_HEIGHT, Math.round(cam.z / 64) * 64);
     (this.clouds.material as THREE.MeshBasicMaterial).color.setScalar(Math.max(0.3, sky.light));
 
-    this.renderer.render(this.scene, this.camera);
+    // Keep body/look/input unchanged. Only the actual world draw sees this small view roll.
+    if (roll === 0) { this.renderer.render(this.scene, this.camera); return; }
+    const previousRoll = this.camera.rotation.z;
+    try { this.camera.rotation.z = previousRoll + roll; this.renderer.render(this.scene, this.camera); }
+    finally { this.camera.rotation.z = previousRoll; }
   }
 
   private buildChunk(cx: number, cz: number): void {
