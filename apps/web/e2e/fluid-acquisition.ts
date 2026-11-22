@@ -85,7 +85,7 @@ export async function fluidAcquisitionRoute(page: Page, info: TestInfo, mobile: 
       if(!water || !lava) throw Error("No bounded natural source sites found");
       return {water,lava:{...lava,stand:{x:lava.x+2.5,y:lava.rimY+1,z:lava.z+.5}},generatorVersion:g.world.generatorVersion};
     });
-    expect(sites.generatorVersion).toBe(2);
+    expect(sites.generatorVersion).toBe(3);
     observations.push({stage,label:"read-only-generated-source-sites",value:sites});
     const useCell = async (p:{x:number;y:number;z:number}) => {
       await lookAtCell(page,p.x,p.y,p.z);
@@ -138,7 +138,7 @@ export async function fluidAcquisitionRoute(page: Page, info: TestInfo, mobile: 
     expect(await countStack(page,"bucket")).toBe(1);expect(await countStack(page,"lava_bucket")).toBe(0);
     await record("real-cast-one-obsidian-water-preserved-empty-vessel");await snap(page,info,"real-water-lava-obsidian-cast");
     await pause();const validRaw=await quitPaused(),validSave=JSON.parse(validRaw);
-    expect(validSave.generatorVersion).toBe(2);
+    expect(validSave.generatorVersion).toBe(3);
     await page.reload();await press(page.getByRole("button",{name:/Continue/}));await waitForTerrain(page);
     expect(await blockAt(page,cast.x,cast.y,cast.z)).toBe(await page.evaluate(()=>window.__craft.blockId("obsidian")));
     expect(await countStack(page,"bucket")).toBe(1);expect((await read()).errors).toEqual([]);
