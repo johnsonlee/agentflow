@@ -1,3 +1,4 @@
+import { readProgramCondition, type BlockCondition } from "./block-condition";
 import { isKnownId } from "../catalog/items";
 /**
  * Code Builder (block mode): programs are trees of command blocks and `repeat N` loops, started by
@@ -8,13 +9,14 @@ import { AGENT_DIRECTIONS, type AgentCommand, type AgentDirection } from "./agen
 
 /**
  * Program blocks: Agent commands; `repeat N`; `if <Agent detects a block in DIR> then .. else ..`;
- * and `repeat until <Agent detects a block in DIR>`.
+ * and `repeat until <Agent detects a block in DIR>`. An optional named condition compares
+ * exact application block states; absent means the original any-solid predicate.
  */
 export type CodeBlock =
   | { type: "command"; cmd: AgentCommand }
   | { type: "repeat"; times: number; body: CodeBlock[] }
-  | { type: "if"; dir: AgentDirection; then: CodeBlock[]; else: CodeBlock[] }
-  | { type: "until"; dir: AgentDirection; body: CodeBlock[] };
+  | { type: "if"; dir: AgentDirection; condition?: BlockCondition; then: CodeBlock[]; else: CodeBlock[] }
+  | { type: "until"; dir: AgentDirection; condition?: BlockCondition; body: CodeBlock[] };
 
 export interface CodeProgram {
   name: string;
@@ -38,11 +40,13 @@ interface Frame {
   index: number;
   remaining: number;
   /** repeat-until: loop until the Agent detects a block in this direction. */
-  until?: AgentDirection;
+  until?: { dir: AgentDirection; condition?: BlockCondition };
 }
 
 /** Answers "does the Agent detect a (solid) block in this direction?" at the moment it's asked. */
 export type DetectFn = (dir: AgentDirection) => boolean;
+/** Undefined means the target cannot be inspected (unloaded, outside the world or unavailable). */
+export type InspectBlockFn = (dir: AgentDirection) => string | undefined;
 
 export class ProgramRunner {
   private readonly stack: Frame[];
@@ -55,7 +59,7 @@ export class ProgramRunner {
    * sees the current world. Every condition check counts towards `stepLimit` too, so a
    * repeat-until that never becomes true still ends.
    */
-  constructor(program: CodeProgram, readonly stepLimit = DEFAULT_STEP_LIMIT, private readonly detect: DetectFn = () => false) {
+  constructor(program: CodeProgram, readonly stepLimit = DEFAULT_STEP_LIMIT, private readonly detect: DetectFn = () => false, private readonly inspect?: InspectBlockFn) {
     this.stack = [{ blocks: program.blocks, index: 0, remaining: 1 }];
   }
 
@@ -75,6 +79,15 @@ export class ProgramRunner {
     return false;
   }
 
+  private matches(block: { dir: AgentDirection; condition?: BlockCondition }): boolean | null {
+    const condition = readProgramCondition(block);
+    if (condition.kind === "invalid") { this.error = "Stopped: invalid block condition"; return null; }
+    if (condition.kind === "legacy") return this.detect(block.dir);
+    const name = this.inspect?.(block.dir);
+    if (name === undefined) { this.error = "Stopped: load the Agent's target before inspecting a specific block"; return null; }
+    return name === condition.name;
+  }
+
   /** The next Agent command, or null when finished, stopped or failed. */
   next(): AgentCommand | null {
     while (!this.done) {
@@ -82,7 +95,9 @@ export class ProgramRunner {
       if (top.index >= top.blocks.length) {
         if (top.until !== undefined) {
           if (!this.count()) return null;
-          if (this.detect(top.until)) this.stack.pop();
+          const match = this.matches(top.until);
+          if (match === null) return null;
+          if (match) this.stack.pop();
           else top.index = 0;
           continue;
         }
@@ -103,13 +118,22 @@ export class ProgramRunner {
       }
       if (block.type === "if") {
         if (!this.count()) return null;
-        const branch = this.detect(block.dir) ? block.then : block.else;
+        const match = this.matches(block);
+        if (match === null) return null;
+        const branch = match ? block.then : block.else;
         if (branch.length > 0) this.stack.push({ blocks: branch, index: 0, remaining: 1 });
         continue;
       }
       if (block.type === "until") {
         if (!this.count()) return null;
-        if (!this.detect(block.dir)) this.stack.push({ blocks: block.body, index: 0, remaining: Infinity, until: block.dir });
+        const match = this.matches(block);
+        if (match === null) return null;
+        if (!match) {
+          const condition = readProgramCondition(block);
+          if (condition.kind === "invalid") { this.error = "Stopped: invalid block condition"; return null; }
+          const until = condition.kind === "named" ? { dir: block.dir, condition: { type: "block-is" as const, name: condition.name } } : { dir: block.dir };
+          this.stack.push({ blocks: block.body, index: 0, remaining: Infinity, until });
+        }
         continue;
       }
       if (!this.count()) return null;
@@ -186,10 +210,12 @@ function checkProgram(p: unknown): string[] {
         visit(own(b, "body"), depth + 1);
       } else if (type === "if") {
         if (!isDir(own(b, "dir"))) problems.push(`Unknown direction ${String(own(b, "dir"))}`);
+        if (readProgramCondition(b).kind === "invalid") problems.push("Invalid specific block condition");
         visit(own(b, "then"), depth + 1);
         visit(own(b, "else"), depth + 1);
       } else if (type === "until") {
         if (!isDir(own(b, "dir"))) problems.push(`Unknown direction ${String(own(b, "dir"))}`);
+        if (readProgramCondition(b).kind === "invalid") problems.push("Invalid specific block condition");
         visit(own(b, "body"), depth + 1);
       } else if (type === "command") {
         const c = own(b, "cmd");
@@ -228,8 +254,8 @@ export function loadPrograms(raw: unknown): { programs: CodeProgram[]; errors: s
 }
 
 /** Every run path goes through here: a runner for a valid program, or the reason it can't run. */
-export function startProgram(program: unknown, stepLimit = DEFAULT_STEP_LIMIT, detect?: DetectFn): { runner: ProgramRunner } | { error: string } {
+export function startProgram(program: unknown, stepLimit = DEFAULT_STEP_LIMIT, detect?: DetectFn, inspect?: InspectBlockFn): { runner: ProgramRunner } | { error: string } {
   const problems = validateProgram(program);
   if (problems.length > 0) return { error: problems[0] };
-  return { runner: new ProgramRunner(program as CodeProgram, stepLimit, detect) };
+  return { runner: new ProgramRunner(program as CodeProgram, stepLimit, detect, inspect) };
 }

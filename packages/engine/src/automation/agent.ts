@@ -140,6 +140,16 @@ export function agentStep(agent: AgentState, dir: AgentDirection): readonly [num
   }
 }
 
+/** Read-only named predicates never generate terrain or treat an unknown target as empty. */
+export function inspectLoadedAgentBlock(world: Pick<World, "getLoadedBlock">, agent: AgentState, dir: AgentDirection): string | undefined {
+  if (!Number.isInteger(agent.facing) || agent.facing < 0 || agent.facing > 3 || !AGENT_DIRECTIONS.includes(dir) ||
+      ![agent.x, agent.y, agent.z].every(Number.isSafeInteger)) return undefined;
+  const [dx, dy, dz] = agentStep(agent, dir), x = agent.x + dx, y = agent.y + dy, z = agent.z + dz;
+  if (!writablePlacementCell(x, y, z)) return undefined;
+  const id = world.getLoadedBlock(x, y, z);
+  return id === undefined ? undefined : tryBlockById(id)?.name;
+}
+
 import { freshStack } from "../ownership/glow-stick-state";
 
 

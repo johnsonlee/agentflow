@@ -14,7 +14,7 @@ import {
   MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  type AgentState, type CodeProgram, giveAgent, loadPrograms, startProgram, type AgentCommand,
+  type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
@@ -392,6 +392,10 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    if (loaded.errors.length) {
+      this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+      this.recoverySections.push("programs");
+    }
     for (const issue of this.dimensionIssues) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.ignitionOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.chestIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
@@ -1825,10 +1829,12 @@ export class Game {
 
   /** Starts a Code Builder program (stopping any running one). Invalid programs are refused with a message. */
   runProgram(program: CodeProgram): boolean {
+    if (this.recoverySections.includes("programs")) { this.hud.message("Damaged saved programs. Export a backup before running code."); return false; }
     if (this.dead || this.ownershipBusy || this.actionsNeedRecovery) return false;
     this.runner?.stop();
     this.runner = null;
-    const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true);
+    const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true,
+      (dir) => inspectLoadedAgentBlock(this.world, this.agent, dir));
     if ("error" in started) {
       this.hud.message(`Can't run "${String((program as { name?: unknown })?.name ?? "program")}": ${started.error}`);
       return false;

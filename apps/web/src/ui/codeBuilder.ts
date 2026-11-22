@@ -1,5 +1,5 @@
 import {
-  AGENT_DIRECTIONS, AGENT_SLOTS, MAX_NESTING, MAX_REPEAT, validateProgram, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
+  AGENT_DIRECTIONS, AGENT_SLOTS, CODE_BLOCK_CHOICES, MAX_NESTING, MAX_REPEAT, validateProgram, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
 } from "@craft/engine";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
@@ -243,6 +243,22 @@ export class CodeBuilderScreen {
       row.append(el("span", "", "repeat"), times, el("span", "", "times"));
     } else {
       row.append(el("span", "", block.type === "if" ? "if Agent detects block" : "repeat until Agent detects block"), this.dirSelect(block.dir, (d) => (block.dir = d)));
+      const kind = el("select", "cb-select");
+      kind.setAttribute("aria-label", "Block condition");
+      kind.append(new Option("any solid block", "solid", false, !block.condition), new Option("specific block", "specific", false, !!block.condition));
+      kind.addEventListener("change", () => {
+        if (kind.value === "solid") delete block.condition;
+        else block.condition = { type: "block-is", name: "stone" };
+        this.render();
+      });
+      row.append(kind);
+      if (block.condition) {
+        const identity = el("select", "cb-select");
+        identity.setAttribute("aria-label", "Specific block");
+        for (const choice of CODE_BLOCK_CHOICES) identity.append(new Option(`${choice.displayName} (${choice.name})`, choice.name, false, choice.name === block.condition.name));
+        identity.addEventListener("change", () => { block.condition = { type: "block-is", name: identity.value }; });
+        row.append(identity, el("span", "cb-label", "Exact application block state"));
+      }
     }
     row.append(...this.moveButtons(list, index));
     view.append(row);

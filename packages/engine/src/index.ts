@@ -28,6 +28,7 @@ export * from "./education/chalkboard";
 export * from "./ownership/books";
 export * from "./automation/agent";
 export * from "./automation/codebuilder";
+export * from "./automation/block-condition";
 export * from "./persistence/savecheck";
 export * from "./crafting/chemistry-data";
 export * from "./crafting/chemistry";
