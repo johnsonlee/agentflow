@@ -8,6 +8,7 @@ export * from "./core/math";
 export * from "./rendering/mesher";
 export * from "./world/noise";
 export * from "./simulation/physics";
+export * from "./simulation/hay-landing";
 export * from "./core/random";
 export * from "./simulation/raycast";
 export * from "./world/rules";

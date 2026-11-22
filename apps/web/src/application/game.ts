@@ -9,7 +9,7 @@ import {
   tryUsePortalIgnition, isPortalActionBusy, tryUseFluidBucket, isFluidActionBusy, isFluidBlock, igniteFire, extinguishFire, cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
   BalloonStore, balloonColorOf, raycastBalloons, combineReleaseAttempts, type ReleaseAttempt,
   diagnoseRawWartSupport, diagnoseRawWartOwnership, SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
-  breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
+  breakTime, canBreak, createPlayerBody, creativeBlocks, hayFallDamageMultiplierAt, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
@@ -2000,7 +2000,7 @@ export class Game {
       const distance = this.fallStart - y;
       this.fallStart = null;
       const damage = Math.floor(distance - 3);
-      if (damage > 0) this.hurt(damage, "fall");
+      if (damage > 0) this.hurt(damage * hayFallDamageMultiplierAt((x, y, z) => this.world.getBlock(x, y, z), this.body.position), "fall");
     }
   }
 
