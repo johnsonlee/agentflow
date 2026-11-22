@@ -29,7 +29,7 @@ it.each(["if", "until"])("real %s editor handlers expose labeled identity select
   expect(host.run).toHaveBeenCalledTimes(1); expect(host.save).toHaveBeenCalledTimes(1);
   const saved = (host.run as ReturnType<typeof vi.fn>).mock.calls[0][0] as CodeProgram;
   expect(saved.blocks[0]).toMatchObject({ type: kind, dir: "forward", condition: { type: "block-is", name: "diamond_ore" } });
-  expect(all(parent).some(e => e.textContent === "Exact application block state")).toBe(true);
+  expect(all(parent).some(e => e.textContent === "Exact block state")).toBe(true);
 });
 it("switching back to any solid removes the optional field so legacy JSON shape is retained", () => {
   const parent = new Cell(), program: CodeProgram = { name: "Old", trigger: { type: "run" }, blocks: [{ type: "if", dir: "forward", then: [], else: [] }] };

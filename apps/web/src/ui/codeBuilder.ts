@@ -257,7 +257,7 @@ export class CodeBuilderScreen {
         identity.setAttribute("aria-label", "Specific block");
         for (const choice of CODE_BLOCK_CHOICES) identity.append(new Option(`${choice.displayName} (${choice.name})`, choice.name, false, choice.name === block.condition.name));
         identity.addEventListener("change", () => { block.condition = { type: "block-is", name: identity.value }; });
-        row.append(identity, el("span", "cb-label", "Exact application block state"));
+        row.append(identity, el("span", "cb-label", "Exact block state"));
       }
     }
     row.append(...this.moveButtons(list, index));
