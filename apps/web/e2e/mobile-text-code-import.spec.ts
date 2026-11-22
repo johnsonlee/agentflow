@@ -1,0 +1,1 @@
+import{test}from'@playwright/test';import{textCodeImportRoute}from'./text-code-import';test('mobile: portrait and landscape code conversion, touch reachability, finite Run and cold drafts',async({page},info)=>{test.setTimeout(600000);await textCodeImportRoute(page,info,true,{width:390,height:844});await textCodeImportRoute(page,info,true,{width:915,height:412});});

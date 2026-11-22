@@ -173,7 +173,9 @@ text subset into the existing validated `CodeProgram`. It never evaluates text,
 imports code, dispatches commands, grants items, or saves source. The host supplies
 and validates the program name and run/chat trigger. Full JavaScript/Python,
 MakeCode projects, chat callback wrappers, functions, variables and expressions
-are unsupported. No text editor or source persistence is implemented yet.
+are unsupported. The Code Builder conversion panel creates new block programs from this subset;
+original code drafts stay in the open game session and are not persisted. It is
+a conversion form, not a full language IDE.
 
 Supported body-only JavaScript statements are `agent.move(FORWARD, 3)`,
 `agent.turn(LEFT_TURN)` / `RIGHT_TURN`, `agent.place(DOWN)`, `agent.destroy(UP)` and
@@ -211,3 +213,20 @@ and [Python guide](https://minecraft.makecode.com/tutorials/python/agent-build);
 unsupported native setup, inventory grants and callback wrappers in those examples
 are not silently accepted. This bounded compiler does not establish full language,
 Education, IDE, account, classroom, graphics or performance equivalence.
+
+Code Builder → **Create program from code** opens a conversion form. Choose the
+JavaScript or Python subset, enter a new name and body-only snippet, then choose
+**Create block program**. Successful conversion adds a new program and selects its
+blocks; **Run** is a separate action. Existing programs remain available. Compile
+errors, empty/zero-action snippets, cancellation, and invalid pending block work
+do not save or replace programs. Diagnostics show the line and column and select
+the source range. A current invalid block program must be repaired first.
+
+Each language keeps its code/name/error draft across language switches, Back, and
+closing/reopening Code Builder within the same open game. Only converted block
+programs are saved with the world; code drafts are intentionally lost on reload or
+leaving the game. Oversized input remains visible and is rejected rather than
+silently truncated. The conversion form uses plaintext, labelled controls, 16 px
+text and 44 px new touch targets with scrolling for phone orientations. This does
+not claim that every older block-editor layout or physical device has been fixed
+or tested.

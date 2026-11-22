@@ -1,5 +1,5 @@
 import {
-  AGENT_DIRECTIONS, AGENT_SLOTS, CODE_BLOCK_CHOICES, MAX_NESTING, MAX_REPEAT, validateProgram, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
+  AGENT_DIRECTIONS, AGENT_SLOTS, CODE_BLOCK_CHOICES, MAX_NESTING, MAX_REPEAT, compileAgentText, validateProgram, type AgentTextLanguage, type TextDiagnostic, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
 } from "@craft/engine";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
@@ -34,6 +34,9 @@ export interface CodeBuilderHost {
   save(): void;
 }
 
+let importPanelId = 0;
+interface CodeDraft { source: string; name: string; issue?: { message: string; focus: "source" | "name" | "back"; diagnostic?: TextDiagnostic } }
+
 /**
  * Code Builder (block mode), in the spirit of Education Edition's MakeCode editor: a palette of
  * Agent blocks, loops and a detect conditional, assembled into a program. Desktop: drag blocks
@@ -49,10 +52,16 @@ export class CodeBuilderScreen {
   private targetDepth = 0;
   private dragging: { block: CodeBlock; from: CodeBlock[] | null } | null = null;
   private status = "";
+  private importing = false;
+  private importLanguage: AgentTextLanguage = "javascript";
+  private readonly importId = `cb-import-${++importPanelId}`;
+  // UI-instance drafts only: never attached to CodeProgram or serialized world data.
+  private readonly codeDrafts: Record<AgentTextLanguage, CodeDraft> = { javascript: { source: "", name: "" }, python: { source: "", name: "" } };
 
   constructor(container: HTMLElement, private readonly host: CodeBuilderHost, private readonly onClose: () => void) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
+    for (const type of ["keydown", "keyup", "keypress"]) this.panel.addEventListener(type, e => { if (this.importing) e.stopPropagation(); });
     container.appendChild(this.root);
   }
 
@@ -67,6 +76,7 @@ export class CodeBuilderScreen {
     this.target = this.program.blocks;
     this.targetDepth = 0;
     this.status = "";
+    this.importing = false;
     this.render();
     this.root.hidden = false;
   }
@@ -97,7 +107,9 @@ export class CodeBuilderScreen {
     return false;
   }
 
-  private render(): void {
+  private render(focus?: "name" | "import"): void {
+    this.panel.className = `panel code-panel${this.importing ? " cb-import-mode" : ""}`;
+    if (this.importing) { this.renderImport(); return; }
     const header = el("div", "panel-header");
     header.append(el("h2", "", "Code Builder"));
     const close = el("button", "close-button", "✕");
@@ -182,10 +194,91 @@ export class CodeBuilderScreen {
       this.targetDepth = 0;
       this.render();
     });
-    actions.append(run, stop, give, newProgram);
+    const fromCode = el("button", "mc-button cb-import-open", "Create program from code");
+    fromCode.addEventListener("click", () => { this.importing = true; this.render(); });
+    actions.append(run, stop, give, newProgram, fromCode);
     const status = el("p", "cb-status", this.status);
     status.setAttribute("role", "status");
     this.panel.replaceChildren(header, meta, palette, workspace, actions, status);
+    if (focus === "name") name.focus();
+    if (focus === "import") fromCode.focus();
+  }
+
+  private defaultImportName(): string {
+    const pending = this.program.blocks.length > 0 && !this.host.programs.includes(this.program) ? 1 : 0;
+    return `Converted program ${this.host.programs.length + pending + 1}`;
+  }
+
+  /** Compile first, then validate pending block work, before changing any program owner. */
+  private convertDraft(): void {
+    const draft = this.codeDrafts[this.importLanguage];
+    const result = compileAgentText(draft.source, this.importLanguage, { name: draft.name.trim() || this.defaultImportName(), trigger: { type: "run" } });
+    if (!result.ok) {
+      const diagnostic = result.diagnostics[0];
+      draft.issue = { message: diagnostic.kind === "metadata" ? "Use a program name of 80 characters or fewer." : `Line ${diagnostic.line}, column ${diagnostic.column}: ${diagnostic.message}`, focus: diagnostic.kind === "metadata" ? "name" : "source", diagnostic };
+      this.render(); return;
+    }
+    if (!hasImportedCommand(result.program.blocks)) {
+      draft.issue = { message: "Enter at least one supported Agent command that can run.", focus: "source" };
+      this.render(); return;
+    }
+    const problems = validateProgram(this.program);
+    if (problems.length) {
+      draft.issue = { message: `Your current block program needs repair: ${problems[0]}. Return to blocks before creating another program.`, focus: "back" };
+      this.render(); return;
+    }
+    if (this.program.blocks.length > 0 && !this.host.programs.includes(this.program)) this.host.programs.push(this.program);
+    this.host.programs.push(result.program);
+    this.program = result.program; this.target = this.program.blocks; this.targetDepth = 0;
+    this.importing = false; draft.issue = undefined;
+    this.status = "Program created as blocks. Review it, then choose Run when ready.";
+    this.host.save();
+    this.render("name");
+  }
+
+  private renderImport(): void {
+    const draft = this.codeDrafts[this.importLanguage];
+    const view = el("div", "cb-import");
+    const header = el("div", "panel-header cb-import-header");
+    header.append(el("h2", "", "Create program from code"));
+    const close = el("button", "close-button", "✕"); close.setAttribute("aria-label", "Close Code Builder");
+    close.addEventListener("click", () => this.onClose()); header.append(close);
+    const note = el("p", "cb-import-note", "Convert a supported snippet into a new block program. Conversion does not run the Agent or replace your saved programs.");
+    const fields = el("div", "cb-import-fields");
+    const languageLabel = el("label", "cb-import-field", "Code language");
+    const language = el("select", "cb-select"); language.setAttribute("aria-label", "Code language");
+    language.append(new Option("JavaScript subset (body only)", "javascript", false, this.importLanguage === "javascript"), new Option("Python subset (4 spaces)", "python", false, this.importLanguage === "python"));
+    language.addEventListener("change", () => { if (language.value === "javascript" || language.value === "python") { this.importLanguage = language.value; this.render(); } }); languageLabel.append(language);
+    const nameLabel = el("label", "cb-import-field", "New program name");
+    const name = el("input", "mc-input"); name.setAttribute("aria-label", "New program name"); name.value = draft.name; name.placeholder = this.defaultImportName(); nameLabel.append(name); fields.append(languageLabel, nameLabel);
+    const sourceLabel = el("label", "cb-import-field", "Source code");
+    const source = el("textarea", "mc-input cb-import-source"); source.setAttribute("aria-label", "Source code"); source.setAttribute("spellcheck", "false"); source.setAttribute("autocapitalize", "off"); source.setAttribute("autocomplete", "off"); source.setAttribute("autocorrect", "off"); source.value = draft.source;
+    source.placeholder = this.importLanguage === "javascript" ? "agent.move(FORWARD, 1);" : "agent.move(FORWARD, 1)";
+    sourceLabel.append(source);
+    const policy = el("p", "cb-import-note", this.importLanguage === "javascript" ? "Body-only JavaScript: native onChat callbacks and function wrappers are unsupported." : "Python subset: use exactly four spaces per indentation level. Functions and imports are unsupported.");
+    policy.id = `${this.importId}-policy`;
+    const persistence = el("p", "cb-import-note", "Converted blocks save with your world. Original code drafts last only while this game is open; they are not restored after a reload. The Agent uses only the items it already carries.");
+    const details = el("details", "cb-import-help"); details.append(el("summary", "", "Supported subset and limits"));
+    details.append(el("p", "", "Commands: move, turn, place, destroy, and slot selection. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
+    const example = this.importLanguage === "javascript" ? 'agent.setSlot(1);\nfor (let step = 0; step < 2; step++) {\n    agent.move(FORWARD, 1);\n}\nif (agent.blockIs("stone", UP)) {\n    agent.turn(RIGHT_TURN);\n}' : 'agent.set_slot(1)\nfor step in range(2):\n    agent.move(FORWARD, 1)\nif agent.block_is("stone", UP):\n    agent.turn(TurnDirection.RIGHT)';
+    details.append(el("pre", "", example), el("p", "", "Exact block names are an application extension. detect uses this game's any-solid-block rule, which differs from native MakeCode. Limits: 16 KiB of UTF-8 source, 4,096 tokens, 2,000 blocks, four nesting levels and 100 repeats. Oversized text is rejected in full, never cut off. Strings have no escapes; loop counters cannot shadow constants or keywords."));
+    const issue = el("p", "cb-import-status", draft.issue?.message ?? ""); issue.id = `${this.importId}-issue`; issue.setAttribute("role", "alert");
+    source.setAttribute("aria-describedby", `${policy.id} ${issue.id}`); source.setAttribute("aria-invalid", draft.issue?.focus === "source" ? "true" : "false");
+    name.setAttribute("aria-invalid", draft.issue?.focus === "name" ? "true" : "false"); name.setAttribute("aria-describedby", issue.id);
+    const clearIssue = () => { draft.issue = undefined; issue.textContent = ""; source.setAttribute("aria-invalid", "false"); name.setAttribute("aria-invalid", "false"); };
+    source.addEventListener("input", () => { draft.source = source.value; clearIssue(); });
+    name.addEventListener("input", () => { draft.name = name.value; clearIssue(); });
+    const actions = el("div", "cb-import-actions");
+    const back = el("button", "mc-button", "Back to blocks"); back.addEventListener("click", () => { this.importing = false; this.render("import"); });
+    const convert = el("button", "mc-button primary", "Create block program"); convert.addEventListener("click", () => this.convertDraft());
+    actions.append(back, convert); view.append(header, note, fields, sourceLabel, policy, persistence, details, issue, actions); this.panel.replaceChildren(view);
+    if (draft.issue?.focus === "back") back.focus();
+    else if (draft.issue?.focus === "name") name.focus();
+    else {
+      source.focus();
+      const diagnostic = draft.issue?.diagnostic;
+      if (diagnostic) { const range = diagnosticSelection(draft.source, diagnostic); source.setSelectionRange(range.start, range.end); }
+    }
   }
 
   /** A drop zone listing `blocks` at nesting `depth`; tapping it makes it the tap target. */
@@ -344,4 +437,20 @@ function height(block: CodeBlock): number {
 function contains(block: CodeBlock, list: CodeBlock[]): boolean {
   const children = block.type === "repeat" || block.type === "until" ? [block.body] : block.type === "if" ? [block.then, block.else] : [];
   return children.some((c) => c === list || c.some((b) => contains(b, list)));
+}
+
+/** Empty text, zero moves and zero-repeat-only snippets do not create empty programs. */
+function hasImportedCommand(blocks: readonly CodeBlock[]): boolean {
+  return blocks.some(block => block.type === "command" || (block.type === "repeat" ? block.times > 0 && hasImportedCommand(block.body) : block.type === "if" ? hasImportedCommand(block.then) || hasImportedCommand(block.else) : hasImportedCommand(block.body)));
+}
+function diagnosticSelection(source: string, diagnostic: TextDiagnostic): { start: number; end: number } {
+  let offset = 0;
+  for (let line = 1; line < diagnostic.line && offset < source.length; line++) {
+    while (offset < source.length && source[offset] !== "\r" && source[offset] !== "\n") offset++;
+    if (source[offset] === "\r" && source[offset + 1] === "\n") offset += 2;
+    else if (offset < source.length) offset++;
+  }
+  const start = Math.min(source.length, offset + Math.max(0, diagnostic.column - 1));
+  const end = Math.min(source.length, start + Math.max(0, diagnostic.endColumn - diagnostic.column));
+  return { start, end };
 }

@@ -515,3 +515,33 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .nausea-vignette { position:absolute;inset:0;pointer-events:none;background:radial-gradient(ellipse at center,transparent 45%,rgba(80,62,105,.14) 100%); }
 .nausea-vignette[hidden] { display:none; }
 @media (prefers-reduced-motion:reduce) { .nausea-vignette { animation:none;transition:none; } }
+
+/* Code conversion is a separate, touch-reachable form; existing block layout stays intact. */
+.cb-import-open { min-width: 44px; min-height: 44px; font-size: 16px; }
+.code-panel.cb-import-mode { max-height: 92vh; max-height: 92dvh; }
+.cb-import { display: flex; flex-direction: column; gap: 12px; font-size: 16px; line-height: 1.45; }
+.cb-import h2 { padding-right: 48px; overflow-wrap: anywhere; }
+.cb-import p { margin: 0; overflow-wrap: anywhere; }
+.cb-import button, .cb-import select, .cb-import input { min-height: 44px; min-width: 44px; font-size: 16px; }
+.cb-import .close-button { width: 44px; height: 44px; }
+.cb-import-fields { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; }
+.cb-import-field { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+.cb-import .mc-input, .cb-import select { box-sizing: border-box; width: 100%; max-width: 100%; }
+.cb-import-source { min-height: 160px; height: clamp(160px, 32vh, 320px); resize: vertical; font: 16px/1.5 monospace; white-space: pre; overflow: auto; tab-size: 4; padding: 12px; }
+.cb-import-note { color: #383838; }
+.cb-import-help summary { min-height: 44px; display: flex; align-items: center; cursor: pointer; font-size: 16px; }
+.cb-import-help pre { font: 16px/1.5 monospace; white-space: pre-wrap; overflow-wrap: anywhere; padding: 10px; background: #333; color: #fff; }
+.cb-import-status { color: #98251c; min-height: 1.45em; }
+.cb-import [aria-invalid="true"] { outline: 2px solid #98251c; outline-offset: 1px; }
+.cb-import-actions { display: flex; flex-wrap: wrap; gap: 8px; position: sticky; bottom: 0; padding: 8px 0; background: #c6c6c6; z-index: 1; }
+.cb-import-actions button { flex: 1 1 180px; }
+@media (max-width: 600px) {
+  .cb-import-fields { grid-template-columns: minmax(0, 1fr); }
+  .cb-import { gap: 10px; }
+}
+@media (max-height: 500px) {
+  .cb-import-source { min-height: 140px; height: 140px; }
+}
+.code-panel.cb-import-mode { touch-action: pan-y; overscroll-behavior: contain; }
+.cb-import input, .cb-import textarea { user-select: text; -webkit-user-select: text; }
+.cb-import-source { touch-action: pan-y; }
