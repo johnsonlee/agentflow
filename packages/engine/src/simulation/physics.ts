@@ -1,5 +1,5 @@
-import { BLOCK_COLLISION_ORIGIN_BELOW, boxIntersectsBlockGeometry } from "../catalog/block-geometry";
-import { clampPosition } from "../core/math";
+import { BLOCK_COLLISION_ORIGIN_BELOW, blockCollisionBoxes, boxIntersectsBlockGeometry } from "../catalog/block-geometry";
+import { clampPosition, WORLD_BORDER } from "../core/math";
 import { blockById, blockId } from "../catalog/blocks";
 import type { Vec3 } from "../core/math";
 
@@ -43,6 +43,19 @@ export interface MoveInput {
 }
 
 export type BlockGetter = (x: number, y: number, z: number) => number;
+
+/** Application slowdown only at an actual supporting top face. A lower adjacent
+ * block, airborne body or unrelated material cannot apply a surface modifier. */
+export function surfaceSpeedAt(get:BlockGetter,p:Vec3,width=PLAYER_WIDTH):number {
+  if(![p.x,p.y,p.z,width].every(Number.isFinite)||width<=0||width>8||Math.abs(p.x)>WORLD_BORDER+64||Math.abs(p.z)>WORLD_BORDER+64)return 1;
+  const box=bodyBox(p,width),base=Math.floor(p.y-.01);let speed=1;
+  for(let x=Math.floor(box.minX+1e-6);x<=Math.floor(box.maxX-1e-6);x++)for(let z=Math.floor(box.minZ+1e-6);z<=Math.floor(box.maxZ-1e-6);z++)for(const y of [base-1,base]) {
+    const id=get(x,y,z),rate=blockById(id).surfaceSpeed;
+    if(rate===undefined||!Number.isFinite(rate)||rate<=0||rate>=speed)continue;
+    if(blockCollisionBoxes(get,x,y,z,id).some(b=>Math.abs(p.y-(y+b[4]))<=.03&&box.maxX>x+b[0]+1e-6&&box.minX<x+b[3]-1e-6&&box.maxZ>z+b[2]+1e-6&&box.minZ<z+b[5]-1e-6))speed=rate;
+  }
+  return speed;
+}
 
 export function createPlayerBody(position: Vec3): PlayerBody {
   return {
@@ -178,6 +191,7 @@ function stepPlayerOnce(getBlock: BlockGetter, body: PlayerBody, input: MoveInpu
   else if (body.inWater) speed = SWIM_SPEED;
   else if (input.descend) speed = SNEAK_SPEED;
   else if (input.sprint && input.forward > 0) speed = SPRINT_SPEED;
+  if(body.onGround&&!body.flying&&!body.inWater)speed*=surfaceSpeedAt(getBlock,p);
 
   // Horizontal wish direction in world space.
   let fx = input.forward;

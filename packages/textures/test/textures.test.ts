@@ -82,6 +82,8 @@ describe("procedural textures", () => {
         "birch_leaves", "dandelion", "fire", "glass", "glow_stick_block", "nether_portal", "oak_leaves", "poppy", "tall_grass", "torch", "underwater_torch_block", "water",
         "lever_off", "lever_on", "redstone_torch_on", "redstone_torch_off", ...Array.from({ length: 16 }, (_, p) => `redstone_dust_${p}`),
         ...Array.from({ length: 8 }, (_, age) => `wheat_stage_${age}`),
+        ...Array.from({ length: 3 }, (_, age) => `nether_wart_stage_${age}`),
+        "item_nether_brick", "item_nether_wart", "item_blaze_rod", "item_blaze_powder",
       ].sort(),
     );
   });

@@ -56,6 +56,10 @@ export interface BlockDef {
   waterproof?: boolean;
   /** Bounds of a "box" shape within the cell: [x0, y0, z0, x1, y1, z1], each 0-1. */
   collisionBox?: readonly [number, number, number, number, number, number];
+  /** Application contact policy; physics must explicitly consume this value. */
+  surfaceSpeed?: number;
+  /** Application Fire support policy; simulation must explicitly consume this value. */
+  permanentFireSupport?: boolean;
   box?: readonly [number, number, number, number, number, number];
 }
 
@@ -238,6 +242,12 @@ specs.push({ id: 191, name: "obsidian", displayName: "Obsidian", faces: faces("o
 
 // Hidden physical lifecycle cells; emission is a bounded application choice.
 for (const [id,name] of [[192,"nether_portal_x"],[193,"nether_portal_z"]] as const) specs.push({id,name,displayName:"Nether Portal",faces:faces("nether_portal"),shape:"none",solid:false,transparent:true,creative:false,hardness:Infinity,emissive:true,light:11});
+
+// Stage A Nether materials. Break values are application seconds, not calibrated native hardness.
+specs.push({id:194,name:"netherrack",displayName:"Netherrack",faces:faces("netherrack"),hardness:.6,tool:"pickaxe",harvestTier:1,permanentFireSupport:true});
+specs.push({id:195,name:"soul_sand",displayName:"Soul Sand",faces:faces("soul_sand"),shape:"box",box:[0,0,0,1,.875,1],collisionBox:[0,0,0,1,.875,1],hardness:.75,tool:"shovel",surfaceSpeed:.4});
+specs.push({id:196,name:"nether_bricks",displayName:"Nether Bricks",faces:faces("nether_bricks"),hardness:3,tool:"pickaxe",harvestTier:1});
+for(let age=0;age<4;age++)specs.push({id:197+age,name:`nether_wart_${age}`,displayName:"Nether Wart",faces:faces(`nether_wart_stage_${age===0?0:age===3?2:1}`),shape:"cross",solid:false,transparent:true,creative:false,hardness:0,needsSupport:true});
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

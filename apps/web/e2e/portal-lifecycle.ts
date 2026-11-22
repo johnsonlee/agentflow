@@ -39,6 +39,7 @@ export async function portalLifecycleRoute(page:Page,info:TestInfo,mobile:boolea
   const initial=await record("exact-actual-harvest-save-loaded");expect(initial.errors).toEqual([]);expect(initial.mode).toBe("survival");expect(initial.generatorVersion).toBe(2);expect(await countStack(page,"obsidian")).toBe(1);expect(await countStack(page,"diamond_pickaxe")).toBe(1);expect(await countStack(page,"bucket")).toBe(1);expect(await countStack(page,"oak_planks")).toBe(2);expect(initial.inventory.slots.find(s=>s?.id===435)?.damage).toBe(1);
   const sites=await page.evaluate(()=>{
    const g=window.__craft.game!,gen=g.world.generator,chunks=new Map<string,ReturnType<typeof gen.generate>>(),prior=new Set(g.world.exportEdits().map(e=>`${e[0]},${e[1]},${e[2]}`));
+   if (!("lavaBasinAt" in gen)) throw Error("This portal-acquisition fixture requires the Overworld generator");
    const at=(x:number,y:number,z:number)=>{const cx=Math.floor(x/16),cz=Math.floor(z/16),k=`${cx},${cz}`;let c=chunks.get(k);if(!c){c=gen.generate(cx,cz);chunks.set(k,c);}return c.get((x%16+16)%16,y,(z%16+16)%16);};
    const basins=[];for(let x=-496;x<=496;x+=32)for(let z=-496;z<=496;z+=32){const b=gen.lavaBasinAt(x,z);if(b)basins.push(b);}basins.sort((a,b)=>Math.hypot(a.x+26,a.z-15)-Math.hypot(b.x+26,b.z-15));
    const lava=[];for(const basin of basins)for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++){const p={x:basin.x+dx,y:basin.y,z:basin.z+dz};if(at(p.x,p.y,p.z)===190&&!prior.has(`${p.x},${p.y},${p.z}`))lava.push({...p,stand:{x:basin.x+2.5,y:basin.rimY+1,z:p.z+.5},basin});}

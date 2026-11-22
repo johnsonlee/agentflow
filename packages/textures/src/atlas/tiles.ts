@@ -1,3 +1,4 @@
+import {netherrackTile,soulSandTile,netherBricksTile,wartTile,NETHER_ITEM_GENERATORS} from "../artwork/nether";
 import { lavaTile, obsidianTile } from "../artwork/fluids";
 import { portalTile } from "../artwork/portals";
 import { STATION_FACE_KEYS, STATION_FACE_FALLBACKS } from "@craft/engine";
@@ -317,11 +318,14 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
   lava: lavaTile,
   obsidian: obsidianTile,
   nether_portal: portalTile,
+  netherrack:netherrackTile,soul_sand:soulSandTile,nether_bricks:netherBricksTile,
+  nether_wart_stage_0:wartTile(0),nether_wart_stage_1:wartTile(1),nether_wart_stage_2:wartTile(2),
+  ...NETHER_ITEM_GENERATORS,
 };
 
 /** True if `name` has an item sprite (fixed sprites, or a chemistry element/isotope/compound/product). */
 export function hasItemTile(name: string): boolean {
-  return Object.prototype.hasOwnProperty.call(ITEM_TILE_GENERATORS, name) || chemistryItemTile(name) !== undefined;
+  return Object.prototype.hasOwnProperty.call(ITEM_TILE_GENERATORS, name) || Object.prototype.hasOwnProperty.call(NETHER_ITEM_GENERATORS,name) || chemistryItemTile(name) !== undefined;
 }
 
 export const TILE_NAMES: readonly string[] = Object.freeze([...Object.keys(TILE_GENERATORS), ...STATION_FACE_KEYS]);

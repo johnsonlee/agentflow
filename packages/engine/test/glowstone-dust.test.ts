@@ -22,7 +22,7 @@ it("preserves complete307blocks/535items/127other recipes/22native rows and appe
   expect(baseline.previousGlowstoneRecipe).toEqual({ id: "glowstone", pattern: ["##", "##"], key: { "#": "gold_ore" }, result: ["glowstone", 1], note: "Minecraft uses glowstone dust" });
   expect(hash(baseline.previousGlowstoneRecipe)).toBe(baseline.previousGlowstoneRecipeSHA256);
   expect(RECIPES.slice(0, 128).at(-1)).toEqual({ id: "glowstone", pattern: ["##", "##"], key: { "#": "glowstone_dust" }, result: ["glowstone", 1] }); expect(new Set(RECIPES.map((r) => r.id)).size).toBe(RECIPES.length);
-  expect(NATIVE_MATERIAL_REDUCTIONS).toHaveLength(24); expect(hash(NATIVE_MATERIAL_REDUCTIONS.slice(0, 22))).toBe(baseline.nativeReductionsSHA256);
+  expect(NATIVE_MATERIAL_REDUCTIONS.slice(0,24)).toHaveLength(24); expect(NATIVE_MATERIAL_REDUCTIONS.slice(24).map(r=>r.input)).toEqual(["netherrack","soul_sand"]); expect(hash(NATIVE_MATERIAL_REDUCTIONS.slice(0, 22))).toBe(baseline.nativeReductionsSHA256);
   expect(itemById(791)).toEqual({ id: 791, name: "glowstone_dust", displayName: "Glowstone Dust", icon: "item_glowstone_dust", maxStack: 64 });
   expect(placedBlockOf(791)).toBeNull(); expect(baseStackId(blockId("glowstone"))).toBe(blockId("glowstone"));
   const bag = new Inventory(); bag.pick(blockId("glowstone")); expect(bag.selectedStack()).toEqual(stack("glowstone"));

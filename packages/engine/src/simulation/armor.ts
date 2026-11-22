@@ -1,7 +1,7 @@
 import { ARMOR_SLOTS, armorOf, type ArmorSlot } from "../catalog/items";
 import type { Inventory, ItemStack } from "../ownership/inventory";
 
-export type DamageKind = "melee" | "fall" | "starvation" | "void" | "fire" | "lava";
+export type DamageKind = "melee" | "fall" | "starvation" | "void" | "fire" | "lava" | "blaze";
 
 /** A defensive read: corrupted or manually edited equipment cannot grant free protection. */
 function usable(slot: ArmorSlot, stack: ItemStack | null): boolean {
@@ -19,14 +19,14 @@ export function armorPoints(inventory: Inventory): number {
 }
 
 /**
- * Resolves armor-eligible melee damage using Bedrock's fixed point reduction. Worn pieces protect
+ * Resolves armor-eligible melee damage and application Blaze-projectile damage using Bedrock's fixed point reduction. Worn pieces protect
  * the current hit before breaking. Fall, starvation and void bypass both protection and wear.
  * The bounded application Fire/Lava-contact model also bypasses protection and wear.
  * Invalid damage is a no-op, so external/corrupted numbers cannot poison health or equipment.
  */
 export function applyArmorDamage(inventory: Inventory, amount: number, kind: DamageKind = "melee"): number {
   if (!Number.isFinite(amount) || amount <= 0) return 0;
-  if (kind !== "melee") return amount;
+  if (kind !== "melee" && kind !== "blaze") return amount;
   const remaining = amount * (1 - armorPoints(inventory) * 0.04);
   const wear = Math.max(1, Math.floor(amount / 4));
   for (const slot of ARMOR_SLOTS) {

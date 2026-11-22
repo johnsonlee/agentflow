@@ -231,6 +231,10 @@ const specs: Omit<ItemDef, "id">[] = [
   { name: "flint_and_steel", displayName: "Flint and Steel", maxStack: 1, icon: "item_flint_and_steel", useTool: { kind: "ignition", durability: 64 } },
   { name: "water_bucket", displayName: "Water Bucket", maxStack: 1, icon: "item_water_bucket" },
   { name: "lava_bucket", displayName: "Lava Bucket", maxStack: 1, icon: "item_lava_bucket" },
+  material("nether_brick", "Nether Brick"),
+  material("nether_wart", "Nether Wart"),
+  material("blaze_rod", "Blaze Rod"),
+  material("blaze_powder", "Blaze Powder"),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
@@ -268,7 +272,7 @@ export function isKnownItemId(id: number): boolean {
 
 /** True for a supported inventory identity; Fire is world-only, not an owned stack. */
 export function isKnownId(id: number): boolean {
-  return isKnownBlockId(id) && id !== blockId("fire") && id !== blockId("lava") && id !== 192 && id !== 193 || isKnownItemId(id);
+  return isKnownBlockId(id) && id !== blockId("fire") && id !== blockId("lava") && id !== 192 && id !== 193 && !(id >= 197 && id <= 200) || isKnownItemId(id);
 }
 
 export function nameOf(id: number): string {
@@ -303,6 +307,7 @@ const BLOCK_ITEM_DROPS = new Map<string, string>([
 // Ordinary and stained glass shatter without Silk Touch (enchantments are not modelled).
 // Keep dropOf/baseStackId as canonical identities; zero is a quantity, never the air item.
 const BLOCK_DROP_COUNTS = new Map<string, number>([
+  ...[0,1,2,3].map(age=>[`nether_wart_${age}`,0] as [string,number]),
   ["bookshelf", 3], ["glass", 0], ["fire", 0], ["nether_portal_x", 0], ["nether_portal_z", 0],
   // Four-ball harvest is an application rule pending direct current Education runtime proof.
   // Agent destroy shares these quantities with its existing tool-independent harvest semantics.
@@ -337,6 +342,7 @@ export function dropOf(blockIdValue: number): number {
  * dropping something else, e.g. redstone_wire_15 -> redstone, lever_on -> lever) map to that drop.
  */
 export function baseStackId(id: number): number {
+  if(id>=197&&id<=200&&Number.isInteger(id))return 842;
   if (isItem(id)) return id;
   const def = tryBlockById(id);
   if (!def || def.creative) return id;
@@ -346,7 +352,7 @@ export function baseStackId(id: number): number {
 
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
-  if (id === blockId("fire") || id === blockId("lava") || id === 192 || id === 193) return null;
+  if (id === blockId("fire") || id === blockId("lava") || id === 192 || id === 193 || id >= 197 && id <= 200) return null;
   if (isKnownBlockId(id)) return id;
   if (!isKnownItemId(id)) return null;
   const places = itemById(id).places;

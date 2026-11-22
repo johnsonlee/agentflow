@@ -875,5 +875,8 @@ export const ATLAS_TEXTURE_CATALOG: readonly string[] = Object.freeze([
   "obsidian",
   "item_water_bucket",
   "item_lava_bucket",
-  "nether_portal"
+  "nether_portal",
+  "netherrack", "soul_sand", "nether_bricks",
+  "nether_wart_stage_0", "nether_wart_stage_1", "nether_wart_stage_2",
+  "item_nether_brick", "item_nether_wart", "item_blaze_rod", "item_blaze_powder"
 ]);

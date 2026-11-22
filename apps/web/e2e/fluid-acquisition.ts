@@ -69,6 +69,7 @@ export async function fluidAcquisitionRoute(page: Page, info: TestInfo, mobile: 
     stage = "natural-fluid-sites";
     const sites = await page.evaluate(() => {
       const g = window.__craft.game!, gen = g.world.generator;
+      if (!("lavaBasinAt" in gen)) throw Error("This source-acquisition fixture requires the Overworld generator");
       let water: {x:number;y:number;z:number;stand:{x:number;y:number;z:number}} | null = null;
       for (let x=-192; x<=192 && !water; x+=2) for (let z=-192; z<=192; z+=2) {
         if (gen.heightAt(x,z)>=30) continue;

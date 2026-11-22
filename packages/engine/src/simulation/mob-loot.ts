@@ -20,6 +20,9 @@ export const isMobLootCause = (raw: unknown): raw is MobLootCause => raw === "pl
 
 /** Unenchanted base loot plus the retained player-only Spider Eye pool; no fire/looting parity. */
 export function mobDrops(kind: MobKind, rand: () => number = Math.random, cause: MobLootCause = "environment"): ItemStack[] {
+  // Retained candidate0..1 range; uniform sampler is app policy. Agent attribution is an app choice,
+  // not evidence that native Agent satisfies the player-or-pets predicate. Environment never rolls.
+  if(kind === "blaze")return cause === "environment" ? [] : countBetween(0,1,rand) ? [{id:stackId("blaze_rod"),count:1}] : [];
   const spec = MOB_SPECS[kind];
   const stacks: ItemStack[] = [];
   for (const [index, entry] of [spec.drop, spec.extraDrop].entries()) {

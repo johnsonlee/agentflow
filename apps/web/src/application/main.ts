@@ -1,4 +1,4 @@
-import { tryBlockById, blockId, allAtlasTextureNames, parseSave, seedFromString, stackId, type GameMode, type SaveData } from "@craft/engine";
+import { tryBlockById, blockId, allAtlasTextureNames, parseSave, seedFromString, stackId, type PortalContactTicket, type GameMode, type SaveData } from "@craft/engine";
 import { buildAtlas, MAX_PACK_BYTES, parseLocalTexturePack, type ParsedLocalTexturePack, type TextureAtlas } from "@craft/textures";
 import { readLocalTexturePack, writeLocalTexturePack } from "../persistence/resourcePackStore";
 import { blockIcon } from "../ui/icons";
@@ -229,11 +229,29 @@ function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?:
       touch,
       spawnAnimals: opts.spawnAnimals,
       save: opts.save,
-    }, { onPause: showPause, onDeath: showDeath });
+    }, { onPause: showPause, onDeath: showDeath, onPortalTravel: travelThroughPortal });
     loading.remove();
     game.start();
     if (game.dead) showDeath();
   });
+}
+
+function travelThroughPortal(source:Game,ticket:PortalContactTicket):void {
+  if(resourceBusy||game!==source)return;
+  const generation=resourceGeneration,trip=source.preparePortalTravel(ticket,atlas);
+  if(!trip)return;
+  const loading=screen("loading-screen",el("h2","","Travelling through portal…"));app.appendChild(loading);
+  const started=performance.now(),unchanged=()=>game===source&&resourceGeneration===generation&&!resourceBusy;
+  const frame=()=>{
+    try{
+      if(!unchanged()||performance.now()-started>30000){trip.cancel();loading.remove();return;}
+      if(!trip.prepareFrame()){requestAnimationFrame(frame);return;}
+      if(trip.commit(unchanged)){game=trip.target;game.save();}
+      else trip.cancel();
+      loading.remove();
+    }catch{trip.cancel();loading.remove();}
+  };
+  requestAnimationFrame(frame);
 }
 
 function overlay(className: string, ...children: HTMLElement[]): HTMLElement {

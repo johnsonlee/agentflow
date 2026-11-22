@@ -21,7 +21,10 @@ export function wheatId(age: number): number {
 }
 
 /** Null delegates to the existing ordinary drop. Tall grass uses 1/8 seed chance; ripe wheat uses three 4/7 seed trials. */
+/** Hidden physical crop states never become inventory IDs. Counts are application choices. */
+export function netherWartAge(id:number):number|null {return Number.isInteger(id)&&id>=197&&id<=200?id-197:null;}
 export function farmDrops(id: number, rand: () => number = Math.random): ItemStack[] | null {
+  const wart=netherWartAge(id);if(wart!==null)return [{id:stackId("nether_wart"),count:wart===3?3:1}];
   const age = wheatAge(id), seeds = stackId("wheat_seeds");
   if (id === TALL_GRASS) return rand() < 1 / 8 ? [{ id: seeds, count: 1 }] : [];
   if (age === null) return null;
@@ -72,23 +75,30 @@ export const CROP_SAMPLE_PROBABILITY = 1 - Math.pow(1 - 1 / 4096, 20);
 export const FARMING_BATCH_LIMIT = 256;
 export class FarmingSystem {
   private state: FarmingState;
+  private updating=false;
   private readonly cells = new Map<string, readonly [number, number, number]>();
   private readonly unsubscribe: () => void;
   constructor(private readonly world: World, raw?: unknown) {
     this.state = sanitizeFarmingState(raw);
     const remember = (x: number, y: number, z: number, id: number) => {
       const key = `${x},${y},${z}`;
-      if (farmlandMoisture(id) !== null || wheatAge(id) !== null) this.cells.set(key, [x, y, z]);
+      if (farmlandMoisture(id) !== null || wheatAge(id) !== null || netherWartAge(id)!==null) this.cells.set(key, [x, y, z]);
       else this.cells.delete(key);
     };
     for (const [x, y, z, id] of world.exportEdits()) remember(x, y, z, id);
-    this.unsubscribe = world.onBlockChanged(remember);
+    this.unsubscribe = world.onBlockChanged((x,y,z,id)=>{
+      remember(x,y,z,id);
+      // A naturally generated mature bed needs no growth registration until its support changes.
+      const above=world.getLoadedBlock(x,y+1,z);if(above!==undefined&&netherWartAge(above)!==null)remember(x,y+1,z,above);
+    });
   }
   dispose(): void { this.unsubscribe(); }
   toJSON(): FarmingState { return { ...this.state }; }
   update(dt: number, skyLight = 15): void {
-    if(this.world.blockSourceLeaseBusy)return;
+    if(this.updating||this.world.blockSourceLeaseBusy)return;
     if (!Number.isFinite(dt) || dt < 0 || dt > 86400) return;
+    this.updating=true;
+    try {
     skyLight = Number.isFinite(skyLight) ? Math.max(0, Math.min(15, skyLight)) : 0;
     this.state.accumulator = Math.round(Math.min(86400, this.state.accumulator + dt) * 1e9) / 1e9;
     let steps = 0;
@@ -101,10 +111,20 @@ export class FarmingSystem {
       for (let i = 0; i < count; i++) this.step(...cells[(start + i) % cells.length], skyLight);
       this.state.cursor = (start + count) % cells.length;
     }
+    } finally {this.updating=false;}
   }
   private step(x: number, y: number, z: number, skyLight: number): void {
     const id = this.world.getLoadedBlock(x, y, z);
     if (id === undefined) return;
+    const wart=netherWartAge(id);
+    if(wart!==null){
+      const support=this.world.getLoadedBlock(x,y-1,z);
+      if(support===undefined)return; // Unknown support suspends, never generates or removes a crop.
+      if(support!==blockId("soul_sand")){this.world.setBlock(x,y,z,AIR);return;}
+      // Explicit application model: one seeded 1/30 chance per loaded farming second; no light/water.
+      if(wart<3&&hash3(this.world.seed^this.state.tick^0x4e575254,x,y,z)<1/30)this.world.setBlock(x,y,z,197+wart+1);
+      return;
+    }
     const moisture = farmlandMoisture(id);
     const sample = hash3(this.world.seed ^ this.state.tick, x, y, z) < CROP_SAMPLE_PROBABILITY;
     if (moisture !== null) {

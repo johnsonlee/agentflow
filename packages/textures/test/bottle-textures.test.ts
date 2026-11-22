@@ -6,9 +6,9 @@ import baseline from "./fixtures/bottles-0d75051.json";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("preserves all860 published tile pixels and UVs while appending two whole bottle icons", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
-  expect(names).toHaveLength(875); expect(names.slice(0, 860)).toEqual(baseline.names);
+  expect(names).toHaveLength(885); expect(names.slice(0, 860)).toEqual(baseline.names);
   expect(names.slice(860, 862)).toEqual(["item_glass_bottle", "item_water_bottle"]);
-  expect(new Set(names).size).toBe(875);
+  expect(new Set(names).size).toBe(885);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

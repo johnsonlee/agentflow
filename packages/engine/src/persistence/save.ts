@@ -1,4 +1,8 @@
+import {readBlazeOwners, diagnoseRawBlazeOwnership, type BlazeOwnershipIssue} from "./blaze-save";
+import type {BlazeFireballsData} from "../simulation/blaze-fireballs";
 import { sanitizePortalState, validatePortalEdits, isPortalBlock, type PortalData } from "../simulation/portals";
+import { readDimensionArchive, type DimensionsData, type DimensionSaveIssue, type DimensionGeneratedBlockProbe } from "./dimension-save";
+import { createDimensionGeneratedBlockProbe } from "../world/dimension-probe";
 import { sanitizeFluidState, type FluidData } from "../simulation/fluids";
 import { sanitizeGeneratorVersion, type GeneratorVersion } from "../world/generator";
 import { isKnownBlockId } from "../catalog/blocks";
@@ -19,7 +23,7 @@ import type { LeashData } from "../ownership/leashes";
 import type { MobStateData } from "./mob-save";
 import type { WorldDropsData } from "../ownership/world-drops";
 import type { SnowballProjectilesData } from "../simulation/snowball-projectiles";
-import { sanitizeFarmingState, type FarmingState } from "../simulation/farming";
+import { netherWartAge, sanitizeFarmingState, type FarmingState } from "../simulation/farming";
 import type { BlockEdit } from "../world/world";
 import type { InventoryData, ItemStack } from "../ownership/inventory";
 import { sanitizeInventoryPending } from "./savecheck";
@@ -37,6 +41,11 @@ export interface SaveData {
   version: number;
   name: string;
   seed: number;
+  /** Active world stays flat; only inactive world owners live in this extension. */
+  dimensions?: DimensionsData;
+  /** Derived before any owner repair; callers must preserve the exact original. */
+  dimensionsInvalid?: boolean;
+  dimensionOwnershipIssues?: DimensionSaveIssue[];
   generatorVersion?: GeneratorVersion;
   /** Raw diagnostics; callers preserve exact original and freeze writes/actions. */
   generatorVersionInvalid?: boolean;
@@ -45,6 +54,10 @@ export interface SaveData {
   portals?: PortalData;
   portalsInvalid?: boolean;
   portalOwnershipIssues?: GlowOwnershipIssue[];
+  /** Hidden Wart crop states in raw item owners require exact-original recovery. */
+  wartOwnershipIssues?: GlowOwnershipIssue[];
+  blazeFireballs?:BlazeFireballsData;
+  blazeOwnershipIssues?:BlazeOwnershipIssue[];
   mode: GameMode;
   timeOfDay: number;
   /** `position` is null when a damaged save had none (the game then uses the spawn point). */
@@ -106,9 +119,15 @@ export interface SaveData {
   snowballProjectiles?: SnowballProjectilesData;
 }
 
-export function serializeSave(data: Omit<SaveData, "version">): string {
-  const { portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
+  if(data.blazeOwnershipIssues?.length||diagnoseRawBlazeOwnership(data).length)throw new Error("Cannot serialize invalid Blaze ownership");
+  // Validate the original complete archive before any flat-world normalization.
+  const dimensions = readDimensionArchive(data.dimensions, data, generatedBlockProbe);
+  if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
+  const { blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
   const portals=sanitizePortalState(owned.portals);
+  if(_wartIssues?.length||diagnoseRawWartOwnership(owned).length||diagnoseRawWartSupport(owned,owned.dimensions?.active??"overworld",generatedBlockProbe).length)throw new Error("Cannot serialize hidden Wart item ownership");
   if(_portalsInvalid||_portalIssues?.length||portals.invalid||!validatePortalEdits(owned.portals,owned.edits)||diagnoseRawPortalOwnership(owned).length)throw new Error("Cannot serialize invalid portal ownership");
   if(portals.present)owned.portals=portals.data;
   const generator=sanitizeGeneratorVersion(owned.generatorVersion),fluids=sanitizeFluidState(owned.fluids);
@@ -148,11 +167,18 @@ export interface GlowOwnershipIssue { path: string; reason: string }
 
 /** Scan raw owners before sanitizeInventoryPending/fromJSON/Agent/furnace loaders can drop state.
  * This produces diagnostics only; Game must preserve the original raw text and block overwrite. */
-function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket" | "ignition" | "portal"): GlowOwnershipIssue[] {
+function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket" | "ignition" | "portal" | "wart"): GlowOwnershipIssue[] {
   const issues: GlowOwnershipIssue[] = [];
   if (!isObj(raw)) return issues;
   const check = (value: unknown, path: string, supported = true) => {
     if (typeof value !== "object" || value === null) return;
+    if(field==="wart"){
+      const id=Object.getOwnPropertyDescriptor(value,"id")?.value;
+      if(netherWartAge(id)!==null)issues.push({path,reason:"hidden Wart physical crop cannot be an owned item"});
+      else if(id===842){const count=Object.getOwnPropertyDescriptor(value,"count")?.value;
+        if(!supported||!isObj(value)||Reflect.ownKeys(value).some(k=>k!=="id"&&k!=="count")||!Number.isSafeInteger(count)||count<1||count>64)issues.push({path,reason:"invalid or unsupported canonical Wart item owner"});
+      }return;
+    }
     if(field==="portal"){if(isPortalBlock(Object.getOwnPropertyDescriptor(value,"id")?.value))issues.push({path,reason:"hidden portal physical cell cannot be an owned item"});return;}
     // New Sparkler identities require recovery even when their legacy metadata is absent.
     const legacySparkler = field === "sparkler" && isObj(value) && typeof own(value, "id") === "number" && isSparklerId(own(value, "id") as number);
@@ -192,7 +218,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
         else check(rawOffhand, "inventory.offhand");
       }
     }
-    if ((field === "bottle" || field === "bucket" || field === "ignition" || field === "portal") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
+    if ((field === "bottle" || field === "bucket" || field === "ignition" || field === "portal" || field === "wart") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
     const equipment = object(own(inventory, "equipment"), "inventory.equipment");
     if (equipment) for (const key of Object.keys(equipment))
       check(own(equipment, key), `inventory.equipment.${key}`, false); // Glow is never armor.
@@ -202,7 +228,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   if (agent) {
     if (field === "sparkler" && Object.prototype.hasOwnProperty.call(agent, "offhand"))
       issues.push({ path: "agent.offhand", reason: "Agent offhand is an unsupported owner" });
-    if (field === "bottle" || field === "bucket" || field === "ignition" || field === "portal") check(own(agent,"offhand"),"agent.offhand",false);
+    if (field === "bottle" || field === "bucket" || field === "ignition" || field === "portal" || field === "wart") check(own(agent,"offhand"),"agent.offhand",false);
     const valid = integer(own(agent, "x")) && integer(own(agent, "y"), 0, 1000) && integer(own(agent, "z"))
       && integer(own(agent, "facing"), 0, 3) && integer(own(agent, "selected"), 0, 26);
     if (!valid) issues.push({ path: "agent", reason: "invalid owned-item Agent envelope" });
@@ -238,6 +264,30 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   return issues;
 }
 
+export function diagnoseRawWartOwnership(raw:unknown):GlowOwnershipIssue[]{return diagnoseRawActivationOwnership(raw,"wart");}
+/** Resolve edited crop support against this realm only, before any edit repair. */
+export function diagnoseRawWartSupport(raw:unknown,dimension:"overworld"|"nether",probe:DimensionGeneratedBlockProbe):GlowOwnershipIssue[]{
+ if(!isObj(raw)||!Array.isArray(raw.edits))return [];
+ if(raw.edits.some(e=>Array.isArray(e)&&netherWartAge(e[3])!==null)&&!validFluidEdits(raw.edits))return [{path:"edits",reason:"Malformed Wart physical edits; refusing silent repair"}];
+ const edits=new Map<string,number>(),key=(x:number,y:number,z:number)=>`${x},${y},${z}`;
+ for(const e of raw.edits)if(Array.isArray(e)&&e.length===4&&e.slice(0,3).every(Number.isSafeInteger)&&isKnownBlockId(e[3]))edits.set(key(e[0],e[1],e[2]),e[3]);
+ const generator=sanitizeGeneratorVersion(raw.generatorVersion),version=generator.present?generator.version:1;
+ const block=(x:number,y:number,z:number):number|undefined=>{
+  const id=edits.get(key(x,y,z));if(id!==undefined)return id;
+  try{return probe(dimension,raw.seed as number,version,x,y,z);}catch{return undefined;}
+ };
+ const issues:GlowOwnershipIssue[]=[],seen=new Set<string>();
+ for(let i=0;i<raw.edits.length;i++){
+  const e=raw.edits[i];if(!Array.isArray(e)||e.length!==4||!e.slice(0,3).every(Number.isSafeInteger))continue;
+  const candidates=netherWartAge(e[3])!==null?[e[1]]:dimension==="nether"?[e[1]+1]:[];
+  for(const y of candidates){const k=key(e[0],y,e[2]);if(seen.has(k)||netherWartAge(block(e[0],y,e[2])??-1)===null)continue;seen.add(k);
+   if(block(e[0],y-1,e[2])!==195)issues.push({path:`edits[${i}]`,reason:"Wart crop requires known Soul Sand support in its own realm"});
+  }
+ }
+ return issues;
+}
+
+
 export function diagnoseRawPortalOwnership(raw:unknown):GlowOwnershipIssue[]{return diagnoseRawActivationOwnership(raw,"portal");}
 
 export function diagnoseRawIgnitionOwnership(raw: unknown): GlowOwnershipIssue[] { return diagnoseRawActivationOwnership(raw, "ignition"); }
@@ -256,7 +306,7 @@ export function diagnoseRawSparklerOwnership(raw: unknown): GlowOwnershipIssue[]
  * game mode becomes creative), so a damaged save stays reachable. Optional sections are passed on
  * as-is and sanitized by their own loaders (savecheck.ts, loadPrograms).
  */
-export function parseSave(text: string): SaveData {
+export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): SaveData {
   let raw: unknown;
   try {
     raw = JSON.parse(text);
@@ -269,12 +319,18 @@ export function parseSave(text: string): SaveData {
   const seed = own(raw, "seed");
   if (!finite(seed)) throw new Error("Malformed save data: missing seed");
 
+  // Inactive owners must be diagnosed before legacy loaders can repair or omit
+  // any part of the active or inactive world. Never return a partial archive.
+  const dimensions = readDimensionArchive(own(raw, "dimensions"), raw, generatedBlockProbe);
+
   // Must precede sanitizeInventoryPending and all downstream owner loaders.
   const glowOwnershipIssues = diagnoseRawGlowOwnership(raw);
   const sparklerOwnershipIssues = diagnoseRawSparklerOwnership(raw);
   const bottleOwnershipIssues = diagnoseRawBottleOwnership(raw);
   const bucketOwnershipIssues = diagnoseRawBucketOwnership(raw);
   const ignitionOwnershipIssues = diagnoseRawIgnitionOwnership(raw);
+  const blazeOwners=readBlazeOwners(raw);
+  const wartOwnershipIssues=[...diagnoseRawWartOwnership(raw),...diagnoseRawWartSupport(raw,dimensions.kind==="valid"?dimensions.data.active:"overworld",generatedBlockProbe)];
   const portalOwnershipIssues=diagnoseRawPortalOwnership(raw),portals=sanitizePortalState(own(raw,"portals"));
   const portalsInvalid=portals.invalid||!validatePortalEdits(own(raw,"portals"),own(raw,"edits"));
   const generator=sanitizeGeneratorVersion(own(raw,"generatorVersion")),fluids=sanitizeFluidState(own(raw,"fluids"));
@@ -319,8 +375,13 @@ export function parseSave(text: string): SaveData {
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
+  if (dimensions.kind === "valid") save.dimensions = dimensions.data;
+  if (dimensions.kind === "invalid") { save.dimensionsInvalid = true; save.dimensionOwnershipIssues = dimensions.issues; }
   if(portals.present)save.portals=portals.data;
   if(portalsInvalid)save.portalsInvalid=true;
+  if(Object.hasOwn(raw,"blazeFireballs"))save.blazeFireballs=blazeOwners.fireballs;
+  if(blazeOwners.issues.length)save.blazeOwnershipIssues=blazeOwners.issues;
+  if(wartOwnershipIssues.length)save.wartOwnershipIssues=wartOwnershipIssues;
   if(portalOwnershipIssues.length)save.portalOwnershipIssues=portalOwnershipIssues;
   if(generator.present)save.generatorVersion=generator.version;
   if(generator.invalid)save.generatorVersionInvalid=true;

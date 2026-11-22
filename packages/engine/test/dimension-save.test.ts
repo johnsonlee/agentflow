@@ -8,7 +8,7 @@ import { mobSnapshot } from "../src/persistence/mob-save";
 import { MobManager } from "../../../apps/web/src/simulation/mobs";
 
 function world() {
-  return { seed: 7, generatorVersion: 2, player: { position: { x: .5, y: 80, z: .5 }, yaw: 0, pitch: 0, flying: false }, edits: [] as number[][] };
+  return { seed: 7, generatorVersion: 1, player: { position: { x: .5, y: 80, z: .5 }, yaw: 0, pitch: 0, flying: false }, edits: [] as number[][] };
 }
 function archive(inactive: unknown = world()) { return { version: 1, active: "overworld", inactive: { nether: inactive }, links: [] as unknown[] }; }
 function fullWorld() {
@@ -65,7 +65,7 @@ it.each(["inventory", "inventoryPending", "agent", "playerState", "playerStatus"
 it.each(["seed", "player", "edits"])("refuses missing inactive required owner %s", name => {
   const saved = world(); Reflect.deleteProperty(saved, name); refused(archive(saved), world(), name);
 });
-it.each([0,3,NaN,"2",null])("refuses unsupported generator %s", generatorVersion => refused(archive({ ...world(), generatorVersion }), world(), "generatorVersion"));
+it.each([0,2,3,NaN,"2",null])("refuses unsupported generator %s", generatorVersion => refused(archive({ ...world(), generatorVersion }), world(), "generatorVersion"));
 it("checks active world and all inactive worlds before returning any usable state", () => {
   refused(archive(), { ...world(), edits: [[1,2,3,999999]] }, "edits");
   refused({ ...archive(), inactive: { nether: world(), overworld: world() } }, world(), "overworld");
@@ -105,7 +105,7 @@ it("refuses dangling active mob attachments while preserving pending refunds", (
 it("uses only primitive generated probes, honors edited cells and refuses unknown/throwing references", () => {
   const saved = { ...world(), gravelHarvests: { version: 1, records: [{x:12,y:80,z:12,flint:true}] } }, calls: unknown[][] = [];
   const result = readDimensionArchive(archive(saved), world(), (...args) => { calls.push(args); return blockId("gravel"); });
-  expect(result.kind).toBe("valid"); expect(calls).toEqual([["nether",7,2,12,80,12]]);
+  expect(result.kind).toBe("valid"); expect(calls).toEqual([["nether",7,1,12,80,12]]);
   expect(readDimensionArchive(archive(saved), world(), () => { throw Error("unknown"); }).kind).toBe("invalid");
   expect(readDimensionArchive(archive({ ...saved, edits: [[12,80,12,0]] }), world(), () => blockId("gravel")).kind).toBe("invalid");
 });
@@ -113,7 +113,8 @@ it("caches one generated cell shared by Fire support and a cached Gravel source"
   const saved = { ...world(), edits: [[15,80,15,blockId("fire")]], fire: {version:1,records:[{x:15,y:80,z:15,remaining:12}],contactSeconds:0}, gravelHarvests: {version:1,records:[{x:15,y:79,z:15,flint:false}]} };
   const calls: unknown[][] = [];
   expect(readDimensionArchive(archive(saved),world(),(...args)=>{calls.push(args);return blockId("gravel");}).kind).toBe("valid");
-  expect(calls).toEqual([["nether",7,2,15,79,15]]);
+  expect(calls.filter(c=>c[4]===79)).toEqual([["nether",7,1,15,79,15]]);
+  expect(calls.filter(c=>c[4]===81)).toEqual([["nether",7,1,15,81,15]]); // Natural Wart support above an edited source is checked separately.
 });
 it("keeps validated snapshots detached when the generated-block callback mutates original inputs", () => {
   const saved = { ...world(), gravelHarvests: {version:1,records:[{x:12,y:80,z:12,flint:true}]} }, raw = archive(saved), active = world(), expected = structuredClone(raw);

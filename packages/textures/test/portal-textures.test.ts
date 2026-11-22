@@ -5,7 +5,7 @@ import { buildAtlas,generateTile,hasItemTile } from "../src/index";
 import baseline from "./fixtures/portals-6ce46ce.json";
 const hash=(data:Uint8ClampedArray)=>createHash("sha256").update(data).digest("hex");
 it("preserves every published874 pixel/UV and appends one shared portal key",()=>{
- const names=allAtlasTextureNames(),atlas=buildAtlas(names);expect(names.slice(0,874)).toEqual(baseline.names);expect(names.slice(874)).toEqual(["nether_portal"]);
+ const names=allAtlasTextureNames(),atlas=buildAtlas(names);expect(names.slice(0,874)).toEqual(baseline.names);expect(names.slice(874,875)).toEqual(["nether_portal"]);
  for(const name of baseline.names){const prior=baseline.tiles[name as keyof typeof baseline.tiles];expect(hash(generateTile(name)),name).toBe(prior.rgbaSHA256);expect(hash(atlas.tilePixels(name)),name).toBe(prior.rgbaSHA256);expect(atlas.uv(name),name).toEqual(prior.uv);}
 });
 it("binds both hidden orientations to a distinct original translucent surface",()=>{

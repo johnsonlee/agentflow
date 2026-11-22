@@ -1,3 +1,6 @@
+import {BlazeFireballs,type BlazeFireballsData,type BlazeFireballImpact,type BlazeBox} from "../../../../packages/engine/src/simulation/blaze-fireballs";
+import {BLAZE,blazeCanShoot} from "../../../../packages/engine/src/simulation/blaze";
+import {buildBlazeModel,animateBlazeModel} from "../rendering/blaze-model";
 import * as THREE from "three";
 import {
   MOB_SPECS, PASSIVE_MOBS, PATHFINDING, SEA_LEVEL, onBlockChangedNear, WORLD_HEIGHT, blockId, bodyBox, boxCollides, burnInDaylight, canHostileSpawn, createMob, damageMob,
@@ -20,7 +23,7 @@ interface Part {
   face?: "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider";
 }
 
-const MODELS: Record<Exclude<MobKind, "squid" | "cow">, Part[]> = {
+const MODELS: Record<Exclude<MobKind, "squid" | "cow" | "blaze">, Part[]> = {
   // Original procedural model: a low dark body, eight independently animated legs and red eyes.
   // Ground walking only; native climbing, leaping and model/texture parity remain unimplemented.
   spider: [
@@ -139,6 +142,7 @@ function faceTexture(color: string, face: NonNullable<Part["face"]>): THREE.Text
 function buildModel(mob: Mob): THREE.Group {
   if (mob.kind === "squid") return buildSquidModel();
   if (mob.kind === "cow") return buildCowModel();
+  if (mob.kind === "blaze") return buildBlazeModel();
   const group = new THREE.Group();
   for (const part of MODELS[mob.kind]) {
     const side = new THREE.MeshBasicMaterial({ map: partTexture(part.color) });
@@ -209,6 +213,10 @@ export class MobManager {
   readonly mobs: Mob[] = [];
   private readonly models = new Map<number, THREE.Group>();
   private nextId = 1;
+  private disposed=false;
+  private naturalSpawning=false;
+  private readonly fireballs:BlazeFireballs;
+  private readonly fireballViews=new Map<number,THREE.Mesh>();
   private readonly deathOwners = new Set<number>();
   /** Minecraft's doMobSpawning game rule: natural animal spawning (summoning always works). */
   spawning = true;
@@ -246,6 +254,7 @@ export class MobManager {
     private readonly externalAcceleration: (mob: Mob) => Vec3 = () => ({ x: 0, y: 0, z: 0 }),
     private readonly loadedOnlyPhysics: (mob: Mob) => boolean = () => false,
   ) {
+    this.fireballs=new BlazeFireballs(world);
     // Opening (or closing) a shelter near the player or a zombie ends that zombie's path back-off.
     this.unsubscribeBlock = world.onBlockChanged((x, y, z) => onBlockChangedNear(this.mobs, x, y, z, this.lastPlayer));
   }
@@ -253,7 +262,7 @@ export class MobManager {
   get idsExhausted(): boolean { return this.nextId >= Number.MAX_SAFE_INTEGER; }
 
   spawn(kind: MobKind, position: Vec3, extra: { name?: string; dialogue?: string; yaw?: number } = {}): Mob {
-    if (this.ownershipBusy()) throw new Error("Creature ownership transfer is in progress");
+    if (this.disposed || this.naturalSpawning || this.world.blockSourceLeaseBusy || this.ownershipBusy()) throw new Error("Creature ownership transfer is in progress or retired");
     if (this.nextId >= Number.MAX_SAFE_INTEGER) throw new Error("Creature IDs are exhausted; no creature was summoned");
     const mob = createMob(this.nextId++, kind, position, extra);
     this.register(mob);
@@ -262,6 +271,7 @@ export class MobManager {
 
   /** Restore stable IDs before registering their models; the new section owns all kinds. */
   restore(data: MobStateData, loot: MobLootResolver): void {
+    if(this.disposed||this.naturalSpawning||this.world.blockSourceLeaseBusy)throw Error("Creature manager retired or source busy");
     this.nextId = data.nextId;
     for (const snapshot of data.records) {
       const mob = restoreMobSnapshot(snapshot);
@@ -285,7 +295,7 @@ export class MobManager {
 
   remove(mob: Mob): void {
     // Receiver callbacks cannot recursively remove the actor whose transfer is still in progress.
-    if (this.ownershipBusy() || this.deathOwners.has(mob.id)) return;
+    if (this.disposed || this.naturalSpawning || this.world.blockSourceLeaseBusy || this.ownershipBusy() || this.deathOwners.has(mob.id)) return;
     this.removeView(mob);
   }
 
@@ -314,7 +324,7 @@ export class MobManager {
    * the player). `daylight` is 0 (night) .. 1 (day).
    */
   update(dt: number, player: Vec3, light: number, time: number, target: Vec3 | null = player, daylight = light): void {
-    if (this.ownershipBusy()) return;
+    if (this.disposed || this.naturalSpawning || this.world.blockSourceLeaseBusy || this.ownershipBusy()) return;
     const get = (x: number, y: number, z: number) => this.world.getBlock(x, y, z);
     const darken = skyDarken(daylight);
     this.pathBudget.nodes = PATHFINDING.budgetPerFrame;
@@ -323,16 +333,17 @@ export class MobManager {
     this.spawnTimer -= dt;
     if (this.spawnTimer <= 0) {
       this.spawnTimer = 2;
-      if (this.spawning) {
+      if (this.spawning && this.world.dimension !== "nether") {
         this.spawnNear(player);
         this.spawnHostileNear(player, darken);
         this.spawnSquidNear(player);
         this.spawnCowNear(player, daylight);
-      }
+      } else if(this.spawning && this.world.dimension === "nether")this.spawnBlazeNear(player);
     }
     const order = this.mobs.length > 0 ? [...this.mobs.slice(this.rotation % this.mobs.length), ...this.mobs.slice(0, this.rotation % this.mobs.length)] : [];
     this.rotation++;
     for (const mob of order) {
+      if(this.world.blockSourceLeaseBusy)break;
       // A receiver can reenter update while this actor owns a fatal transfer. Do not mutate
       // its health, exposure, pose or cached state before the outer transaction finishes.
       if (this.deathOwners.has(mob.id)) continue;
@@ -346,7 +357,7 @@ export class MobManager {
         this.die(mob, "void");
         continue;
       }
-      const loadedOnly = mob.kind === "squid" || this.loadedOnlyPhysics(mob);
+      const loadedOnly = mob.kind === "blaze" || mob.kind === "squid" || this.loadedOnlyPhysics(mob);
       if (loadedOnly && !this.currentBodyLoaded(mob)) continue;
       // Balloon-owned actors never generate cells to satisfy a suspended tether. Unknown cells
       // remain a conservative collision boundary; ordinary unowned actor behavior stays unchanged.
@@ -354,7 +365,8 @@ export class MobManager {
         ? (x: number, y: number, z: number) => this.world.getLoadedBlock(x, y, z) ?? (mob.kind === "squid" ? -1 : blockId("stone"))
         : get;
       const stepped = dist < 64 ? stepMob(physicsGet, mob, dt, mob.kind === "squid" ? this.aquaticRand : mob.kind === "cow" ? this.cowRand : this.rand, target, this.pathBudget, mob.kind === "squid" ? 0 : this.effectiveLight(mob, daylight), this.movementBias(mob), this.externalAcceleration(mob)) : false;
-      if (mob.kind === "squid" && stepped === false) continue;
+      if ((mob.kind === "squid" || mob.kind === "blaze") && stepped === false) continue;
+      if(mob.kind === "blaze" && target && mob.blazeState && mob.blazeState.attackSeconds<=0 && blazeCanShoot(physicsGet,mob,target)){const origin={x:mob.position.x,y:mob.position.y+.9,z:mob.position.z},direction={x:target.x-origin.x,y:target.y+.9-origin.y,z:target.z-origin.z};if(this.fireballs.trySpawn(mob.id,origin,direction))mob.blazeState.attackSeconds=BLAZE.attackSeconds;}
       if (mob.kind === "squid") {
         const exposureDamage = squidBreathDamage(mob);
         if (exposureDamage > 0) {
@@ -372,11 +384,14 @@ export class MobManager {
       model.position.set(mob.position.x, mob.position.y, mob.position.z);
       model.rotation.y = mob.yaw;
       if (mob.kind === "squid") animateSquidModel(model, mob, time);
+      if (mob.kind === "blaze") animateBlazeModel(model,mob);
       const speed = Math.hypot(mob.velocity.x, mob.velocity.z);
       const swing = Math.sin(time * 10 + mob.id) * Math.min(1, speed) * 0.7;
       const tint =
         mob.hurtTimer > 2.6
           ? new THREE.Color(1, 0.4, 0.4)
+          : mob.kind === "blaze"
+            ? new THREE.Color(1,1,1)
           : mob.burning
             ? new THREE.Color(1, 0.55 + 0.2 * Math.sin(time * 20), 0.2)
             : new THREE.Color(light, light, light);
@@ -413,7 +428,7 @@ export class MobManager {
 
   /** Exactly one world-owned loot batch per actual death; despawn/removal stays loot-free. */
   private die(mob: Mob, cause: MobDeathCause): boolean {
-    if (!this.mobs.includes(mob) || this.ownershipBusy() || this.deathOwners.has(mob.id)) return false;
+    if (this.disposed || !this.mobs.includes(mob) || this.ownershipBusy() || this.deathOwners.has(mob.id)) return false;
     this.deathOwners.add(mob.id);
     try {
       if (!this.onDeath(mob, cause)) { mob.health = 1; return false; }
@@ -423,14 +438,56 @@ export class MobManager {
 
   attack(mob: Mob, damage: number, fromYaw: number, cause: "player" | "agent" = "player"): boolean {
     // This must be before damageMob: a resolver/sink guard alone is too late to protect health.
-    if (!this.mobs.includes(mob) || this.ownershipBusy() || this.deathOwners.has(mob.id)) return false;
+    if (this.disposed || this.naturalSpawning || this.world.blockSourceLeaseBusy || !this.mobs.includes(mob) || this.ownershipBusy() || this.deathOwners.has(mob.id)) return false;
     if (!damageMob(mob, damage, fromYaw)) return false;
     return this.die(mob, cause);
   }
 
   dispose(): void {
-    this.unsubscribeBlock();
-    for (const mob of [...this.mobs]) this.remove(mob);
+    if(this.disposed)return;this.disposed=true;const errors:unknown[]=[];
+    try{this.unsubscribeBlock();}catch(e){errors.push(e);}
+    // Render ownership is retired even while semantic loot/entity mutation remains guarded.
+    for(const model of [...this.models.values(),...this.fireballViews.values()]){try{this.scene.remove(model);}catch(e){errors.push(e);}try{disposeModel(model);}catch(e){errors.push(e);}}
+    this.models.clear();this.fireballViews.clear();
+    if(!this.ownershipBusy()&&!this.naturalSpawning&&!this.world.blockSourceLeaseBusy){this.fireballs.dispose();this.mobs.length=0;}
+    if(errors.length)throw Error(`Creature render cleanup failed: ${errors.map(String).join("; ")}`);
+  }
+
+  get fireballLoadIssues():number{return this.fireballs.loadIssues;}
+  get fireballBusy():boolean{return this.naturalSpawning||this.fireballs.busy;}
+  restoreFireballs(raw:unknown):boolean{return !this.disposed&&!this.naturalSpawning&&this.fireballs.restore(raw);}
+  exportFireballs():BlazeFireballsData{return this.fireballs.exportState();}
+  updateFireballs(dt:number,playerBox:BlazeBox|null):void{
+    if(this.disposed||this.naturalSpawning||this.world.blockSourceLeaseBusy||this.ownershipBusy())return;this.fireballs.update(dt,playerBox);
+    const errors:unknown[]=[],live=new Set(this.fireballs.records.map(r=>r.key));
+    for(const [key,view]of this.fireballViews)if(!live.has(key)){
+      this.fireballViews.delete(key);
+      try{this.scene.remove(view);}catch(error){errors.push(error);}
+      try{disposeModel(view);}catch(error){errors.push(error);}
+    }
+    for(const r of this.fireballs.records){try{let view=this.fireballViews.get(r.key);if(!view){view=new THREE.Mesh(new THREE.SphereGeometry(.12,6,4),new THREE.MeshBasicMaterial({color:0xffbd3a}));this.fireballViews.set(r.key,view);this.scene.add(view);}view.position.set(r.position.x,r.position.y,r.position.z);}catch(error){errors.push(error);}}
+    if(errors.length)throw Error(`Blaze projectile render cleanup failed: ${errors.map(String).join("; ")}`);
+  }
+  drainFireballImpacts():BlazeFireballImpact[]{return this.naturalSpawning?[]:this.fireballs.drainImpacts();}
+
+  private spawnBlazeNear(player:Vec3):void{
+    if(this.naturalSpawning||this.disposed||this.world.blockSourceLeaseBusy||this.idsExhausted||this.mobs.filter(m=>m.kind==="blaze").length>=BLAZE.maxNatural||!("fortressAt"in this.world.generator))return;
+    const f=this.world.generator.fortressAt(Math.floor(player.x),Math.floor(player.z));if(!f)return;const v=f.blazeVolume,location={...player};if(Math.hypot(f.x-location.x,f.z-location.z)>48)return;
+    const id=this.nextId,count=this.mobs.length;this.naturalSpawning=true;
+    try{
+      const sample=()=>{const value=this.rand();return typeof value==="number"&&Number.isFinite(value)&&value>=0&&value<1?value:null;};
+      for(let attempt=0;attempt<8;attempt++){
+        const rx=sample(),ry=sample(),rz=sample();if(rx===null||ry===null||rz===null)return;
+        const p={x:v.minX+Math.floor(rx*(v.maxX-v.minX+1))+.5,y:v.minY+Math.floor(ry*(v.maxY-v.minY)),z:v.minZ+Math.floor(rz*(v.maxZ-v.minZ+1))+.5};if(Math.hypot(p.x-location.x,p.y-location.y,p.z-location.z)<6)continue;
+        const b=bodyBox(p,BLAZE.width,BLAZE.height),cells=[];let loaded=true;
+        for(let x=Math.floor(b.minX);x<=Math.floor(b.maxX);x++)for(let y=Math.floor(b.minY);y<=Math.floor(b.maxY);y++)for(let z=Math.floor(b.minZ);z<=Math.floor(b.maxZ);z++){const cell=this.world.captureCell(x,y,z);if(!cell||cell.id!==0)loaded=false;else cells.push(cell);}
+        if(this.disposed||this.world.blockSourceLeaseBusy||this.nextId!==id||this.mobs.length!==count)return;
+        if(loaded&&cells.every(c=>this.world.cellUnchanged(c))&&!this.mobs.some(m=>Math.hypot(m.position.x-p.x,m.position.y-p.y,m.position.z-p.z)<1.5)){
+          // Public spawn/restore/remove/attack are closed during callback planning; this is the sole commit.
+          const mob=createMob(id,"blaze",p);this.nextId=id+1;this.register(mob);return;
+        }
+      }
+    }finally{this.naturalSpawning=false;}
   }
 
   animalCount(): number {
@@ -540,15 +597,11 @@ export class MobManager {
 
 /** Models own their generated textures/materials; repeated material-array references dispose once. */
 function disposeModel(model: THREE.Object3D): void {
-  const materials = new Set<THREE.Material>(); const textures = new Set<THREE.Texture>();
-  model.traverse((object) => {
-    if (object instanceof THREE.Mesh) object.geometry.dispose();
-    if (object instanceof THREE.Mesh || object instanceof THREE.Sprite) {
-      for (const material of Array.isArray(object.material) ? object.material : [object.material]) {
-        materials.add(material);
-        const map = (material as THREE.MeshBasicMaterial).map; if (map) textures.add(map);
-      }
-    }
-  });
-  for (const texture of textures) texture.dispose(); for (const material of materials) material.dispose();
+  const geometries=new Set<THREE.BufferGeometry>(),materials=new Set<THREE.Material>(),textures=new Set<THREE.Texture>(),errors:unknown[]=[];
+  try{model.traverse(object=>{
+    if(object instanceof THREE.Mesh)geometries.add(object.geometry);
+    if(object instanceof THREE.Mesh||object instanceof THREE.Sprite)for(const material of Array.isArray(object.material)?object.material:[object.material]){materials.add(material);const map=(material as THREE.MeshBasicMaterial).map;if(map)textures.add(map);}
+  });}catch(e){errors.push(e);}
+  for(const resource of [...geometries,...textures,...materials])try{resource.dispose();}catch(e){errors.push(e);}
+  if(errors.length)throw Error(`Creature view cleanup failed: ${errors.map(String).join("; ")}`);
 }

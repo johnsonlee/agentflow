@@ -161,6 +161,9 @@ export const RECIPES: readonly Recipe[] = [
   // Retained Education bucket recipe: three iron ingots in a width-three V.
   { id: "bucket", pattern: ["I I", " I "], key: { I: "iron_ingot" }, result: ["bucket", 1] },
   { id: "flint_and_steel", ingredients: ["iron_ingot", "flint"], result: ["flint_and_steel", 1] },
+  // Retained Education1.26.33.0 text declarations; actual station semantics remain this app's.
+  { id: "nether_bricks", pattern: ["##", "##"], key: {"#":"nether_brick"}, result: ["nether_bricks",1] },
+  { id: "blaze_powder", ingredients: ["blaze_rod"], result: ["blaze_powder",2] },
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

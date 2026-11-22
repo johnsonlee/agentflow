@@ -1,12 +1,13 @@
+import {BLAZE,createBlazeState,stepBlaze,type BlazeState} from "./blaze";
 import { COW, createCowState, type CowState } from "./cows";
 import { createSquidState, stepSquid, type SquidState } from "./aquatics";
 import { blockById, blockId, isOpaque, isSolid } from "../catalog/blocks";
 import { MAX_LIGHT, blockLightOf, skyOf } from "../world/light";
 import { clampPosition, type Vec3 } from "../core/math";
-import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, type BlockGetter } from "./physics";
+import { GRAVITY, JUMP_VELOCITY, TERMINAL_VELOCITY, bodyBox, boxCollides, moveAxis, substeps, surfaceSpeedAt, type BlockGetter } from "./physics";
 import { PathSearch, type PathBudget, type PathNode } from "../automation/pathfind";
 
-export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider" | "squid" | "cow";
+export type MobKind = "pig" | "sheep" | "chicken" | "npc" | "zombie" | "spider" | "squid" | "cow" | "blaze";
 
 export interface MobSpec {
   kind: MobKind;
@@ -37,6 +38,8 @@ export const MOB_SPECS: Record<MobKind, MobSpec> = {
   // Selected retained .95 adult source variant; active-pack binding is unresolved.
   squid: { kind: "squid", displayName: "Squid", width: 0.95, height: 0.95, maxHealth: 10, speed: 0, drop: ["ink_sac", 1] },
   cow: { kind: "cow", displayName: "Cow", width: COW.width, height: COW.height, maxHealth: COW.health, speed: COW.speed, drop: ["leather", 1], extraDrop: ["raw_beef", 2] },
+  // Original bounded Blaze dimensions/health/speed; retained article establishes identity only.
+  blaze: {kind:"blaze",displayName:"Blaze",width:BLAZE.width,height:BLAZE.height,maxHealth:BLAZE.health,speed:BLAZE.speed,hostile:true,drop:["blaze_rod",1]},
 };
 
 export const AQUATIC_MOBS: readonly MobKind[] = ["squid"];
@@ -79,6 +82,7 @@ const combatProfile = (mob: Mob) => mob.kind === "spider" ? SPIDER : ZOMBIE;
 export const PASSIVE_MOBS: readonly MobKind[] = ["pig", "sheep", "chicken", "cow"];
 
 export interface Mob {
+  blazeState?: BlazeState;
   /** New supported Cow subset is explicitly adult; no baby/aging/breeding is synthesized. */
   cowState?: CowState;
   /** Application aquatic state, present only for adult ordinary squid. */
@@ -128,6 +132,7 @@ export function createMob(id: number, kind: MobKind, position: Vec3, extra: Part
     velocity: { x: 0, y: 0, z: 0 },
     yaw: extra.yaw ?? 0,
     health: MOB_SPECS[kind].maxHealth,
+    ...(kind === "blaze" ? { blazeState:createBlazeState() } : {}),
     ...(kind === "spider" ? { spiderAngerSeconds: 0 } : {}),
     ...(kind === "squid" ? { squidState: createSquidState() } : {}),
     ...(kind === "cow" ? { cowState: createCowState() } : {}),
@@ -179,6 +184,7 @@ export function stepMob(
   movementBias: Vec3 = { x: 0, y: 0, z: 0 },
   externalAcceleration: Vec3 = { x: 0, y: 0, z: 0 },
 ): boolean | void {
+  if (mob.kind === "blaze") return stepBlaze(getBlock,mob,dt,target);
   if (mob.kind === "squid") return stepSquid(getBlock, mob, dt, rand, movementBias, externalAcceleration);
   const { n, h } = substeps(dt);
   if (mob.kind === "spider") mob.spiderAngerSeconds = Math.max(0, (mob.spiderAngerSeconds ?? 0) - n * h);
@@ -287,7 +293,7 @@ function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => nu
   }
 
   // Passive mobs panic-run when hurt; hostile ones keep their pace.
-  const speed = mob.walking ? spec.speed * (mob.hurtTimer > 0 && !spec.hostile ? 2.2 : 1) : 0;
+  const speed = mob.walking ? spec.speed * (mob.hurtTimer > 0 && !spec.hostile ? 2.2 : 1) * (mob.onGround ? surfaceSpeedAt(getBlock,p,spec.width) : 1) : 0;
   // Leash bias participates in ordinary acceleration/collision, never a position correction.
   const biasX = Number.isFinite(movementBias.x) ? movementBias.x : 0;
   const biasZ = Number.isFinite(movementBias.z) ? movementBias.z : 0;
@@ -334,7 +340,8 @@ function stepMobOnce(getBlock: BlockGetter, mob: Mob, dt: number, rand: () => nu
 }
 
 /** Applies damage; returns true if the mob died. NPCs are invulnerable. */
-export function damageMob(mob: Mob, amount: number, fromYaw: number): boolean {
+export function damageMob(mob: Mob, amount: number, fromYaw: number, cause:"combat"|"fire"|"lava"="combat"): boolean {
+  if(mob.kind === "blaze"&&(cause==="fire"||cause==="lava"||!Number.isFinite(amount)||amount<=0||mob.health<=0||!Number.isFinite(fromYaw)))return false;
   if (!Number.isFinite(MOB_SPECS[mob.kind].maxHealth)) return false;
   // Both accepted player and Agent hits provoke this application Spider toward the player.
   if (mob.kind === "spider") {
@@ -380,6 +387,7 @@ export function raycastMob(origin: Vec3, direction: Vec3, mob: Mob, maxDistance:
  * (feet position) this step, or 0. Only hostile mobs attack.
  */
 export function mobAttack(mob: Mob, player: Vec3, dt: number, effectiveLight = 0): number {
+  if(mob.kind === "blaze")return 0;
   if (!mobIsAggressive(mob, effectiveLight)) return 0;
   const profile = combatProfile(mob);
   mob.attackTimer = Math.max(0, (mob.attackTimer ?? 0) - dt);

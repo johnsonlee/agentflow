@@ -95,4 +95,21 @@ export * from "./simulation/fluids";
 
 export { PortalSystem, tryUsePortalIgnition, isPortalActionBusy, isPortalBlock, sanitizePortalState, validatePortalEdits, PORTAL_MAX_RECORDS } from "./simulation/portals";
 export type { PortalRecord, PortalData, PortalIgnitionResult } from "./simulation/portals";
-export { diagnoseRawPortalOwnership } from "./persistence/save";
+export { diagnoseRawWartSupport, diagnoseRawWartOwnership, diagnoseRawPortalOwnership } from "./persistence/save";
+export { readDimensionArchive } from "./persistence/dimension-save";
+export type { DimensionsData, DimensionSaveIssue, DimensionPortalLink, DimensionGeneratedBlockProbe } from "./persistence/dimension-save";
+export { createDimensionGeneratedBlockProbe } from "./world/dimension-probe";
+export { NetherGenerator } from "./world/nether-generator";
+export type { DimensionId } from "./core/dimensions";
+
+export {BLAZE,createBlazeState,isBlazeState,stepBlaze,blazeCanShoot,type BlazeState} from "./simulation/blaze";
+export {BlazeFireballs,sanitizeBlazeFireballs,BLAZE_FIREBALL,type BlazeFireballsData,type BlazeFireball,type BlazeFireballImpact,type BlazeBox} from "./simulation/blaze-fireballs";
+export {readBlazeOwners,diagnoseRawBlazeOwnership,type BlazeOwnershipIssue} from "./persistence/blaze-save";
+
+export { captureDimensionWorld, replaceDimensionWorld } from "./persistence/dimension-world";
+export type { DimensionWorldState } from "./persistence/dimension-world";
+
+export { PortalContact, PORTAL_CONTACT_SECONDS } from "./simulation/portal-contact";
+export type { PortalContactTicket } from "./simulation/portal-contact";
+export { preparePortalArrival } from "./world/portal-arrival";
+export { createPortalRouteSave } from "./persistence/portal-route";

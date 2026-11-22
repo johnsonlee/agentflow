@@ -1,3 +1,4 @@
+import {isBlazeState,type BlazeState} from "../simulation/blaze";
 import { isCowState, type CowState } from "../simulation/cows";
 import { createSquidState, SQUID, type SquidState } from "../simulation/aquatics";
 import { SPIDER, MOB_SPECS, createMob, type Mob, type MobKind } from "../simulation/entities";
@@ -7,6 +8,7 @@ import { sanitizePendingMobLoot, isMobLootCause, type MobLootCause } from "../si
 
 /** JSON-safe semantic state. Native path-search objects and derived graph caches are never saved. */
 export interface MobSnapshot {
+  blazeState?: BlazeState;
   cowState?: CowState;
   squidState?: SquidState;
   id: number;
@@ -55,6 +57,8 @@ function readMob(raw: unknown): MobSnapshot | null {
     if(Reflect.ownKeys(raw).some(key=>typeof key!=="string"||!allowed.includes(key))||!isCowState(own(raw,"cowState")))return null;
     result.cowState={lifeStage:"adult"};
   }else if(Object.prototype.hasOwnProperty.call(raw,"cowState"))return null;
+  if(kind === "blaze" && Reflect.ownKeys(raw).some(k=>typeof k!=="string"||!["id","kind","position","velocity","yaw","health","onGround","thinkTimer","walking","hurtTimer","attackTimer","burnTimer","burning","detourTimer","detourSign","stuckTimer","blazeState","pendingLoot","pendingLootCause"].includes(k)))return null;
+  if(kind === "blaze"){if(!isBlazeState(own(raw,"blazeState")))return null;result.blazeState={...(raw.blazeState as BlazeState)};}else if(Object.prototype.hasOwnProperty.call(raw,"blazeState"))return null;
   for (const field of optionalTimers) {
     const value = own(raw, field);
     if (value !== undefined) { if (!finite(value)) return null; result[field] = value; }
@@ -142,6 +146,7 @@ export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[], pendingLootCaus
   for (const field of [...optionalTimers, "spiderAngerSeconds", "burning", "detourSign"] as const) if (mob[field] !== undefined) raw[field] = mob[field];
   if (mob.squidState !== undefined) raw.squidState = mob.squidState;
   if (mob.cowState !== undefined) raw.cowState = mob.cowState;
+  if (mob.blazeState !== undefined) raw.blazeState = {...mob.blazeState};
   if (mob.kind === "npc") { raw.name = mob.name ?? "NPC"; raw.dialogue = mob.dialogue ?? ""; }
   if (pendingLoot !== undefined) raw.pendingLoot = pendingLoot;
   if (pendingLootCause !== undefined) raw.pendingLootCause = pendingLootCause;
@@ -156,6 +161,7 @@ export function restoreMobSnapshot(snapshot: MobSnapshot): Mob {
   if (!saved) throw new Error("Cannot restore invalid mob snapshot");
   const mob = createMob(saved.id, saved.kind, saved.position, { yaw: saved.yaw, name: saved.name, dialogue: saved.dialogue });
   if (saved.cowState) mob.cowState = { ...saved.cowState };
+  if (saved.blazeState) mob.blazeState = { ...saved.blazeState };
   if (saved.squidState) mob.squidState = { ...saved.squidState, swimDirection: { ...saved.squidState.swimDirection } };
   mob.velocity = { ...saved.velocity }; mob.health = saved.health === "invulnerable" ? Infinity : saved.health;
   mob.onGround = saved.onGround; mob.thinkTimer = saved.thinkTimer; mob.walking = saved.walking; mob.hurtTimer = saved.hurtTimer;

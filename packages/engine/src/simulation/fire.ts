@@ -58,6 +58,7 @@ function overlaps(box: FireBox, r: FireRecord): boolean {
 
 /** World-owned state; unloaded cells pause without generating terrain. */
 export class FireSystem {
+  private updating = false;
   private readonly records = new Map<string, FireRecord>();
   private contactSeconds = 0;
   constructor(private readonly world: World) {}
@@ -101,23 +102,30 @@ export class FireSystem {
   }
   /** Caller invokes only in active gameplay; null means no vulnerable survival player. */
   update(dt: number, box: FireBox | null = null): number {
-    if (!Number.isFinite(dt) || dt <= 0 || dt > 1) return 0;
+    if (this.updating || this.world.blockSourceLeaseBusy || !Number.isFinite(dt) || dt <= 0 || dt > 1) return 0;
+    this.updating = true;
+    try {
     const previousContact = this.contactSeconds;
     let contact = false, unknownContact = false, contactDuration = 0;
     for (const r of [...this.records.values()]) {
       if (this.records.get(key(r.x, r.y, r.z)) !== r) continue;
       const id = this.world.getLoadedBlock(r.x, r.y, r.z);
+      if (this.records.get(key(r.x,r.y,r.z)) !== r) continue;
       if (id === undefined) { if (validBox(box) && overlaps(box, r)) unknownContact = true; continue; }
       if (id !== fireId()) { this.records.delete(key(r.x, r.y, r.z)); continue; }
-      if (!supported(this.world, r.x, r.y, r.z)) { this.extinguish(r.x, r.y, r.z); continue; }
-      if (validBox(box) && overlaps(box, r)) { contact = true; contactDuration = Math.max(contactDuration, Math.min(dt, r.remaining)); }
-      r.remaining -= dt;
-      if (r.remaining <= 0) this.extinguish(r.x, r.y, r.z);
+      const support = this.world.getLoadedBlock(r.x,r.y-1,r.z);
+      if (this.records.get(key(r.x,r.y,r.z)) !== r) continue;
+      if (support === undefined) { if(validBox(box)&&overlaps(box,r))unknownContact=true;continue; }
+      if (!isOpaque(support) || tryBlockById(support)?.solid !== true) { this.extinguish(r.x, r.y, r.z); continue; }
+      const permanent = tryBlockById(support)?.permanentFireSupport === true;
+      if (validBox(box) && overlaps(box, r)) { contact = true; contactDuration = Math.max(contactDuration, permanent ? dt : Math.min(dt, r.remaining)); }
+      if (!permanent) { r.remaining -= dt; if (r.remaining <= 0) this.extinguish(r.x, r.y, r.z); }
     }
     if (!contact) { this.contactSeconds = unknownContact ? previousContact : 0; return 0; }
     const elapsed = previousContact + contactDuration, damage = Math.floor(elapsed + 1e-9) * FIRE_DAMAGE_PER_SECOND;
     this.contactSeconds = this.records.size ? Math.max(0, elapsed - damage / FIRE_DAMAGE_PER_SECOND) : 0;
     return damage;
+    } finally { this.updating = false; }
   }
 }
 

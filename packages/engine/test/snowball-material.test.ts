@@ -81,8 +81,8 @@ it("pins the actual reducer source bytes and preserves native duplicate-H source
   const raw = readFileSync(new URL("./fixtures/reducer-snowball-1.26.33.json", import.meta.url));
   expect(createHash("sha256").update(raw).digest("hex")).toBe("b7677d4d8ab3dc65d832d420369570fc3203cd908bb950310a66778deece5dba");
   const source = JSON.parse(raw.toString())["minecraft:recipe_material_reduction"];
-  const row = NATIVE_MATERIAL_REDUCTIONS.at(-1)!;
-  expect(NATIVE_MATERIAL_REDUCTIONS).toHaveLength(24); expect(LEGACY_MATERIAL_REDUCTIONS).toHaveLength(2);
+  const row = NATIVE_MATERIAL_REDUCTIONS.find(r=>r.input==="snowball")!;
+  expect(NATIVE_MATERIAL_REDUCTIONS.slice(0,24)).toHaveLength(24); expect(NATIVE_MATERIAL_REDUCTIONS.slice(24).map(r=>r.input)).toEqual(["netherrack","soul_sand"]); expect(LEGACY_MATERIAL_REDUCTIONS).toHaveLength(2);
   expect(row.inputKind).toBe("item"); expect(row.nativeIdentifier).toBe(source.input);
   expect(row.output).toEqual(source.output.map((s: { item: string; count: number }) => [Number(s.item.split("_").at(-1)), s.count]));
   expect(reduceMaterial(792)).toEqual([st("hydrogen", 64), st("hydrogen", 3), st("oxygen", 33)]);

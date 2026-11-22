@@ -18,6 +18,8 @@ export function emission(id: number): number {
 
 /** Packed light accessors over loaded chunks; `get` returns -1 for cells in unloaded chunks. */
 export interface LightAccess {
+  /** Absent preserves legacy Overworld behavior; false prevents roof edits creating daylight. */
+  skyLight?: boolean;
   get(x: number, y: number, z: number): number;
   set(x: number, y: number, z: number, packed: number): void;
   block(x: number, y: number, z: number): number;
@@ -100,6 +102,7 @@ export function relightBlock(a: LightAccess, x: number, y: number, z: number): v
     const old = level(p, ch);
     a.set(x, y, z, withLevel(p, ch, 0));
     const seeds = old > 0 ? unspread(a, x, y, z, old, ch) : [];
+    if (ch === "sky" && a.skyLight === false) continue;
     if (ch === "block" && emission(id) > 0) {
       a.set(x, y, z, withLevel(a.get(x, y, z), ch, emission(id)));
       seeds.push(x, y, z);

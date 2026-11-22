@@ -8,7 +8,7 @@ import { AIR, tryBlockById, blockById, blockId, isOpaque, type BlockDef } from "
 import { WORLD_HEIGHT } from "./chunk";
 import { Inventory, type ItemStack } from "../ownership/inventory";
 import { placedBlockOf, toolOf, type ToolSpec } from "../catalog/items";
-import { blockDrops, farmlandId, farmlandMoisture, wheatAge } from "../simulation/farming";
+import { blockDrops, farmlandId, farmlandMoisture, wheatAge, netherWartAge } from "../simulation/farming";
 import { meltAround } from "../crafting/labeffects";
 import { doorPartner, orientedPlacement } from "../simulation/redstone";
 import { bodyOverlapsBlock, playerBox } from "../simulation/physics";
@@ -71,7 +71,7 @@ export function breakTime(mode: GameMode, id: number, tool: ToolSpec | null = nu
  */
 export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard): boolean {
   if(world.blockSourceLeaseBusy)return false;
-  if(!world.portals.hasDependency(x,y,z))return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard);
+  if(!world.portals.hasDependency(x,y,z)&&netherWartAge(world.getBlock(x,y,z))===null&&netherWartAge(world.getBlock(x,y+1,z))===null)return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard);
   if(!canBreak(world,mode,x,y,z))return false;
   const edits:import("./world").BlockEdit[]=[[x,y,z,AIR]],partner=doorPartner(world,x,y,z),above=world.getBlock(x,y+1,z);
   if(partner)edits.push([...partner,AIR]);if(tryBlockById(above)?.needsSupport)edits.push([x,y+1,z,AIR]);
@@ -84,18 +84,19 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
   if (id === blockId("fire")) return extinguishFire(world, x, y, z);
   const gravel = mode === "survival" && id === blockId("gravel");
-  const selectedBeforeTool = gravel ? inventory.selected : undefined;
+  const strictOwner=gravel||netherWartAge(id)!==null||netherWartAge(above)!==null;
+  const selectedBeforeTool = strictOwner ? inventory.selected : undefined;
   const tool = toolOf(inventory.selectedStack()?.id);
   const selected = inventory.selected, selectedSource = ownershipGuard ? JSON.stringify(inventory.selectedStack()) : "";
   const gravelSlots = inventory.slots;
-  const gravelOwner = gravel ? gravelOwnerSnapshot(gravelSlots, selected, 36, true) : null;
-  if (gravel && (selectedBeforeTool !== selected || selected < 0 || selected >= 9 || !gravelOwner)) return false;
+  const gravelOwner = strictOwner ? gravelOwnerSnapshot(gravelSlots, selected, 36, true) : null;
+  if (strictOwner && (selectedBeforeTool !== selected || selected < 0 || selected >= 9 || !gravelOwner)) return false;
   const gravelPlan = gravel ? world.gravelHarvests.plan(x, y, z, rand) : null;
   if (gravel && !gravelPlan) return false;
   const guardedPartner = ownershipGuard ? doorPartner(world, x, y, z) : null;
   const partnerId = guardedPartner ? world.getBlock(...guardedPartner) : null;
   const sourceValid = () => {
-    if (gravel && (!gravelPlan!.valid() || world.getBlock(x, y + 1, z) !== above || inventory.slots !== gravelSlots || inventory.selected !== selected || !gravelOwner!())) return false;
+    if (strictOwner && (gravel&&!gravelPlan!.valid() || world.getBlock(x, y + 1, z) !== above || inventory.slots !== gravelSlots || inventory.selected !== selected || !gravelOwner!())) return false;
     if(portalBatch&&!portalBatch.valid())return false;
     if (!ownershipGuard) return true;
     try {
@@ -107,7 +108,7 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
   const drops: ItemStack[] = [...(mode === "survival" ? [
     ...(canHarvest(id, tool) ? gravelPlan ? [gravelPlan.stack] : blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
   ] : []), ...externalDrops];
-  if (gravel && !sourceValid()) return false;
+  if (strictOwner && !sourceValid()) return false;
   // Optional world receiver stages the complete resolved batch before source removal.
   if (sink) {
     const batch = sink(drops, { x: x + .5, y: y + .5, z: z + .5 });
@@ -117,7 +118,7 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
   } else {
     const trial = Inventory.fromJSON(inventory.toJSON());
     if (drops.some((stack) => trial.addStack(stack) > 0)) return false;
-    if (gravel && !sourceValid()) return false;
+    if (strictOwner && !sourceValid()) return false;
   }
   const partner = ownershipGuard ? guardedPartner : doorPartner(world, x, y, z);
   if(portalBatch)return portalBatch.commit(()=>{
@@ -152,6 +153,7 @@ export function tillSoil(world: World, inventory: Inventory, mode: GameMode,
  * waterproof ones go in water. Shared by players and the Agent.
  */
 export function hasSupport(world: World, def: BlockDef, x: number, y: number, z: number, target: number): boolean {
+  if(netherWartAge(def.id)!==null)return target===AIR&&world.getBlock(x,y-1,z)===blockId("soul_sand");
   if (wheatAge(def.id) !== null) return target === AIR && farmlandMoisture(world.getBlock(x, y - 1, z)) !== null;
   if (def.needsSupport) {
     const below = blockById(world.getBlock(x, y - 1, z));
@@ -190,6 +192,7 @@ export function placeBlock(
   if(world.blockSourceLeaseBusy)return false;
   if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT) return false;
   const stack = inventory.selectedStack();
+  if(stack?.id===842)return plantNetherWart(world,inventory,mode,x,y,z,36,9);
   // Items place nothing, except Lab Table products that place a block (heat block, glow stick, ...).
   // Explicit activation state has no block-owned representation; preserve the held unit.
   // Metadata-less legacy green retains its existing placement behavior.
@@ -220,4 +223,18 @@ export function placeBlock(
   if (placed === HEAT_BLOCK) meltAround(world, x, y, z);
   if (mode === "survival") inventory.takeSelected();
   return true;
+}
+
+/** Shared player/Agent Wart owner handoff; hidden crop IDs never pass through a bag. */
+export function plantNetherWart(world:World,owner:{slots:(ItemStack|null)[];selected:number},mode:GameMode,x:number,y:number,z:number,size:number,selectable:number):boolean {
+ if(world.blockSourceLeaseBusy||![x,y,z].every(Number.isSafeInteger)||y<1||y>=WORLD_HEIGHT||(mode!=="survival"&&mode!=="creative"))return false;
+ const slots=owner.slots,index=owner.selected;
+ if(index<0||index>=selectable)return false;
+ const stable=gravelOwnerSnapshot(slots,index,size);if(!stable)return false;
+ const stack=slots[index];if(!stack||stack.id!==842||Reflect.ownKeys(stack).some(k=>k!=="id"&&k!=="count"))return false;
+ const target=world.captureCell(x,y,z),support=world.captureCell(x,y-1,z);
+ if(!target||target.id!==AIR||!support||support.id!==blockId("soul_sand")||!canBuildAt(world,mode,x,y,z))return false;
+ return world.commitBlockBatch([[x,y,z,197]],()=>{
+  if(mode==="survival"){stack.count--;if(stack.count===0)slots[index]=null;}
+ },[target,support],()=>owner.slots===slots&&owner.selected===index&&stable());
 }

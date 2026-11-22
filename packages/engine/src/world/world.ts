@@ -7,6 +7,8 @@ import { WORLD_BORDER } from "../core/math";
 import { MAX_LIGHT, emission, relightBlock, spread, type LightAccess } from "./light";
 import { CHUNK_SIZE, Chunk, WORLD_HEIGHT, chunkKey, toChunkCoord, toLocalCoord } from "./chunk";
 import { TerrainGenerator } from "./generator";
+import { NetherGenerator } from "./nether-generator";
+import { isDimensionId, type DimensionId } from "../core/dimensions";
 
 export type BlockEdit = [x: number, y: number, z: number, id: number];
 export interface WorldCellSnapshot { x:number;y:number;z:number;id:number;revision:number;chunk:Chunk }
@@ -19,7 +21,7 @@ export type BlockListener = (x: number, y: number, z: number, id: number) => voi
  * so a world can be saved as (seed, edits) and regenerated deterministically.
  */
 export class World {
-  readonly generator: TerrainGenerator;
+  readonly generator: TerrainGenerator | NetherGenerator;
   readonly gravelHarvests = new GravelHarvestResolver(this);
   readonly fires = new FireSystem(this);
   readonly fluids = new FluidSystem(this);
@@ -58,9 +60,11 @@ export class World {
     block: (x, y, z) => this.peek(x, z)?.get(toLocalCoord(x), y, toLocalCoord(z)) ?? AIR,
   };
 
-  constructor(readonly seed: number, readonly generatorVersion:1|2 = 1) {
-    if(generatorVersion!==1&&generatorVersion!==2)throw new RangeError("Unsupported world generator version");
-    this.generator = new TerrainGenerator(seed,generatorVersion);
+  constructor(readonly seed: number, readonly generatorVersion:1|2 = 1, readonly dimension:DimensionId = "overworld") {
+    if(!isDimensionId(dimension))throw new RangeError("Unsupported world dimension");
+    if(generatorVersion!==1&&generatorVersion!==2||dimension==="nether"&&generatorVersion!==1)throw new RangeError("Unsupported world generator version");
+    this.lightAccess.skyLight = dimension === "overworld";
+    this.generator = dimension === "nether" ? new NetherGenerator(seed,1) : new TerrainGenerator(seed,generatorVersion);
   }
 
   hasChunk(cx: number, cz: number): boolean {
@@ -99,10 +103,10 @@ export class World {
    * Above the world (or in unloaded chunks) it is full sky light.
    */
   getLight(x: number, y: number, z: number): number {
-    if (y >= WORLD_HEIGHT) return MAX_LIGHT << 4;
+    if (y >= WORLD_HEIGHT) return this.dimension === "nether" ? 0 : MAX_LIGHT << 4;
     if (y < 0) return 0;
     const c = this.peek(Math.floor(x), Math.floor(z));
-    if (!c) return MAX_LIGHT << 4;
+    if (!c) return this.dimension === "nether" ? 0 : MAX_LIGHT << 4;
     return c.light[Chunk.index(toLocalCoord(x), Math.floor(y), toLocalCoord(z))];
   }
 
@@ -113,7 +117,7 @@ export class World {
     const heights = new Int16Array(CHUNK_SIZE * CHUNK_SIZE);
     const sky: number[] = [];
     const block: number[] = [];
-    for (let lz = 0; lz < CHUNK_SIZE; lz++) {
+    if (this.dimension === "overworld") for (let lz = 0; lz < CHUNK_SIZE; lz++) {
       for (let lx = 0; lx < CHUNK_SIZE; lx++) {
         let y = WORLD_HEIGHT - 1;
         for (; y >= 0; y--) {
@@ -161,7 +165,7 @@ export class World {
       }
     }
     this.lightTouched.clear();
-    spread(this.lightAccess, sky, "sky");
+    if (this.dimension === "overworld") spread(this.lightAccess, sky, "sky");
     spread(this.lightAccess, block, "block");
     const own = chunkKey(chunk.cx, chunk.cz);
     for (const key of this.lightTouched) {
@@ -190,6 +194,7 @@ export class World {
   }
 
   getBlock(x: number, y: number, z: number): number {
+    if(this.dimension==="nether"&&(Math.abs(x)>WORLD_BORDER||Math.abs(z)>WORLD_BORDER))return AIR;
     // Outside the world (or NaN): air. Never generate chunks for nonsense coordinates.
     if (!(y >= 0 && y < WORLD_HEIGHT) || !(Math.abs(x) <= WORLD_BORDER + 64) || !(Math.abs(z) <= WORLD_BORDER + 64)) return AIR;
     const chunk = this.getChunk(toChunkCoord(x), toChunkCoord(z));

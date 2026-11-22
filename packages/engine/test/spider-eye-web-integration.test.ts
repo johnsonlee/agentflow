@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { Inventory, MobLootResolver, createHunger, createMob, createPlayerStatus, freshStack, parseSave, stackId } from "../src";
+import { Inventory, World, MobLootResolver, createHunger, createMob, createPlayerStatus, freshStack, parseSave, stackId } from "../src";
 import { Game, SAVE_KEY } from "../../../apps/web/src/application/game";
 import { MobManager } from "../../../apps/web/src/simulation/mobs";
 import { Hud } from "../../../apps/web/src/ui/hud";
@@ -64,7 +64,7 @@ it("actual MobManager state export/restore preserves attributed empty rolls with
   loot.tryDrop(mob, () => null, mob.position, "player");
   const manager = Object.create(MobManager.prototype); manager.mobs = [mob]; manager.nextId = 4;
   const state = manager.exportState(loot); expect(state.records[0].pendingLoot).toEqual([]); expect(state.records[0].pendingLootCause).toBe("player");
-  const restored = Object.create(MobManager.prototype); restored.register = vi.fn(); const resolver = new MobLootResolver(() => { throw new Error("reroll"); });
+  const restored = Object.create(MobManager.prototype); Object.assign(restored,{world:new World(7),disposed:false,naturalSpawning:false}); restored.register = vi.fn(); const resolver = new MobLootResolver(() => { throw new Error("reroll"); });
   restored.restore(state, resolver); const owner = restored.register.mock.calls[0][0]; expect(resolver.exportPendingCause(owner)).toBe("player");
   expect(resolver.tryDrop(owner, () => ({ commit: () => true }), owner.position, "agent")).toBe(true);
 });

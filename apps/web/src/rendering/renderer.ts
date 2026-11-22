@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CHUNK_SIZE, blockById, blockSelectionBoxes, type LocalBox, meshChunk, toChunkCoord, type MeshData, type SkyState, type UvLookup, type World } from "@craft/engine";
+import { CHUNK_SIZE, blockById, blockSelectionBoxes, skyAt, type LocalBox, meshChunk, toChunkCoord, type MeshData, type SkyState, type UvLookup, type World } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
 interface ChunkEntry {
@@ -233,6 +233,9 @@ export class WorldRenderer {
   }
 
   render(sky: SkyState, underwater: boolean, dt: number): void {
+    const nether = this.world.dimension === "nether";
+    if (nether) sky = skyAt(0,"nether");
+    this.sun.visible = !nether; this.moon.visible = !nether; this.clouds.visible = !nether;
     this.skyColor.setRGB(sky.sky[0], sky.sky[1], sky.sky[2], THREE.SRGBColorSpace);
     const far = this.renderDistance * CHUNK_SIZE;
     if (underwater) {

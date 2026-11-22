@@ -1,7 +1,8 @@
 import {
+  parseSave, PortalContact, preparePortalArrival, createPortalRouteSave, type PortalContactTicket, type DimensionWorldState, captureDimensionWorld, readBlazeOwners, type BlazeOwnershipIssue, readDimensionArchive, createDimensionGeneratedBlockProbe, type DimensionsData, type DimensionSaveIssue,
   tryUsePortalIgnition, isPortalActionBusy, tryUseFluidBucket, isFluidActionBusy, isFluidBlock, igniteFire, extinguishFire, cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
   BalloonStore, balloonColorOf, raycastBalloons, combineReleaseAttempts, type ReleaseAttempt,
-  SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
+  diagnoseRawWartSupport, diagnoseRawWartOwnership, SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
   breakTime, canBreak, createPlayerBody, creativeBlocks, lookDirection, parseCommand, placeBlock, raycast,
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   MILK_DRINK_SECONDS, finishMilkDrink, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, createPlayerStatus, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
@@ -67,18 +68,26 @@ export interface GameOptions {
   /** doMobSpawning game rule for new worlds (default true). */
   spawnAnimals?: boolean;
   save?: SaveData;
+  /** One private arrival World; valid only for a prepared session and never replayed. */
+  preparedWorld?: World;
 }
 
 export interface GameEvents {
   onPause(): void;
   onDeath(): void;
+  onPortalTravel?(source:Game,ticket:PortalContactTicket):void;
 }
+
+export interface PortalTravelHandle {readonly target:Game;prepareFrame(budgetMs?:number):boolean;commit(unchanged?:()=>boolean):boolean;cancel():void}
 
 /** Owns the world simulation, player, input and HUD for one play session. */
 export class Game {
   private static activeWriter: Game | null = null;
   private static handoffBusy = false;
+  private static readonly attachedWorlds = new WeakSet<World>();
   private prepared = false;
+  private portalTransfer=false;
+  private readonly portalContact=new PortalContact();
   private frameRequest: number | null = null;
   private readonly cleanups: Array<{ name: string; dispose: () => void }> = [];
   private readonly cleanupErrors: string[] = [];
@@ -111,8 +120,12 @@ export class Game {
   private keepInventory = false;
   private recoveryOriginal: string | null = null;
   private recoverySections: string[] = [];
+  private wartIssues:Array<{path:string;reason:string}>=[];
+  private blazeIssues:BlazeOwnershipIssue[]=[];
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
+  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
+  private dimensionArchive: DimensionsData | undefined;
+  private dimensionIssues: DimensionSaveIssue[] = [];
   private stopped = false;
   private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
   private readonly handleResize = () => { if (!this.stopped) this.resize(); };
@@ -122,8 +135,8 @@ export class Game {
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
   private readonly mobLoot = new MobLootResolver();
-  private get transferBusy(): boolean { return this.leashes.busy || this.balloons.busy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
-  private get ownershipBusy(): boolean { return this.prepared || this.stopped || Game.handoffBusy || this.transferBusy; }
+  private get transferBusy(): boolean { return this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
+  private get ownershipBusy(): boolean { return this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy; }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
   readonly world: World;
@@ -227,11 +240,18 @@ export class Game {
     this.root.appendChild(canvas);
 
     const save = options.save;
-    this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
+    this.restoreDimensions(save);
+    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
-    this.world = new World(save?.seed ?? options.seed, save ? save.generatorVersion ?? 1 : 2);
-    if (save) this.world.importEdits(sanitizeEdits(save.edits));
-    this.restoreGravelHarvests(save); this.restoreFire(save); this.restoreFluids(save); this.restorePortals(save);
+    if(options.preparedWorld){
+      if(!prepareOnly||!save||this.recoverySections.length||!this.acceptPreparedWorld(options.preparedWorld,save))throw new Error("Invalid or already attached prepared arrival World");
+      this.world=options.preparedWorld;
+    }else{
+      this.world = new World(save?.seed ?? options.seed, save ? save.generatorVersion ?? 1 : 2, this.dimensionArchive?.active ?? "overworld");
+      if (save) this.world.importEdits(sanitizeEdits(save.edits));
+      this.restoreGravelHarvests(save); this.restoreFire(save); this.restoreFluids(save); this.restorePortals(save);
+    }
+    Game.attachedWorlds.add(this.world);
     this.farming = new FarmingSystem(this.world, save?.farming);
     this.registerCleanup("farming", () => this.farming.dispose());
     this.snowballProjectiles = new SnowballProjectiles(this.world, save?.snowballProjectiles);
@@ -279,6 +299,7 @@ export class Game {
       this.recoveryOriginal = localStorage.getItem(SAVE_KEY);
       this.recoverySections.push("creatures");
     }
+    if(save?.blazeFireballs!==undefined&&!this.mobs.restoreFireballs(save.blazeFireballs)){this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);if(!this.recoverySections.includes("Blaze owners"))this.recoverySections.push("Blaze owners");}
     this.hunger = sanitizeHunger(save?.hunger) ?? createHunger();
     const furnaces = sanitizeFurnaces(save?.furnaces);
     for (const f of furnaces.furnaces) this.furnaces.set(furnaceKey(f.x, f.y, f.z), f.state);
@@ -292,7 +313,10 @@ export class Game {
       this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("player state");
     }
 
-    this.spawn = this.findSpawn();
+    // A saved Nether pose is already the world-local location owner. Avoid the
+    // Overworld open-sky scan in a roofed realm. The pending dimension controller
+    // must supply cross-realm respawn; this shortcut does not implement it.
+    this.spawn = this.world.dimension === "nether" && save?.player.position ? { ...save.player.position } : this.findSpawn();
     this.body = createPlayerBody(save?.player.position ?? this.spawn);
     this.lastPos = { x: this.body.position.x, z: this.body.position.z };
     this.body.yaw = save?.player.yaw ?? 0;
@@ -324,7 +348,7 @@ export class Game {
       onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
     this.registerCleanup("hud", () => this.hud.dispose());
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
       ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
@@ -342,7 +366,10 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    for (const issue of this.dimensionIssues) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.ignitionOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for(const issue of this.blazeIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for(const issue of this.wartIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.portalOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     if (this.recoverySections.includes("portals")) this.loadErrors.push("Damaged portals (original save preserved)");
     if (this.recoverySections.includes("fluids")) this.loadErrors.push("Damaged liquids or terrain version (original save preserved)");
@@ -434,11 +461,87 @@ export class Game {
   }
 
   /** Meshing/rendering only: no simulation, active input, animation loop or save. */
+  /** Stage one live trip without granting the destination save authority. */
+  preparePortalTravel(ticket:PortalContactTicket,atlas:TextureAtlas):PortalTravelHandle|null {
+    if(this.ownershipBusy||this.paused||this.dead||this.recoverySections.length||this.screenOpen()||Game.activeWriter!==this||!ticket.unchanged())return null;
+    const box=bodyBox(this.body.position),frame=ticket.frame;
+    if(!this.world.portals.captureOwner(frame)||box.maxX<=frame.x||box.minX>=frame.x+(frame.axis==="x"?frame.width:1)||box.maxY<=frame.y||box.minY>=frame.y+frame.height||box.maxZ<=frame.z||box.minZ>=frame.z+(frame.axis==="z"?frame.width:1))return null;
+    let target:Game|null=null,done=false;
+    const previousPaused=this.paused;
+    const resume=()=>{this.portalTransfer=false;if(Game.activeWriter===this&&!this.stopped){this.paused=previousPaused;this.keyboard.reset();}};
+    try{
+      const sourceVersion=this.world.blockMutationVersion,original=this.savePayload(),source=parseSave(original),sourceDimension=this.world.dimension,targetDimension=sourceDimension==="overworld"?"nether":"overworld";
+      this.portalTransfer=true;this.paused=true;this.cancelDrinking();this.keyboard.reset();
+      const sourceUnchanged=()=>!done&&!this.stopped&&!this.dead&&Game.activeWriter===this&&this.portalTransfer&&this.world.blockMutationVersion===sourceVersion&&ticket.unchanged()&&this.savePayload(false,true)===original;
+      if(!sourceUnchanged())throw Error("Portal source changed");
+      const scale=sourceDimension==="overworld"?1/8:8;
+      const point={x:this.body.position.x*scale,y:this.body.position.y,z:this.body.position.z*scale};
+      const old=source.dimensions?.inactive[targetDimension];
+      const state:DimensionWorldState=old??{seed:source.seed,generatorVersion:targetDimension==="nether"?1:2,player:{...source.player,position:{...point},flying:false},edits:[]};
+      const same=(p:typeof ticket.frame,q:typeof ticket.frame)=>p.axis===q.axis&&p.x===q.x&&p.y===q.y&&p.z===q.z&&p.width===q.width&&p.height===q.height;
+      const link=source.dimensions?.links.find(l=>[l.from,l.to].some(e=>e.dimension===sourceDimension&&same(e.portal,ticket.frame)));
+      const linked=link&&(link.from.dimension===targetDimension?link.from.portal:link.to.portal);
+      const reserved=source.dimensions?.links.flatMap(l=>[l.from,l.to]).filter(e=>e.dimension===targetDimension&&(!linked||!same(e.portal,linked))).map(e=>e.portal)??[];
+      const arrival=preparePortalArrival(state,targetDimension,point,linked,reserved,this.mode);
+      if(!arrival||!sourceUnchanged())throw Error("No safe portal arrival");
+      const route=createPortalRouteSave(source,sourceDimension,ticket.frame,arrival.state,arrival.frame,arrival.position,arrival.agentPosition);
+      if(!route)throw Error("Portal route refused");
+      target=Game.prepare(this.container,atlas,{name:this.name,seed:route.seed,mode:this.mode,touch:!!this.touch,save:route,preparedWorld:arrival.world},this.events);
+      const staged=target,initialTarget=JSON.parse(staged.savePayload(false,true)) as SaveData;
+      const targetOwners=(value:SaveData)=>JSON.stringify(Object.fromEntries(Object.entries(value).filter(([key])=>key!=="edits")));
+      const initialOwners=targetOwners(initialTarget),probe=createDimensionGeneratedBlockProbe();
+      const initialEdits=new Map(initialTarget.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
+      const preparedUnchanged=(current:SaveData)=>{
+        if(targetOwners(current)!==initialOwners)return false;
+        const edits=new Map(current.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
+        if([...initialEdits.keys()].some(key=>!edits.has(key)))return false;
+        const cell=(map:Map<string,number>,x:number,y:number,z:number)=>map.get(`${x},${y},${z}`)??probe(targetDimension,initialTarget.seed,initialTarget.generatorVersion??1,x,y,z);
+        return current.edits.every(([x,y,z,id])=>{
+          const key=`${x},${y},${z}`;if(initialEdits.has(key)&&initialEdits.get(key)===id)return true;
+          return id===blockId("obsidian")&&cell(initialEdits,x,y,z)===blockId("lava")&&[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].some(([dx,dy,dz])=>cell(initialEdits,x+dx,y+dy,z+dz)===blockId("water")&&cell(edits,x+dx,y+dy,z+dz)===blockId("water"));
+        });
+      };
+      const cancel=()=>{if(done)return;done=true;staged.discardPrepared();resume();};
+      return Object.freeze({target:staged,prepareFrame:(budgetMs=8)=>{if(!sourceUnchanged()||!arrival.unchanged()){cancel();throw Error("Portal preparation cancelled");}return staged.prepareFrame(budgetMs);},commit:(external=()=>true)=>{
+        if(!sourceUnchanged()||!arrival.unchanged()||!external()){cancel();return false;}
+        // Rendering can load cold fluid neighbors. Capture the actual prepared owner again.
+        const current=JSON.parse(staged.savePayload(false,true)) as SaveData;
+        if(!preparedUnchanged(current)){cancel();return false;}
+        const targetVersion=staged.world.blockMutationVersion;
+        // Keep the validated archive's sparse owner shape. Canonical empty defaults added
+        // by Game construction were pinned above and have not advanced during preparation.
+        const targetState:DimensionWorldState={...arrival.state,edits:current.edits,...(current.portals?{portals:current.portals}:{})};
+        const finalRoute=createPortalRouteSave(source,sourceDimension,ticket.frame,targetState,arrival.frame,arrival.position,arrival.agentPosition);
+        if(!finalRoute){cancel();return false;}
+        staged.dimensionArchive=finalRoute.dimensions;
+        const targetSnapshot=staged.savePayload(false,true);
+        const unchanged=()=>external()&&sourceUnchanged()&&arrival.unchanged()&&staged.world.blockMutationVersion===targetVersion&&staged.recoverySections.length===0&&staged.savePayload(false,true)===targetSnapshot;
+        if(!staged.commitPrepared(this,unchanged)){cancel();return false;}
+        done=true;this.portalTransfer=false;return true;
+      },cancel});
+    }catch{target?.discardPrepared();resume();return null;}
+  }
+
+  /** Compare against a detached reconstruction; never restore into the guarded arrival owner. */
+  private acceptPreparedWorld(world:World,save:SaveData):boolean {
+    captureDimensionWorld(save); // Refuse parser diagnostics before considering normalized owners.
+    if(!(world instanceof World)||Game.attachedWorlds.has(world)||world.blockSourceLeaseBusy||world.seed!==save.seed||world.generatorVersion!==(save.generatorVersion??1)||world.dimension!==(this.dimensionArchive?.active??"overworld"))return false;
+    const reference=new World(save.seed,save.generatorVersion??1,world.dimension);
+    reference.importEdits(sanitizeEdits(save.edits));
+    if(reference.gravelHarvests.restore(save.gravelHarvests).invalid||reference.fires.restore(save.fire,reference.exportEdits()).invalid||reference.fluids.restore(save.fluids).invalid||reference.portals.restore(save.portals,reference.exportEdits()).invalid)return false;
+    const stable=(value:unknown):string=>{
+      const ordered=(v:unknown):unknown=>Array.isArray(v)?v.map(ordered):v&&typeof v==="object"?Object.fromEntries(Object.entries(v).sort(([a],[b])=>a.localeCompare(b)).map(([k,x])=>[k,ordered(x)])):v;
+      return JSON.stringify(ordered(value));
+    };
+    const state=(w:World)=>({edits:w.exportEdits().sort((a,b)=>a[0]-b[0]||a[1]-b[1]||a[2]-b[2]),gravel:w.gravelHarvests.exportState(),fire:w.fires.exportState(),fluids:w.fluids.exportState(),portals:w.portals.exportState()});
+    return stable(state(world))===stable(state(reference));
+  }
+
   prepareFrame(budgetMs = 8): boolean {
     if (!this.prepared || this.stopped || Game.handoffBusy || !Number.isFinite(budgetMs) || budgetMs < 0) return false;
     this.positionCamera();
     this.renderer.updateChunks(budgetMs);
-    this.renderer.render(skyAt(this.timeOfDay), false, 0);
+    this.renderer.render(skyAt(this.timeOfDay,this.world.dimension), false, 0);
     return this.renderer.isAreaReady(2);
   }
 
@@ -454,10 +557,10 @@ export class Game {
   }
 
   /** Publishes one ready target, then retires the expected paused source without saving it. */
-  commitPrepared(source: Game): boolean {
+  commitPrepared(source: Game, unchanged:()=>boolean=()=>true): boolean {
     const pose = { ...this.body.position, yaw: this.body.yaw, pitch: this.body.pitch };
     const samePose = () => this.body.position.x === pose.x && this.body.position.y === pose.y && this.body.position.z === pose.z && this.body.yaw === pose.yaw && this.body.pitch === pose.pitch;
-    const valid = () => samePose() && this.prepared && !this.stopped && !this.dead && !this.actionsNeedRecovery && !this.transferBusy &&
+    const valid = () => unchanged() && samePose() && this.prepared && !this.stopped && !this.dead && !this.actionsNeedRecovery && !this.transferBusy &&
       source !== this && Game.activeWriter === source && source.paused && !source.stopped && !source.dead && !source.actionsNeedRecovery && !source.transferBusy;
     if (Game.handoffBusy || !valid()) return false;
     Game.handoffBusy = true;
@@ -467,7 +570,7 @@ export class Game {
       // DOM/input/frame setup may throw or invoke a host callback. Do it before
       // moving writer authority and recheck both endpoints afterwards.
       this.container.appendChild(this.root);
-      this.resize(); this.positionCamera(); this.renderer.render(skyAt(this.timeOfDay), false, 0); this.keyboard.reset();
+      this.resize(); this.positionCamera(); this.renderer.render(skyAt(this.timeOfDay,this.world.dimension), false, 0); this.keyboard.reset();
       if (this.touch) this.touch.setVisible(true);
       this.root.hidden = false;
       const time = performance.now(); this.frameRequest = this.requestFrame();
@@ -513,8 +616,17 @@ export class Game {
     this.markPlayerStatusRecovery();
     this.leashes.reconcileLoadedReferences(this.leashContext()); this.markLeashRecovery();
     this.balloons.reconcileLoadedReferences(this.leashContext()); this.markBalloonRecovery();
-    const payload = this.savePayload(true);
-    const backup = this.recoveryOriginal === null ? payload : JSON.stringify({ ...JSON.parse(payload), recoveryOriginalSave: this.recoveryOriginal });
+    let backup:string;
+    try {
+      const payload=this.savePayload(true);
+      backup=this.recoveryOriginal===null?payload:JSON.stringify({...JSON.parse(payload),recoveryOriginalSave:this.recoveryOriginal});
+    } catch(error) {
+      // A damaged physical owner may make even a detached normalized snapshot invalid.
+      // Preserve the exact input in an explicit evidence envelope instead of repairing it.
+      if(this.recoveryOriginal===null)throw error;
+      backup=JSON.stringify({recoveryBackupFormat:"original-only-v1",recoveryOriginalSave:this.recoveryOriginal,reason:error instanceof Error?error.message:"Normalized recovery snapshot unavailable"});
+      this.hud.message("Original save exported for repair; a normalized world backup could not be created.");
+    }
     const url = URL.createObjectURL(new Blob([backup], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = `${this.name.replace(/[^a-z0-9_-]/gi, "_") || "world"}.json`;
     link.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
@@ -562,7 +674,7 @@ export class Game {
 
   private tryDeathTransfer(): boolean {
     if (this.ownershipBusy || !this.deathState) return false;
-    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
+    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -661,16 +773,26 @@ export class Game {
     finally { lease?.cancel(); }
   }
 
-  private savePayload(recoveryBackup = false): string {
-    if (this.ownershipBusy) throw new Error("An ownership transfer is in progress");
+  private savePayload(recoveryBackup = false, internalSnapshot=false): string {
+    if (this.ownershipBusy && !(internalSnapshot&&!this.stopped&&!this.transferBusy)) throw new Error("An ownership transfer is in progress");
     const gravelHarvests = this.world.gravelHarvests.exportState();
     const fire = this.world.fires.exportState();
     const fluids = this.world.fluids.exportState();
     const portals = this.world.portals.exportState();
+    const dimensions = recoveryBackup && this.recoverySections.includes("dimensions") ? undefined : this.dimensionArchive && structuredClone(this.dimensionArchive);
+    if (dimensions) {
+      // A legitimate live collapse removes only link metadata. Raw dangling
+      // links are instead refused by restoreDimensions before normalization.
+      const portalKey = (p: typeof portals.records[number]) => `${p.axis}:${p.x},${p.y},${p.z}:${p.width},${p.height}`;
+      const live = new Set(portals.records.map(portalKey));
+      dimensions.links = dimensions.links.filter(link => [link.from,link.to].every(e => e.dimension !== dimensions.active || live.has(portalKey(e.portal))));
+    }
     const portalBackup = recoveryBackup && this.recoverySections.includes("portals");
+    const blazeFireballs=this.mobs.exportFireballs();
     return serializeSave({
         name: this.name,
         seed: this.world.seed,
+        ...(dimensions ? { dimensions } : {}),
         generatorVersion: this.world.generatorVersion,
         ...(!(recoveryBackup && this.recoverySections.includes("fluids")) ? { fluids } : {}),
         mode: this.mode,
@@ -680,6 +802,7 @@ export class Game {
         inventoryPending: this.inventoryScreen.pendingItems(),
         playerState: { health: this.health, ...(this.deathState ? { death: this.deathState } : {}) },
         snowballProjectiles: this.snowballProjectiles.toJSON(),
+        ...(!(recoveryBackup&&this.recoverySections.includes("Blaze owners"))&&(blazeFireballs.nextKey>1||blazeFireballs.records.length)?{blazeFireballs}:{}),
         worldDrops: this.worldDrops.toJSON(),
         ...(recoveryBackup && this.leashes.loadIssues ? {} : { leashes: this.leashes.toJSON() }),
         ...(recoveryBackup && this.balloons.loadIssues ? {} : { balloons: this.balloons.toJSON() }),
@@ -798,7 +921,7 @@ export class Game {
       if (!this.dead) this.updateFluids(dt);
       if (!this.dead && this.body.position.y < -20) this.hurt(MAX_HEALTH, "void");
       if (!this.dead && this.daylightCycle) this.timeOfDay = (this.timeOfDay + dt / DAY_LENGTH) % 1;
-      const light = skyAt(this.timeOfDay).light;
+      const light = skyAt(this.timeOfDay,this.world.dimension).light;
       // Hostile mobs ignore creative players (as in Minecraft).
       const target = this.mode === "survival" ? this.body.position : null;
       if (!this.dead) {
@@ -806,15 +929,10 @@ export class Game {
         this.balloons.update(dt, this.leashContext(), this.dropSink); this.markBalloonRecovery();
       }
       if (!this.dead) this.mobs.update(dt, this.body.position, light, this.clock, target, (light - 0.2) / 0.8);
+      if(!this.dead)this.updateBlazeProjectiles(dt);
       if (!this.dead && target) this.takeMobHits(dt, (light - 0.2) / 0.8);
       if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt);
-      if (!this.dead && !this.screenOpen()) {
-        const impacts = this.snowballProjectiles.update(dt, this.mobs.mobs.filter(m => m.health > 0).map(m => ({ id: m.id, box: bodyBox(m.position, MOB_SPECS[m.kind].width, MOB_SPECS[m.kind].height) })));
-        if (impacts.length) {
-          this.snowballImpacts = [...this.snowballImpacts, ...impacts].slice(-16);
-          this.snowballProjectilesView.impact(impacts);
-        }
-      }
+      if (!this.dead) this.updateSnowballs(dt);
     } else {
       this.target = null;
       this.mobTarget = null;
@@ -836,7 +954,7 @@ export class Game {
       const feet = (p: { x: number; y: number; z: number }) => `${Math.floor(p.x)},${Math.floor(p.y + 0.05)},${Math.floor(p.z)}`;
       this.redstone.updatePlates(new Set([feet(this.body.position), ...this.mobs.mobs.map((m) => feet(m.position))]));
       this.redstone.update(dt);
-      this.farming.update(dt, 15 - skyDarken(skyAt(this.timeOfDay).light));
+      this.farming.update(dt, 15 - skyDarken(skyAt(this.timeOfDay,this.world.dimension).light));
       for (const f of this.furnaces.values()) tickFurnace(f, dt);
       this.inventoryScreen.refresh();
     }
@@ -860,7 +978,7 @@ export class Game {
     // A held glow stick lights the area around the player (Education Edition).
     this.heldLight = this.inventory.selectedStack()?.id === GLOW_STICK ? HELD_GLOW_LIGHT : 0;
     this.renderer.setHeldLight(this.heldLight, cam.position);
-    this.renderer.render(skyAt(this.timeOfDay), underwater, dt);
+    this.renderer.render(skyAt(this.timeOfDay,this.world.dimension), underwater, dt);
     this.hud.setDebug(this.debugText());
 
     this.autosaveTimer += dt;
@@ -868,6 +986,8 @@ export class Game {
       this.autosaveTimer = 0;
       this.save();
     }
+    const portal=this.portalContact.update(this.world,this.body.position,dt,active&&!this.dead&&!this.screenOpen()&&!this.actionsNeedRecovery);
+    if(portal)this.events.onPortalTravel?.(this,portal);
   }
 
   private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
@@ -1200,7 +1320,7 @@ export class Game {
   private selectHudHotbar(slot: number): void {
     // Saved-item recovery keeps HUD selection available for inspecting disabled actions.
     // This changes only the live selected index; all ownership/write guards stay in force.
-    if (this.ownershipBusy || this.dead || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals")) return;
+    if (this.ownershipBusy || this.dead || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals")) return;
     this.selectHotbar(slot);
   }
 
@@ -1250,6 +1370,19 @@ export class Game {
   }
 
   /** Retain the exact stored envelope before any item loader can repair it. */
+  private restoreDimensions(save: SaveData | undefined): void {
+    const result = readDimensionArchive(save?.dimensions, save, createDimensionGeneratedBlockProbe());
+    if (save?.dimensionsInvalid || save?.dimensionOwnershipIssues?.length || result.kind === "invalid") {
+      this.cancelDrinking(); this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+      if (!this.recoverySections.includes("dimensions")) this.recoverySections.push("dimensions");
+      const issues = result.kind === "invalid" ? result.issues : save?.dimensionOwnershipIssues ?? [];
+      this.dimensionIssues = issues.map(issue=>({...issue}));
+      return;
+    }
+    if (result.kind === "valid") this.dimensionArchive = result.data;
+  }
+
+  /** Retain the exact stored envelope before any item loader can repair it. */
   private markGlowRecovery(save: Pick<SaveData, "glowOwnershipIssues"> | undefined): void {
     if (!save?.glowOwnershipIssues?.length) return;
     this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
@@ -1257,6 +1390,41 @@ export class Game {
   }
 
   /** Restore coordinate decisions only after edits establish the actual source blocks. */
+  private markBlazeRecovery(save:SaveData|undefined):void {
+    this.blazeIssues=[...(save?.blazeOwnershipIssues??[]),...readBlazeOwners(save).issues].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
+    if(!this.blazeIssues.length)return;
+    this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
+    if(!this.recoverySections.includes("Blaze owners"))this.recoverySections.push("Blaze owners");
+  }
+
+  private updateSnowballs(dt:number):void {
+    if(this.dead||this.paused||this.stopped||this.screenOpen()||this.ownershipBusy||this.actionsNeedRecovery)return;
+    const impacts=this.snowballProjectiles.update(dt,this.mobs.mobs.filter(m=>m.health>0).map(m=>({id:m.id,box:bodyBox(m.position,MOB_SPECS[m.kind].width,MOB_SPECS[m.kind].height)})));
+    // The consumed projectile owns one impact; ordinary mobs retain their existing no-damage policy.
+    for(const impact of impacts)if(impact.kind==="mob"){
+      const mob=this.mobs.mobs.find(m=>m.id===impact.mobId&&m.health>0);
+      if(mob?.kind==="blaze")this.mobs.attack(mob,3,this.body.yaw,"player");
+    }
+    if(impacts.length){this.snowballImpacts=[...this.snowballImpacts,...impacts].slice(-16);this.snowballProjectilesView.impact(impacts);}
+  }
+
+  private updateBlazeProjectiles(dt:number):void {
+    if(this.dead||this.paused||this.stopped||this.screenOpen()||this.ownershipBusy||this.actionsNeedRecovery)return;
+    try { this.mobs.updateFireballs(dt,this.mode==="survival"?bodyBox(this.body.position):null); }
+    finally {
+      // Render cleanup can throw after simulation commits. Settle every consumed receipt first.
+      const impacts=this.mobs.drainFireballImpacts();
+      for(const impact of impacts)if(!this.dead&&impact.kind==="player"&&this.mode==="survival")this.hurt(impact.damage,"blaze");
+    }
+  }
+
+  private markWartRecovery(save:SaveData|undefined):void {
+    this.wartIssues=[...(save?.wartOwnershipIssues??[]),...diagnoseRawWartOwnership(save),...diagnoseRawWartSupport(save,save?.dimensions?.active??"overworld",createDimensionGeneratedBlockProbe())].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
+    if(!this.wartIssues.length)return;
+    this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
+    if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
+  }
+
   private markPortalRecovery(save: Pick<SaveData, "portalOwnershipIssues"> | undefined): void {
     if (!save?.portalOwnershipIssues?.length) return;
     this.cancelDrinking(); this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
@@ -1445,7 +1613,7 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
-    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
+    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
     if (this.ownershipBusy) return "Items are being transferred. Retry giving them afterward";
     if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
@@ -1638,7 +1806,7 @@ export class Game {
     }
   }
 
-  private hurt(amount: number, kind: "melee" | "fall" | "starvation" | "void" | "fire" | "lava" = "melee"): void {
+  private hurt(amount: number, kind: "melee" | "fall" | "starvation" | "void" | "fire" | "lava" | "blaze" = "melee"): void {
     if (this.ownershipBusy || this.dead || !Number.isFinite(amount) || amount <= 0 || (this.mode === "creative" && kind !== "void")) return;
     const worn = ARMOR_SLOTS.map((slot) => [slot, this.inventory.equipment[slot]?.id] as const);
     const damage = applyArmorDamage(this.inventory, amount, kind);
@@ -1750,7 +1918,7 @@ export class Game {
   takePhoto(): void {
     if (this.dead || this.ownershipBusy) return;
     const r = this.renderer;
-    r.render(skyAt(this.timeOfDay), false, 0);
+    r.render(skyAt(this.timeOfDay,this.world.dimension), false, 0);
     const src = r.canvas;
     const width = 480;
     const height = Math.round((src.height / Math.max(1, src.width)) * width);
@@ -1785,7 +1953,7 @@ export class Game {
   runChat(text: string): string {
     if (this.prepared || this.stopped || Game.handoffBusy) return "World is not active.";
     if (this.actionsNeedRecovery && text.startsWith("/")) {
-      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
+      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
       this.hud.message(reply);
       return reply;
     }

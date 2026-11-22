@@ -1,3 +1,4 @@
+import {readBlazeOwners} from "./blaze-save";
 import { DIMENSION_WORLD_KEYS, type DimensionId, type DimensionWorldState, type DimensionArchiveState } from "./dimension-world";
 import { WORLD_BORDER, MIN_Y, MAX_Y, type Vec3 } from "../core/math";
 import { WORLD_HEIGHT } from "../world/chunk";
@@ -18,7 +19,7 @@ import { BalloonStore } from "../ownership/balloons";
 import { SnowballProjectiles } from "../simulation/snowball-projectiles";
 import { smeltResult } from "../crafting/smelting";
 import { chalkboardCells, CHALKBOARD_SIZES } from "../education/chalkboard";
-import { diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership } from "./save";
+import { diagnoseRawWartSupport, diagnoseRawWartOwnership, diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership } from "./save";
 
 type Obj = Record<string, unknown>;
 export interface DimensionSaveIssue { path: string; reason: string }
@@ -102,7 +103,7 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
   const player = raw.player;
   if (!exact(player, ["position", "yaw", "pitch", "flying"]) || !position(player.position) || !finite(player.yaw) || !finite(player.pitch) || player.pitch < -1.57 || player.pitch > 1.57 || typeof player.flying !== "boolean") add("player", "Malformed world-local player location");
   const generator = sanitizeGeneratorVersion(raw.generatorVersion);
-  if (generator.invalid) add("generatorVersion", "Unsupported world generator version");
+  if (generator.invalid || dimension === "nether" && generator.present && generator.version !== 1) add("generatorVersion", "Unsupported world generator version for this realm");
   const cells = new Map<string, number>();
   if (!Array.isArray(raw.edits)) add("edits", "Expected complete block edit array");
   else raw.edits.forEach((e, i) => {
@@ -123,9 +124,11 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
     if (invalid || !canonicalEqual(raw[name], cleaned)) { add(name, "Malformed archived state; refusing silent repair or dropped owners"); return false; }
     return true;
   };
-  for (const diagnose of [diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership]) {
+  for (const diagnose of [diagnoseRawWartOwnership, diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership]) {
     for (const issue of diagnose(raw)) add(issue.path, issue.reason);
   }
+  for(const issue of diagnoseRawWartSupport(raw,dimension,(_dimension,_seed,_version,x,y,z)=>block(x,y,z)))add(issue.path,issue.reason);
+  const blaze=readBlazeOwners(raw);for(const issue of blaze.issues)add(issue.path,issue.reason);
   const portals = sanitizePortalState(raw.portals);
   if (!section("portals", portals.invalid, portals.data) || !validatePortalEdits(raw.portals, raw.edits)) add("portals", "Portal records and physical cells must have matching owners");
   const fluids = sanitizeFluidState(raw.fluids); section("fluids", fluids.invalid, fluids.data);

@@ -1,3 +1,4 @@
+import type { DimensionId } from "../core/dimensions";
 /** Length of a full day/night cycle in seconds (Minecraft: 20 minutes). */
 export const DAY_LENGTH = 1200;
 
@@ -19,7 +20,9 @@ function mix(a: [number, number, number], b: [number, number, number], t: number
 }
 
 /** Sky colour and light level for a time of day in [0, 1) where 0 = sunrise and 0.25 = noon. */
-export function skyAt(timeOfDay: number): SkyState {
+export function skyAt(timeOfDay: number, dimension:DimensionId = "overworld"): SkyState {
+  // Original bounded presentation. No current Education color calibration claim.
+  if (dimension === "nether") return { sky: [.18,.025,.015], light: .2, sunAngle: 0 };
   const t = ((timeOfDay % 1) + 1) % 1;
   const sunAngle = t * Math.PI * 2;
   const elevation = Math.sin(sunAngle);

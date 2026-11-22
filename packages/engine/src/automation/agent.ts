@@ -11,7 +11,7 @@ import { bodyBox } from "../simulation/physics";
 import type { DropSink } from "../ownership/world-drops";
 import { cloneStack, insertStackIntoSlots } from "../ownership/stack";
 import { extinguishFire } from "../simulation/fire";
-import { blockDrops } from "../simulation/farming";
+import { blockDrops, netherWartAge } from "../simulation/farming";
 import { AIR, tryBlockById, blockById, blockId, isSolid } from "../catalog/blocks";
 import { FACING_DIRS } from "../education/chalkboard";
 import type { ItemStack } from "../ownership/inventory";
@@ -19,7 +19,7 @@ import { isKnownId, placedBlockOf } from "../catalog/items";
 import { doorPartner, orientedPlacement } from "../simulation/redstone";
 import { WORLD_HEIGHT } from "../world/chunk";
 import { WORLD_BORDER, type Vec3 } from "../core/math";
-import { canBreak, canBuildAt, extraCellsFree, hasSupport } from "../world/rules";
+import { canBreak, canBuildAt, extraCellsFree, hasSupport, plantNetherWart } from "../world/rules";
 import type { World } from "../world/world";
 
 export const AGENT_SLOTS = 27;
@@ -169,6 +169,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const here = world.getBlock(t.x, t.y, t.z);
       if (here !== AIR && !tryBlockById(here)?.replaceable && tryBlockById(here)?.shape !== "liquid") return { ok: false, message: "Something is in the way" };
       const stack = agent.slots[agent.selected];
+      if(stack?.id===842)return {ok:plantNetherWart(world,agent,"survival",t.x,t.y,t.z,AGENT_SLOTS,AGENT_SLOTS),message:"Wart requires Soul Sand and an unchanged owned item"};
       // Blocks, and items that place a block (redstone dust, doors, lab products).
       // Stateful glow has no block metadata owner. Refuse before world writes or source debit.
       if (stack && (Object.prototype.hasOwnProperty.call(stack, "glow") || Object.prototype.hasOwnProperty.call(stack, "sparkler"))) return { ok: false, message: "Stateful Glow sticks and Sparklers cannot be placed" };
@@ -196,7 +197,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
       if (id === blockId("fire")) return { ok: extinguishFire(world, t.x, t.y, t.z), message: "Fire extinguished" };
-      const portalDependency=world.portals.hasDependency(t.x,t.y,t.z);
+      const portalDependency=world.portals.hasDependency(t.x,t.y,t.z)||netherWartAge(id)!==null||netherWartAge(world.getBlock(t.x,t.y+1,t.z))!==null;
       const portalEdits:import("../world/world").BlockEdit[]=[[t.x,t.y,t.z,AIR]];
       if(portalDependency){
         const portalAbove=world.getBlock(t.x,t.y+1,t.z),portalPartner=doorPartner(world,t.x,t.y,t.z);
@@ -214,9 +215,9 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
         const supported = tryBlockById(above)?.needsSupport === true;
         const contents = env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [];
         const contentsSource = JSON.stringify(contents);
-        const gravel = id === blockId("gravel"), selected = agent.selected, slots = agent.slots;
-        const gravelOwner = gravel ? gravelOwnerSnapshot(slots, selected, AGENT_SLOTS) : null;
-        if (gravel && !gravelOwner) return { ok: false, message: "Invalid gravel harvest owner" };
+        const gravel = id === blockId("gravel"), strictOwner=gravel||netherWartAge(id)!==null||netherWartAge(above)!==null, selected = agent.selected, slots = agent.slots;
+        const gravelOwner = strictOwner ? gravelOwnerSnapshot(slots, selected, AGENT_SLOTS) : null;
+        if (strictOwner && !gravelOwner) return { ok: false, message: "Invalid gravel harvest owner" };
         const gravelPlan = gravel ? world.gravelHarvests.plan(t.x, t.y, t.z, env.gravelRand) : null;
         if (gravel && !gravelPlan) return { ok: false, message: "Cannot resolve gravel harvest" };
         const drops = [...(gravelPlan ? [gravelPlan.stack] : blockDrops(id)), ...(supported ? blockDrops(above) : []), ...contents];
@@ -224,19 +225,19 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
         const partner = doorPartner(world, t.x, t.y, t.z), partnerId = partner ? world.getBlock(...partner) : null;
         const sourceValid = () => {
           try {
-            return (!portalSource||portalSource.valid()) && (!gravel || gravelPlan!.valid() && agent.slots === slots && agent.selected === selected && gravelOwner!()) && (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
+            return (!portalSource||portalSource.valid()) && (!strictOwner || (!gravel||gravelPlan!.valid()) && agent.slots === slots && agent.selected === selected && gravelOwner!()) && (!lease || lease.valid()) && world.getBlock(t.x, t.y, t.z) === id && world.getBlock(t.x, t.y + 1, t.z) === above &&
               (!partner || world.getBlock(...partner) === partnerId) && (!lease || JSON.stringify(env.destroyContents?.(t.x, t.y, t.z) ?? []) === contentsSource);
           } catch { return false; }
         };
-        if (gravel && !sourceValid()) return { ok: false, message: "Gravel source changed" };
+        if (strictOwner && !sourceValid()) return { ok: false, message: "Gravel source changed" };
         if (env.worldDrop) {
           const sink = lease ? joinLeashRefundSink(lease, env.worldDrop, sourceValid) : env.worldDrop;
           const batch = sink(drops, { x: t.x + .5, y: t.y + .5, z: t.z + .5 });
-          if (!batch || (lease || gravel) && !sourceValid() || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
+          if (!batch || (lease || strictOwner || portalSource) && !sourceValid() || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
         } else {
           if (drops.some((stack) => addToAgent(trial, stack) > 0)) return { ok: false, message: "Agent inventory is full" };
           if (env.beforeDestroy?.(t.x, t.y, t.z) === false) return { ok: false, message: "Block contents do not fit" };
-          if (gravel && !sourceValid()) return { ok: false, message: "Gravel source changed" };
+          if (strictOwner && !sourceValid()) return { ok: false, message: "Gravel source changed" };
         }
         if(portalSource){
           const committed=portalSource.commit(()=>{if(!env.worldDrop)for(const stack of drops)addToAgent(agent,stack);});

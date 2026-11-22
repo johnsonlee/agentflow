@@ -1,4 +1,6 @@
 import type { SaveData } from "./save";
+import type { DimensionId } from "../core/dimensions";
+export type { DimensionId } from "../core/dimensions";
 
 /** World-local owners only. Player health/status/bags and Agent remain global.
  * Callers must validate the complete save before partitioning it. This is not a
@@ -7,12 +9,13 @@ export const DIMENSION_WORLD_KEYS = [
   "seed", "generatorVersion", "player", "edits", "npcs", "chalkboards",
   "furnaces", "redstone", "farming", "fire", "fluids", "portals",
   "gravelHarvests", "worldDrops", "mobs", "leashes", "balloons",
-  "snowballProjectiles",
+  "snowballProjectiles", "blazeFireballs",
 ] as const satisfies readonly (keyof SaveData)[];
 export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[number]>;
 const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
+  "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
   "bottleOwnershipIssues", "bucketOwnershipIssues", "cowStateInvalid", "playerStatusInvalid",
@@ -75,7 +78,6 @@ export function replaceDimensionWorld(globalSave: SaveData, target: DimensionWor
   return next;
 }
 
-export type DimensionId = "overworld" | "nether";
 export interface DimensionArchiveState {
   version: 1;
   active: DimensionId;
