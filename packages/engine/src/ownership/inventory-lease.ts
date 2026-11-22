@@ -20,13 +20,25 @@ export function registerInventoryOwner(owner:object,slots:(ItemStack|null)[]):vo
  finally{registering.delete(owner);}
 }
 export function isInventoryBusy(owner:object):boolean{return owners.get(owner)?.busy??false;}
-export interface InventoryMutationLease{readonly slots:(ItemStack|null)[];valid():boolean;commit(index:number,replacement:ItemStack):void;cancel():void}
+export interface PreparedInventoryMutation{valid():boolean;commit():void}
+export interface InventoryMutationLease{readonly slots:(ItemStack|null)[];valid():boolean;prepare(index:number,replacement:ItemStack|null):PreparedInventoryMutation|null;commit(index:number,replacement:ItemStack|null):void;cancel():void}
 /** Only constructor-original real Arrays may receive a trusted synchronous publication. */
 export function reserveInventoryMutation(owner:Inventory):InventoryMutationLease|null{
  const state=owners.get(owner);if(!state||state.busy)return null;state.busy=true;let active=true;
  const cancel=()=>{if(active){active=false;state.busy=false;}};
  try{
   const d=Object.getOwnPropertyDescriptor(owner,'slots');if(!d||!('value'in d)||d.value!==state.slots){cancel();return null;}
-  return Object.freeze({slots:state.slots,valid:()=>active&&owners.get(owner)===state&&Object.getOwnPropertyDescriptor(owner,'slots')?.value===state.slots,commit:(index:number,replacement:ItemStack)=>{if(!active)return;state.slots[index]=replacement;cancel();},cancel});
+  const valid=()=>active&&owners.get(owner)===state&&Object.getOwnPropertyDescriptor(owner,'slots')?.value===state.slots;
+  const prepare=(index:number,replacement:ItemStack|null):PreparedInventoryMutation|null=>{
+   // null is an explicit final-unit debit, never an omitted/undefined replacement.
+   if(!valid()||!Number.isInteger(index)||index<0||index>=state.slots.length||replacement!==null&&(!replacement||typeof replacement!=='object'))return null;
+   const cell=Object.getOwnPropertyDescriptor(state.slots,String(index));if(!cell||!('value'in cell)||!cell.writable)return null;
+   let published=false;
+   const ready=()=>!published&&valid()&&(()=>{const now=Object.getOwnPropertyDescriptor(state.slots,String(index));return !!now&&'value'in now&&now.writable===true&&now.value===cell.value;})();
+   // Trusted caller validates replacement content and calls valid immediately before its atomic
+   // world publication. No callbacks/validation remain between world writes and this real-array write.
+   return Object.freeze({valid:ready,commit:()=>{if(!active||published)return;published=true;state.slots[index]=replacement;cancel();}});
+  };
+  return Object.freeze({slots:state.slots,valid,prepare,commit:(index:number,replacement:ItemStack|null)=>{const staged=prepare(index,replacement);if(staged?.valid())staged.commit();},cancel});
  }catch{cancel();return null;}
 }

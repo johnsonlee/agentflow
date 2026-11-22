@@ -3,9 +3,9 @@
  * the heat block melts snow and ice, the ice bomb freezes water, super fertilizer grows plants.
  */
 import { AIR, blockId } from "../catalog/blocks";
-import { matureCrop, wheatAge } from "../simulation/farming";
+import { matureCrop, farmlandMoisture, wheatAge, wheatId } from "../simulation/farming";
 import { nameOf } from "../catalog/items";
-import type { World } from "../world/world";
+import type { BlockEdit, WorldCellSnapshot, World } from "../world/world";
 
 export const EFFECT_RADIUS = 3;
 /** Most blocks one use may change. */
@@ -43,8 +43,8 @@ function transform(world: World, x: number, y: number, z: number, swap: Readonly
     if (changed >= EFFECT_LIMIT) break;
     const to = swap.get(world.getBlock(cx, cy, cz));
     if (to === undefined) continue;
-    world.setBlock(cx, cy, cz, to);
-    changed++;
+    const cell=world.captureCell(cx,cy,cz);
+    if(cell&&world.commitBlockBatch([[cx,cy,cz,to]],undefined,[cell]))changed++;
   }
   return changed;
 }
@@ -73,8 +73,8 @@ export function fertilizeAround(world: World, x: number, y: number, z: number, r
     // The target itself always grows; others with a chance, as bone meal scatters.
     if (grown > 0 && rand() >= 0.6) continue;
     const r = rand();
-    world.setBlock(cx, cy + 1, cz, r < 0.7 ? TALL_GRASS : FLOWERS[r < 0.85 ? 0 : 1]);
-    grown++;
+    const target=world.captureCell(cx,cy+1,cz),soil=world.captureCell(cx,cy,cz);
+    if(target&&soil&&world.commitBlockBatch([[cx,cy+1,cz,r < 0.7 ? TALL_GRASS : FLOWERS[r < 0.85 ? 0 : 1]]],undefined,[soil,target]))grown++;
   }
   return grown;
 }
@@ -98,4 +98,36 @@ export function useLabProduct(
     return id === GRASS ? fertilizeAround(world, hit.x, hit.y, hit.z, rand) : -1;
   }
   return -1;
+}
+
+
+export interface LabProductHit { x:number; y:number; z:number; normal:{x:number;y:number;z:number} }
+export interface LabProductPlan { supported:boolean; edits:readonly BlockEdit[]; expected:readonly WorldCellSnapshot[] }
+/** Loaded-only effect planning. Captures precede caller RNG; every observed dependency is witnessed.
+ * Geometry, stable nearest-first order and random draw order preserve the existing application model. */
+export function planLabProduct(world:World,itemId:number,hit:LabProductHit,rand:()=>number=Math.random):LabProductPlan {
+ const empty=(supported:boolean):LabProductPlan=>({supported,edits:[],expected:[]});
+ if(world.blockSourceLeaseBusy)return empty(true);
+ if(!hit||!hit.normal||![hit.x,hit.y,hit.z,hit.normal.x,hit.normal.y,hit.normal.z].every(Number.isSafeInteger)||Math.abs(hit.normal.x)+Math.abs(hit.normal.y)+Math.abs(hit.normal.z)!==1)return empty(true);
+ const name=nameOf(itemId);if(name!=="ice_bomb"&&name!=="super_fertilizer")return empty(false);
+ const expected:WorldCellSnapshot[]=[],edits:BlockEdit[]=[];
+ const take=(x:number,y:number,z:number)=>{const c=world.captureCell(x,y,z);if(c)expected.push(c);return c;};
+ const target=take(hit.x,hit.y,hit.z);if(!target)return empty(true);
+ if(name==="super_fertilizer"){
+  const age=wheatAge(target.id);
+  if(age!==null){const soil=take(hit.x,hit.y-1,hit.z);if(age<7&&soil&&farmlandMoisture(soil.id)!==null)edits.push([hit.x,hit.y,hit.z,wheatId(7)]);return{supported:true,edits,expected};}
+  if(target.id!==GRASS)return empty(false);
+ }
+ const x=hit.x+(name==="ice_bomb"?hit.normal.x:0),y=hit.y+(name==="ice_bomb"?hit.normal.y:0),z=hit.z+(name==="ice_bomb"?hit.normal.z:0);
+ // Snapshot the whole bounded search before any injected random callback can change a later cell.
+ const cells=cellsAround(x,y,z,EFFECT_RADIUS).map(([cx,cy,cz])=>({cell:take(cx,cy,cz),above:name==="super_fertilizer"?take(cx,cy+1,cz):undefined}));
+ for(const {cell,above}of cells){
+  if(edits.length>=(name==="ice_bomb"?EFFECT_LIMIT:FERTILIZER_LIMIT))break;
+  if(!cell)continue;
+  if(name==="ice_bomb"){if(cell.id===WATER)edits.push([cell.x,cell.y,cell.z,ICE]);continue;}
+  if(cell.id!==GRASS||above?.id!==AIR)continue;
+  if(edits.length>0&&rand()>=.6)continue;
+  const r=rand();edits.push([above.x,above.y,above.z,r<.7?TALL_GRASS:FLOWERS[r<.85?0:1]]);
+ }
+ return{supported:true,edits,expected};
 }

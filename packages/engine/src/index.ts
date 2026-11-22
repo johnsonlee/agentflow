@@ -155,3 +155,5 @@ export * from "./persistence/code-workspace";
 
 export * from "./persistence/cane-growth-state";
 export * from "./simulation/cane-growth";
+
+export * from "./ownership/lab-product-use";

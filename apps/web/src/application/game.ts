@@ -1,3 +1,4 @@
+import { useOwnedLabProduct } from "@craft/engine";
 import { CaneGrowthSystem, readCaneGrowthState } from "@craft/engine";
 import { type CodeWorkspaceData } from "@craft/engine";
 import {furnaceMutationBusy,reserveFurnaceContents} from "@craft/engine";
@@ -15,7 +16,7 @@ import {
   sanitizeInventoryPending, serializeSave, skyAt, stepPlayer, toChunkCoord, type GameMode, type Mob, type PlayerBody, type RaycastHit, type SaveData,
   MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
-  facingTowards, findAgentPosition, useLabProduct, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
+  facingTowards, findAgentPosition, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
   type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
@@ -1529,10 +1530,12 @@ export class Game {
         this.hud.message("Building is not allowed here");
         return;
       }
-      const changed = useLabProduct(this.world, held.id, t);
+      const labWorld = this.world, labMode = this.mode;
+      const changed = useOwnedLabProduct(labWorld, this.inventory, labMode, t, undefined, () =>
+        this.world === labWorld && this.mode === labMode && !this.dead && !this.stopped && !this.paused &&
+        !this.actionsNeedRecovery && !this.screenOpen());
       if (changed >= 0) {
         this.placeCooldown = 0.25;
-        if (changed > 0 && this.mode === "survival") this.inventory.takeSelected();
         if (changed === 0) this.hud.message(`The ${displayNameOf(held.id)} has nothing to act on here`);
         return;
       }

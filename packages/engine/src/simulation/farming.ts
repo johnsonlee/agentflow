@@ -53,8 +53,8 @@ export function matureCrop(world: World, x: number, y: number, z: number): numbe
   if(world.blockSourceLeaseBusy)return 0;
   const id = world.getLoadedBlock(x, y, z), age = id === undefined ? null : wheatAge(id);
   if (age === null || age === 7 || farmlandMoisture(world.getLoadedBlock(x, y - 1, z) ?? AIR) === null) return 0;
-  world.setBlock(x, y, z, wheatId(7));
-  return 1;
+  const crop=world.captureCell(x,y,z),soil=world.captureCell(x,y-1,z);
+  return crop&&soil&&world.commitBlockBatch([[x,y,z,wheatId(7)]],undefined,[crop,soil])?1:0;
 }
 
 export interface FarmingState { version: 1; tick: number; accumulator: number; cursor: number }
