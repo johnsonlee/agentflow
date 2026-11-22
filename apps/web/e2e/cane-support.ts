@@ -1,10 +1,10 @@
 import {expect,type Page,type TestInfo,type Locator} from '@playwright/test';
 import fs from 'node:fs/promises';
 import {Inventory,blockId,stackId,serializeSave,type SaveData} from '@craft/engine';
-import {waitForTerrain,snap,lookAtCell,aimAtTop,pressMouse,parkMouse} from './helpers';
+import {waitForTerrain,snap,aimAtTop,pressMouse,parkMouse} from './helpers';
 
 /** Disclosed supported three-cell Cane bed, empty Bucket, worn Axe and full bag.
- * Actual Bucket input removes sole adjacent water; no runtime drop/block/bag writes. */
+ * Actual Bucket input removes sole adjacent water; camera aiming is a disclosed fixture; no runtime drop/block/bag writes. */
 export async function caneSupportRoute(page:Page,info:TestInfo,mobile:boolean){
  const root={x:8,y:80,z:8},water={x:9,y:79,z:8},stand={x:9.5,y:80,z:11.5};
  const bag=new Inventory();bag.slots[0]={id:stackId('bucket'),count:1};bag.slots[1]={id:stackId('iron_axe'),count:1,damage:7};
@@ -26,7 +26,8 @@ export async function caneSupportRoute(page:Page,info:TestInfo,mobile:boolean){
  try{
   const raw=serializeSave(save);await fs.writeFile(info.outputPath('initial-disclosed-supported-bed-full-bag.json'),raw);await page.goto('/');await page.evaluate(s=>{localStorage.clear();localStorage.setItem('craft.save.v1',s);},raw);await page.reload();await press(page.getByRole('button',{name:/Continue/}));await waitForTerrain(page);
   expect((await read()).column).toEqual([204,204,204]);expect(await groundCane()).toBe(0);expect(await caneCount()).toBe(0);await phase('supported-three-cells-full-bag-no-Cane-item');await snap(page,info,'supported-Cane-before-real-water-collection');
-  await select(0);await lookAtCell(page,water.x,water.y,water.z);await use();
+  await select(0);await aimAtTop(page,water.x,water.y,water.z);await use();
+  await expect.poll(async()=>(await read()).water).toBe(0);await expect.poll(async()=>(await read()).bag.slots[0]).toEqual({id:stackId('water_bucket'),count:1});await phase('actual-water-collected-before-passive-owner-assertions');
   await expect.poll(async()=>(await read()).column).toEqual([0,0,0]);await expect.poll(groundCane).toBe(3);expect(await caneCount()).toBe(0);
   const fallen=await read();expect(fallen.water).toBe(0);expect(fallen.bag.slots[0]).toEqual({id:stackId('water_bucket'),count:1});expect(fallen.bag.slots[1]).toEqual({id:stackId('iron_axe'),count:1,damage:7});expect(fallen.bag.slots.slice(2)).toEqual(save.inventory.slots.slice(2));await phase('actual-Bucket-removes-only-water-passive-three-ground-owners');await snap(page,info,'full-bag-keeps-three-passive-Cane-ground-owners');
   const stored=await cold('actual-ground-Cane-full-bag-save.json');expect(stored.worldDrops.records.reduce((n:number,r:{stack:{id:number;count:number}})=>n+(r.stack.id===850?r.stack.count:0),0)).toBe(3);expect(await groundCane()).toBe(3);expect(await caneCount()).toBe(0);expect((await read()).column).toEqual([0,0,0]);await phase('cold-ground-three-no-source-replay');await snap(page,info,'cold-passive-Cane-ground-receipt');
@@ -35,5 +36,5 @@ export async function caneSupportRoute(page:Page,info:TestInfo,mobile:boolean){
   if(mobile)await press(page.getByRole('button',{name:'Chat and commands',exact:true}));else await page.keyboard.press('Slash');const input=page.getByRole('textbox',{name:'Chat',exact:true});await input.fill('/tp 8.5 80 8.5');await input.press('Enter');await expect(input).toBeHidden();await expect.poll(caneCount).toBe(3);expect(await groundCane()).toBe(0);await phase('actual-one-stone-placed-free-cell-pickup-three-Cane');
   await cold('actual-three-Cane-bag-final-save.json');expect(await caneCount()).toBe(3);expect(await groundCane()).toBe(0);const final=await read();expect(final.column).toEqual([0,0,0]);expect(final.bag.slots[0]).toEqual(fallen.bag.slots[0]);expect(final.bag.slots[1]).toEqual(fallen.bag.slots[1]);expect(final.errors).toEqual([]);await phase('final-cold-three-bag-no-ground-no-source');await snap(page,info,'final-three-Cane-and-water-Bucket-cold-conserved');expect(errors).toEqual([]);
  }catch(e){failure=e instanceof Error?e.stack??e.message:String(e);throw e;}
- finally{await fs.writeFile(info.outputPath('cane-support-proof.json'),JSON.stringify({stage,failure,mobile,errors,phases,fixture:'Initial saved supported3Cane/Sand/oneWater/platform/emptyBucket/Axe7/fullbag with oneCobble1; actualBucket collection triggers passivecollapse, coldgroundsave, realCobbleplacement freesonecell, legalchatTPpickup, finalcold. No runtimeoutcome/terrain/camera writes.',uncovered:['natural Cane acquisition/manual planting','native support/timing/yield calibration','growth/bone meal/SuperFertilizer','unknown-border browser behavior (unit only)','fullEducation/graphics/performance/physicalphone']},null,2));}
+ finally{const finalReadback=await read().catch(e=>({readFailure:String(e)}));await fs.writeFile(info.outputPath('cane-support-proof.json'),JSON.stringify({stage,failure,mobile,errors,phases,finalReadback,fixture:'Initial saved supported3Cane/Sand/oneWater/platform/emptyBucket/Axe7/fullbag with oneCobble1; actualBucket collection triggers passivecollapse, coldgroundsave, realCobbleplacement freesonecell, legalchatTPpickup, finalcold. Camera yaw/pitch are explicitly set by aimAtTop as a targeting fixture; no runtimeoutcome/terrain/bag writes.',uncovered:['natural Cane acquisition/manual planting','native support/timing/yield calibration','growth/bone meal/SuperFertilizer','unknown-border browser behavior (unit only)','fullEducation/graphics/performance/physicalphone']},null,2));}
 }
