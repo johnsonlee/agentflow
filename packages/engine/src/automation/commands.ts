@@ -39,6 +39,8 @@ export const COMMAND_HELP = [
   "/gamerule <doMobSpawning|doDaylightCycle|keepInventory> <true|false>",
   "/seed",
   "/agent tp  (bring your Agent to you)",
+  "/summon agent  (bring your Agent to you)",
+  "/tp @c @s  (bring your Agent to you)",
   "/code <name>  (run a Code Builder program by its chat command)",
 ];
 
@@ -76,6 +78,11 @@ export function parseCommand(input: string): Command {
     }
     case "tp":
     case "teleport": {
+      // Only the documented own-Agent-to-self selector form is supported here.
+      if (args.some(arg => arg.startsWith("@"))) {
+        if (args.length === 2 && args[0] === "@c" && args[1] === "@s") return { type: "agent", action: "tp" };
+        return { type: "error", message: "Usage: /tp <x> <y> <z> or /tp @c @s" };
+      }
       if (args.length !== 3) return { type: "error", message: "Usage: /tp <x> <y> <z>" };
       const relative = args.map((a) => a.startsWith("~")) as [boolean, boolean, boolean];
       const values = args.map((a) => (a.startsWith("~") ? Number(a.slice(1) || "0") : Number(a)));
@@ -103,6 +110,8 @@ export function parseCommand(input: string): Command {
       return { type: "code", command: args[0].toLowerCase() };
     case "summon": {
       const kind = (args[0] ?? "").toLowerCase().replace(/^minecraft:/, "");
+      // Agent is one persistent owned entity, separate from the mob registry.
+      if (kind === "agent") return args.length === 1 ? { type: "agent", action: "tp" } : { type: "error", message: "Usage: /summon agent" };
       if (!isSummonKind(kind)) {
         return { type: "error", message: `Usage: ${SUMMON_HELP}` };
       }
