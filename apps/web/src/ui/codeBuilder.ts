@@ -157,17 +157,19 @@ export class CodeBuilderScreen {
     name.value = this.program.name;
     name.setAttribute("aria-label", "Program name");
     name.addEventListener("keydown", (e) => e.stopPropagation());
-    name.addEventListener("change", () => { this.program.name = name.value.trim() || "My program"; refreshChoices(); workingStatus.textContent = this.workspace.status(); });
+    const updateName = () => { this.program.name = name.value.trim() || "My program"; refreshChoices(); workingStatus.textContent = this.workspace.status(); };
+    name.addEventListener("input", updateName); name.addEventListener("change", updateName);
     const chat = el("input", "mc-input");
     chat.placeholder = "chat command (optional)";
     chat.value = this.program.trigger.type === "chat" ? this.program.trigger.command : "";
     chat.setAttribute("aria-label", "Chat command");
     chat.addEventListener("keydown", (e) => e.stopPropagation());
-    chat.addEventListener("change", () => {
+    const updateChat = () => {
       const word = chat.value.trim().toLowerCase().split(/\s+/)[0] ?? "";
       this.program.trigger = word ? { type: "chat", command: word } : { type: "run" };
       workingStatus.textContent = this.workspace.status();
-    });
+    };
+    chat.addEventListener("input", updateChat); chat.addEventListener("change", updateChat);
     meta.append(name, chat);
 
     const workspace = el("div", "cb-workspace");
