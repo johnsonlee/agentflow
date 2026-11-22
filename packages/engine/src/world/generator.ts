@@ -1,3 +1,4 @@
+import {CANE_APP_PROFILE,CANE_PLANT_ID} from '../catalog/cane-profile';
 import { blockId } from "../catalog/blocks";
 import { CHUNK_SIZE, Chunk, WORLD_HEIGHT } from "./chunk";
 import { SimplexNoise } from "./noise";
@@ -5,11 +6,12 @@ import { hash3 } from "../core/random";
 
 export const SEA_LEVEL = 30;
 const SNOW_LINE = 60;
-export type GeneratorVersion = 1|2;
+export type GeneratorVersion = 1|2|3;
+export const CURRENT_OVERWORLD_GENERATOR_VERSION:GeneratorVersion=3;
 export interface LavaBasin { x:number;y:number;z:number;floorY:number;rimY:number }
 export function sanitizeGeneratorVersion(raw:unknown):{version:GeneratorVersion;invalid:boolean;present:boolean}{
  if(raw===undefined)return {version:1,invalid:false,present:false};
- return raw===1||raw===2?{version:raw,invalid:false,present:true}:{version:1,invalid:true,present:true};
+ return raw===1||raw===2||raw===3?{version:raw,invalid:false,present:true}:{version:1,invalid:true,present:true};
 }
 
 const B = {
@@ -46,7 +48,7 @@ export class TerrainGenerator {
   private readonly forestNoise: SimplexNoise;
 
   constructor(readonly seed: number, readonly version:GeneratorVersion=1) {
-    if(version!==1&&version!==2)throw new RangeError("Unsupported terrain generator version");
+    if(version!==1&&version!==2&&version!==3)throw new RangeError("Unsupported terrain generator version");
     this.heightNoise = new SimplexNoise(seed);
     this.mountainNoise = new SimplexNoise(seed ^ 0x5bd1e995);
     this.climateNoise = new SimplexNoise(seed ^ 0x1b873593);
@@ -123,13 +125,14 @@ export class TerrainGenerator {
         this.maybeTree(chunk, x, z);
       }
     }
-    if(this.version===2)this.generateLavaBasins(chunk);
+    if(this.version>=2)this.generateLavaBasins(chunk);
+    if(this.version===3)this.generateCane(chunk);
     return chunk;
   }
 
   /** Read-only deterministic app basin candidate; x/z must be a 32-grid center. */
   lavaBasinAt(x:number,z:number):LavaBasin|null {
-    if(this.version!==2||!Number.isSafeInteger(x)||!Number.isSafeInteger(z)||((x%32)+32)%32!==16||((z%32)+32)%32!==16)return null;
+    if(this.version<2||!Number.isSafeInteger(x)||!Number.isSafeInteger(z)||((x%32)+32)%32!==16||((z%32)+32)%32!==16)return null;
     const h=this.heightAt(x,z);if(h<=SEA_LEVEL+2||hash3(this.seed^0x4c415641,x,0,z)>=.02)return null;
     return {x,y:h-1,z,floorY:h-2,rimY:h};
   }
@@ -144,6 +147,18 @@ export class TerrainGenerator {
         for(let y=basin.floorY;y<=top;y++)chunk.set(lx,y,lz,rim||y===basin.floorY?B.stone:B.lava);
         for(let y=top+1;y<=Math.min(WORLD_HEIGHT-1,Math.max(this.heightAt(x,z)+9,basin.rimY+3));y++)chunk.set(lx,y,lz,0);
       }
+    }
+  }
+
+  /** V3-only app shoreline decoration. No new draws advance old noise/permutation streams. */
+  private generateCane(chunk:Chunk):void{
+    const x0=chunk.cx*CHUNK_SIZE,z0=chunk.cz*CHUNK_SIZE;
+    for(let lz=0;lz<CHUNK_SIZE;lz++)for(let lx=0;lx<CHUNK_SIZE;lx++){
+      const x=x0+lx,z=z0+lz,h=this.heightAt(x,z);
+      if(h!==SEA_LEVEL||chunk.get(lx,h,lz)!==B.sand||hash3(this.seed^CANE_APP_PROFILE.shorelineSalt,x,0,z)>=CANE_APP_PROFILE.shorelineChance)continue;
+      if(![[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dz])=>this.heightAt(x+dx,z+dz)<SEA_LEVEL))continue;
+      if(Array.from({length:CANE_APP_PROFILE.generatedHeight},(_,i)=>chunk.get(lx,h+1+i,lz)).some(id=>id!==0))continue;
+      for(let dy=1;dy<=CANE_APP_PROFILE.generatedHeight;dy++)chunk.set(lx,h+dy,lz,CANE_PLANT_ID);
     }
   }
 

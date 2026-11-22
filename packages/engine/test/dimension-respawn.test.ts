@@ -22,7 +22,7 @@ it('refuses unknown body or support cells and never promotes unverified space to
  vi.spyOn(World.prototype,'captureCell').mockReturnValue(undefined);const raw=source(),before=structuredClone(raw);expect(prepareOverworldRespawn(raw)).toBeNull();expect(raw).toEqual(before);
 });
 it('refuses corrupt archived owners, impossible coordinates, unsupported version and descriptor-bearing input',()=>{
- for(const alter of [(w:DimensionWorldState)=>{w.generatorVersion=3 as 1;},(w:DimensionWorldState)=>{w.player.position!.x=WORLD_BORDER+1;},(w:DimensionWorldState)=>{w.player.position!.z=NaN;},(w:DimensionWorldState)=>{w.edits=[[0,40,0,197]];},(w:DimensionWorldState)=>{w.edits=[[0,40,0,AIR],[0,40,0,AIR]];},(w:DimensionWorldState)=>{w.fluids={version:1,contactSeconds:NaN};}]){const raw=source();alter(raw);expect(prepareOverworldRespawn(raw)).toBeNull();}
+ for(const alter of [(w:DimensionWorldState)=>{w.generatorVersion=4 as 1;},(w:DimensionWorldState)=>{w.player.position!.x=WORLD_BORDER+1;},(w:DimensionWorldState)=>{w.player.position!.z=NaN;},(w:DimensionWorldState)=>{w.edits=[[0,40,0,197]];},(w:DimensionWorldState)=>{w.edits=[[0,40,0,AIR],[0,40,0,AIR]];},(w:DimensionWorldState)=>{w.fluids={version:1,contactSeconds:NaN};}]){const raw=source();alter(raw);expect(prepareOverworldRespawn(raw)).toBeNull();}
  const getter=source();Object.defineProperty(getter,'seed',{enumerable:true,get(){throw Error('accessor invoked');}});expect(prepareOverworldRespawn(getter)).toBeNull();
 });
 it('binds support, Agent cell and chunk identities and refuses while a World source lease is busy',()=>{

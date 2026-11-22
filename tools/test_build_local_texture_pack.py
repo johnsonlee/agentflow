@@ -89,6 +89,16 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(report["tiles"][0]["rgbaSha256"], hashlib.sha256(rgba).hexdigest())
         self.assertEqual(report["packSha256"], hashlib.sha256(self.output.read_bytes()).hexdigest())
 
+    def test_explicit_cane_paper_application_keys_preserve_source_pixels(self):
+        keys = ["sugar_cane_plant", "item_sugar_cane", "item_paper"]
+        self.write_manifest(tiles=[{"key": key, "path": "rgba.png"} for key in keys])
+        output, report, _ = converter.build_pack(self.manifest)
+        pack = json.loads(output)
+        self.assertEqual([tile["key"] for tile in pack["tiles"]], keys)
+        expected = Image.open(self.source).convert("RGBA").tobytes()
+        for tile in pack["tiles"]:
+            self.assertEqual(base64.b64decode(tile["rgbaBase64"]), expected)
+
     def test_explicit_three_chest_faces_keep_distinct_application_bindings(self):
         keys = ["chest_top", "chest_side", "chest_bottom"]
         self.write_manifest([{"key": key, "path": "rgba.png"} for key in keys])

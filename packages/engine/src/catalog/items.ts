@@ -240,6 +240,8 @@ const specs: Omit<ItemDef, "id">[] = [
   { name:"elixir",displayName:"Elixir",maxStack:1,icon:"item_elixir" },
   { name:"eye_drops",displayName:"Eye Drops",maxStack:1,icon:"item_eye_drops" },
   { name:"tonic",displayName:"Tonic",maxStack:1,icon:"item_tonic" },
+  {name:'sugar_cane',displayName:'Sugar Cane',maxStack:MAX_STACK,icon:'item_sugar_cane',places:'sugar_cane_plant'},
+  material('paper','Paper'),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");
@@ -301,6 +303,7 @@ export function foodOf(id: number | undefined | null): ItemDef["food"] | null {
 
 /** Minecraft drops that differ from the block itself (coal ore -> coal, diamond ore -> diamond, bookshelf -> 3 books). */
 const BLOCK_ITEM_DROPS = new Map<string, string>([
+  ["sugar_cane_plant", "sugar_cane"],
   ["coal_ore", "coal"], ["diamond_ore", "diamond"], ["bookshelf", "book"],
   ["placed_heat_block", "heat_block"], ["placed_underwater_torch", "underwater_torch"], ["placed_glow_stick", "glow_stick"],
   ["redstone_ore", "redstone"], ["glowstone", "glowstone_dust"], ["snow", "snowball"],

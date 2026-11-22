@@ -62,6 +62,7 @@ export function blockSelectionBoxes(get: BlockGetter, x: number, y: number, z: n
   const id = idOverride ?? get(x, y, z);
   if (blockById(id).shape === "brewing_stand") return BREWING_STAND_BOXES;
   if(blockById(id).name==="chest")return [blockById(id).box!];
+  if(blockById(id).shape==="cane")return [[.15,0,.15,.85,1,.85]];
   return blockById(id).shape === "fence" ? fenceBoxes(fenceConnections(get, x, y, z, id), false) : [FULL];
 }
 

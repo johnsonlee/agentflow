@@ -8,8 +8,8 @@ it("preserves all867 published pixels and UVs while appending one original Flint
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
   expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
   expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
-  expect(names).toHaveLength(896); expect(names.slice(0, 867)).toEqual(baseline.names);
-  expect(names.slice(867, 868)).toEqual(["item_flint"]); expect(new Set(names).size).toBe(896);
+  expect(names).toHaveLength(899); expect(names.slice(0, 867)).toEqual(baseline.names);
+  expect(names.slice(867, 868)).toEqual(["item_flint"]); expect(new Set(names).size).toBe(899);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

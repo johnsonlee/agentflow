@@ -128,7 +128,7 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
         }
         // Drawn elsewhere (e.g. chalkboards are textured planes).
         if (def.shape === "none") continue;
-        if (def.shape === "cross" || def.shape === "torch") {
+        if (def.shape === "cross" || def.shape === "cane" || def.shape === "torch") {
           addCross(solid, x, y, z, uv(def.faces.side), def.shape === "torch" ? 0.0 : 0.15, def.emissive ? 0xff : lightAt(x, y, z));
           continue;
         }

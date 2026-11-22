@@ -1,3 +1,5 @@
+import {inspectCaneItemOwner} from '../ownership/cane-items';
+import {SUGAR_CANE_ITEM_ID} from '../catalog/cane-profile';
 import { harvestOwnerSnapshot } from "../ownership/harvest-owner";
 import {reserveHarvestSource} from "../world/harvest-source";
 import { joinLeashRefundSink, type ReleaseAttempt } from "../ownership/leashes";
@@ -20,7 +22,7 @@ import { isKnownId, placedBlockOf } from "../catalog/items";
 import { doorPartner, orientedPlacement } from "../simulation/redstone";
 import { WORLD_HEIGHT } from "../world/chunk";
 import { WORLD_BORDER, type Vec3 } from "../core/math";
-import { canBreak, canBuildAt, extraCellsFree, hasSupport, plantNetherWart } from "../world/rules";
+import { canBreak, canBuildAt, extraCellsFree, hasSupport, plantNetherWart, plantSugarCane } from "../world/rules";
 import type { World } from "../world/world";
 
 export const AGENT_SLOTS = 27;
@@ -166,10 +168,11 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       agent.facing = (agent.facing + (cmd.side === "left" ? 3 : 1)) % 4;
       return { ok: true };
     case "place": {
-      const t = target(cmd.dir);
+      const t = target(cmd.dir),stack=agent.slots[agent.selected];
+      if(inspectCaneItemOwner(stack).kind==='invalid')return{ok:false,message:'Invalid Sugar Cane item'};
+      if(stack?.id===SUGAR_CANE_ITEM_ID)return{ok:plantSugarCane(world,agent,'survival',t.x,t.y,t.z,AGENT_SLOTS,AGENT_SLOTS),message:'Sugar Cane needs an empty spot on supported soil beside water'};
       const here = world.getBlock(t.x, t.y, t.z);
       if (here !== AIR && !tryBlockById(here)?.replaceable && tryBlockById(here)?.shape !== "liquid") return { ok: false, message: "Something is in the way" };
-      const stack = agent.slots[agent.selected];
       if(stack?.id===842)return {ok:plantNetherWart(world,agent,"survival",t.x,t.y,t.z,AGENT_SLOTS,AGENT_SLOTS),message:"Wart requires Soul Sand and an unchanged owned item"};
       // Blocks, and items that place a block (redstone dust, doors, lab products).
       // Stateful glow has no block metadata owner. Refuse before world writes or source debit.
@@ -209,13 +212,12 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       try {
         if (lease && !env.worldDrop) return { ok: false, message: "Leashed sources require atomic world drops" };
         const above = source.above;
-        const supported = tryBlockById(above)?.needsSupport === true;
         const contents = env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [];
         const contentsSource = JSON.stringify(contents);
         const gravel = id === blockId("gravel");
         const gravelPlan = gravel ? world.gravelHarvests.plan(t.x, t.y, t.z, env.gravelRand) : null;
         if (gravel && !gravelPlan) return { ok: false, message: "Cannot resolve gravel harvest" };
-        const drops = [...(gravelPlan ? [gravelPlan.stack] : blockDrops(id)), ...(supported ? blockDrops(above) : []), ...contents];
+        const drops = [...(gravelPlan ? [gravelPlan.stack] : blockDrops(id)), ...source.dependents.flatMap(c=>blockDrops(c.id)), ...contents];
         const trial = { ...agent, slots: agent.slots.map((stack) => stack ? cloneStack(stack) : null) };
         const partner=source.partner,partnerId=source.partnerId;
         const sourceValid = () => {

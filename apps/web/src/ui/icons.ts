@@ -62,7 +62,7 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64, stack?: It
     for (let i = 0; i < 3; i++) ctx.fillRect(x + 7, y + 8 + i * 6, (w - 14) * (1 - i * 0.25), 2);
   } else if (!def) {
     ctx.drawImage(tileCanvas(atlas, activeIcon ?? itemById(id).icon), 0, 0, size, size);
-  } else if (def.shape === "cross" || def.shape === "torch") {
+  } else if (def.shape === "cross" || def.shape === "cane" || def.shape === "torch") {
     ctx.drawImage(tileCanvas(atlas, def.faces.side), size * 0.1, size * 0.1, size * 0.8, size * 0.8);
   } else if (def.shape === "brewing_stand") {
     // Project the same original multipart world model, instead of showing a misleading full cube.

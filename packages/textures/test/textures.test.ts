@@ -78,6 +78,7 @@ describe("procedural textures", () => {
     expect(alphaTiles.sort()).toEqual(
       [
         ...DYE_COLORS.map((c) => `${c.name}_stained_glass`),
+        "sugar_cane_plant", "item_sugar_cane", "item_paper",
         "blue_torch", "red_torch", "purple_torch", "green_torch",
         "birch_leaves", "dandelion", "fire", "glass", "glow_stick_block", "nether_portal", "oak_leaves", "poppy", "tall_grass", "torch", "underwater_torch_block", "water",
         "lever_off", "lever_on", "redstone_torch_on", "redstone_torch_off", ...Array.from({ length: 16 }, (_, p) => `redstone_dust_${p}`),

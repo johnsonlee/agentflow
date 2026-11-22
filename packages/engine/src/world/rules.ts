@@ -1,3 +1,6 @@
+import {inspectCaneItemOwner} from '../ownership/cane-items';
+import {plantSugarCaneOwned} from './sugar-cane';
+import {SUGAR_CANE_ITEM_ID} from '../catalog/cane-profile';
 import { isFluidBlock } from "../simulation/fluids";
 import { extinguishFire } from "../simulation/fire";
 import { harvestOwnerSnapshot } from "../ownership/harvest-owner";
@@ -109,9 +112,8 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
         (!guardedPartner || world.getBlock(...guardedPartner) === partnerId) && inventory.selected === selected && JSON.stringify(inventory.selectedStack()) === selectedSource;
     } catch { return false; }
   };
-  const supported = tryBlockById(above)?.needsSupport === true;
   const drops: ItemStack[] = [...(mode === "survival" ? [
-    ...(canHarvest(id, tool) ? gravelPlan ? [gravelPlan.stack] : blockDrops(id, rand) : []), ...(supported ? blockDrops(above, rand) : []),
+    ...(canHarvest(id, tool) ? gravelPlan ? [gravelPlan.stack] : blockDrops(id, rand) : []), ...source.dependents.flatMap(c=>blockDrops(c.id,rand)),
   ] : []), ...externalDrops];
   if (!sourceValid()) return false;
   // Optional world receiver stages the complete resolved batch before source removal.
@@ -190,6 +192,8 @@ export function placeBlock(
   if(world.blockSourceLeaseBusy)return false;
   if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT) return false;
   const stack = inventory.selectedStack();
+  if(inspectCaneItemOwner(stack).kind==="invalid")return false;
+  if(stack?.id===SUGAR_CANE_ITEM_ID)return plantSugarCane(world,inventory,mode,x,y,z);
   if(stack?.id===842)return plantNetherWart(world,inventory,mode,x,y,z,36,9);
   // Items place nothing, except Lab Table products that place a block (heat block, glow stick, ...).
   // Explicit activation state has no block-owned representation; preserve the held unit.
@@ -236,3 +240,6 @@ export function plantNetherWart(world:World,owner:{slots:(ItemStack|null)[];sele
   if(mode==="survival"){stack.count--;if(stack.count===0)slots[index]=null;}
  },[target,support],()=>owner.slots===slots&&owner.selected===index&&stable());
 }
+
+/** Dedicated Cane placement reuses the shared owner/cell boundary. */
+export function plantSugarCane(world:World,owner:{slots:(ItemStack|null)[];selected:number},mode:GameMode,x:number,y:number,z:number,size=36,selectable=9):boolean{return plantSugarCaneOwned(world,owner,mode,x,y,z,size,selectable,()=>canBuildAt(world,mode,x,y,z));}

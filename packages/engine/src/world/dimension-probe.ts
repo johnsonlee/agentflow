@@ -10,7 +10,7 @@ import { NetherGenerator } from "./nether-generator";
 export function createDimensionGeneratedBlockProbe(): DimensionGeneratedBlockProbe {
   const generators = new Map<string,TerrainGenerator|NetherGenerator>(), chunks = new Map<string,Chunk>();
   return (dimension,seed,version,x,y,z) => {
-    if(!isDimensionId(dimension)||!Number.isInteger(seed)||seed < -2147483648||seed > 2147483647||![x,y,z].every(Number.isSafeInteger)||Math.abs(x)>WORLD_BORDER||Math.abs(z)>WORLD_BORDER||y<0||y>=WORLD_HEIGHT||version!==1&&version!==2||dimension==="nether"&&version!==1)return undefined;
+    if(!isDimensionId(dimension)||!Number.isInteger(seed)||seed < -2147483648||seed > 2147483647||![x,y,z].every(Number.isSafeInteger)||Math.abs(x)>WORLD_BORDER||Math.abs(z)>WORLD_BORDER||y<0||y>=WORLD_HEIGHT||version!==1&&version!==2&&version!==3||dimension==="nether"&&version!==1)return undefined;
     const identity=`${dimension}:${seed}:${version}`,cx=toChunkCoord(x),cz=toChunkCoord(z),key=`${identity}:${cx},${cz}`;
     try {
       let chunk=chunks.get(key);

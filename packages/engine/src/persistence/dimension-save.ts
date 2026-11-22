@@ -1,3 +1,4 @@
+import {diagnoseRawCaneOwnership} from './cane-ownership';
 import {readChestOwners} from './chest-save';
 import {readBrewingStandOwners} from "./brewing-save";
 import {readBlazeOwners} from "./blaze-save";
@@ -126,7 +127,7 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
     if (invalid || !canonicalEqual(raw[name], cleaned)) { add(name, "Malformed archived state; refusing silent repair or dropped owners"); return false; }
     return true;
   };
-  for (const diagnose of [diagnoseRawBrewingItemOwnership, diagnoseRawWartOwnership, diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership]) {
+  for (const diagnose of [diagnoseRawCaneOwnership, diagnoseRawBrewingItemOwnership, diagnoseRawWartOwnership, diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership]) {
     for (const issue of diagnose(raw)) add(issue.path, issue.reason);
   }
   for(const issue of diagnoseRawWartSupport(raw,dimension,(_dimension,_seed,_version,x,y,z)=>block(x,y,z)))add(issue.path,issue.reason);

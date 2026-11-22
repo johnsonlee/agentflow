@@ -129,3 +129,10 @@ export * from "./ownership/harvest-owner";
 
 export * from './ownership/single-chest';
 export * from './persistence/chest-save';
+
+export * from './catalog/cane-profile';
+export * from './ownership/cane-items';
+export * from './world/sugar-cane';
+export * from './world/harvest-dependents';
+
+export * from './persistence/cane-ownership';

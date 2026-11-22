@@ -6,7 +6,7 @@ import { AIR, blockId, isKnownBlockId, isOpaque } from "../catalog/blocks";
 import { WORLD_BORDER } from "../core/math";
 import { MAX_LIGHT, emission, relightBlock, spread, type LightAccess } from "./light";
 import { CHUNK_SIZE, Chunk, WORLD_HEIGHT, chunkKey, toChunkCoord, toLocalCoord } from "./chunk";
-import { TerrainGenerator } from "./generator";
+import { TerrainGenerator, type GeneratorVersion } from "./generator";
 import { NetherGenerator } from "./nether-generator";
 import { isDimensionId, type DimensionId } from "../core/dimensions";
 
@@ -60,9 +60,9 @@ export class World {
     block: (x, y, z) => this.peek(x, z)?.get(toLocalCoord(x), y, toLocalCoord(z)) ?? AIR,
   };
 
-  constructor(readonly seed: number, readonly generatorVersion:1|2 = 1, readonly dimension:DimensionId = "overworld") {
+  constructor(readonly seed: number, readonly generatorVersion:GeneratorVersion = 1, readonly dimension:DimensionId = "overworld") {
     if(!isDimensionId(dimension))throw new RangeError("Unsupported world dimension");
-    if(generatorVersion!==1&&generatorVersion!==2||dimension==="nether"&&generatorVersion!==1)throw new RangeError("Unsupported world generator version");
+    if(generatorVersion!==1&&generatorVersion!==2&&generatorVersion!==3||dimension==="nether"&&generatorVersion!==1)throw new RangeError("Unsupported world generator version");
     this.lightAccess.skyLight = dimension === "overworld";
     this.generator = dimension === "nether" ? new NetherGenerator(seed,1) : new TerrainGenerator(seed,generatorVersion);
   }

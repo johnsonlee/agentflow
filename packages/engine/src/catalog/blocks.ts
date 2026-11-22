@@ -1,3 +1,4 @@
+import {CANE_PLANT_ID} from './cane-profile';
 import { STATION_FACE_TEXTURES } from "./station-textures";
 import { DYE_COLORS } from "./dyes";
 /**
@@ -8,7 +9,7 @@ import { DYE_COLORS } from "./dyes";
 import { ELEMENTS } from "../crafting/chemistry-data";
 import { EXTENDED_BLOCK_ID_BASE, isBlockNamespace } from "../core/ids";
 
-export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "fence" | "brewing_stand" | "none";
+export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "fence" | "brewing_stand" | "cane" | "none";
 
 export interface BlockFaces {
   top: string;
@@ -256,6 +257,8 @@ specs.push({id:201,name:"brewing_stand",displayName:"Brewing Stand",faces:faces(
 specs.push({id:202,name:"birch_planks",displayName:"Birch Planks",faces:faces("birch_planks"),hardness:3,tool:"axe"});
 
 specs.push({id:203,name:'chest',displayName:'Chest',faces:faces('chest_top','chest_side','chest_bottom'),shape:'box',box:[1/16,0,1/16,15/16,14/16,15/16],collisionBox:[1/16,0,1/16,15/16,14/16,15/16],transparent:true,hardness:3.75,tool:'axe'});
+
+specs.push({id:CANE_PLANT_ID,name:'sugar_cane_plant',displayName:'Sugar Cane',faces:faces('sugar_cane_plant'),shape:'cane',solid:false,transparent:true,hardness:0,creative:false,needsSupport:true});
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

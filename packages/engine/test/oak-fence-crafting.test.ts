@@ -29,7 +29,7 @@ it("adds one explicit unused low-block identity without changing published defin
   expect(BLOCKS.slice(0, 307).map(b => [b.id, b.name])).toEqual(before.blockIDs);
   expect(blockId("oak_fence")).toBe(188); expect(BLOCKS[307]?.name).toBe("oak_fence");
   expect(blockById(188)).toMatchObject({ solid: true, transparent: true, shape: "fence", faces: { top: "oak_planks", side: "oak_planks", bottom: "oak_planks" } });
-  expect(new Set(BLOCKS.map(b => b.id)).size).toBe(323); expect(new Set(withLegacyBirchRecipes(RECIPES.slice(0, 143)).map(r => r.id)).size).toBe(143);
+  expect(new Set(BLOCKS.map(b => b.id)).size).toBe(324); expect(new Set(withLegacyBirchRecipes(RECIPES.slice(0, 143)).map(r => r.id)).size).toBe(143);
 });
 it("crafts the retained six-cell oak recipe in either row position and consumes four planks and two sticks once", () => {
   for (const offset of [0, 3]) {

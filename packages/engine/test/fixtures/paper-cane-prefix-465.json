@@ -1,0 +1,127 @@
+{
+  "base": "465e60b5bfc0aff57bcbc48c227f48aa611fcb19",
+  "blocks": "28e8b899212a08b96faa58899e8ff1237ea66c95986fa24901dcdcbfa43fcf74",
+  "items": "94da694fda99b5ce1c0e4d4fb1072a367196d7a96dd1bd2cc2a44f995a2635e8",
+  "recipes": "550e67aa123be299439829a0697f13a55635f0e84ad1e12fc35ada55e375e4fa",
+  "names": "53f2c492f8951cdd250afb736d0530f6b50fbaee71267cf51a339cbf8dfe8a3d",
+  "tiles": "fd95db5c838d92e93041859ecd03c99671a84aacd9e2ecfcb6e24435fd995616",
+  "atlas": "a8064ed3b140a53db7ba34508821567012281efadfd01422a5580fa802211e2b",
+  "chunks": [
+    {
+      "seed": 7,
+      "version": 1,
+      "cx": 0,
+      "cz": 0,
+      "sha256": "2f621f063fa49e1fdb458d7c757c8cd72b000c2e1c36072d259584ca49f02380"
+    },
+    {
+      "seed": 7,
+      "version": 1,
+      "cx": 2,
+      "cz": -1,
+      "sha256": "7661b9b58f8607925b18809a60275f6d13dbb506f18f9cff1dcf2d0ef2e54cce"
+    },
+    {
+      "seed": 7,
+      "version": 1,
+      "cx": -4,
+      "cz": 3,
+      "sha256": "40e017b2a2635fa7752959cfb81cb95abcc54359aedb99f695d7003c4d0f78ff"
+    },
+    {
+      "seed": 7,
+      "version": 1,
+      "cx": 1,
+      "cz": -2,
+      "sha256": "26d07cfa035f24208d7508b30b8ccb2a84f6f55d8f17fec60cc8582c543af851"
+    },
+    {
+      "seed": 7,
+      "version": 2,
+      "cx": 0,
+      "cz": 0,
+      "sha256": "2f621f063fa49e1fdb458d7c757c8cd72b000c2e1c36072d259584ca49f02380"
+    },
+    {
+      "seed": 7,
+      "version": 2,
+      "cx": 2,
+      "cz": -1,
+      "sha256": "7661b9b58f8607925b18809a60275f6d13dbb506f18f9cff1dcf2d0ef2e54cce"
+    },
+    {
+      "seed": 7,
+      "version": 2,
+      "cx": -4,
+      "cz": 3,
+      "sha256": "40e017b2a2635fa7752959cfb81cb95abcc54359aedb99f695d7003c4d0f78ff"
+    },
+    {
+      "seed": 7,
+      "version": 2,
+      "cx": 1,
+      "cz": -2,
+      "sha256": "26d07cfa035f24208d7508b30b8ccb2a84f6f55d8f17fec60cc8582c543af851"
+    },
+    {
+      "seed": 12345,
+      "version": 1,
+      "cx": 0,
+      "cz": 0,
+      "sha256": "1d7774ba4a1003eac7a1b2690f914cade81c8f73331f49bf7993418476e90efc"
+    },
+    {
+      "seed": 12345,
+      "version": 1,
+      "cx": 2,
+      "cz": -1,
+      "sha256": "fef675320391c089ccbca5d70b0723dd4ec651db8c52ae9e2e4fac65bf289113"
+    },
+    {
+      "seed": 12345,
+      "version": 1,
+      "cx": -4,
+      "cz": 3,
+      "sha256": "f7f3564e202092d9790b616f279487c6cbea7340cfacbf5dbcfac5963fa08801"
+    },
+    {
+      "seed": 12345,
+      "version": 1,
+      "cx": 1,
+      "cz": -2,
+      "sha256": "92270a035a1a92a7a3e4ab55e7251dd44dff85ba9fec1018c366b1413705896f"
+    },
+    {
+      "seed": 12345,
+      "version": 2,
+      "cx": 0,
+      "cz": 0,
+      "sha256": "1d7774ba4a1003eac7a1b2690f914cade81c8f73331f49bf7993418476e90efc"
+    },
+    {
+      "seed": 12345,
+      "version": 2,
+      "cx": 2,
+      "cz": -1,
+      "sha256": "fef675320391c089ccbca5d70b0723dd4ec651db8c52ae9e2e4fac65bf289113"
+    },
+    {
+      "seed": 12345,
+      "version": 2,
+      "cx": -4,
+      "cz": 3,
+      "sha256": "f7f3564e202092d9790b616f279487c6cbea7340cfacbf5dbcfac5963fa08801"
+    },
+    {
+      "seed": 12345,
+      "version": 2,
+      "cx": 1,
+      "cz": -2,
+      "sha256": "92270a035a1a92a7a3e4ab55e7251dd44dff85ba9fec1018c366b1413705896f"
+    }
+  ],
+  "ids": {
+    "physical204Free": true,
+    "maximumItem": 849
+  }
+}

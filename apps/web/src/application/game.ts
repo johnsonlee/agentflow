@@ -1,4 +1,4 @@
-import {SingleChest,readChestOwners,type ChestOwnershipIssue} from '@craft/engine';
+import {diagnoseRawCaneOwnership,CURRENT_OVERWORLD_GENERATOR_VERSION,SingleChest,readChestOwners,type ChestOwnershipIssue} from '@craft/engine';
 import {
   PlayerStatusOwner, hasPlayerStatus, applyTimedStatus, outgoingMeleeDamage, isDrinkablePotionId, MEDICINE_DRINK_SECONDS, finishMedicineDrink, finishOwnedMilkDrink,
   BrewingStand, readBrewingStandOwners, diagnoseRawBrewingItemOwnership, type BrewingOwnershipIssue,
@@ -125,6 +125,7 @@ export class Game {
   private recoveryOriginal: string | null = null;
   private recoverySections: string[] = [];
   private wartIssues:Array<{path:string;reason:string}>=[];
+  private caneIssues:Array<{path:string;reason:string}>=[];
   private blazeIssues:BlazeOwnershipIssue[]=[];
   private brewingIssues:BrewingOwnershipIssue[]=[];
   private chestIssues:ChestOwnershipIssue[]=[];
@@ -257,13 +258,13 @@ export class Game {
     const save = options.save;
     this.restoreDimensions(save);
     this.restoreBrewingOwners(save);this.restoreChestOwners(save);
-    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
+    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     if(options.preparedWorld){
       if(!prepareOnly||!save||this.recoverySections.length||!this.acceptPreparedWorld(options.preparedWorld,save))throw new Error("Invalid or already attached prepared arrival World");
       this.world=options.preparedWorld;
     }else{
-      this.world = new World(save?.seed ?? options.seed, save ? save.generatorVersion ?? 1 : 2, this.dimensionArchive?.active ?? "overworld");
+      this.world = new World(save?.seed ?? options.seed, save ? save.generatorVersion ?? 1 : CURRENT_OVERWORLD_GENERATOR_VERSION, this.dimensionArchive?.active ?? "overworld");
       if (save) this.world.importEdits(sanitizeEdits(save.edits));
       this.restoreGravelHarvests(save); this.restoreFire(save); this.restoreFluids(save); this.restorePortals(save);
     }
@@ -389,6 +390,7 @@ export class Game {
     for(const issue of this.chestIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.brewingIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.blazeIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for(const issue of this.caneIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.wartIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.portalOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     if (this.recoverySections.includes("portals")) this.loadErrors.push("Damaged portals (original save preserved)");
@@ -1579,6 +1581,13 @@ export class Game {
       const impacts=this.mobs.drainFireballImpacts();
       for(const impact of impacts)if(!this.dead&&impact.kind==="player"&&this.mode==="survival")this.hurt(impact.damage,"blaze");
     }
+  }
+
+  private markCaneRecovery(save:SaveData|undefined):void {
+    this.caneIssues=[...(save?.caneOwnershipIssues??[]),...diagnoseRawCaneOwnership(save)].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
+    if(!this.caneIssues.length)return;
+    this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
+    if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
   }
 
   private markWartRecovery(save:SaveData|undefined):void {
