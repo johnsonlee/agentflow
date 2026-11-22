@@ -1,3 +1,4 @@
+import { hasBusyFurnaceOwnership } from "../ownership/furnace-contents";
 import type { SaveData } from "./save";
 import type { DimensionId } from "../core/dimensions";
 export type { DimensionId } from "../core/dimensions";
@@ -15,13 +16,14 @@ export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[num
 const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
-  "caneOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
+  "recyclingOwnershipIssues", "caneOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
   "bottleOwnershipIssues", "bucketOwnershipIssues", "cowStateInvalid", "playerStatusInvalid",
   "fireInvalid", "ignitionOwnershipIssues", "gravelHarvestInvalid",
 ] as const satisfies readonly (keyof SaveData)[];
 function assertNoSourceDiagnostics(save: SaveData): void {
+  if (hasBusyFurnaceOwnership(save)) throw new Error("Cannot partition busy Furnace ownership");
   for (const key of sourceDiagnostics) {
     const descriptor = Object.getOwnPropertyDescriptor(save, key);
     if (!descriptor) continue;
@@ -35,6 +37,7 @@ function assertNoSourceDiagnostics(save: SaveData): void {
 
 
 function assertWorldEnvelope(world: DimensionWorldState): void {
+  if (hasBusyFurnaceOwnership(world)) throw new Error("Cannot partition busy Furnace ownership");
   if (!world || typeof world !== "object" || Array.isArray(world) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(world))) {
     throw new Error("Invalid dimension world envelope");
