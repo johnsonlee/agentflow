@@ -1,0 +1,39 @@
+import {expect,type Page,type TestInfo,type Locator} from '@playwright/test';
+import fs from 'node:fs/promises';
+import {Inventory,blockId,stackId,serializeSave,type SaveData} from '@craft/engine';
+import {waitForTerrain,snap,lookAtCell,aimAtTop,pressMouse,parkMouse} from './helpers';
+
+/** Disclosed supported three-cell Cane bed, empty Bucket, worn Axe and full bag.
+ * Actual Bucket input removes sole adjacent water; no runtime drop/block/bag writes. */
+export async function caneSupportRoute(page:Page,info:TestInfo,mobile:boolean){
+ const root={x:8,y:80,z:8},water={x:9,y:79,z:8},stand={x:9.5,y:80,z:11.5};
+ const bag=new Inventory();bag.slots[0]={id:stackId('bucket'),count:1};bag.slots[1]={id:stackId('iron_axe'),count:1,damage:7};
+ for(let i=2;i<36;i++)bag.slots[i]={id:blockId('cobblestone'),count:i===2?1:64};
+ const cells=new Map<string,[number,number,number,number]>();const cell=(x:number,y:number,z:number,id:number)=>cells.set(`${x},${y},${z}`,[x,y,z,id]);
+ for(let x=3;x<=14;x++)for(let z=3;z<=15;z++){cell(x,79,z,blockId('stone'));for(let y=80;y<=85;y++)cell(x,y,z,0);}
+ cell(8,79,8,blockId('sand'));cell(water.x,water.y,water.z,blockId('water'));for(let y=80;y<=82;y++)cell(8,y,8,204);
+ const dx=water.x+.5-stand.x,dz=water.z+.5-stand.z;
+ const save:SaveData={version:1,name:'Passive Cane support owners',seed:7,generatorVersion:3,mode:'survival',timeOfDay:.25,player:{position:stand,yaw:Math.atan2(-dx,-dz),pitch:Math.atan2(water.y+.5-(stand.y+1.62),Math.hypot(dx,dz)),flying:false},playerState:{health:20},inventory:bag.toJSON(),edits:[...cells.values()],gamerules:{doMobSpawning:false,doDaylightCycle:false}};
+ const press=(l:Locator)=>mobile?l.tap():l.click(),errors:string[]=[],phases:unknown[]=[];let stage='initial',failure:string|null=null;
+ page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ const read=()=>page.evaluate(()=>{const g=window.__craft.game!;return{bag:g.inventory.toJSON(),drops:g.worldDrops.toJSON(),column:[80,81,82].map(y=>g.world.getLoadedBlock(8,y,8)),water:g.world.getLoadedBlock(9,79,8),edits:g.world.exportEdits(),errors:g.loadErrors};});
+ const caneCount=()=>page.evaluate(()=>window.__craft.game!.inventory.slots.reduce((n,s)=>n+(s?.id===850?s.count:0),0));
+ const groundCane=()=>page.evaluate(()=>window.__craft.game!.worldDrops.records.reduce((n,r)=>n+(r.stack.id===850?r.stack.count:0),0));
+ const phase=async(label:string)=>{stage=label;phases.push({label,state:await read()});};
+ const use=async()=>{await page.waitForFunction(()=>((window.__craft.game! as unknown as{placeCooldown:number}).placeCooldown)===0);if(mobile){const v=page.viewportSize()!;await page.touchscreen.tap(v.width*.65,v.height*.42);}else await pressMouse(page,'right');};
+ const select=async(i:number)=>{if(mobile)await press(page.locator(`.hotbar [data-slot="${i}"]`));else{await page.keyboard.press(`Digit${i+1}`);await parkMouse(page);}};
+ const cold=async(name:string)=>{if(mobile)await press(page.getByRole('button',{name:'Pause',exact:true}));else await page.keyboard.press('Escape');await press(page.getByRole('button',{name:'Save & Quit to Title',exact:true}));const raw=await page.evaluate(()=>localStorage.getItem('craft.save.v1')!);await fs.writeFile(info.outputPath(name),raw);await page.reload();await press(page.getByRole('button',{name:/Continue/}));await waitForTerrain(page);return JSON.parse(raw);};
+ try{
+  const raw=serializeSave(save);await fs.writeFile(info.outputPath('initial-disclosed-supported-bed-full-bag.json'),raw);await page.goto('/');await page.evaluate(s=>{localStorage.clear();localStorage.setItem('craft.save.v1',s);},raw);await page.reload();await press(page.getByRole('button',{name:/Continue/}));await waitForTerrain(page);
+  expect((await read()).column).toEqual([204,204,204]);expect(await groundCane()).toBe(0);expect(await caneCount()).toBe(0);await phase('supported-three-cells-full-bag-no-Cane-item');await snap(page,info,'supported-Cane-before-real-water-collection');
+  await select(0);await lookAtCell(page,water.x,water.y,water.z);await use();
+  await expect.poll(async()=>(await read()).column).toEqual([0,0,0]);await expect.poll(groundCane).toBe(3);expect(await caneCount()).toBe(0);
+  const fallen=await read();expect(fallen.water).toBe(0);expect(fallen.bag.slots[0]).toEqual({id:stackId('water_bucket'),count:1});expect(fallen.bag.slots[1]).toEqual({id:stackId('iron_axe'),count:1,damage:7});expect(fallen.bag.slots.slice(2)).toEqual(save.inventory.slots.slice(2));await phase('actual-Bucket-removes-only-water-passive-three-ground-owners');await snap(page,info,'full-bag-keeps-three-passive-Cane-ground-owners');
+  const stored=await cold('actual-ground-Cane-full-bag-save.json');expect(stored.worldDrops.records.reduce((n:number,r:{stack:{id:number;count:number}})=>n+(r.stack.id===850?r.stack.count:0),0)).toBe(3);expect(await groundCane()).toBe(3);expect(await caneCount()).toBe(0);expect((await read()).column).toEqual([0,0,0]);await phase('cold-ground-three-no-source-replay');await snap(page,info,'cold-passive-Cane-ground-receipt');
+  // One actual Cobblestone placement frees a cell; no deletion or inventory mutation.
+  await select(2);await aimAtTop(page,12,79,11);await use();await expect.poll(()=>page.evaluate(()=>window.__craft.game!.world.getLoadedBlock(12,80,11))).toBe(blockId('cobblestone'));expect((await read()).bag.slots[2]).toBeNull();
+  if(mobile)await press(page.getByRole('button',{name:'Chat and commands',exact:true}));else await page.keyboard.press('Slash');const input=page.getByRole('textbox',{name:'Chat',exact:true});await input.fill('/tp 8.5 80 8.5');await input.press('Enter');await expect(input).toBeHidden();await expect.poll(caneCount).toBe(3);expect(await groundCane()).toBe(0);await phase('actual-one-stone-placed-free-cell-pickup-three-Cane');
+  await cold('actual-three-Cane-bag-final-save.json');expect(await caneCount()).toBe(3);expect(await groundCane()).toBe(0);const final=await read();expect(final.column).toEqual([0,0,0]);expect(final.bag.slots[0]).toEqual(fallen.bag.slots[0]);expect(final.bag.slots[1]).toEqual(fallen.bag.slots[1]);expect(final.errors).toEqual([]);await phase('final-cold-three-bag-no-ground-no-source');await snap(page,info,'final-three-Cane-and-water-Bucket-cold-conserved');expect(errors).toEqual([]);
+ }catch(e){failure=e instanceof Error?e.stack??e.message:String(e);throw e;}
+ finally{await fs.writeFile(info.outputPath('cane-support-proof.json'),JSON.stringify({stage,failure,mobile,errors,phases,fixture:'Initial saved supported3Cane/Sand/oneWater/platform/emptyBucket/Axe7/fullbag with oneCobble1; actualBucket collection triggers passivecollapse, coldgroundsave, realCobbleplacement freesonecell, legalchatTPpickup, finalcold. No runtimeoutcome/terrain/camera writes.',uncovered:['natural Cane acquisition/manual planting','native support/timing/yield calibration','growth/bone meal/SuperFertilizer','unknown-border browser behavior (unit only)','fullEducation/graphics/performance/physicalphone']},null,2));}
+}
