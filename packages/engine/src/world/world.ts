@@ -187,6 +187,11 @@ export class World {
     return this.chunks.size;
   }
 
+  /** Detached coordinates of already loaded chunks; never loads terrain or exposes storage. */
+  loadedChunkCoordinates(): Array<readonly [number, number]> {
+    return [...this.chunks.values()].map(chunk => [chunk.cx, chunk.cz] as const);
+  }
+
   /** Undefined means unloaded; never generates terrain. Out-of-height cells are air. */
   getLoadedBlock(x: number, y: number, z: number): number | undefined {
     if (!(y >= 0 && y < WORLD_HEIGHT)) return AIR;

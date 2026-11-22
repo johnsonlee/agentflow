@@ -136,3 +136,5 @@ export * from './world/sugar-cane';
 export * from './world/harvest-dependents';
 
 export * from './persistence/cane-ownership';
+
+export * from "./simulation/cane-support";

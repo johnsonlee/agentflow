@@ -1,3 +1,4 @@
+import {CaneSupportSystem} from "@craft/engine";
 import {diagnoseRawCaneOwnership,CURRENT_OVERWORLD_GENERATOR_VERSION,SingleChest,readChestOwners,type ChestOwnershipIssue} from '@craft/engine';
 import {
   PlayerStatusOwner, hasPlayerStatus, applyTimedStatus, outgoingMeleeDamage, isDrinkablePotionId, MEDICINE_DRINK_SECONDS, finishMedicineDrink, finishOwnedMilkDrink,
@@ -173,6 +174,7 @@ export class Game {
   private openBrewing:string|null=null;
   /** Loaded-area crop hydration and growth; its scheduler is persisted with the world. */
   readonly farming: FarmingSystem;
+  readonly caneSupport: CaneSupportSystem;
   private openFurnace: string | null = null;
   /** Seconds the use button has been held on food. */
   private eatTimer = 0;
@@ -273,6 +275,8 @@ export class Game {
     this.registerCleanup("brewing owners",this.world.onBlockChanged((x,y,z,id)=>this.brewingBlockChanged(x,y,z,id)));
     this.farming = new FarmingSystem(this.world, save?.farming);
     this.registerCleanup("farming", () => this.farming.dispose());
+    this.caneSupport = new CaneSupportSystem(this.world, this.dropSink);
+    this.registerCleanup("cane-support", () => this.caneSupport.dispose());
     this.snowballProjectiles = new SnowballProjectiles(this.world, save?.snowballProjectiles);
     this.registerCleanup("snowball simulation", () => this.snowballProjectiles.dispose());
     if (this.snowballProjectiles.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("snowball projectiles"); }
@@ -1107,6 +1111,7 @@ export class Game {
       this.redstone.updatePlates(new Set([feet(this.body.position), ...this.mobs.mobs.map((m) => feet(m.position))]));
       this.redstone.update(dt);
       this.farming.update(dt, 15 - skyDarken(skyAt(this.timeOfDay,this.world.dimension).light));
+      this.caneSupport.update(dt);
       for (const f of this.furnaces.values()) tickFurnace(f, dt);
       this.reconcileChestOwners();this.updateBrewingStations(dt);
       this.inventoryScreen.refresh();
