@@ -1,3 +1,4 @@
+import { readCaneGrowthState } from "./cane-growth-state";
 import {diagnoseRawCaneOwnership} from './cane-ownership';
 import {readChestOwners} from './chest-save';
 import {readBrewingStandOwners} from "./brewing-save";
@@ -148,6 +149,8 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
   const gravel = sanitizeGravelHarvestState(raw.gravelHarvests);
   if (section("gravelHarvests", !!gravel.invalid, gravel.data) && !gravel.invalid) for (const r of gravel.data.records) if (block(r.x, r.y, r.z) !== blockId("gravel")) add("gravelHarvests", "Cannot verify cached Gravel decision source");
   section("farming", false, sanitizeFarmingState(raw.farming));
+  const caneGrowth = readCaneGrowthState(raw.caneGrowth);
+  section("caneGrowth", caneGrowth.kind === "invalid", caneGrowth.kind === "valid" ? caneGrowth.data : undefined);
   const scheduled = sanitizeScheduled(raw.redstone);
   if (section("redstone", false, scheduled)) {
     const ticks = new Set<string>();

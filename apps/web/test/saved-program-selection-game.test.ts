@@ -96,3 +96,21 @@ it("mandatory Nether death handoff retains the last persistable source even when
  const g=construct(raw),x=g as any;g.start();x.codeBuilder.prepareProgramSnapshot=()=>({ok:true,programs:structuredClone(g.programs),codeWorkspace:structuredClone(last),warning:"Unpersistable text stays in session",accept:()=>true});x.codeBuilder.uncommittedProgramIssue=()=>"Source draft exceeds storage limits; repair before quitting";
  expect(g.stop()).toBe(false);x.hurt(30,"void");expect(g.dead).toBe(true);const trip=g.prepareOverworldRespawn({}as TextureAtlas);expect(trip).not.toBeNull();expect(trip!.prepareFrame()).toBe(true);expect(trip!.commit()).toBe(true);expect(trip!.target.save()).toBe(true);expect(parseSave(stored!).codeWorkspace).toEqual(last);expect(trip!.target.programRunning).toBe(false);expect(trip!.target.stop()).toBe(true);
 });
+
+it("actual Game checkpoints restore the live Cane clock without offline catch-up or touching program/source owners",()=>{
+ const raw=codeSave();raw.caneGrowth={version:1,tick:53,accumulator:.25,cursor:3};const g=construct(raw);g.start();
+ expect(g.caneGrowth.toJSON()).toEqual(raw.caneGrowth);g.caneGrowth.update(.25);expect(g.caneGrowth.toJSON()).toEqual({...raw.caneGrowth,accumulator:.5});
+ expect(g.save()).toBe(true);const disk=parseSave(stored!);expect(disk.caneGrowth).toEqual({...raw.caneGrowth,accumulator:.5});expect(disk.programs).toEqual(raw.programs);expect(disk.inventory).toEqual(raw.inventory);
+ expect(g.stop()).toBe(true);const cold=construct(parseSave(stored!));cold.start();expect(cold.caneGrowth.toJSON()).toEqual({...raw.caneGrowth,accumulator:.5});expect(cold.stop()).toBe(true);
+});
+it("actual prepared Game handoff keeps destination Cane clock separate and does not tick it while preparing",()=>{
+ const raw=codeSave();raw.caneGrowth={version:1,tick:53,accumulator:.25,cursor:3};const source=construct(raw),x=source as any;source.start();source.paused=true;
+ const targetRaw=x.captureSaveData()as SaveData;targetRaw.caneGrowth={version:1,tick:77,accumulator:.75,cursor:4};
+ const target=Game.prepare(new Element()as unknown as HTMLElement,{}as TextureAtlas,{name:targetRaw.name,seed:targetRaw.seed,mode:targetRaw.mode,touch:false,save:targetRaw},{onPause:vi.fn(),onDeath:vi.fn()});
+ expect(target.prepareFrame()).toBe(true);expect(target.caneGrowth.toJSON()).toEqual(targetRaw.caneGrowth);expect(target.commitPrepared(source)).toBe(true);expect(target.save()).toBe(true);expect(parseSave(stored!).caneGrowth).toEqual(targetRaw.caneGrowth);expect(target.stop()).toBe(true);
+});
+it("damaged Cane clock freezes actual Game writes and exports the exact original instead of a repaired clock",async()=>{
+ const raw="  "+JSON.stringify({...codeSave(),caneGrowth:{version:9,tick:1,accumulator:0,cursor:0},caneGrowthInvalid:false})+"\n";stored=raw;
+ const g=construct(parseSave(raw)),x=g as any;g.start();expect(g.loadErrors).toContain("Damaged Cane growth state (original save preserved)");expect(g.save()).toBe(false);expect(stored).toBe(raw);expect(g.stop()).toBe(false);
+ g.exportSaveBackup();const backup=JSON.parse(await blobs[0].text());expect(backup.recoveryOriginalSave).toBe(raw);expect(backup.caneGrowth).toBeUndefined();expect(stored).toBe(raw);x.retireWithoutSave();
+});

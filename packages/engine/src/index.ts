@@ -152,3 +152,6 @@ export * from "./catalog/hay-block";
 export * from "./automation/text-compiler";
 
 export * from "./persistence/code-workspace";
+
+export * from "./persistence/cane-growth-state";
+export * from "./simulation/cane-growth";

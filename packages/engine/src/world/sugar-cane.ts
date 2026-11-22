@@ -4,7 +4,7 @@ import {harvestOwnerSnapshot}from '../ownership/harvest-owner';
 import type{ItemStack}from '../ownership/inventory';
 import type{World,WorldCellSnapshot}from './world';
 import {WORLD_HEIGHT}from './chunk';
-/** Placement support profile; passive settlement uses its own staged ground-drop owner. Plants do not grow. */
+/** Placement support profile; passive settlement uses its own staged ground-drop owner. Natural growth is handled separately by the loaded-only CaneGrowthSystem. */
 export function canePlacementSupport(world:World,x:number,y:number,z:number):WorldCellSnapshot[]|null{
  if(![x,y,z].every(Number.isSafeInteger)||y<1||y>=WORLD_HEIGHT)return null;
  const expected:WorldCellSnapshot[]=[],take=(by:number,bx=x,bz=z)=>{const cell=world.captureCell(bx,by,bz);if(cell)expected.push(cell);return cell;};

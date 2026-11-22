@@ -1,3 +1,4 @@
+import { readCaneGrowthState, type CaneGrowthState } from "./cane-growth-state";
 import { readCodeWorkspace, type CodeWorkspaceData } from "./code-workspace";
 import {hasBusyFurnaceOwnership} from "../ownership/furnace-contents";
 import { diagnoseRawRecyclingOwnership, type RecyclingOwnershipIssue } from "./recycling-ownership";
@@ -120,6 +121,10 @@ export interface SaveData {
   /** Pending redstone ticks (optional; sanitized by `sanitizeScheduled` on load). */
   redstone?: unknown;
   farming?: FarmingState;
+  /** World-local loaded-time Cane growth clock; no offline catch-up. */
+  caneGrowth?: CaneGrowthState;
+  /** Derived before normalization; never trusted from JSON or serialized. */
+  caneGrowthInvalid?: boolean;
   fire?: FireData;
   /** Derived raw/source diagnostic, never trusted or serialized. */
   fireInvalid?: boolean;
@@ -140,6 +145,8 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
+  const caneGrowth = readCaneGrowthState(data.caneGrowth);
+  if (data.caneGrowthInvalid || caneGrowth.kind === "invalid") throw new Error("Cannot serialize invalid Cane growth state");
   const codeWorkspace = readCodeWorkspace(data.codeWorkspace);
   if (data.codeWorkspaceInvalid || codeWorkspace.kind === "invalid") throw new Error("Cannot serialize invalid source workspace");
   if(hasBusyFurnaceOwnership(data))throw new Error("Cannot serialize busy Furnace ownership");
@@ -153,8 +160,9 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   const brewing=readBrewingStandOwners(data,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",data.seed,data.generatorVersion??1,x,y,z));
   if(data.brewingOwnershipIssues?.length||brewing.issues.length||diagnoseRawBrewingItemOwnership(data).length)throw new Error("Cannot serialize invalid brewing ownership");
   if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
-  const { codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { caneGrowthInvalid: _caneGrowthInvalid, codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
   if (codeWorkspace.kind === "valid") owned.codeWorkspace = codeWorkspace.data;
+  if (caneGrowth.kind === "valid") owned.caneGrowth = caneGrowth.data;
   if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
   if(brewing.present)owned.brewingStands=brewing.stations;
   if(chests.present)owned.chests=chests.stations;
@@ -425,6 +433,9 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
     edits: Array.isArray(own(raw, "edits")) ? (own(raw, "edits") as BlockEdit[]) : [],
     gamerules: { doMobSpawning: bool(own(rules, "doMobSpawning"), true), doDaylightCycle: bool(own(rules, "doDaylightCycle"), true), keepInventory: bool(own(rules, "keepInventory"), false) },
   };
+  const caneGrowth = readCaneGrowthState(own(raw, "caneGrowth"));
+  if (caneGrowth.kind === "valid") save.caneGrowth = caneGrowth.data;
+  if (caneGrowth.kind === "invalid") save.caneGrowthInvalid = true;
   const codeWorkspace = readCodeWorkspace(own(raw, "codeWorkspace"));
   if (codeWorkspace.kind === "valid") save.codeWorkspace = codeWorkspace.data;
   if (codeWorkspace.kind === "invalid") save.codeWorkspaceInvalid = true;

@@ -1,3 +1,4 @@
+import { CaneGrowthSystem } from "../src/simulation/cane-growth";
 import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Inventory, World, createHunger, stackId, freshStack, blockId } from "../src";
@@ -5,7 +6,7 @@ import { Game } from "../../../apps/web/src/application/game";
 class Cell { click() {} remove() {} }
 function game() {
  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), own = () => ({ busy:false,records:[],reconcileLoadedReferences:vi.fn(),validateCrossReferences:vi.fn() });
- Object.assign(g,{world:new World(12345),inventory:new Inventory(),hunger:createHunger(),playerStatus:{},recoverySections:[],recoveryOriginal:null,drinkOwner:{elapsed:.7},leashes:own(),balloons:own(),paused:false,dead:false,stopped:false,mode:"survival",health:20,body:{position:{x:.5,y:32,z:.5},yaw:0,pitch:0},hud:{message:vi.fn(),flashDamage:vi.fn()},keyboard:{reset:vi.fn()},screenOpen:()=>false,name:"Ignition",savePayload:vi.fn(()=>'{"version":1}'),markLeashRecovery:vi.fn(),markBalloonRecovery:vi.fn(),leashContext:()=>({})});return g;
+ Object.assign(g,{world:new World(12345),inventory:new Inventory(),hunger:createHunger(),playerStatus:{},recoverySections:[],recoveryOriginal:null,drinkOwner:{elapsed:.7},leashes:own(),balloons:own(),paused:false,dead:false,stopped:false,mode:"survival",health:20,body:{position:{x:.5,y:32,z:.5},yaw:0,pitch:0},hud:{message:vi.fn(),flashDamage:vi.fn()},keyboard:{reset:vi.fn()},screenOpen:()=>false,name:"Ignition",savePayload:vi.fn(()=>'{"version":1}'),markLeashRecovery:vi.fn(),markBalloonRecovery:vi.fn(),leashContext:()=>({})});g.caneGrowth=new CaneGrowthSystem(g.world);return g;
 }
 beforeEach(()=>vi.stubGlobal("document",{createElement:()=>new Cell(),pointerLockElement:null}));
 afterEach(()=>{vi.unstubAllGlobals();vi.restoreAllMocks();vi.useRealTimers();(Game as unknown as {activeWriter:Game|null}).activeWriter=null;});

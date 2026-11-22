@@ -1,3 +1,4 @@
+import { readCaneGrowthState } from "./cane-growth-state";
 import { hasBusyFurnaceOwnership } from "../ownership/furnace-contents";
 import type { SaveData } from "./save";
 import type { DimensionId } from "../core/dimensions";
@@ -8,7 +9,7 @@ export type { DimensionId } from "../core/dimensions";
  * parser for untrusted inactive-world archives and does not initiate travel. */
 export const DIMENSION_WORLD_KEYS = [
   "seed", "generatorVersion", "player", "edits", "npcs", "chalkboards",
-  "furnaces", "redstone", "farming", "fire", "fluids", "portals",
+  "furnaces", "redstone", "farming", "caneGrowth", "fire", "fluids", "portals",
   "gravelHarvests", "worldDrops", "mobs", "leashes", "balloons",
   "snowballProjectiles", "blazeFireballs", "brewingStands", "chests",
 ] as const satisfies readonly (keyof SaveData)[];
@@ -16,7 +17,7 @@ export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[num
 const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
-  "codeWorkspaceInvalid",
+  "codeWorkspaceInvalid", "caneGrowthInvalid",
   "recyclingOwnershipIssues", "caneOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
@@ -24,6 +25,10 @@ const sourceDiagnostics = [
   "fireInvalid", "ignitionOwnershipIssues", "gravelHarvestInvalid",
 ] as const satisfies readonly (keyof SaveData)[];
 function assertNoSourceDiagnostics(save: SaveData): void {
+  const growth = Object.getOwnPropertyDescriptor(save, "caneGrowth");
+  if (growth && (!("value" in growth) || readCaneGrowthState(growth.value).kind === "invalid")) {
+    throw new Error("Invalid source Cane growth state");
+  }
   if (hasBusyFurnaceOwnership(save)) throw new Error("Cannot partition busy Furnace ownership");
   for (const key of sourceDiagnostics) {
     const descriptor = Object.getOwnPropertyDescriptor(save, key);
@@ -50,6 +55,7 @@ function assertWorldEnvelope(world: DimensionWorldState): void {
       throw new Error("Foreign owner, accessor or non-enumerable field in dimension world");
     }
   }
+  if (readCaneGrowthState(world.caneGrowth).kind === "invalid") throw new Error("Invalid dimension Cane growth state");
   for (const key of required) {
     if (!Object.hasOwn(world, key) || world[key] === undefined) {
       throw new Error(`Missing dimension world ${key}`);
