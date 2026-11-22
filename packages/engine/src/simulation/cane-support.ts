@@ -72,12 +72,12 @@ export class CaneSupportSystem {
    if(next!==undefined){this.chunks.delete(next);const[cx,cz]=next.split(',').map(Number);
     if(this.world.hasChunk(cx,cz))for(let x=cx*CHUNK_SIZE;x<(cx+1)*CHUNK_SIZE;x++)for(let z=cz*CHUNK_SIZE;z<(cz+1)*CHUNK_SIZE;z++)for(let y=0;y<WORLD_HEIGHT;y++)if(this.world.getLoadedBlock(x,y,z)===CANE_PLANT_ID)this.pending.add(`${x},${y},${z}`);
    }
-   const candidates=[...this.pending];this.pending.clear();const seen=new Set<string>();
+   const candidates=[...this.pending];this.pending.clear();const seen=new Set<string>(),deferred:string[]=[];
    for(let i=0;i<candidates.length;i++){
     if(this.disposed)break;
     const key=candidates[i];if(i>=CANE_SUPPORT_BATCH_LIMIT){this.pending.add(key);continue;}
     const[x,y,z]=key.split(',').map(Number),column=inspect(this.world,x,y,z);
-    if(column===null)continue;if(column==='unknown'){this.pending.add(key);continue;}
+    if(column===null)continue;if(column==='unknown'){deferred.push(key);continue;}
     const rootKey=column.root.join(',');if(seen.has(rootKey))continue;seen.add(rootKey);
     if(column.support==='supported')continue;
     const result=settleUnsupportedCane(this.world,(items,at,velocity)=>{
@@ -86,8 +86,10 @@ export class CaneSupportSystem {
      return batch?{commit:()=>!this.disposed&&batch.commit()}:null;
     },...column.root);
     if(this.disposed)break;
-    if(result==='unknown'||result==='refused')this.pending.add(rootKey);
+    if(result==='unknown'||result==='refused')deferred.push(rootKey);
    }
+   // Rotate retries behind unprocessed work so unloaded/refusing owners cannot starve new columns.
+   if(!this.disposed)for(const key of deferred)this.pending.add(key);
   }finally{this.updating=false;}
  }
 }
