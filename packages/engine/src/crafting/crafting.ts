@@ -1,3 +1,4 @@
+import { METAL_NUGGETS } from "../catalog/metal-nuggets";
 import { inspectItemState } from "../ownership/item-state";
 import { METAL_STORAGE_BLOCKS } from "../catalog/metal-storage";
 import { hasCloneableBookMetadata, stackLimit } from "../ownership/stack";
@@ -180,6 +181,11 @@ export const RECIPES: readonly Recipe[] = [
   ...METAL_STORAGE_BLOCKS.flatMap(({ name, material }): Recipe[] => [
     { id: name, pattern: ["###", "###", "###"], key: { "#": material }, result: [name, 1] },
     { id: `${material}_from_block`, pattern: ["#"], key: { "#": name }, result: [material, 9] },
+  ]),
+  // Retained native one-ingot/nine-nugget reversible declaration shapes.
+  ...METAL_NUGGETS.flatMap(({ name, ingot }): Recipe[] => [
+    { id: name, pattern: ["#"], key: { "#": ingot }, result: [name, 9] },
+    { id: `${ingot}_from_nuggets`, pattern: ["###", "###", "###"], key: { "#": name }, result: [ingot, 1] },
   ]),
 ];
 

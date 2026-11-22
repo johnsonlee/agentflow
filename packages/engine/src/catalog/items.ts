@@ -1,3 +1,4 @@
+import { METAL_NUGGETS } from "./metal-nuggets";
 /**
  * Item registry for things that are not blocks (sticks, tools). Item ids start at
  * {@link ITEM_ID_BASE}, so one numeric id space covers inventory stacks while chunk
@@ -250,6 +251,8 @@ const specs: Omit<ItemDef, "id">[] = [
   material('paper','Paper'),
   // Append after Sugar Cane850 / Paper851; never extend the earlier armor spread.
   ...ARMOR_KINDS.map((_, index) => armor("leather", index)),
+  // Append ordinary metal fractions after all600 archived item owners (last855).
+  ...METAL_NUGGETS.map(({ name, displayName }) => material(name, displayName)),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

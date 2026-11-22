@@ -1,3 +1,5 @@
+import {hasBusyFurnaceOwnership} from "../ownership/furnace-contents";
+import { diagnoseRawRecyclingOwnership, type RecyclingOwnershipIssue } from "./recycling-ownership";
 import {diagnoseRawCaneOwnership} from './cane-ownership';
 import {readChestOwners,type SavedChest} from './chest-save';
 import {copyChestData} from '../ownership/single-chest';
@@ -42,6 +44,8 @@ import type { CodeProgram } from "../automation/codebuilder";
 export const SAVE_VERSION = 1;
 
 export interface SaveData {
+  /** Derived before sanitation; never trusted from JSON or serialized as a schema field. */
+  recyclingOwnershipIssues?: RecyclingOwnershipIssue[];
   version: number;
   /** World-owned brewing ingredients, bottle slots and reserved fuel/work. */
   brewingStands?:SavedBrewingStand[];
@@ -131,6 +135,8 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
+  if(hasBusyFurnaceOwnership(data))throw new Error("Cannot serialize busy Furnace ownership");
+  if(data.recyclingOwnershipIssues?.length||diagnoseRawRecyclingOwnership(data).length)throw new Error("Cannot serialize unsafe recycling equipment ownership");
   if(data.caneOwnershipIssues?.length||diagnoseRawCaneOwnership(data).length)throw new Error("Cannot serialize invalid Cane/Paper ownership");
   if(data.blazeOwnershipIssues?.length||diagnoseRawBlazeOwnership(data).length)throw new Error("Cannot serialize invalid Blaze ownership");
   // Validate the original complete archive before any flat-world normalization.
@@ -140,7 +146,7 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   const brewing=readBrewingStandOwners(data,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",data.seed,data.generatorVersion??1,x,y,z));
   if(data.brewingOwnershipIssues?.length||brewing.issues.length||diagnoseRawBrewingItemOwnership(data).length)throw new Error("Cannot serialize invalid brewing ownership");
   if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
-  const { caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
   if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
   if(brewing.present)owned.brewingStands=brewing.stations;
   if(chests.present)owned.chests=chests.stations;
@@ -361,6 +367,7 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   const bucketOwnershipIssues = diagnoseRawBucketOwnership(raw);
   const ignitionOwnershipIssues = diagnoseRawIgnitionOwnership(raw);
   const blazeOwners=readBlazeOwners(raw);
+  const recyclingOwnershipIssues=diagnoseRawRecyclingOwnership(raw);
   const caneOwnershipIssues=diagnoseRawCaneOwnership(raw);
   const wartOwnershipIssues=[...diagnoseRawWartOwnership(raw),...diagnoseRawWartSupport(raw,dimensions.kind==="valid"?dimensions.data.active:"overworld",generatedBlockProbe)];
   const portalOwnershipIssues=diagnoseRawPortalOwnership(raw),portals=sanitizePortalState(own(raw,"portals"));
@@ -421,6 +428,7 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   if(Object.hasOwn(raw,"blazeFireballs"))save.blazeFireballs=blazeOwners.fireballs;
   if(blazeOwners.issues.length)save.blazeOwnershipIssues=blazeOwners.issues;
   if(wartOwnershipIssues.length)save.wartOwnershipIssues=wartOwnershipIssues;
+  if(recyclingOwnershipIssues.length)save.recyclingOwnershipIssues=recyclingOwnershipIssues;
   if(caneOwnershipIssues.length)save.caneOwnershipIssues=caneOwnershipIssues;
   if(portalOwnershipIssues.length)save.portalOwnershipIssues=portalOwnershipIssues;
   if(generator.present)save.generatorVersion=generator.version;

@@ -1,3 +1,4 @@
+import {furnaceMutationBusy,setFurnaceFuel,takeFurnaceOutput} from "@craft/engine";
 import {SingleChest} from '@craft/engine';
 import {
   sanitizePlayerStatus, BREWING_PROFILE, type BrewingStand, type BrewingSlot, HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
@@ -960,16 +961,12 @@ export class InventoryScreen {
       const cell = this.cell(stack?.id ?? null, stack?.count ?? 0, stack ? displayNameOf(stack.id) : empty, stack);
       cell.dataset.furnace = key;
       cell.addEventListener("click", () => {
+        if (!this.canMoveItems() || furnaceMutationBusy(f)) return;
         const current = f[key];
         const cursor = this.cursor;
         if (key === "output") {
-          if (current && !cursor) {
-            this.cursor = current;
-            f.output = null;
-          } else if (current && cursor && canReceiveStack(cursor, current)) {
-            cursor.count += current.count;
-            f.output = null;
-          }
+          const result = takeFurnaceOutput(f, cursor);
+          if (result.ok) this.cursor = result.cursor;
         } else if (cursor) {
           // Only fuels go in the fuel slot.
           if (key === "fuel" && fuelSeconds(cursor.id) === 0) return;
@@ -981,12 +978,11 @@ export class InventoryScreen {
           } else if (key === "input") {
             this.cursor = setFurnaceInput(f, cursor);
           } else {
-            f.fuel = cursor;
-            this.cursor = current;
+            this.cursor = setFurnaceFuel(f, cursor);
           }
         } else if (current) {
           if (key === "input") this.cursor = setFurnaceInput(f, null);
-          else { this.cursor = current; f.fuel = null; }
+          else this.cursor = setFurnaceFuel(f, null);
         }
         this.render();
       });

@@ -1,3 +1,4 @@
+export * from "./catalog/metal-nuggets";
 export * from "./catalog/blocks";
 export * from "./catalog/metal-storage";
 export * from "./world/chunk";
@@ -139,3 +140,7 @@ export * from './world/harvest-dependents';
 export * from './persistence/cane-ownership';
 
 export * from "./simulation/cane-support";
+
+export * from "./ownership/metal-recycling";
+export * from "./persistence/recycling-ownership";
+export * from "./ownership/furnace-contents";

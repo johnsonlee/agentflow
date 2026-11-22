@@ -8,10 +8,10 @@ it("preserves every published859 tile pixel and UV while appending the original 
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
   expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
   expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
-  expect(names).toHaveLength(906);
+  expect(names).toHaveLength(908);
   expect(names.slice(0, 859)).toEqual(baseline.names);
   expect(names.slice(859, 860)).toEqual(["item_spider_eye"]);
-  expect(new Set(names).size).toBe(906);
+  expect(new Set(names).size).toBe(908);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

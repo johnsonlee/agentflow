@@ -1,3 +1,4 @@
+import {inspectRecyclingEquipment} from "../ownership/metal-recycling";
 import {inspectCaneItemOwner} from '../ownership/cane-items';
 import { inspectBucketOwner } from "../ownership/buckets";
 import { inspectBottleOwner } from "../ownership/bottles";
@@ -28,7 +29,7 @@ const num = (v: unknown, lo = -1e7, hi = 1e7): v is number => typeof v === "numb
 
 /** A valid stack, or null (for empty or invalid). */
 export function sanitizeStack(raw: unknown): ItemStack | null {
-  if (!isObj(raw) || inspectCaneItemOwner(raw).kind==="invalid" || inspectBottleOwner(raw).kind === "invalid" || inspectBucketOwner(raw).kind === "invalid") return null;
+  if (!isObj(raw) || inspectRecyclingEquipment(raw).kind === "invalid" || inspectCaneItemOwner(raw).kind==="invalid" || inspectBottleOwner(raw).kind === "invalid" || inspectBucketOwner(raw).kind === "invalid") return null;
   const id = own(raw, "id");
   const count = own(raw, "count");
   if (!int(id, 0, 100000) || !isKnownId(id)) return null;

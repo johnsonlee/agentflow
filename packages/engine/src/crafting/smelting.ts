@@ -1,3 +1,6 @@
+import { furnaceMutationBusy } from "../ownership/furnace-contents";
+import { inspectRecyclingEquipment } from "../ownership/metal-recycling";
+import { METAL_RECYCLING_RECIPES } from "../catalog/metal-nuggets";
 /**
  * Furnace smelting uses the existing application model: one item every 10 s while fuel burns. A new piece of
  * fuel is consumed only when the previous one has burnt out and there is something to smelt.
@@ -26,6 +29,8 @@ export const SMELTING_RECIPES: Readonly<Record<string, string>> = {
   raw_chicken: "cooked_chicken",
   raw_beef: "cooked_beef",
   netherrack: "nether_brick",
+  // Declared existing Iron/Golden equipment -> one ordinary nugget; native XP not modeled.
+  ...METAL_RECYCLING_RECIPES,
 };
 
 /** Burn time in seconds (Minecraft: coal smelts 8 items, planks and logs 1.5, a stick 0.5). */
@@ -77,8 +82,9 @@ function resetProgress(f: FurnaceState): void {
 
 /** Transfers input ownership unchanged and returns the previous owner to the caller. */
 export function setFurnaceInput(f: FurnaceState, incoming: ItemStack | null): ItemStack | null {
+  if (furnaceMutationBusy(f)) return incoming;
   // Returning an invalid incoming owner unchanged lets the cursor retain it transactionally.
-  if (incoming && (!isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count < 1
+  if (incoming && (inspectRecyclingEquipment(incoming).kind === "invalid" || !isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count < 1
     || inspectItemState(incoming).kind === "invalid" || !hasCloneableBookMetadata(incoming) || incoming.count > stackLimit(incoming))) return incoming;
   const previous = f.input;
   // Removing and reinserting between simulation frames must also forfeit partial work.
@@ -87,8 +93,28 @@ export function setFurnaceInput(f: FurnaceState, incoming: ItemStack | null): It
   return previous;
 }
 
+/** Whole fuel-slot exchange; refusal returns the offered owner unchanged. */
+export function setFurnaceFuel(f: FurnaceState, incoming: ItemStack | null): ItemStack | null {
+  if (furnaceMutationBusy(f) || incoming && (inspectItemState(incoming).kind === "invalid" || !isKnownId(incoming.id) || fuelSeconds(incoming.id) <= 0
+    || !Number.isSafeInteger(incoming.count) || incoming.count < 1 || incoming.count > stackLimit(incoming)
+    || inspectItemState(incoming).kind === "invalid" || !hasCloneableBookMetadata(incoming))) return incoming;
+  const previous = f.fuel; f.fuel = incoming; return previous;
+}
+
+/** Output transfer is complete or refused; no partial cursor debit or oversized merged stack. */
+export function takeFurnaceOutput(f: FurnaceState, cursor: ItemStack | null = null): {ok:boolean;cursor:ItemStack|null} {
+  const current = f.output;
+  if (furnaceMutationBusy(f) || !current || inspectItemState(current).kind === "invalid" || !isKnownId(current.id) || !Number.isSafeInteger(current.count)
+    || current.count < 1 || current.count > stackLimit(current) || inspectItemState(current).kind === "invalid"
+    || !hasCloneableBookMetadata(current)) return {ok:false,cursor};
+  if (cursor && (inspectItemState(cursor).kind === "invalid" || !isKnownId(cursor.id) || !Number.isSafeInteger(cursor.count) || cursor.count < 1
+    || !stacksCompatible(cursor,current) || cursor.count + current.count > stackLimit(cursor))) return {ok:false,cursor};
+  if (cursor) cursor.count += current.count;
+  f.output = null; return {ok:true,cursor:cursor??current};
+}
+
 function canSmelt(f: FurnaceState): boolean {
-  if (!f.input) return false;
+  if (!f.input || inspectRecyclingEquipment(f.input).kind === "invalid") return false;
   const result = smeltResult(f.input.id);
   if (result === null) return false;
   const produced = freshStack(result);
@@ -103,7 +129,7 @@ function take(stack: ItemStack | null): ItemStack | null {
 
 /** Advances a furnace by `dt` seconds (in steps, so long gaps catch up correctly). */
 export function tickFurnace(f: FurnaceState, dt: number): void {
-  if (!Number.isFinite(dt) || dt <= 0) return;
+  if (!Number.isFinite(dt) || dt <= 0 || furnaceMutationBusy(f) || inspectRecyclingEquipment(f.input).kind === "invalid") return;
   if (f.progress > 0) {
     const id = f.input?.id;
     if (id === undefined || smeltResult(id) === null || (f.progressInputId !== undefined && f.progressInputId !== id)) resetProgress(f);

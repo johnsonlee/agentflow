@@ -1,0 +1,112 @@
+{
+  "revision": "efd0147c599544809b6024d6d5cd5e2563277e77",
+  "counts": {
+    "blocks": 327,
+    "items": 600,
+    "recipes": 185,
+    "atlas": 906,
+    "tiles": 316,
+    "native": 30,
+    "derived": 32,
+    "smelting": 13
+  },
+  "hashes": {
+    "blocks": "f925ff26e5cd5c28a376bf1e8dc36456168efd9aeaf31af6a801523b24420075",
+    "items": "9a05b979c2a7669b6b6021c49bfb9143c61a860ef3dd1fdd6154d20ce1941f41",
+    "recipes": "07b7c52cad617345e2cf3f246781641b4dd227895f9a5d565fb8799ea6044723",
+    "atlasNames": "9e369b8aa7c35420451976ad63d940bb23555ac7871ec0459355668c40a63979",
+    "tileNames": "afe4707221ead0bdbe6812c322e0582fc54c59e99fecd0d1b3a5c2b02dc27e1f",
+    "atlasRows": "506ffa2aa1f1f75c0275bd90f8aca6f0b7adc9c7265e42a2649fa0e5a4794a45",
+    "native": "922edfdb6c213c61c76feb71aabb4c331f413b52817978bb71d901ea72d2aac2",
+    "derived": "59f185d42301efe83b0e82f4f19d692066195df7b7ed415ff38f454c2444b30e",
+    "smelting": "77a61b00723f66bc90e78b25d141642f5217a507dcbeb98cfde4da27cd0cf7f5",
+    "fuels": "9a19771363a36e9fabe2456f3ae333d738f01f7227f1b677bde8e8360aff135d"
+  },
+  "lastItem": {
+    "name": "leather_boots",
+    "displayName": "Leather Boots",
+    "maxStack": 1,
+    "icon": "item_leather_boots",
+    "armor": {
+      "slot": "feet",
+      "material": "leather",
+      "points": 1,
+      "durability": 65
+    },
+    "id": 855
+  },
+  "atlasSize": [
+    512,
+    512
+  ],
+  "smelting": {
+    "iron_ore": "iron_ingot",
+    "coal_ore": "coal",
+    "diamond_ore": "diamond",
+    "redstone_ore": "redstone",
+    "gold_ore": "gold_ingot",
+    "sand": "glass",
+    "cobblestone": "stone",
+    "oak_log": "charcoal",
+    "birch_log": "charcoal",
+    "raw_porkchop": "cooked_porkchop",
+    "raw_chicken": "cooked_chicken",
+    "raw_beef": "cooked_beef",
+    "netherrack": "nether_brick"
+  },
+  "fuels": {
+    "coal": 80,
+    "charcoal": 80,
+    "oak_planks": 15,
+    "birch_planks": 15,
+    "oak_log": 15,
+    "birch_log": 15,
+    "stick": 5,
+    "wooden_hoe": 10
+  },
+  "toolNames": [
+    "wooden_pickaxe",
+    "wooden_axe",
+    "wooden_shovel",
+    "wooden_sword",
+    "stone_pickaxe",
+    "stone_axe",
+    "stone_shovel",
+    "stone_sword",
+    "iron_pickaxe",
+    "iron_axe",
+    "iron_shovel",
+    "iron_sword",
+    "golden_pickaxe",
+    "golden_axe",
+    "golden_shovel",
+    "golden_sword",
+    "diamond_pickaxe",
+    "diamond_axe",
+    "diamond_shovel",
+    "diamond_sword",
+    "wooden_hoe",
+    "stone_hoe",
+    "iron_hoe",
+    "golden_hoe",
+    "diamond_hoe"
+  ],
+  "armorNames": [
+    "iron_helmet",
+    "iron_chestplate",
+    "iron_leggings",
+    "iron_boots",
+    "golden_helmet",
+    "golden_chestplate",
+    "golden_leggings",
+    "golden_boots",
+    "diamond_helmet",
+    "diamond_chestplate",
+    "diamond_leggings",
+    "diamond_boots",
+    "leather_helmet",
+    "leather_chestplate",
+    "leather_leggings",
+    "leather_boots"
+  ]
+}

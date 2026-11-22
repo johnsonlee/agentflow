@@ -26,7 +26,7 @@ it("preserves prior registry prefixes, other125 recipes (snow is checked separat
   expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(baseline.allBlockDefsSHA256); expect(digest(ITEMS.slice(0, 535))).toBe(baseline.allItemDefsSHA256);
   expect(withLegacyBirchRecipes(RECIPES.slice(0, 128))).toHaveLength(128);
   expect(withLegacyBirchRecipes(RECIPES.slice(0, 128)).filter((r) => r.id !== "bookshelf" && r.id !== "glowstone" && r.id !== "snow_block")).toEqual(fixture.unchangedRecipes.filter((r: { id: string }) => r.id !== "glowstone" && r.id !== "snow_block"));
-  expect(Object.keys(SMELTING_RECIPES).filter(name=>name!=="netherrack")).toHaveLength(12);
+  expect(Object.keys(SMELTING_RECIPES).slice(0,13).filter(name=>name!=="netherrack")).toHaveLength(12);
   expect(SMELTING_RECIPES.netherrack).toBe("nether_brick");
   for (const [input, output] of Object.entries(fixture.previousSmelting)) expect(SMELTING_RECIPES[input]).toBe(output);
   expect(FUELS.birch_planks).toBe(15); const {birch_planks,...oldFuels}=FUELS; expect(oldFuels).toEqual(fixture.previousFuels); expect(SMELT_SECONDS).toBe(10);

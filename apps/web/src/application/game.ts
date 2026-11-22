@@ -1,3 +1,5 @@
+import {furnaceMutationBusy,reserveFurnaceContents} from "@craft/engine";
+import {diagnoseRawRecyclingOwnership} from "@craft/engine";
 import {CaneSupportSystem} from "@craft/engine";
 import {diagnoseRawCaneOwnership,CURRENT_OVERWORLD_GENERATOR_VERSION,SingleChest,readChestOwners,type ChestOwnershipIssue} from '@craft/engine';
 import {
@@ -127,6 +129,7 @@ export class Game {
   private recoverySections: string[] = [];
   private wartIssues:Array<{path:string;reason:string}>=[];
   private caneIssues:Array<{path:string;reason:string}>=[];
+  private recyclingIssues:Array<{path:string;reason:string}>=[];
   private blazeIssues:BlazeOwnershipIssue[]=[];
   private brewingIssues:BrewingOwnershipIssue[]=[];
   private chestIssues:ChestOwnershipIssue[]=[];
@@ -146,7 +149,7 @@ export class Game {
   };
   private readonly mobLoot = new MobLootResolver();
   private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || [...this.chests.values()].some(chest=>chest.busy) || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
-  private get ownershipBusy(): boolean { return this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy; }
+  private get ownershipBusy(): boolean { return this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy || (!!this.furnaces && [...this.furnaces.values()].some(furnaceMutationBusy)); }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
   readonly world: World;
@@ -260,7 +263,7 @@ export class Game {
     const save = options.save;
     this.restoreDimensions(save);
     this.restoreBrewingOwners(save);this.restoreChestOwners(save);
-    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
+    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     if(options.preparedWorld){
       if(!prepareOnly||!save||this.recoverySections.length||!this.acceptPreparedWorld(options.preparedWorld,save))throw new Error("Invalid or already attached prepared arrival World");
@@ -394,6 +397,7 @@ export class Game {
     for(const issue of this.chestIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.brewingIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.blazeIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for(const issue of this.recyclingIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.caneIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.wartIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.portalOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
@@ -861,6 +865,11 @@ export class Game {
       if(!stand)return{kind:"refused",reason:"Brewing stand ownership is unavailable"};
       const lease=stand.reserveContents();if(!lease)return{kind:"refused",reason:"Brewing contents are busy"};
       return{kind:"ready",lease:{refundStacks:[],valid:()=>this.brewingStands.get(key)===stand&&this.world.getLoadedBlock(x,y,z)===BREWING_STAND&&lease.valid(),consumeAfterReceiverCommit:()=>{if(lease.retire())this.brewingStands.delete(key);},cancel:()=>lease.cancel()}};
+    },()=>{
+      if(this.world.getLoadedBlock(x,y,z)!==FURNACE)return{kind:"none"};
+      const key=furnaceKey(x,y,z),furnace=this.furnaces.get(key);if(!furnace)return{kind:"none"};
+      const lease=reserveFurnaceContents(furnace);if(!lease)return{kind:"refused",reason:"Furnace contents are busy or invalid"};
+      return{kind:"ready",lease:{refundStacks:[],valid:()=>this.furnaces.get(key)===furnace&&this.world.getLoadedBlock(x,y,z)===FURNACE&&lease.valid(),consumeAfterReceiverCommit:()=>{if(lease.retire())this.furnaces.delete(key);},cancel:()=>lease.cancel()}};
     }]);
   }
 
@@ -1586,6 +1595,13 @@ export class Game {
       const impacts=this.mobs.drainFireballImpacts();
       for(const impact of impacts)if(!this.dead&&impact.kind==="player"&&this.mode==="survival")this.hurt(impact.damage,"blaze");
     }
+  }
+
+  private markRecyclingRecovery(save:SaveData|undefined):void {
+    this.recyclingIssues=[...(save?.recyclingOwnershipIssues??[]),...diagnoseRawRecyclingOwnership(save)].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
+    if(!this.recyclingIssues.length)return;
+    this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
+    if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
   }
 
   private markCaneRecovery(save:SaveData|undefined):void {
