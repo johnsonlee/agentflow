@@ -1,4 +1,5 @@
 export * from "./catalog/blocks";
+export * from "./catalog/metal-storage";
 export * from "./world/chunk";
 export * from "./world/generator";
 export * from "./ownership/inventory";

@@ -1,0 +1,12 @@
+import {readFileSync} from 'node:fs';import {createHash} from 'node:crypto';import {expect,it} from 'vitest';
+import {allAtlasTextureNames} from '../../engine/src';import {buildAtlas,generateTile,TILE_NAMES} from '../src';import {parseLocalTexturePack} from '../src/resource-packs/resource-pack';
+const old=JSON.parse(readFileSync(new URL('../../engine/test/fixtures/metal-storage-prefix-391.json',import.meta.url),'utf8'));
+const hash=(v:unknown)=>createHash('sha256').update(JSON.stringify(v)).digest('hex');
+it('preserves all903 oldkeys/RGBA/UV and313 generatornames before three distinct original opaque storage panels',()=>{
+ const names=allAtlasTextureNames(),atlas=buildAtlas(names);expect(names).toHaveLength(906);expect(TILE_NAMES).toHaveLength(316);expect(names.slice(903)).toEqual(['iron_block','gold_block','diamond_block']);expect(TILE_NAMES.slice(313)).toEqual(names.slice(903));
+ expect(hash(names.slice(0,903))).toBe(old.hashes.atlasKeys);expect(hash(TILE_NAMES.slice(0,313))).toBe(old.hashes.tileNames);expect(hash(names.slice(0,903).map(name=>({name,rgbaSHA256:createHash('sha256').update(generateTile(name)).digest('hex'),uv:atlas.uv(name)})))).toBe(old.hashes.atlasRows);expect([atlas.width,atlas.height]).toEqual([512,512]);
+ const pixels=names.slice(903).map(name=>generateTile(name));for(const rgba of pixels){expect(rgba).toHaveLength(1024);expect([...rgba].filter((_,i)=>i%4===3).every(a=>a===255)).toBe(true);}expect(new Set(pixels.map(x=>createHash('sha256').update(x).digest('hex'))).size).toBe(3);
+});
+it('an old903-key pack retains exactly three explicit procedural fallbacks; a newblock custom raster affects only its own tile',async()=>{
+ const names=allAtlasTextureNames(),bytes=new TextEncoder().encode(JSON.stringify({version:1,name:'Existing903reference',tiles:names.slice(0,903).map(key=>({key,width:16,height:16,rgbaBase64:Buffer.from(generateTile(key)).toString('base64')}))}));const parsed=await parseLocalTexturePack(bytes,names),atlas=buildAtlas(names,parsed.tiles);expect(atlas.report.directAppliedKeys).toEqual(names.slice(0,903));expect(atlas.report.fallbackKeys).toEqual(['iron_block','gold_block','diamond_block']);const rgba=new Uint8ClampedArray(1024);rgba.fill(99);const custom=buildAtlas(names,new Map([['gold_block',{width:16,height:16,rgba}]]));expect(custom.tilePixels('gold_block')).toEqual(rgba);expect(custom.tilePixels('iron_block')).toEqual(generateTile('iron_block'));expect(custom.tilePixels('element_block_79_Au')).toEqual(generateTile('element_block_79_Au'));
+});

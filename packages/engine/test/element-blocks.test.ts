@@ -49,7 +49,7 @@ it("separates registered membership from numeric namespaces and rejects unknown 
   expect(isItem(32767)).toBe(true); expect(isKnownId(32767)).toBe(false);
   expect(isBlockNamespace(65535)).toBe(true); expect(isKnownBlockId(65535)).toBe(false); expect(isBlockNamespace(65536)).toBe(false);
   const world = new World(13), chunk = new Chunk(0, 0);
-  for (const bad of [-1, .5, NaN, Infinity, 205, 255, 256, 774, 32767, 32887, 65535, 65536]) {
+  for (const bad of [-1, .5, NaN, Infinity, 208, 255, 256, 774, 32767, 32887, 65535, 65536]) {
     expect(isKnownBlockId(bad)).toBe(false); expect(tryBlockById(bad)).toBeUndefined(); expect(placedBlockOf(bad)).toBeNull();
     world.setBlock(8, 90, 8, bad); chunk.set(1, 90, 1, bad);
     expect(chunk.get(1, 90, 1)).toBe(AIR);

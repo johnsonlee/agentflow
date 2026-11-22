@@ -13,7 +13,7 @@ describe("player-conditional Spider Eye acquisition", () => {
     expect(JSON.parse(JSON.stringify(BLOCKS.slice(0,308)))).toEqual(baseline.blocks);
     expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(RECIPES.slice(0,165))))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,859)).toEqual(baseline.names);
-    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([600, 324, 179, 903]);
+    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([600, 327, 185, 906]);
   });
   it("appends ID829 and samples String before the eligible Eye pool only", () => {
     expect(ITEMS[573]).toMatchObject({ id: 829, name: "spider_eye", food: { hunger: 2, saturation: 3.2 } });

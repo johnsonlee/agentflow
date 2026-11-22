@@ -8,7 +8,7 @@ const setup=()=>{const w=new World(12345);w.setBlock(at.x,at.y,at.z,g());w.setBl
 const mine=(w:World,inv:Inventory,rand=()=>0,sink?:Parameters<typeof breakBlock>[8])=>breakBlock(w,inv,"survival",at.x,at.y,at.z,rand,[],sink);
 it("preserves all old registries and canonical Gravel identity while appending only Flint",()=>{
  expect(hash(ITEMS.slice(0,581))).toBe(prefix.itemsSHA256);expect(hash(BLOCKS.slice(0,308))).toBe(prefix.blocksSHA256);expect(hash(withLegacyBirchRecipes(RECIPES.slice(0,167)))).toBe(prefix.recipesSHA256);expect(hash(allAtlasTextureNames().slice(0,867))).toBe(prefix.namesSHA256);
- expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([600, 324, 179, 903]);expect(ITEMS[581]).toMatchObject({id:837,name:"flint",maxStack:64,icon:"item_flint"});
+ expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([600, 327, 185, 906]);expect(ITEMS[581]).toMatchObject({id:837,name:"flint",maxStack:64,icon:"item_flint"});
  expect(blockDrops(g(),()=>0)).toEqual([{id:837,count:1}]);expect(blockDrops(g(),()=>.1)).toEqual([{id:g(),count:1}]);expect(dropOf(g())).toBe(g());expect(baseStackId(g())).toBe(g());
 });
 it("retains the first refused player decision across cold restore and shared Agent delivery",()=>{

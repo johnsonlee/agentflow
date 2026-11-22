@@ -1,4 +1,5 @@
 import { inspectItemState } from "../ownership/item-state";
+import { METAL_STORAGE_BLOCKS } from "../catalog/metal-storage";
 import { hasCloneableBookMetadata, stackLimit } from "../ownership/stack";
 import { SPARKLER_COLORS } from "../catalog/sparkler-colors";
 import { freshStack } from "../ownership/glow-stick-state";
@@ -175,6 +176,11 @@ export const RECIPES: readonly Recipe[] = [
   ...armorRecipes("leather", "leather"),
   // Education1.26.33 declares one reeds input -> one Sugar; reuse the existing Sugar owner.
   { id: "sugar_from_cane", pattern: ["#"], key: { "#": "sugar_cane" }, result: ["sugar", 1] },
+  // Retained Education 1.26.33.0 ordinary block compression and reverse declarations.
+  ...METAL_STORAGE_BLOCKS.flatMap(({ name, material }): Recipe[] => [
+    { id: name, pattern: ["###", "###", "###"], key: { "#": material }, result: [name, 1] },
+    { id: `${material}_from_block`, pattern: ["#"], key: { "#": name }, result: [material, 9] },
+  ]),
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

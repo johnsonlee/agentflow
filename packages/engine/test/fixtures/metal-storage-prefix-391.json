@@ -1,0 +1,26 @@
+{
+  "revision": "39128319a12c79bbb025e851a4b925043b21a9c7",
+  "counts": {
+    "blocks": 324,
+    "items": 600,
+    "recipes": 179,
+    "atlas": 903,
+    "tiles": 313
+  },
+  "hashes": {
+    "blocks": "9fbd00588d6e7d14c6bc81970b03eeb568c02f5087a7824dcc8cf39ffb5a4034",
+    "items": "9a05b979c2a7669b6b6021c49bfb9143c61a860ef3dd1fdd6154d20ce1941f41",
+    "recipes": "6f80e2674cc3c12a12ae0ac1bb4a0d0566bb2ec0c92617bcbc22da27641d40b0",
+    "atlasKeys": "0a076882272fe496dd092000e9138680acd8fea482bb4732c9494bf92b836646",
+    "tileNames": "ef97302d7a47b96f4affb57fb894ec664161064e024de2f45423a407b3bdad18",
+    "atlasRows": "3d01f624ce75d4f76f8bb995c4a5caf69bf760c164302690a5e3ea7c231a9dab"
+  },
+  "atlasSize": [
+    512,
+    512
+  ],
+  "nativeReductionPrefix": {
+    "count": 27,
+    "hash": "882a3414ceaab95ef8c2d75f96d99267ebe2c2a1dc1a3297323c529a6be867c9"
+  }
+}

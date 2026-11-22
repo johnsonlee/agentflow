@@ -18,7 +18,7 @@ it("pins the explicit modern recipe while retaining the conflicting older slime 
   expect(facts.sources.slice(0, 2).every((r: { key: { O: { item: string } } }) => r.key.O.item === "minecraft:slime_ball")).toBe(true);
 });
 it("appends Lead807 and one recipe without changing published item/block/recipe identities", () => {
-  expect([ITEMS.slice(0, 552).length, BLOCKS.length, withLegacyBirchRecipes(RECIPES.slice(0, 144)).length]).toEqual([552, 324, 144]);
+  expect([ITEMS.slice(0, 552).length, BLOCKS.length, withLegacyBirchRecipes(RECIPES.slice(0, 144)).length]).toEqual([552, 327, 144]);
   expect(digest(ITEMS.slice(0, 551))).toBe(baseline.itemDefsSHA256); expect(digest(withLegacyStationFaces(BLOCKS.slice(0,308)))).toBe(baseline.blockDefsSHA256);
   expect(digest(withLegacyBirchRecipes(RECIPES.slice(0, 143)))).toBe(baseline.recipesSHA256); expect(ITEMS.slice(0, 551).map(i => [i.id, i.name])).toEqual(baseline.itemIDs);
   for (const [id, name] of baseline.itemIDs as [number, string][]) expect(stackId(name)).toBe(id);
