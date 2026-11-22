@@ -98,37 +98,24 @@ export class Hud {
       });
       this.hotbar.appendChild(more);
       const top = el("div", "touch-top");
-      const pause = el("button", "touch-top-button", "❚❚");
-      pause.setAttribute("aria-label", "Pause");
-      pause.addEventListener("pointerdown", (e) => {
-        e.stopPropagation();
-        callbacks.onPause();
-      });
-      const chat = el("button", "touch-top-button", "💬");
-      chat.setAttribute("aria-label", "Chat and commands");
-      chat.addEventListener("pointerdown", (e) => {
-        e.stopPropagation();
-        callbacks.onChat();
-      });
-      const camera = el("button", "touch-top-button", "📷");
-      camera.setAttribute("aria-label", "Take photo");
-      camera.addEventListener("pointerdown", (e) => {
-        e.stopPropagation();
-        callbacks.onCamera();
-      });
-      const portfolio = el("button", "touch-top-button", "🖼");
-      portfolio.setAttribute("aria-label", "Portfolio");
-      portfolio.addEventListener("pointerdown", (e) => {
-        e.stopPropagation();
-        callbacks.onPortfolio();
-      });
-      const code = el("button", "touch-top-button", "</>");
-      code.setAttribute("aria-label", "Code Builder");
-      code.addEventListener("pointerdown", (e) => {
-        e.stopPropagation();
-        callbacks.onCodeBuilder();
-      });
-      top.append(code, camera, portfolio, chat, pause);
+      for (const [label, text, activate] of [
+        ["Code Builder", "</>", callbacks.onCodeBuilder],
+        ["Take photo", "📷", callbacks.onCamera],
+        ["Portfolio", "🖼", callbacks.onPortfolio],
+        ["Chat and commands", "💬", callbacks.onChat],
+        ["Pause", "❚❚", callbacks.onPause],
+      ] as const) {
+        const action = el("button", "touch-top-button", text);
+        action.setAttribute("aria-label", label);
+        action.addEventListener("pointerdown", e => e.stopPropagation());
+        for (const type of ["keydown", "keyup"] as const) action.addEventListener(type, e => {
+          if (e.code === "Space" || e.code === "Enter" || e.code === "NumpadEnter") e.stopPropagation();
+        });
+        // Opening a modal on pointerdown can send the same gesture's click to
+        // a newly exposed control. Activate only after the button receives click.
+        action.addEventListener("click", e => { e.stopPropagation(); activate(); });
+        top.appendChild(action);
+      }
       this.root.appendChild(top);
     }
     this.shakeGlow.hidden = true; this.shakeGlow.setAttribute("aria-label", "Shake selected glow stick");
