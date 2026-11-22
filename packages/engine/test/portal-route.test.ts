@@ -1,3 +1,5 @@
+import {createDimensionGeneratedBlockProbe} from '../src/world/dimension-probe';
+import {createFurnace} from '../src/crafting/smelting';
 import {expect,it} from 'vitest';
 import {World} from '../src/world/world';
 import {Inventory} from '../src/ownership/inventory';
@@ -33,4 +35,21 @@ it('refuses dropping existing inactive owners or rewriting existing nonair edits
 it('does not authorize arbitrary Lava replacement when no retained pre-existing Water can cool it',()=>{
  const a=side('overworld',0),b=side('nether',32);a.s.edits.push([80,90,80,blockId('lava')]);const next=createPortalRouteSave(a.s,'overworld',a.portal,captureDimensionWorld(b.s),b.portal,arrival,agentArrival)!;expect(next).not.toBeNull();
  const target=structuredClone(next.dimensions!.inactive.overworld!);target.edits.find(e=>e[0]===80&&e[1]===90&&e[2]===80)![3]=blockId('obsidian');expect(createPortalRouteSave(next,'nether',b.portal,target,a.portal,{x:1.5,y:81,z:2.5},{x:2,y:81,z:2})).toBeNull();
+});
+
+// Saved edit arrays are deltas. Private preparation may omit a cell that already
+// equals its seeded terrain; physical equality, not key presence, preserves it.
+it.each(['air','nonair'] as const)('retains existing realm ownership when a generated-equivalent %s edit is omitted',kind=>{
+ const a=side('overworld',0),b=side('nether',32),probe=createDimensionGeneratedBlockProbe(),cell=kind==='air'?[28,80,28]as const:[28,0,28]as const,generated=probe('nether',7,1,cell[0],cell[1],cell[2]);
+ expect(generated).toBe(kind==='air'?AIR:blockId('bedrock'));b.s.edits.push([...cell,generated!]);b.s.caneGrowth={version:1,tick:19,accumulator:.4,cursor:0};a.s.inventory.slots[2]={id:858,count:1};a.s.agent=createAgent(3,81,3);a.s.agent.slots[0]={id:859,count:2};
+ const archived=captureDimensionWorld(b.s);a.s.dimensions={version:1,active:'overworld',inactive:{nether:archived},links:[]};const target=structuredClone(archived);target.edits=target.edits.filter(e=>!(e[0]===cell[0]&&e[1]===cell[1]&&e[2]===cell[2]));const before=structuredClone(a.s),next=createPortalRouteSave(a.s,'overworld',a.portal,target,b.portal,arrival,agentArrival);
+ expect(next).not.toBeNull();expect(next!.inventory).toEqual(a.s.inventory);expect(next!.agent?.slots).toEqual(a.s.agent.slots);expect(next!.caneGrowth).toEqual(archived.caneGrowth);expect(next!.edits).toEqual(target.edits);expect(a.s).toEqual(before);expect(parseSave(serializeSave(next!)).dimensionsInvalid).toBeUndefined();
+});
+it.each(['air','nonair']as const)('refuses omission that changes existing %s physical material to its generated terrain',kind=>{
+ const a=side('overworld',0),b=side('nether',32),cell=[28,80,28]as const;expect(createDimensionGeneratedBlockProbe()('nether',7,1,...cell)).toBe(AIR);const value=kind==='air'?AIR:blockId('stone');if(kind==='air'){const underground=[28,0,28]as const;expect(createDimensionGeneratedBlockProbe()('nether',7,1,...underground)).toBe(blockId('bedrock'));b.s.edits.push([...underground,AIR]);}else b.s.edits.push([...cell,value]);
+ const archived=captureDimensionWorld(b.s);a.s.dimensions={version:1,active:'overworld',inactive:{nether:archived},links:[]};const target=structuredClone(archived),remove=kind==='air'?[28,0,28]:cell;target.edits=target.edits.filter(e=>!(e[0]===remove[0]&&e[1]===remove[1]&&e[2]===remove[2]));const before=structuredClone(a.s);expect(createPortalRouteSave(a.s,'overworld',a.portal,target,b.portal,arrival,agentArrival)).toBeNull();expect(a.s).toEqual(before);
+});
+it('still refuses removed or changed Chest, Furnace, drop and clock owners even when an equivalent Air edit disappears',()=>{
+ const a=side('overworld',0),b=side('nether',32);b.s.edits.push([28,80,28,AIR],[30,80,30,203],[31,80,30,blockId('furnace')]);const slots=Array(27).fill(null);slots[0]={id:858,count:3};b.s.chests=[{x:30,y:80,z:30,state:{slots}}];const furnace=createFurnace();furnace.input={id:859,count:4};b.s.furnaces=[{x:31,y:80,z:30,state:furnace}];b.s.worldDrops={nextKey:2,records:[{key:1,stack:{id:859,count:5},position:{x:34.5,y:80,z:30.5},velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:.5}]};b.s.caneGrowth={version:1,tick:9,accumulator:.3,cursor:0};const archived=captureDimensionWorld(b.s);a.s.dimensions={version:1,active:'overworld',inactive:{nether:archived},links:[]};
+ const candidate=()=>{const t=structuredClone(archived);t.edits=t.edits.filter(e=>!(e[0]===28&&e[1]===80&&e[2]===28));return t;};expect(createPortalRouteSave(a.s,'overworld',a.portal,candidate(),b.portal,arrival,agentArrival)).not.toBeNull();const mutations=[(t:typeof archived)=>{delete t.chests;},(t:typeof archived)=>{t.furnaces![0].state.input!.count=3;},(t:typeof archived)=>{t.worldDrops!.records[0].stack.count=4;},(t:typeof archived)=>{t.caneGrowth!.tick++;},(t:typeof archived)=>{t.edits=t.edits.filter(e=>!(e[0]===30&&e[1]===80&&e[2]===30));},(t:typeof archived)=>{delete t.portals;}];for(const mutate of mutations){const t=candidate();mutate(t);expect(createPortalRouteSave(a.s,'overworld',a.portal,t,b.portal,arrival,agentArrival)).toBeNull();}
 });

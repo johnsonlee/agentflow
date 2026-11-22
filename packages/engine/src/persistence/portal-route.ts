@@ -45,7 +45,14 @@ export function createPortalRouteSave(source:SaveData,sourceDimension:DimensionI
    const coldLava=(e:DimensionWorldState['edits'][number],id:number|undefined)=>e[3]===blockId('lava')&&id===blockId('obsidian')&&[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].some(([dx,dy,dz])=>cell(before,e[0]+dx,e[1]+dy,e[2]+dz)===blockId('water')&&cell(edits,e[0]+dx,e[1]+dy,e[2]+dz)===blockId('water'));
    // The existing static-source fluid rule can become observable during cold chunk loading.
    // Only that exact Lava→Obsidian transition with pre-existing retained Water is allowed.
-   if(previous.edits.some(e=>!edits.has(`${e[0]},${e[1]},${e[2]}`)||e[3]!==0&&edits.get(`${e[0]},${e[1]},${e[2]}`)!==e[3]&&!coldLava(e,edits.get(`${e[0]},${e[1]},${e[2]}`))))return null;
+   if(previous.edits.some(e=>{
+    const key=`${e[0]},${e[1]},${e[2]}`;
+    // World preparation exports sparse deltas. An omitted key is preserved only
+    // when the exact target realm/seed/generator resolves to the prior material.
+    // Unknown terrain and real material loss still refuse the whole route.
+    if(!edits.has(key))return cell(edits,e[0],e[1],e[2])!==e[3];
+    const id=edits.get(key);return e[3]!==0&&id!==e[3]&&!coldLava(e,id);
+   }))return null;
    if(previous.portals?.records.some(p=>!next.portals?.records.some(q=>samePortal(p,q))))return null;
   }
   next.player={...source.player,position:{...arrival}};
