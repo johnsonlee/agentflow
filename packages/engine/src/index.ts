@@ -148,3 +148,5 @@ export * from "./persistence/recycling-ownership";
 export * from "./ownership/furnace-contents";
 
 export * from "./catalog/hay-block";
+
+export * from "./automation/text-compiler";

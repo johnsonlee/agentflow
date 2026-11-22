@@ -165,3 +165,49 @@ The official `Minecraft_Elements.pdf` catalogue is pinned by URL and SHA256 in t
 Generic element items now place as solid world cubes for all 118 elements; Unknown Element is also available as a creative block. Their high world IDs (32768–32886) occupy a separate namespace, while all existing block/item IDs and atom reference metadata remain intact. Chunk blocks and mesher padding use `Uint16Array`; light remains byte-packed. The compact block registry uses ID lookup maps, and saves keep schema 1 integer edits without item renumbering. Pick/drop and Agent operations return the existing canonical base-element items. Distinct isotope inventory items remain nonplaceable while current-client isotope/NBT behavior is unresolved. Cube hardness/appearance are current app defaults, not exact Education client evidence.
 
 Agent teleporting checks nearby two-cell clearance, tolerates fractional feet at the ground boundary and refuses without moving the Agent when no safe adjacent space exists. Existing inventory and facing state are preserved on refusal.
+
+#### Bounded Agent text compiler (engine only)
+
+`compileAgentText(text, "javascript" | "python", { name, trigger })` parses a small
+text subset into the existing validated `CodeProgram`. It never evaluates text,
+imports code, dispatches commands, grants items, or saves source. The host supplies
+and validates the program name and run/chat trigger. Full JavaScript/Python,
+MakeCode projects, chat callback wrappers, functions, variables and expressions
+are unsupported. No text editor or source persistence is implemented yet.
+
+Supported body-only JavaScript statements are `agent.move(FORWARD, 3)`,
+`agent.turn(LEFT_TURN)` / `RIGHT_TURN`, `agent.place(DOWN)`, `agent.destroy(UP)` and
+`agent.setSlot(1)`. Python uses the same move/place/destroy names,
+`agent.turn(TurnDirection.LEFT)` / `.RIGHT`, and `agent.set_slot(1)`. Directions are
+`FORWARD`, `BACK`, `LEFT`, `RIGHT`, `UP`, `DOWN`. Movement counts are decimal literals
+0–100; slots 1–27 map to the existing zero-based slots. Each move becomes a bounded
+sequence of ordinary commands, preserving the existing runner and ownership rules.
+
+Finite loops accept `for (let i = 0; i < 4; i++) { ... }` (also `<= 3`) or Python
+`for i in range(4):` with exactly four-space indentation. Active nested counters
+must have distinct names, cannot shadow API bindings/direction or turn constants,
+and cannot use language keywords (including contextual/future-reserved words in
+this strict subset). They cannot be read in body expressions. Repeat counts
+are 0–100. Commands and loop/if headers occupy one line; JavaScript can separate
+commands with semicolons. Line comments use `//` or Python `#`. Block comments,
+Python tabs, continuations, imports, `setItem`/`set_item`, teleport and assist
+commands are refused. Unsupported code anywhere, including an unreachable loop
+body or a trailing statement, refuses the whole compilation without a partial AST.
+
+`if (agent.detect(AgentDetection.Block, FORWARD)) { ... } else { ... }` or Python
+`if agent.detect(AgentDetection.BLOCK, FORWARD):` uses this application's **any solid
+block** predicate. Native MakeCode describes different detection semantics; this
+is not native API parity. The separate application extension
+`agent.blockIs("stone", UP)` / Python `agent.block_is("stone", UP)` compares exact
+application catalogue names, including physical orientation states. It never
+accepts native block IDs/data or treats an unloaded target as Air.
+
+The scanner/parser limits source to 16,384 actual UTF-8 bytes, 4,096 tokens, four
+nesting levels and 2,000 generated AST nodes. Existing runtime work limits still
+apply after compilation. Diagnostics contain one-based line/UTF-16 column and an
+exclusive end-column range. Strings are plain quoted exact block names without
+escapes. NUL is refused even inside a comment; identifiers are ASCII. The syntax is informed by the official [JavaScript Agent Build guide](https://minecraft.makecode.com/tutorials/agent-build)
+and [Python guide](https://minecraft.makecode.com/tutorials/python/agent-build);
+unsupported native setup, inventory grants and callback wrappers in those examples
+are not silently accepted. This bounded compiler does not establish full language,
+Education, IDE, account, classroom, graphics or performance equivalence.
