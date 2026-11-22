@@ -380,6 +380,7 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .book-title { margin-bottom: 0; }
 .book-author { margin-top: 0; font-style: italic; }
 .book-nav { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin: 8px 0; }
+.book-nav .mc-button { min-width: 44px; }
 
 /* ---------- Code Builder ---------- */
 /* Responsive down to 320 px: rows wrap, and flex children may shrink below their content width. */
