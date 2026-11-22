@@ -1,3 +1,4 @@
+import {hayAxisOf,hayPlacementId} from "../catalog/hay-block";
 import {inspectCaneItemOwner} from '../ownership/cane-items';
 import {SUGAR_CANE_ITEM_ID} from '../catalog/cane-profile';
 import { harvestOwnerSnapshot } from "../ownership/harvest-owner";
@@ -177,7 +178,8 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       // Blocks, and items that place a block (redstone dust, doors, lab products).
       // Stateful glow has no block metadata owner. Refuse before world writes or source debit.
       if (stack && (Object.prototype.hasOwnProperty.call(stack, "glow") || Object.prototype.hasOwnProperty.call(stack, "sparkler"))) return { ok: false, message: "Stateful Glow sticks and Sparklers cannot be placed" };
-      const placed = stack ? placedBlockOf(stack.id) : null;
+      let placed = stack ? placedBlockOf(stack.id) : null;
+      if(placed!==null&&hayAxisOf(placed)!==null)placed=hayPlacementId({x:t.x-agent.x,y:t.y-agent.y,z:t.z-agent.z});
       if (!stack || placed === null) return { ok: false, message: "No block in the selected slot" };
       // Education Edition: the Agent obeys Allow/Deny like a survival player.
       if (!canBuildAt(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Building isn't allowed here (Deny)" };

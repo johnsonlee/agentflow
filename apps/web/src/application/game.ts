@@ -1479,7 +1479,7 @@ export class Game {
       const pz = replace ? t.z : t.z + t.normal.z;
       // Repeaters point, and doors open, the way the player looks.
       const look = (facingTowards(this.body.yaw) + 2) % 4;
-      if (placeBlock(this.world, this.inventory, this.mode, px, py, pz, this.body.position, look)) this.placeCooldown = 0.15;
+      if (placeBlock(this.world, this.inventory, this.mode, px, py, pz, this.body.position, look, t.normal)) this.placeCooldown = 0.15;
     }
 
     if (pick && t && this.mode === "creative") {

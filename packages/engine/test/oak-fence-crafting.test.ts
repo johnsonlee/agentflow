@@ -23,13 +23,13 @@ it("pins the retained canonical oak recipe and explicit output count while keepi
   expect(canonical.resultLiteral).toEqual({ item: "minecraft:oak_fence", count: 3 });
 });
 it("adds one explicit unused low-block identity without changing published definitions or recipes", () => {
-  expect([ITEMS.slice(0, 551).length, BLOCKS.slice(0, 308).length, withLegacyBirchRecipes(RECIPES.slice(0, 143)).length]).toEqual([551, 308, 143]);
+  expect([ITEMS.slice(0, 551).length, BLOCKS.slice(0, 308).length, withLegacyBirchRecipes(RECIPES.slice(0, 143)).length]).toEqual([551,308,143]);
   expect(digest(ITEMS.slice(0, 551))).toBe(before.itemDefsSHA256); expect(digest(withLegacyStationFaces(BLOCKS.slice(0, 307)))).toBe(before.blockDefsSHA256);
   expect(digest(withLegacyBirchRecipes(RECIPES.slice(0, 142)))).toBe(before.recipesSHA256);
   expect(BLOCKS.slice(0, 307).map(b => [b.id, b.name])).toEqual(before.blockIDs);
   expect(blockId("oak_fence")).toBe(188); expect(BLOCKS[307]?.name).toBe("oak_fence");
   expect(blockById(188)).toMatchObject({ solid: true, transparent: true, shape: "fence", faces: { top: "oak_planks", side: "oak_planks", bottom: "oak_planks" } });
-  expect(new Set(BLOCKS.map(b => b.id)).size).toBe(327); expect(new Set(withLegacyBirchRecipes(RECIPES.slice(0, 143)).map(r => r.id)).size).toBe(143);
+  expect(new Set(BLOCKS.map(b => b.id)).size).toBe(330); expect(new Set(withLegacyBirchRecipes(RECIPES.slice(0, 143)).map(r => r.id)).size).toBe(143);
 });
 it("crafts the retained six-cell oak recipe in either row position and consumes four planks and two sticks once", () => {
   for (const offset of [0, 3]) {

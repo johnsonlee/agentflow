@@ -1,3 +1,4 @@
+import {hayAxisOf,hayPlacementId} from "../catalog/hay-block";
 import {inspectCaneItemOwner} from '../ownership/cane-items';
 import {plantSugarCaneOwned} from './sugar-cane';
 import {SUGAR_CANE_ITEM_ID} from '../catalog/cane-profile';
@@ -188,6 +189,8 @@ export function placeBlock(
   playerFeet: Vec3,
   /** Direction the player looks (0-3, as FACING_VECTORS): orients repeaters and doors. */
   look = 0,
+  /** Clicked face normal: consumed only by the new Hay axis placement. */
+  placementNormal?: Vec3,
 ): boolean {
   if(world.blockSourceLeaseBusy)return false;
   if (![x, y, z].every(Number.isInteger) || y < 0 || y >= WORLD_HEIGHT) return false;
@@ -199,7 +202,8 @@ export function placeBlock(
   // Explicit activation state has no block-owned representation; preserve the held unit.
   // Metadata-less legacy green retains its existing placement behavior.
   if (stack && (Object.prototype.hasOwnProperty.call(stack, "glow") || Object.prototype.hasOwnProperty.call(stack, "sparkler"))) return false;
-  const placed = stack ? placedBlockOf(stack.id) : null;
+  let placed = stack ? placedBlockOf(stack.id) : null;
+  if(placed!==null&&hayAxisOf(placed)!==null)placed=hayPlacementId(placementNormal);
   if (!stack || placed === null) return false;
   const target = world.getBlock(x, y, z);
   if (target !== AIR && target !== WATER && !tryBlockById(target)?.replaceable) return false;

@@ -144,3 +144,5 @@ export * from "./simulation/cane-support";
 export * from "./ownership/metal-recycling";
 export * from "./persistence/recycling-ownership";
 export * from "./ownership/furnace-contents";
+
+export * from "./catalog/hay-block";

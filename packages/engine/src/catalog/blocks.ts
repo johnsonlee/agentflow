@@ -1,3 +1,4 @@
+import {HAY_AXIS_STATES} from "./hay-block";
 import { METAL_STORAGE_BLOCKS } from "./metal-storage";
 import {CANE_PLANT_ID} from './cane-profile';
 import { STATION_FACE_TEXTURES } from "./station-textures";
@@ -36,7 +37,7 @@ export interface BlockDef {
    */
   hardness: number;
   /** Tool that mines this block faster (Minecraft's "preferred tool"). */
-  tool?: "pickaxe" | "axe" | "shovel";
+  tool?: "pickaxe" | "axe" | "shovel" | "hoe";
   /**
    * Minimum pickaxe tier needed to get a drop (1 wooden, 2 stone, 3 iron). Without it the block
    * breaks 3.33x slower and drops nothing, as in Minecraft.
@@ -265,6 +266,9 @@ specs.push({id:CANE_PLANT_ID,name:'sugar_cane_plant',displayName:'Sugar Cane',fa
 for (const { id, name, displayName, hardness, harvestTier } of METAL_STORAGE_BLOCKS) {
   specs.push({ id, name, displayName, faces: faces(name), hardness, tool: "pickaxe", harvestTier });
 }
+
+// Original bounded Hay harvest policy: .75 hand seconds, existing Hoe speed, no native timing claim.
+for(const state of HAY_AXIS_STATES) specs.push({id:state.id,name:state.name,displayName:'Hay Bale',faces:faces('hay_block_top','hay_block_side'),hardness:.75,tool:'hoe',creative:state.creative,...(!state.creative?{drop:'hay_block'}:{})});
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

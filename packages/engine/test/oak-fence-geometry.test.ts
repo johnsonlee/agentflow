@@ -13,8 +13,8 @@ function fixture() {
 }
 
 it("appends explicit188 and preserves all previous block definitions/order without new atlas faces", () => {
-  expect(BLOCKS).toHaveLength(327); expect(BLOCKS[307]).toMatchObject({ id: 188, name: "oak_fence", shape: "fence", solid: true, transparent: true, faces: { top: "oak_planks", side: "oak_planks", bottom: "oak_planks" }, hardness: 3, tool: "axe" });
-  expect(new Set(BLOCKS.map(x => x.id)).size).toBe(327); expect(F).toBe(188);
+  expect(BLOCKS).toHaveLength(330); expect(BLOCKS[307]).toMatchObject({ id: 188, name: "oak_fence", shape: "fence", solid: true, transparent: true, faces: { top: "oak_planks", side: "oak_planks", bottom: "oak_planks" }, hardness: 3, tool: "axe" });
+  expect(new Set(BLOCKS.map(x => x.id)).size).toBe(330); expect(F).toBe(188);
   expect(MAX_BLOCK_COLLISION_HEIGHT).toBe(1.5); expect(BLOCK_COLLISION_ORIGIN_BELOW).toBe(1);
 });
 

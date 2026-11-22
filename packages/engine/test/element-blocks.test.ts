@@ -43,13 +43,13 @@ it("keeps all old numeric/particle identities and adds 119 compact, disjoint ext
 });
 
 it("separates registered membership from numeric namespaces and rejects unknown IDs without wrap or world mutation", () => {
-  expect([ITEM_ID_BASE, ITEM_ID_LIMIT, EXTENDED_BLOCK_ID_BASE, BLOCK_ID_LIMIT]).toEqual([256, 32767, 32768, 65535]);
+  expect([ITEM_ID_BASE, ITEM_ID_LIMIT, EXTENDED_BLOCK_ID_BASE, BLOCK_ID_LIMIT]).toEqual([256,32767,32768,65535]);
   expect(isBlockNamespace(255)).toBe(true); expect(isKnownBlockId(255)).toBe(false);
   expect(isItem(256)).toBe(true); expect(isKnownItemId(256)).toBe(true); expect(isKnownBlockId(256)).toBe(false);
   expect(isItem(32767)).toBe(true); expect(isKnownId(32767)).toBe(false);
   expect(isBlockNamespace(65535)).toBe(true); expect(isKnownBlockId(65535)).toBe(false); expect(isBlockNamespace(65536)).toBe(false);
   const world = new World(13), chunk = new Chunk(0, 0);
-  for (const bad of [-1, .5, NaN, Infinity, 208, 255, 256, 774, 32767, 32887, 65535, 65536]) {
+  for (const bad of [-1, .5, NaN, Infinity, 211, 255, 256, 774, 32767, 32887, 65535, 65536]) {
     expect(isKnownBlockId(bad)).toBe(false); expect(tryBlockById(bad)).toBeUndefined(); expect(placedBlockOf(bad)).toBeNull();
     world.setBlock(8, 90, 8, bad); chunk.set(1, 90, 1, bad);
     expect(chunk.get(1, 90, 1)).toBe(AIR);
@@ -68,7 +68,7 @@ it("separates registered membership from numeric namespaces and rejects unknown 
 it("retains all high bits in Chunk and integer world edits through unload and regeneration", () => {
   const chunk = new Chunk(0, 0); expect(chunk.blocks).toBeInstanceOf(Uint16Array); expect(chunk.light).toBeInstanceOf(Uint8Array);
   chunk.set(0, 90, 0, 32768); chunk.set(1, 90, 0, 32769); chunk.set(2, 90, 0, 32886);
-  expect([chunk.get(0, 90, 0), chunk.get(1, 90, 0), chunk.get(2, 90, 0)]).toEqual([32768, 32769, 32886]);
+  expect([chunk.get(0, 90, 0), chunk.get(1, 90, 0), chunk.get(2, 90, 0)]).toEqual([32768,32769,32886]);
   const world = new World(13);
   for (const [x, id] of [[-1, 32768], [15, 32769], [16, 32886]]) world.setBlock(x, 90, 0, id);
   const edits = world.exportEdits(); world.unloadChunk(-1, 0); world.unloadChunk(0, 0); world.unloadChunk(1, 0);

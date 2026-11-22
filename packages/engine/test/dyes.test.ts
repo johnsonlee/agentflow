@@ -31,7 +31,7 @@ it("preserves every prior block/item/atom identity and appends dyes and explicit
     expect(blockById(blockId(`${color.name}_wool`)).faces.side).toBe(`${color.name}_wool`);
   }
   expect(BLOCKS.slice(283, 291).map((b) => [b.id, b.name])).toEqual(newWools.map((c, i) => [164 + i, `${c}_wool`]));
-  expect(blockId("element_118")).toBe(32886); expect(isKnownBlockId(208)).toBe(false); expect(isItem(164)).toBe(false);
+  expect(blockId("element_118")).toBe(32886); expect(isKnownBlockId(211)).toBe(false); expect(isItem(164)).toBe(false);
 });
 
 it("matches all 17 available-input primary-source recipes with exact output counts in arbitrary cells", () => {
@@ -57,7 +57,7 @@ it("matches all 17 available-input primary-source recipes with exact output coun
 it("requires repeated mix ingredients in separate occupied cells and never treats raw ink as every dye", () => {
   // One black + two white cells yields three; a single white stack still only supplies one cell.
   const grid: CraftingGrid = [stack("black_dye", 2), stack("white_dye", 3), stack("white_dye", 4), null];
-  expect(craftOnce(grid, 2)).toEqual(stack("light_gray_dye", 3)); expect(grid.map((s) => s?.count ?? 0)).toEqual([1, 2, 3, 0]);
+  expect(craftOnce(grid, 2)).toEqual(stack("light_gray_dye", 3)); expect(grid.map((s) => s?.count ?? 0)).toEqual([1,2,3,0]);
   expect(craftOnce([stack("black_dye"), stack("white_dye", 2), null, null], 2)).toEqual(stack("gray_dye", 2));
   expect(craftOnce([stack("ink_sac"), stack("white_dye"), null, null], 2)).toEqual(stack("gray_dye", 2));
   for (const dye of ["blue_dye", "brown_dye", "white_dye", "green_dye"]) {

@@ -187,6 +187,8 @@ export const RECIPES: readonly Recipe[] = [
     { id: name, pattern: ["#"], key: { "#": ingot }, result: [name, 9] },
     { id: `${ingot}_from_nuggets`, pattern: ["###", "###", "###"], key: { "#": name }, result: [ingot, 1] },
   ]),
+  {id:'hay_block',pattern:['###','###','###'],key:{'#':'wheat'},result:['hay_block',1]},
+  {id:'wheat_from_hay_block',pattern:['#'],key:{'#':'hay_block'},result:['wheat',9]},
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

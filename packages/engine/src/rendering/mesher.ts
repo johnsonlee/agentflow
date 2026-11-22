@@ -1,3 +1,4 @@
+import {hayFaceAppearance} from "../catalog/hay-block";
 import { AIR, blockId, isOpaque, tryBlockById } from "../catalog/blocks";
 import { BREWING_STAND_PARTS, blockRenderBoxes } from "../catalog/block-geometry";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../world/chunk";
@@ -160,7 +161,8 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
           const lowerTop = isLiquid && get(x, y + 1, z) !== id;
           // A face is lit by the cell it faces (Minecraft's flat lighting); emissive blocks are always bright.
           const light = bright ? 0xff : lightAt(nx, ny, nz);
-          addFace(builder, face, x, y, z, uv(def.faces[face.key]), bright ? null : opaque, lowerTop, light);
+          const hay=hayFaceAppearance(id,face.dir);
+          addFace(builder, face, x, y, z, uv(hay?.texture??def.faces[face.key]), bright ? null : opaque, lowerTop, light, hay?.rotateUV??false);
         }
       }
     }
@@ -211,11 +213,13 @@ function addFace(
   opaque: ((x: number, y: number, z: number) => boolean) | null,
   lowerTop: boolean,
   light: number,
+  rotateUV = false,
 ): void {
   const sky = (light >> 4) / 15;
   const block = (light & 15) / 15;
   const [u0, v0, u1, v1] = rect;
-  const uvCorners = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+  const baseUV = [[u0, v0], [u1, v0], [u1, v1], [u0, v1]];
+  const uvCorners = rotateUV ? baseUV.map((_,i)=>baseUV[(i+1)%4]) : baseUV;
   const [dx, dy, dz] = face.dir;
   const base = b.vertexCount();
   const ao: number[] = [];

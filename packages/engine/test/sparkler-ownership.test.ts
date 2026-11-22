@@ -17,7 +17,7 @@ describe("five Journal-supported Sparklers and real offhand owners",()=>{
     expect(JSON.parse(JSON.stringify(BLOCKS.slice(0,308)))).toEqual(baseline.blocks);
     expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(RECIPES.slice(0,160))))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,849)).toEqual(baseline.names);
-    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([602, 327, 189, 908]);
+    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([602,330,191,910]);
     expect(Object.isFrozen(SPARKLER_COLORS)).toBe(true); expect(SPARKLER_COLORS.every(Object.isFrozen)).toBe(true);
   });
   it("crafts all five vertical chloride/Mg/stick grids and refuses wrong color chemistry and short grids",()=>{
@@ -29,7 +29,7 @@ describe("five Journal-supported Sparklers and real offhand owners",()=>{
       }
       const before=structuredClone(grid);
       expect(craftOnce(grid,3)).toEqual(freshStack(color.itemId));
-      expect(grid.filter(Boolean).map(x=>x!.count)).toEqual([1, 1, 1]);
+      expect(grid.filter(Boolean).map(x=>x!.count)).toEqual([1,1,1]);
       const wrong=structuredClone(before);wrong[4]={id:ITEMS.find(x=>x.name==="iron")!.id,count:1};
       expect(craftOnce(wrong,3)).toBeNull(); expect(wrong[1]).toEqual(before[1]);
       expect(recipe.pattern).toEqual(["C","M","S"]);expect(craftOnce(before.slice(0,4),2)).toBeNull();

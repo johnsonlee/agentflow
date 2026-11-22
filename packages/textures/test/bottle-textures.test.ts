@@ -8,9 +8,9 @@ it("preserves all860 published tile pixels and UVs while appending two whole bot
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
   expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
   expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
-  expect(names).toHaveLength(908); expect(names.slice(0, 860)).toEqual(baseline.names);
+  expect(names).toHaveLength(910); expect(names.slice(0, 860)).toEqual(baseline.names);
   expect(names.slice(860, 862)).toEqual(["item_glass_bottle", "item_water_bottle"]);
-  expect(new Set(names).size).toBe(908);
+  expect(new Set(names).size).toBe(910);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];
