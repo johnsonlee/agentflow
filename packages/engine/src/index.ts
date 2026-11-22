@@ -157,3 +157,8 @@ export * from "./persistence/cane-growth-state";
 export * from "./simulation/cane-growth";
 
 export * from "./ownership/lab-product-use";
+
+export * from "./catalog/bone-meal-profile";
+export * from "./ownership/bone-meal-items";
+export * from "./ownership/bone-meal-use";
+export * from "./persistence/bone-meal-ownership";

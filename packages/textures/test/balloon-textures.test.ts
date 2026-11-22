@@ -9,9 +9,9 @@ it("appends exactly sixteen original color icons and preserves all833 catalog en
   const names = allAtlasTextureNames(), atlas = buildAtlas(names), historical = buildAtlas(baseline.names);
   expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
   expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
-  expect(names).toHaveLength(910); expect(names.slice(0, 833)).toEqual(baseline.names);
+  expect(names).toHaveLength(912); expect(names.slice(0, 833)).toEqual(baseline.names);
   expect(names.slice(833, 849)).toEqual(BALLOON_COLORS.map(color => color.icon));
-  expect(new Set(names).size).toBe(910); expect([atlas.width, atlas.height, atlas.tileSize]).toEqual(baseline.layout);
+  expect(new Set(names).size).toBe(912); expect([atlas.width, atlas.height, atlas.tileSize]).toEqual(baseline.layout);
   expect(hash(historical.data)).toBe(baseline.atlasRGBA_SHA256);
   for (const name of baseline.names) {
     expect(hash(generateTile(name))).toBe(baseline.tiles[name as keyof typeof baseline.tiles]);

@@ -1,3 +1,4 @@
+import { BONE_MEAL_ITEM_ID, useOwnedBoneMeal, diagnoseRawBoneMealOwnership, type BoneMealOwnershipIssue } from "@craft/engine";
 import { useOwnedLabProduct } from "@craft/engine";
 import { CaneGrowthSystem, readCaneGrowthState } from "@craft/engine";
 import { type CodeWorkspaceData } from "@craft/engine";
@@ -132,6 +133,7 @@ export class Game {
   private recoverySections: string[] = [];
   private wartIssues:Array<{path:string;reason:string}>=[];
   private caneIssues:Array<{path:string;reason:string}>=[];
+  private boneMealIssues:BoneMealOwnershipIssue[]=[];
   private recyclingIssues:Array<{path:string;reason:string}>=[];
   private blazeIssues:BlazeOwnershipIssue[]=[];
   private brewingIssues:BrewingOwnershipIssue[]=[];
@@ -269,7 +271,7 @@ export class Game {
     const save = options.save;
     this.restoreDimensions(save);
     this.restoreBrewingOwners(save);this.restoreChestOwners(save);
-    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
+    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markBoneMealRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     if(options.preparedWorld){
       if(!prepareOnly||!save||this.recoverySections.length||!this.acceptPreparedWorld(options.preparedWorld,save))throw new Error("Invalid or already attached prepared arrival World");
@@ -423,6 +425,7 @@ export class Game {
     for(const issue of this.blazeIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.recyclingIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.caneIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for(const issue of this.boneMealIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.wartIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.portalOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     if (this.recoverySections.includes("portals")) this.loadErrors.push("Damaged portals (original save preserved)");
@@ -1523,6 +1526,17 @@ export class Game {
       return;
     }
 
+    // Bone Meal is a distinct finite ingredient; its loaded Cane effect owns the debit.
+    if (place && t && this.placeCooldown === 0 && held?.id === BONE_MEAL_ITEM_ID) {
+      const boneWorld = this.world, boneMode = this.mode;
+      const changed = useOwnedBoneMeal(boneWorld, this.inventory, boneMode, t, () =>
+        this.world === boneWorld && this.mode === boneMode && !this.dead && !this.stopped && !this.paused &&
+        !this.actionsNeedRecovery && !this.screenOpen());
+      this.placeCooldown = 0.25;
+      if (changed <= 0) this.hud.message("Bone Meal has nothing to grow here");
+      return;
+    }
+
     // Lab Table products with a use effect: the ice bomb freezes water, super fertilizer grows plants.
     if (place && t && this.placeCooldown === 0 && held) {
       if (held.id === SUPER_FERTILIZER && wheatAge(t.id) !== null && !canBuildAt(this.world, this.mode, t.x, t.y, t.z)) {
@@ -1675,6 +1689,13 @@ export class Game {
   private markRecyclingRecovery(save:SaveData|undefined):void {
     this.recyclingIssues=[...(save?.recyclingOwnershipIssues??[]),...diagnoseRawRecyclingOwnership(save)].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
     if(!this.recyclingIssues.length)return;
+    this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
+    if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
+  }
+
+  private markBoneMealRecovery(save:SaveData|undefined):void {
+    this.boneMealIssues=[...(save?.boneMealOwnershipIssues??[]),...diagnoseRawBoneMealOwnership(save)].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
+    if(!this.boneMealIssues.length)return;
     this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
     if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
   }

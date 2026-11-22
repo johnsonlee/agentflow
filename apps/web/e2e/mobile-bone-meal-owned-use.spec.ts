@@ -1,0 +1,3 @@
+import{test}from'@playwright/test';import{boneMealOwnedUseRoute,boneMealCorruptBackupRoute}from'./bone-meal-owned-use';
+test('mobile: portrait and landscape preowned Bone to finite Cane growth, White and direct Pink Dye and cold restore',async({page},info)=>{test.setTimeout(480000);for(const viewport of[{width:390,height:844},{width:915,height:412}])await boneMealOwnedUseRoute(page,info,true,viewport);});
+test('mobile: portrait and landscape damaged Meal freeze with exact original UI backup',async({page},info)=>{test.setTimeout(240000);for(const viewport of[{width:390,height:844},{width:915,height:412}])await boneMealCorruptBackupRoute(page,info,true,viewport);});

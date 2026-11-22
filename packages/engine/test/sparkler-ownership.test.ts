@@ -17,7 +17,7 @@ describe("five Journal-supported Sparklers and real offhand owners",()=>{
     expect(JSON.parse(JSON.stringify(BLOCKS.slice(0,308)))).toEqual(baseline.blocks);
     expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(RECIPES.slice(0,160))))).toEqual(baseline.recipes);
     expect(allAtlasTextureNames().slice(0,849)).toEqual(baseline.names);
-    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([602,330,191,910]);
+    expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([604,330,202,912]);
     expect(Object.isFrozen(SPARKLER_COLORS)).toBe(true); expect(SPARKLER_COLORS.every(Object.isFrozen)).toBe(true);
   });
   it("crafts all five vertical chloride/Mg/stick grids and refuses wrong color chemistry and short grids",()=>{

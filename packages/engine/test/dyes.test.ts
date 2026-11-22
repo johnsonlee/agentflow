@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { expect, it } from "vitest";
 import {
-  AIR, BLOCKS, DYE_COLORS, DYE_RECIPES, ITEMS, Inventory, World, blockById, blockId, breakBlock,
+  AIR, BLOCKS, DYE_COLORS, DYE_RECIPES, ITEMS, RECIPES, Inventory, World, blockById, blockId, breakBlock,
   craftOnce, createAgent, elementBlockId, giveAgent, isItem, isKnownBlockId, itemById, matchRecipe,
   parseSave, placeBlock, runAgentCommand, sanitizeAgent, sanitizeEdits, sanitizeInventoryPending,
   sanitizeStack, serializeSave, stackId, type CraftingGrid, type ItemStack,
@@ -34,10 +34,10 @@ it("preserves every prior block/item/atom identity and appends dyes and explicit
   expect(blockId("element_118")).toBe(32886); expect(isKnownBlockId(211)).toBe(false); expect(isItem(164)).toBe(false);
 });
 
-it("matches all 17 available-input primary-source recipes with exact output counts in arbitrary cells", () => {
+it("matches all 27 available-input primary-source recipes with exact output counts in arbitrary cells", () => {
   expect(source.revision).toBe("15701fa9c13923f12662984c32c124327e40e3d3"); expect(source.recipes).toHaveLength(62);
   const available = source.recipes.filter((r) => r.inputs.every((input) => { try { stackId(input.name); return true; } catch { return false; } }));
-  expect(available).toHaveLength(17); expect(DYE_RECIPES).toHaveLength(17);
+  expect(available).toHaveLength(27); expect(DYE_RECIPES).toHaveLength(27);
   expect(new Set(DYE_RECIPES.map((r) => r.id))).toEqual(new Set(available.map((r) => r.file.replace(/\.json$/, ""))));
   for (const recipe of available) for (const width of [2, 3]) {
     expect(recipe.type).toBe("minecraft:recipe_shapeless");
@@ -45,6 +45,7 @@ it("matches all 17 available-input primary-source recipes with exact output coun
     const grid: CraftingGrid = new Array(width * width).fill(null);
     ingredients.forEach((name, i) => { grid[grid.length - 1 - i] = stack(name, 3); });
     const before = structuredClone(grid);
+    expect(matchRecipe(grid, width)?.recipe.id, recipe.file).toBe(recipe.file.replace(/\.json$/, ""));
     expect(craftOnce(grid, width), recipe.file).toEqual(stack(recipe.result.name, recipe.result.count));
     for (let i = 0; i < grid.length; i++) expect(grid[i]).toEqual(before[i] ? { ...before[i]!, count: 2 } : null);
     const extra = structuredClone(before);
@@ -60,7 +61,8 @@ it("requires repeated mix ingredients in separate occupied cells and never treat
   expect(craftOnce(grid, 2)).toEqual(stack("light_gray_dye", 3)); expect(grid.map((s) => s?.count ?? 0)).toEqual([1,2,3,0]);
   expect(craftOnce([stack("black_dye"), stack("white_dye", 2), null, null], 2)).toEqual(stack("gray_dye", 2));
   expect(craftOnce([stack("ink_sac"), stack("white_dye"), null, null], 2)).toEqual(stack("gray_dye", 2));
-  for (const dye of ["blue_dye", "brown_dye", "white_dye", "green_dye"]) {
+  expect(DYE_RECIPES.filter(r => r.result[0] === "white_dye").map(r => r.id)).toEqual(["white_dye_from_bone_meal"]);
+  for (const dye of ["blue_dye", "brown_dye", "green_dye"]) {
     expect(DYE_RECIPES.some((r) => r.result[0] === dye)).toBe(false); // Missing raw acquisition resources are not invented.
   }
 });
@@ -128,4 +130,16 @@ it("round trips all new dye/wool stacks through inventory, pending recovery and 
   for (let i = 0; i < names.length; i++) expect(runAgentCommand(new World(13), clean, { op: "drop", slot: i }, { giveToPlayer: (s) => received.addStack(s) }).ok).toBe(true);
   expect(received.slots.filter(Boolean)).toEqual(names.map((n) => stack(n, 2)));
   for (const raw of [{ id: ITEMS.at(-1)!.id + 1, count: 1 }, { id: 189, count: 1 }, { id: 775, count: 65 }, { id: 775, count: 0 }]) expect(sanitizeStack(raw)).toBeNull();
+});
+
+it('new ten Bone Meal dye declarations have unique stable main recipe IDs and exact retained-source inputs/results',()=>{
+ const expected=['gray_dye_from_black_bonemeal','gray_dye_from_ink_bonemeal','light_blue_dye_from_blue_bonemeal','light_gray_dye_from_black_bonemeal','light_gray_dye_from_gray_bonemeal','light_gray_dye_from_ink_bonemeal','lime_dye_from_bonemeal','magenta_dye_from_blue_ink_bonemeal','pink_dye_from_red_bonemeal','white_dye_from_bone_meal'];
+ const rows=source.recipes.filter(r=>expected.includes(r.file.replace(/\.json$/,'')));expect(rows.map(r=>r.file.replace(/\.json$/,'')).sort()).toEqual([...expected].sort());
+ for(const row of rows){const id=row.file.replace(/\.json$/,''),matches=RECIPES.filter(r=>r.id===id);expect(matches).toHaveLength(1);expect(matches[0].ingredients).toEqual(row.inputs.flatMap(i=>Array(i.count).fill(i.name)));expect(matches[0].result).toEqual([row.result.name,row.result.count]);expect(DYE_RECIPES.find(r=>r.id===id)).toBe(matches[0]);}
+});
+it('repeated Bone Meal and red inputs occupy separate finite cells without turning White Dye into Meal',()=>{
+ const light:CraftingGrid=[stack('black_dye'),stack('bone_meal'),stack('bone_meal'),null];expect(craftOnce(light,2)).toEqual(stack('light_gray_dye',3));expect(light).toEqual([null,null,null,null]);
+ const collapsed:CraftingGrid=[stack('black_dye'),stack('bone_meal',2),null,null];expect(matchRecipe(collapsed,2)?.recipe.id).toBe('gray_dye_from_black_bonemeal');expect(craftOnce(collapsed,2)).toEqual(stack('gray_dye',2));expect(collapsed[1]).toEqual(stack('bone_meal'));
+ const mixed:CraftingGrid=[stack('black_dye'),stack('bone_meal'),stack('white_dye'),null],before=structuredClone(mixed);expect(craftOnce(mixed,2)).toBeNull();expect(mixed).toEqual(before);
+ const magenta:CraftingGrid=[stack('blue_dye'),stack('red_dye',2),stack('bone_meal'),null],original=structuredClone(magenta);expect(craftOnce(magenta,2)).toBeNull();expect(magenta).toEqual(original);
 });

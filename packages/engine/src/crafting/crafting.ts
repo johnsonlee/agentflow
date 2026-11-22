@@ -51,7 +51,7 @@ function armorRecipes(material: ArmorMaterial, head: string): Recipe[] {
  * Exact normalized source records/hashes: artifacts/chemistry-dyes-glowstick-sources.json.
  * Missing acquisition resources are not substituted; legacy ink-sac mix alternatives stay distinct.
  */
-export const DYE_RECIPES: readonly Recipe[] = [
+const LEGACY_DYE_RECIPES: readonly Recipe[] = [
   { id: "black_dye_from_ink_sac", ingredients: ["ink_sac"], result: ["black_dye", 1] },
   { id: "cyan_dye", ingredients: ["blue_dye", "green_dye"], result: ["cyan_dye", 2] },
   { id: "gray_dye", ingredients: ["black_dye", "white_dye"], result: ["gray_dye", 2] },
@@ -70,6 +70,22 @@ export const DYE_RECIPES: readonly Recipe[] = [
   { id: "red_dye_from_poppy", ingredients: ["poppy"], result: ["red_dye", 1] },
   { id: "yellow_dye_from_dandelion", ingredients: ["dandelion"], result: ["yellow_dye", 1] },
 ];
+
+/** Exact available Bone Meal alternatives from retained Mojang sample dye-source-recipes.json.
+ * Keep the legacy seventeen spread in place; append these only after all old191 main recipes. */
+const WHITE_DYE_FROM_BONE_MEAL: Recipe = { id: "white_dye_from_bone_meal", ingredients: ["bone_meal"], result: ["white_dye", 1] };
+const BONE_MEAL_DYE_RECIPES: readonly Recipe[] = [
+  { id: "gray_dye_from_black_bonemeal", ingredients: ["black_dye", "bone_meal"], result: ["gray_dye", 2] },
+  { id: "gray_dye_from_ink_bonemeal", ingredients: ["ink_sac", "bone_meal"], result: ["gray_dye", 2] },
+  { id: "light_blue_dye_from_blue_bonemeal", ingredients: ["blue_dye", "bone_meal"], result: ["light_blue_dye", 2] },
+  { id: "light_gray_dye_from_black_bonemeal", ingredients: ["black_dye", "bone_meal", "bone_meal"], result: ["light_gray_dye", 3] },
+  { id: "light_gray_dye_from_gray_bonemeal", ingredients: ["gray_dye", "bone_meal"], result: ["light_gray_dye", 2] },
+  { id: "light_gray_dye_from_ink_bonemeal", ingredients: ["ink_sac", "bone_meal", "bone_meal"], result: ["light_gray_dye", 3] },
+  { id: "lime_dye_from_bonemeal", ingredients: ["green_dye", "bone_meal"], result: ["lime_dye", 2] },
+  { id: "magenta_dye_from_blue_ink_bonemeal", ingredients: ["blue_dye", "red_dye", "red_dye", "bone_meal"], result: ["magenta_dye", 4] },
+  { id: "pink_dye_from_red_bonemeal", ingredients: ["red_dye", "bone_meal"], result: ["pink_dye", 2] },
+];
+export const DYE_RECIPES: readonly Recipe[] = [...LEGACY_DYE_RECIPES, WHITE_DYE_FROM_BONE_MEAL, ...BONE_MEAL_DYE_RECIPES];
 
 /** Recipes for the blocks and items this game models; provisional rules carry a note. */
 export const RECIPES: readonly Recipe[] = [
@@ -105,7 +121,7 @@ export const RECIPES: readonly Recipe[] = [
   { id: "crafting_table", pattern: ["##", "##"], key: { "#": "oak_planks" }, keyTags: { "#": "planks" }, result: ["crafting_table", 1] },
   { id: "bookshelf", pattern: ["###", "BBB", "###"], key: { "#": "oak_planks", B: "book" }, keyTags: { "#": "planks" }, result: ["bookshelf", 1], note: "Available Oak/Birch subset of the declared plank tag; other wood species remain unmodeled" },
   { id: "snow_block", pattern: ["##", "##"], key: { "#": "snowball" }, result: ["snow", 1] },
-  ...DYE_RECIPES,
+  ...LEGACY_DYE_RECIPES,
   // Official 2019 dye article teaches white wool + dye; exact current Education counts are unverified.
   ...DYE_COLORS.filter((c) => c.name !== "white").map(({ name }) => ({
     id: `${name}_wool`, ingredients: ["white_wool", `${name}_dye`], result: [`${name}_wool`, 1] as [string, number],
@@ -189,6 +205,11 @@ export const RECIPES: readonly Recipe[] = [
   ]),
   {id:'hay_block',pattern:['###','###','###'],key:{'#':'wheat'},result:['hay_block',1]},
   {id:'wheat_from_hay_block',pattern:['#'],key:{'#':'hay_block'},result:['wheat',9]},
+  // Cached Education1.26.33 client declares Bone -> legacy dye15 x3 and dye15 -> white dye19.
+  // This app uses distinct item identities; 2x2 availability follows its shapeless matcher policy.
+  { id: "bone_meal_from_bone", ingredients: ["bone"], result: ["bone_meal", 3] },
+  WHITE_DYE_FROM_BONE_MEAL,
+  ...BONE_MEAL_DYE_RECIPES,
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

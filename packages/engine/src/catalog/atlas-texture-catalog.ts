@@ -886,5 +886,6 @@ export const ATLAS_TEXTURE_CATALOG: readonly string[] = Object.freeze([
   "item_leather_helmet", "item_leather_chestplate", "item_leather_leggings", "item_leather_boots",
   "iron_block", "gold_block", "diamond_block",
   "item_iron_nugget", "item_gold_nugget",
-  "hay_block_top", "hay_block_side"
+  "hay_block_top", "hay_block_side",
+  "item_bone", "item_bone_meal"
 ]);

@@ -253,6 +253,9 @@ const specs: Omit<ItemDef, "id">[] = [
   ...ARMOR_KINDS.map((_, index) => armor("leather", index)),
   // Append ordinary metal fractions after all600 archived item owners (last855).
   ...METAL_NUGGETS.map(({ name, displayName }) => material(name, displayName)),
+  // Append after all602 existing items ending at GoldNugget857; no dye or Lab product alias.
+  material("bone", "Bone"),
+  material("bone_meal", "Bone Meal"),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

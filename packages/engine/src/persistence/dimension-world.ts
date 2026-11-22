@@ -1,3 +1,4 @@
+import {diagnoseRawBoneMealOwnership} from './bone-meal-ownership';
 import { readCaneGrowthState } from "./cane-growth-state";
 import { hasBusyFurnaceOwnership } from "../ownership/furnace-contents";
 import type { SaveData } from "./save";
@@ -18,13 +19,14 @@ const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
   "codeWorkspaceInvalid", "caneGrowthInvalid",
-  "recyclingOwnershipIssues", "caneOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
+  "recyclingOwnershipIssues", "caneOwnershipIssues", "boneMealOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
   "bottleOwnershipIssues", "bucketOwnershipIssues", "cowStateInvalid", "playerStatusInvalid",
   "fireInvalid", "ignitionOwnershipIssues", "gravelHarvestInvalid",
 ] as const satisfies readonly (keyof SaveData)[];
 function assertNoSourceDiagnostics(save: SaveData): void {
+  if(diagnoseRawBoneMealOwnership(save).length)throw new Error("Invalid source Bone/Bone Meal ownership");
   const growth = Object.getOwnPropertyDescriptor(save, "caneGrowth");
   if (growth && (!("value" in growth) || readCaneGrowthState(growth.value).kind === "invalid")) {
     throw new Error("Invalid source Cane growth state");
@@ -55,6 +57,7 @@ function assertWorldEnvelope(world: DimensionWorldState): void {
       throw new Error("Foreign owner, accessor or non-enumerable field in dimension world");
     }
   }
+  if(diagnoseRawBoneMealOwnership(world).length)throw new Error("Invalid dimension Bone/Bone Meal ownership");
   if (readCaneGrowthState(world.caneGrowth).kind === "invalid") throw new Error("Invalid dimension Cane growth state");
   for (const key of required) {
     if (!Object.hasOwn(world, key) || world[key] === undefined) {
