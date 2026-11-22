@@ -59,6 +59,15 @@ export class PortalSystem {
  constructor(private readonly world:World){}
  clear():void{if(isPortalActionBusy(this.world))return;this.records.clear();}
  exportState():PortalData{return {version:1,records:[...this.records.values()].map(r=>({...r}))};}
+ /** Read-only guard for the actual owner instance. Clear/restore or replacement
+  * cannot revive a prior guard, even when every physical cell still matches. */
+ captureOwner(input:PortalRecord):(()=>boolean)|null{
+  const state=sanitizePortalState({version:1,records:[input]});if(state.invalid||isPortalActionBusy(this.world))return null;
+  const frame=state.data.records[0],owner=this.records.get(recordKey(frame));
+  const matches=()=>!!owner&&fields.every(k=>owner[k as keyof PortalRecord]===frame[k as keyof PortalRecord]);
+  if(!matches())return null;
+  return ()=>!isPortalActionBusy(this.world)&&this.records.get(recordKey(frame))===owner&&matches();
+ }
  /** Refuse unloaded invalidation before gameplay reserves any receiver. */
  canChange(x:number,y:number,z:number):boolean {return this.planChanges([[x,y,z,AIR]])!==null;}
  hasDependency(x:number,y:number,z:number):boolean{return [...this.records.values()].some(r=>{const c=cells(r);return [...c.interior,...c.boundary].some(p=>p.x===x&&p.y===y&&p.z===z);});}

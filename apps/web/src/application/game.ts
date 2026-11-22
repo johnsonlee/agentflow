@@ -77,6 +77,16 @@ export interface GameEvents {
 /** Owns the world simulation, player, input and HUD for one play session. */
 export class Game {
   private static activeWriter: Game | null = null;
+  private static handoffBusy = false;
+  private prepared = false;
+  private frameRequest: number | null = null;
+  private readonly cleanups: Array<{ name: string; dispose: () => void }> = [];
+  private readonly cleanupErrors: string[] = [];
+  get lifecycleCleanupErrors(): readonly string[] { return [...this.cleanupErrors]; }
+
+  static prepare(container: HTMLElement, atlas: TextureAtlas, options: GameOptions, events: GameEvents): Game {
+    return new Game(container, atlas, options, events, true);
+  }
   readonly snowballProjectiles: SnowballProjectiles;
   private readonly snowballProjectilesView: SnowballProjectilesView;
   private snowballImpacts: SnowballImpact[] = [];
@@ -112,7 +122,8 @@ export class Game {
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
   private readonly mobLoot = new MobLootResolver();
-  private get ownershipBusy(): boolean { return this.leashes.busy || this.balloons.busy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
+  private get transferBusy(): boolean { return this.leashes.busy || this.balloons.busy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
+  private get ownershipBusy(): boolean { return this.prepared || this.stopped || Game.handoffBusy || this.transferBusy; }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
   readonly world: World;
@@ -195,15 +206,22 @@ export class Game {
   private readonly canvas: HTMLCanvasElement;
 
   constructor(
-    container: HTMLElement,
+    private readonly container: HTMLElement,
     atlas: TextureAtlas,
     options: GameOptions,
     private readonly events: GameEvents,
+    prepareOnly = false,
   ) {
-    Game.activeWriter = this;
+    if (Game.handoffBusy) throw new Error("A Game handoff is in progress");
+    this.prepared = prepareOnly;
+    this.registerCleanup("animation frame", () => { if (this.frameRequest !== null) cancelAnimationFrame(this.frameRequest); });
+    this.registerCleanup("program", () => this.runner?.stop());
+    try {
     this.root = document.createElement("div");
+    this.registerCleanup("root", () => this.root.remove());
     this.root.className = "game";
-    container.appendChild(this.root);
+    this.root.hidden = this.prepared;
+    if (!this.prepared) container.appendChild(this.root);
     const canvas = this.canvas = document.createElement("canvas");
     canvas.className = "game-canvas";
     this.root.appendChild(canvas);
@@ -215,11 +233,16 @@ export class Game {
     if (save) this.world.importEdits(sanitizeEdits(save.edits));
     this.restoreGravelHarvests(save); this.restoreFire(save); this.restoreFluids(save); this.restorePortals(save);
     this.farming = new FarmingSystem(this.world, save?.farming);
+    this.registerCleanup("farming", () => this.farming.dispose());
     this.snowballProjectiles = new SnowballProjectiles(this.world, save?.snowballProjectiles);
+    this.registerCleanup("snowball simulation", () => this.snowballProjectiles.dispose());
     if (this.snowballProjectiles.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("snowball projectiles"); }
     this.worldDrops = new WorldDrops(this.world, save?.worldDrops);
+    this.registerCleanup("drop simulation", () => this.worldDrops.dispose());
     this.leashes = new LeashStore(save?.leashes);
+    this.registerCleanup("leash store", () => this.leashes.dispose());
     this.balloons = new BalloonStore(save?.balloons);
+    this.registerCleanup("balloon store", () => this.balloons.dispose());
     this.balloonOriginalRaw = save?.balloons === undefined ? null : localStorage.getItem(SAVE_KEY);
     this.leashOriginalRaw = save?.leashes === undefined ? null : localStorage.getItem(SAVE_KEY);
     if (this.worldDrops.loadIssues) { this.recoveryOriginal = localStorage.getItem(SAVE_KEY); this.recoverySections.push("world drops"); }
@@ -229,18 +252,26 @@ export class Game {
     this.mode = save?.mode ?? options.mode;
     this.timeOfDay = save?.timeOfDay ?? 0.05;
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
+    this.registerCleanup("renderer", () => this.renderer.dispose());
     this.worldDropsView = new WorldDropsView(this.renderer.scene, atlas, this.worldDrops);
+    this.registerCleanup("drop view", () => this.worldDropsView.dispose());
     this.snowballProjectilesView = new SnowballProjectilesView(this.renderer.scene, atlas, this.snowballProjectiles);
+    this.registerCleanup("snowball view", () => this.snowballProjectilesView.dispose());
     this.mobs = new MobManager(this.world, this.renderer.scene, (mob, cause) => this.transferMobDeath(mob, cause),
       (mob) => this.mobLoot.exportPending(mob) !== undefined,
       (mob) => this.leashes.protectsMob(mob.id) || this.balloons.protectsMob(mob.id), () => this.ownershipBusy,
       (mob) => this.leashes.movementBias(mob, this.leashContext()),
       (mob) => this.balloons.externalAcceleration(mob, this.leashContext()),
       (mob) => this.balloons.protectsMob(mob.id));
+    this.registerCleanup("mobs", () => this.mobs.dispose());
     this.leashView = new LeashView(this.renderer.scene);
+    this.registerCleanup("leash view", () => this.leashView.dispose());
     this.balloonView = new BalloonView(this.renderer.scene);
+    this.registerCleanup("balloon view", () => this.balloonView.dispose());
     this.glowStickView = new GlowStickView(this.root, atlas);
+    this.registerCleanup("glow view", () => this.glowStickView.dispose());
     this.sparklerView = new SparklerView(this.root, atlas);
+    this.registerCleanup("sparkler view", () => this.sparklerView.dispose());
     const creatures = sanitizeMobState(save?.mobs);
     if (creatures.present) this.mobs.restore(creatures.data, this.mobLoot);
     else for (const npc of sanitizeNpcs(save?.npcs)) this.mobs.spawn("npc", npc, npc);
@@ -276,7 +307,10 @@ export class Game {
     }
 
     this.keyboard = new KeyboardMouseInput(canvas, { mouseButtons: !options.touch });
+    this.registerCleanup("keyboard", () => this.keyboard.dispose());
+    this.keyboard.enabled = !this.prepared;
     this.touch = options.touch ? new TouchControls(canvas, this.root) : null;
+    if (this.touch) this.registerCleanup("touch", () => this.touch!.dispose());
     this.hud = new Hud(this.root, atlas, {
       onSelectSlot: (slot) => this.selectHudHotbar(slot),
       onOpenInventory: () => this.toggleInventory(),
@@ -289,6 +323,7 @@ export class Game {
       onLightSparkler: offhand => { this.tryLightSparkler(offhand); },
       onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
+    this.registerCleanup("hud", () => this.hud.dispose());
     this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
       ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
@@ -298,6 +333,7 @@ export class Game {
     this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
     this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen));
     this.chalkViews = new ChalkboardViews(this.renderer.scene);
+    this.registerCleanup("chalk views", () => this.chalkViews.dispose());
     const boards = sanitizeChalkboards(save?.chalkboards);
     for (const b of boards.boards) this.addChalkboard(b);
     this.agent = sanitizeAgent(save?.agent) ?? this.agentNearPlayer() ?? this.agentNearPlayer(this.spawn)
@@ -326,6 +362,7 @@ export class Game {
     if (this.worldDrops.loadIssues) this.loadErrors.push(`${this.worldDrops.loadIssues} damaged world-drop entries`);
     if (boards.dropped + furnaces.dropped > 0) this.loadErrors.push(`${boards.dropped + furnaces.dropped} damaged chalkboard/furnace entries`);
     this.agentView = new AgentView(this.renderer.scene, this.agent);
+    this.registerCleanup("agent view", () => this.agentView.dispose());
     this.codeBuilder = new CodeBuilderScreen(
       this.root,
       {
@@ -339,18 +376,18 @@ export class Game {
       () => this.closeDialog(this.codeBuilder),
     );
 
-    canvas.addEventListener("click", () => {
+    this.listen(canvas, "click", () => {
       if (!this.touch && !this.paused && !this.dead) this.keyboard.requestPointerLock();
     });
-    canvas.addEventListener("pointerup", this.handleDrinkPointerRelease);
-    canvas.addEventListener("pointercancel", this.handleDrinkPointerRelease);
-    canvas.addEventListener("wheel", this.handleDrinkWheel, { passive: true });
-    window.addEventListener("mouseup", this.handleDrinkMouseRelease);
-    window.addEventListener("blur", this.handleDrinkBlur);
-    document.addEventListener("pointerlockchange", this.handlePointerLock);
-    window.addEventListener("keydown", this.handleKey);
-    window.addEventListener("resize", this.handleResize);
-    window.addEventListener("pagehide", this.handlePageHide);
+    this.listen(canvas, "pointerup", this.handleDrinkPointerRelease);
+    this.listen(canvas, "pointercancel", this.handleDrinkPointerRelease);
+    this.listen(canvas, "wheel", this.handleDrinkWheel, { passive: true });
+    this.listen(window, "mouseup", this.handleDrinkMouseRelease);
+    this.listen(window, "blur", this.handleDrinkBlur);
+    this.listen(document, "pointerlockchange", this.handlePointerLock);
+    this.listen(window, "keydown", this.handleKey);
+    this.listen(window, "resize", this.handleResize);
+    this.listen(window, "pagehide", this.handlePageHide);
     this.resize();
     if (this.inventoryScreen.restorePending(this.inventory, this.mode, sanitizeInventoryPending(save?.inventoryPending))) this.suspendInput();
     if (this.dead) {
@@ -368,44 +405,104 @@ export class Game {
     this.hud.message(this.touch
       ? "Move with the left stick, drag to look, tap to place, hold to break."
       : "Click to play. WASD move, mouse look, left click break, right click place, E inventory, / commands.");
+    // Publish save authority only after construction succeeds. A failed
+    // destination must not revoke the still-live previous world's writer.
+    if (this.prepared) {
+      this.paused = true; this.keyboard.enabled = false;
+      if (this.touch) { this.touch.enabled = false; this.touch.setVisible(false); }
+    } else Game.activeWriter = this;
+    } catch (error) { this.retireWithoutSave(); throw error; }
   }
 
-  start(): void {
-    this.running = true;
-    this.lastTime = performance.now();
+  private registerCleanup(name: string, dispose: () => void): void { this.cleanups.push({ name, dispose }); }
+
+  private listen<E extends Event>(target: EventTarget, type: string, listener: (event: E) => void, options?: AddEventListenerOptions): void {
+    const fn = listener as EventListener;
+    target.addEventListener(type, fn, options);
+    this.registerCleanup(`listener ${type}`, () => target.removeEventListener(type, fn, options));
+  }
+
+  private retireWithoutSave(): void {
+    this.cancelDrinking();
+    this.running = false; this.stopped = true;
+    if (Game.activeWriter === this) Game.activeWriter = null;
+    if (this.keyboard) this.keyboard.enabled = false;
+    if (this.touch) this.touch.enabled = false;
+    for (const entry of this.cleanups.splice(0).reverse()) {
+      try { entry.dispose(); } catch (error) { this.cleanupErrors.push(`${entry.name}: ${String(error)}`); }
+    }
+  }
+
+  /** Meshing/rendering only: no simulation, active input, animation loop or save. */
+  prepareFrame(budgetMs = 8): boolean {
+    if (!this.prepared || this.stopped || Game.handoffBusy || !Number.isFinite(budgetMs) || budgetMs < 0) return false;
+    this.positionCamera();
+    this.renderer.updateChunks(budgetMs);
+    this.renderer.render(skyAt(this.timeOfDay), false, 0);
+    return this.renderer.isAreaReady(2);
+  }
+
+  private positionCamera(): void {
+    const camera = this.renderer.camera;
+    camera.position.set(this.body.position.x, this.body.position.y + EYE_HEIGHT, this.body.position.z);
+    camera.rotation.set(this.body.pitch, this.body.yaw, 0);
+  }
+
+  discardPrepared(): boolean {
+    if (!this.prepared || Game.handoffBusy) return false;
+    this.retireWithoutSave(); return true;
+  }
+
+  /** Publishes one ready target, then retires the expected paused source without saving it. */
+  commitPrepared(source: Game): boolean {
+    const pose = { ...this.body.position, yaw: this.body.yaw, pitch: this.body.pitch };
+    const samePose = () => this.body.position.x === pose.x && this.body.position.y === pose.y && this.body.position.z === pose.z && this.body.yaw === pose.yaw && this.body.pitch === pose.pitch;
+    const valid = () => samePose() && this.prepared && !this.stopped && !this.dead && !this.actionsNeedRecovery && !this.transferBusy &&
+      source !== this && Game.activeWriter === source && source.paused && !source.stopped && !source.dead && !source.actionsNeedRecovery && !source.transferBusy;
+    if (Game.handoffBusy || !valid()) return false;
+    Game.handoffBusy = true;
+    try {
+      this.positionCamera();
+      if (!this.renderer.isAreaReady(2) || !valid()) return false;
+      // DOM/input/frame setup may throw or invoke a host callback. Do it before
+      // moving writer authority and recheck both endpoints afterwards.
+      this.container.appendChild(this.root);
+      this.resize(); this.positionCamera(); this.renderer.render(skyAt(this.timeOfDay), false, 0); this.keyboard.reset();
+      if (this.touch) this.touch.setVisible(true);
+      this.root.hidden = false;
+      const time = performance.now(); this.frameRequest = this.requestFrame();
+      this.positionCamera();
+      if (!valid() || !this.renderer.isAreaReady(2) || !valid()) { this.retireWithoutSave(); return false; }
+      this.prepared = false; this.paused = false; this.lastTime = time;
+      this.keyboard.enabled = true; if (this.touch) this.touch.enabled = true;
+      this.running = true; Game.activeWriter = this;
+      source.retireWithoutSave();
+      return true;
+    } catch (error) {
+      this.cleanupErrors.push(`handoff: ${String(error)}`); this.retireWithoutSave(); return false;
+    } finally { Game.handoffBusy = false; }
+  }
+
+  private requestFrame(): number {
     const frame = (now: number) => {
       if (!this.running) return;
       const dt = Math.min(0.1, (now - this.lastTime) / 1000);
-      this.lastTime = now;
-      this.tick(dt);
-      requestAnimationFrame(frame);
+      this.lastTime = now; this.tick(dt);
+      if (this.running) this.frameRequest = requestAnimationFrame(frame);
     };
-    requestAnimationFrame(frame);
+    return requestAnimationFrame(frame);
+  }
+
+  start(): void {
+    if (this.prepared || this.stopped || this.running || Game.handoffBusy) return;
+    this.lastTime = performance.now(); this.frameRequest = this.requestFrame(); this.running = true;
   }
 
   stop(): boolean {
     this.cancelDrinking();
     if (this.stopped) return true;
-    if (!this.save()) return false;
-    this.running = false; this.stopped = true;
-    if (Game.activeWriter === this) Game.activeWriter = null;
-    this.canvas.removeEventListener("pointerup", this.handleDrinkPointerRelease);
-    this.canvas.removeEventListener("pointercancel", this.handleDrinkPointerRelease);
-    this.canvas.removeEventListener("wheel", this.handleDrinkWheel);
-    window.removeEventListener("mouseup", this.handleDrinkMouseRelease);
-    window.removeEventListener("blur", this.handleDrinkBlur);
-    document.removeEventListener("pointerlockchange", this.handlePointerLock);
-    window.removeEventListener("keydown", this.handleKey);
-    window.removeEventListener("resize", this.handleResize);
-    window.removeEventListener("pagehide", this.handlePageHide);
-    this.runner?.stop(); this.keyboard.dispose(); this.farming.dispose();
-    this.snowballProjectilesView.dispose(); this.snowballProjectiles.dispose();
-    this.leashView.dispose(); this.leashes.dispose();
-    this.balloonView.dispose(); this.balloons.dispose(); this.glowStickView.dispose(); this.sparklerView.dispose();
-    this.worldDropsView.dispose(); this.worldDrops.dispose(); this.mobs.dispose();
-    this.agentView.dispose(); this.chalkViews.dispose();
-    this.root.remove(); this.renderer.dispose();
-    return true;
+    if (this.prepared || Game.handoffBusy || !this.save()) return false;
+    this.retireWithoutSave(); return true;
   }
 
   /** Requests a complete-world backup; requesting a download never bypasses failed browser storage. */
@@ -1566,7 +1663,7 @@ export class Game {
   }
 
   private onKey(e: KeyboardEvent): void {
-    if (!this.running || this.dead || this.chat.open) return;
+    if (this.prepared || Game.handoffBusy || !this.running || this.dead || this.chat.open) return;
     if (/^Digit[1-9]$/.test(e.code)) this.cancelDrinking();
     if (this.chalkDialog.open || this.bookScreen.open || this.codeBuilder.open) {
       if (e.code === "Escape") this.closeDialog(this.chalkDialog.open ? this.chalkDialog : this.bookScreen.open ? this.bookScreen : this.codeBuilder);
@@ -1651,7 +1748,7 @@ export class Game {
 
   /** Education Edition camera: captures the current view (without the HUD) into the portfolio. */
   takePhoto(): void {
-    if (this.dead) return;
+    if (this.dead || this.ownershipBusy) return;
     const r = this.renderer;
     r.render(skyAt(this.timeOfDay), false, 0);
     const src = r.canvas;
@@ -1676,6 +1773,7 @@ export class Game {
   }
 
   private resumeInput(): void {
+    if (this.prepared || this.stopped || Game.handoffBusy) return;
     this.cancelDrinking();
     if (this.dead) return;
     this.keyboard.enabled = true;
@@ -1685,6 +1783,7 @@ export class Game {
 
   /** Executes a chat line; returns the feedback shown to the player. */
   runChat(text: string): string {
+    if (this.prepared || this.stopped || Game.handoffBusy) return "World is not active.";
     if (this.actionsNeedRecovery && text.startsWith("/")) {
       const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
       this.hud.message(reply);

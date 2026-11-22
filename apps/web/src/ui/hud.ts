@@ -29,6 +29,8 @@ export interface HudCallbacks {
 
 /** In-game overlay: crosshair, hotbar, hearts, item name, debug info and chat log. */
 export class Hud {
+  private disposed = false;
+  private readonly messageTimers = new Set<ReturnType<typeof setTimeout>>();
   readonly root = el("div", "hud");
   private readonly hotbar = el("div", "hotbar");
   private readonly slots: HTMLElement[] = [];
@@ -260,11 +262,33 @@ export class Hud {
     if (!this.debug.hidden) this.debug.textContent = text;
   }
 
+  /** Cancels only HUD-owned message work; unrelated download URL cleanup stays alive. */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true;
+    let failure: unknown;
+    for (const timer of this.messageTimers) {
+      try { clearTimeout(timer); } catch (error) { failure ??= error; }
+    }
+    this.messageTimers.clear();
+    try { this.root.remove(); } catch (error) { failure ??= error; }
+    if (failure !== undefined) throw failure;
+  }
+
+  private messageLater(action: () => void, delay: number): void {
+    const timer = setTimeout(() => {
+      this.messageTimers.delete(timer);
+      if (!this.disposed) action();
+    }, delay);
+    this.messageTimers.add(timer);
+  }
+
   message(text: string): void {
+    if (this.disposed) return;
     const line = el("div", "chat-line", text);
     this.log.appendChild(line);
-    setTimeout(() => line.classList.add("fade"), 6000);
-    setTimeout(() => line.remove(), 7000);
+    this.messageLater(() => line.classList.add("fade"), 6000);
+    this.messageLater(() => line.remove(), 7000);
     while (this.log.children.length > 8) this.log.firstChild?.remove();
   }
 }

@@ -45,6 +45,8 @@ export class TouchControls {
   private descendHeld = false;
   private holdTimer: ReturnType<typeof setTimeout> | null = null;
   enabled = true;
+  private disposed = false;
+  private readonly disposers: Array<() => void> = [];
 
   constructor(
     private readonly lookArea: HTMLElement,
@@ -70,22 +72,47 @@ export class TouchControls {
     this.root.appendChild(buttons);
     container.appendChild(this.root);
 
-    stickZone.addEventListener("pointerdown", (e) => this.onStickStart(e));
-    stickZone.addEventListener("pointermove", (e) => this.onStickMove(e));
-    stickZone.addEventListener("pointerup", (e) => this.onStickEnd(e));
-    stickZone.addEventListener("pointercancel", (e) => this.onStickEnd(e));
+    this.listen(stickZone, "pointerdown", (e) => this.onStickStart(e));
+    this.listen(stickZone, "pointermove", (e) => this.onStickMove(e));
+    this.listen(stickZone, "pointerup", (e) => this.onStickEnd(e));
+    this.listen(stickZone, "pointercancel", (e) => this.onStickEnd(e));
 
-    lookArea.addEventListener("pointerdown", (e) => this.onLookStart(e));
-    lookArea.addEventListener("pointermove", (e) => this.onLookMove(e));
-    lookArea.addEventListener("pointerup", (e) => this.onLookEnd(e, true));
-    lookArea.addEventListener("pointercancel", (e) => this.onLookEnd(e, false));
+    this.listen(lookArea, "pointerdown", (e) => this.onLookStart(e));
+    this.listen(lookArea, "pointermove", (e) => this.onLookMove(e));
+    this.listen(lookArea, "pointerup", (e) => this.onLookEnd(e, true));
+    this.listen(lookArea, "pointercancel", (e) => this.onLookEnd(e, false));
 
-    holdButton(jump, (down) => (this.jumpHeld = down));
-    holdButton(down, (d) => (this.descendHeld = d));
-    holdButton(fly, (d) => {
+    this.disposers.push(holdButton(jump, (down) => (this.jumpHeld = down), this.listen.bind(this)));
+    this.disposers.push(holdButton(down, (d) => (this.descendHeld = d), this.listen.bind(this)));
+    this.disposers.push(holdButton(fly, (d) => {
       if (d) this.toggleFly = true;
-    });
+    }, this.listen.bind(this)));
     this.resetKnob();
+  }
+
+  /** Releases this control's contacts, timer, listeners and owned DOM once. */
+  dispose(): void {
+    if (this.disposed) return;
+    this.disposed = true; this.enabled = false;
+    if (this.holdTimer !== null) clearTimeout(this.holdTimer);
+    if (this.look) {
+      try { this.lookArea.releasePointerCapture(this.look.id); } catch { /* The contact may already have ended. */ }
+    }
+    this.holdTimer = null; this.look = null; this.stickId = null;
+    this.stick = { x: 0, y: 0 }; this.lookX = 0; this.lookY = 0;
+    this.place = false; this.toggleFly = false; this.jumpHeld = false; this.descendHeld = false;
+    let failure: unknown;
+    for (const dispose of this.disposers.splice(0).reverse()) {
+      try { dispose(); } catch (error) { failure ??= error; }
+    }
+    try { this.root.remove(); } catch (error) { failure ??= error; }
+    if (failure !== undefined) throw failure;
+  }
+
+  private listen(target: HTMLElement, type: string, listener: (event: PointerEvent) => void): void {
+    const guarded: EventListener = event => { if (!this.disposed && this.enabled) listener(event as PointerEvent); };
+    target.addEventListener(type, guarded);
+    this.disposers.push(() => target.removeEventListener(type, guarded));
   }
 
   /** Current joystick vector (exposed for diagnostics and tests). */
@@ -202,7 +229,8 @@ export class TouchControls {
     const look = this.look;
     if (!look || e.pointerId !== look.id) return;
     if (released && classifyTouch(e.timeStamp - look.startTime, look.moved, true) === "tap") this.place = true;
-    if (this.holdTimer) clearTimeout(this.holdTimer);
+    if (this.holdTimer !== null) clearTimeout(this.holdTimer);
+    this.holdTimer = null;
     this.look = null;
   }
 }
@@ -234,9 +262,9 @@ function button(className: string, label: string, title: string): HTMLElement {
   return b;
 }
 
-function holdButton(b: HTMLElement, onChange: (down: boolean) => void): void {
+function holdButton(b: HTMLElement, onChange: (down: boolean) => void, listen: (target: HTMLElement, type: string, listener: (event: PointerEvent) => void) => void): () => void {
   const pointers = new Set<number>();
-  b.addEventListener("pointerdown", (e) => {
+  listen(b, "pointerdown", (e) => {
     if (!isPrimaryButton(e)) return;
     e.preventDefault();
     capture(e);
@@ -249,8 +277,9 @@ function holdButton(b: HTMLElement, onChange: (down: boolean) => void): void {
     b.classList.remove("pressed");
     onChange(false);
   };
-  b.addEventListener("pointerup", up);
-  b.addEventListener("pointercancel", up);
+  listen(b, "pointerup", up);
+  listen(b, "pointercancel", up);
   // Long presses must not open the context menu over the button.
-  b.addEventListener("contextmenu", (e) => e.preventDefault());
+  listen(b, "contextmenu", (e) => e.preventDefault());
+  return () => { pointers.clear(); b.classList.remove("pressed"); onChange(false); };
 }
