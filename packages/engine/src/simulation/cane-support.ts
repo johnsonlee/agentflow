@@ -74,12 +74,18 @@ export class CaneSupportSystem {
    }
    const candidates=[...this.pending];this.pending.clear();const seen=new Set<string>();
    for(let i=0;i<candidates.length;i++){
+    if(this.disposed)break;
     const key=candidates[i];if(i>=CANE_SUPPORT_BATCH_LIMIT){this.pending.add(key);continue;}
     const[x,y,z]=key.split(',').map(Number),column=inspect(this.world,x,y,z);
     if(column===null)continue;if(column==='unknown'){this.pending.add(key);continue;}
     const rootKey=column.root.join(',');if(seen.has(rootKey))continue;seen.add(rootKey);
     if(column.support==='supported')continue;
-    const result=settleUnsupportedCane(this.world,this.sink,...column.root);
+    const result=settleUnsupportedCane(this.world,(items,at,velocity)=>{
+     if(this.disposed)return null;
+     const batch=this.sink(items,at,velocity);
+     return batch?{commit:()=>!this.disposed&&batch.commit()}:null;
+    },...column.root);
+    if(this.disposed)break;
     if(result==='unknown'||result==='refused')this.pending.add(rootKey);
    }
   }finally{this.updating=false;}
