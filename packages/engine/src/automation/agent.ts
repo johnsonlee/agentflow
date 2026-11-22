@@ -138,7 +138,7 @@ export function agentStep(agent: AgentState, dir: AgentDirection): readonly [num
 
 import { freshStack } from "../ownership/glow-stick-state";
 
-const copyStack = cloneStack;
+
 
 function addToAgent(agent: AgentState, stack: ItemStack): number {
   return insertStackIntoSlots(agent.slots, stack);
@@ -216,7 +216,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
         const gravelPlan = gravel ? world.gravelHarvests.plan(t.x, t.y, t.z, env.gravelRand) : null;
         if (gravel && !gravelPlan) return { ok: false, message: "Cannot resolve gravel harvest" };
         const drops = [...(gravelPlan ? [gravelPlan.stack] : blockDrops(id)), ...(supported ? blockDrops(above) : []), ...contents];
-        const trial = { ...agent, slots: agent.slots.map((stack) => stack ? copyStack(stack) : null) };
+        const trial = { ...agent, slots: agent.slots.map((stack) => stack ? cloneStack(stack) : null) };
         const partner=source.partner,partnerId=source.partnerId;
         const sourceValid = () => {
           try {
@@ -265,15 +265,15 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const amount = Math.min(stack.count, cmd.quantity ?? stack.count);
       if (env.worldDrop) {
         const t = target(cmd.dir ?? "forward");
-        const batch = env.worldDrop([copyStack(stack, amount)], { x: t.x + .5, y: t.y + .25, z: t.z + .5 });
+        const batch = env.worldDrop([cloneStack(stack, amount)], { x: t.x + .5, y: t.y + .25, z: t.z + .5 });
         if (!batch || !batch.commit()) return { ok: false, message: "Cannot reserve world drops" };
-        agent.slots[cmd.slot] = amount < stack.count ? copyStack(stack, stack.count - amount) : null;
+        agent.slots[cmd.slot] = amount < stack.count ? cloneStack(stack, stack.count - amount) : null;
       } else {
         if (cmd.dir !== undefined || cmd.quantity !== undefined) return { ok: false, message: "World drops unavailable" };
         if (!env.giveToPlayer) return { ok: false, message: "No player to give it to" };
-        const left = env.giveToPlayer(copyStack(stack));
+        const left = env.giveToPlayer(cloneStack(stack));
         if (!Number.isInteger(left) || left < 0 || left > stack.count) return { ok: false, message: "Invalid receiver remainder" };
-        agent.slots[cmd.slot] = left > 0 ? copyStack(stack, left) : null;
+        agent.slots[cmd.slot] = left > 0 ? cloneStack(stack, left) : null;
       }
       return { ok: true };
     }

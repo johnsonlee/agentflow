@@ -1,3 +1,4 @@
+import {SingleChest,readChestOwners,type ChestOwnershipIssue} from '@craft/engine';
 import {
   PlayerStatusOwner, hasPlayerStatus, applyTimedStatus, outgoingMeleeDamage, isDrinkablePotionId, MEDICINE_DRINK_SECONDS, finishMedicineDrink, finishOwnedMilkDrink,
   BrewingStand, readBrewingStandOwners, diagnoseRawBrewingItemOwnership, type BrewingOwnershipIssue,
@@ -126,8 +127,11 @@ export class Game {
   private wartIssues:Array<{path:string;reason:string}>=[];
   private blazeIssues:BlazeOwnershipIssue[]=[];
   private brewingIssues:BrewingOwnershipIssue[]=[];
+  private chestIssues:ChestOwnershipIssue[]=[];
+  private openChest:string|null=null;
+  readonly chests=new Map<string,SingleChest>();
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
+  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
   private dimensionArchive: DimensionsData | undefined;
   private dimensionIssues: DimensionSaveIssue[] = [];
   private stopped = false;
@@ -139,7 +143,7 @@ export class Game {
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
   private readonly mobLoot = new MobLootResolver();
-  private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
+  private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || [...this.chests.values()].some(chest=>chest.busy) || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
   private get ownershipBusy(): boolean { return this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy; }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
@@ -252,7 +256,7 @@ export class Game {
 
     const save = options.save;
     this.restoreDimensions(save);
-    this.restoreBrewingOwners(save);
+    this.restoreBrewingOwners(save);this.restoreChestOwners(save);
     this.markBlazeRecovery(save); this.markWartRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     if(options.preparedWorld){
@@ -264,6 +268,7 @@ export class Game {
       this.restoreGravelHarvests(save); this.restoreFire(save); this.restoreFluids(save); this.restorePortals(save);
     }
     Game.attachedWorlds.add(this.world);
+    this.registerCleanup("Chest owners",this.world.onBlockChanged((x,y,z,id)=>this.chestBlockChanged(x,y,z,id)));
     this.registerCleanup("brewing owners",this.world.onBlockChanged((x,y,z,id)=>this.brewingBlockChanged(x,y,z,id)));
     this.farming = new FarmingSystem(this.world, save?.farming);
     this.registerCleanup("farming", () => this.farming.dispose());
@@ -361,7 +366,7 @@ export class Game {
       onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
     this.registerCleanup("hud", () => this.hud.dispose());
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
       ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
@@ -381,6 +386,7 @@ export class Game {
     this.loadErrors = loaded.errors;
     for (const issue of this.dimensionIssues) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.ignitionOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for(const issue of this.chestIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.brewingIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.blazeIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.wartIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
@@ -690,9 +696,9 @@ export class Game {
     } catch(error) {
       // A damaged physical owner may make even a detached normalized snapshot invalid.
       // Preserve the exact input in an explicit evidence envelope instead of repairing it.
-      if(this.recoveryOriginal===null&&!this.recoverySections.includes("brewing owners"))throw error;
-      backup=JSON.stringify({recoveryBackupFormat:this.recoverySections.includes("brewing owners")?"original-and-live-v1":"original-only-v1",recoveryOriginalSave:this.recoveryOriginal,...(this.recoverySections.includes("brewing owners")?{recoveryLiveSave:this.captureSaveData(true)}:{}),reason:error instanceof Error?error.message:"Normalized recovery snapshot unavailable"});
-      this.hud.message(this.recoverySections.includes("brewing owners")?"Original and live world owners exported for repair; a normalized backup could not be created.":"Original save exported for repair; a normalized world backup could not be created.");
+      if(this.recoveryOriginal===null&&!this.recoverySections.includes("brewing owners")&&!this.recoverySections.includes("chest owners"))throw error;
+      backup=JSON.stringify({recoveryBackupFormat:(this.recoverySections.includes("brewing owners")||this.recoverySections.includes("chest owners"))?"original-and-live-v1":"original-only-v1",recoveryOriginalSave:this.recoveryOriginal,...((this.recoverySections.includes("brewing owners")||this.recoverySections.includes("chest owners"))?{recoveryLiveSave:this.captureSaveData(true)}:{}),reason:error instanceof Error?error.message:"Normalized recovery snapshot unavailable"});
+      this.hud.message((this.recoverySections.includes("brewing owners")||this.recoverySections.includes("chest owners"))?"Original and live world owners exported for repair; a normalized backup could not be created.":"Original save exported for repair; a normalized world backup could not be created.");
     }
     const url = URL.createObjectURL(new Blob([backup], { type: "application/json" }));
     const link = document.createElement("a"); link.href = url; link.download = `${this.name.replace(/[^a-z0-9_-]/gi, "_") || "world"}.json`;
@@ -742,7 +748,7 @@ export class Game {
 
   private tryDeathTransfer(): boolean {
     if (this.ownershipBusy || !this.deathState) return false;
-    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
+    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -784,6 +790,23 @@ export class Game {
       r.target.x === x && r.target.y === y && r.target.z === z).map(r => r.key);
   }
 
+  private restoreChestOwners(save:SaveData|undefined):void {
+    if(!save)return;const probe=createDimensionGeneratedBlockProbe(),dimension=this.dimensionArchive?.active??"overworld";
+    const read=readChestOwners(save,(x,y,z)=>probe(dimension,save.seed,save.generatorVersion??1,x,y,z));
+    this.chestIssues=[...(save.chestOwnershipIssues??[]),...read.issues];if(this.chestIssues.length){this.freezeChestOwnership("Damaged saved Chest owners");return;}
+    for(const row of read.stations)this.chests.set(furnaceKey(row.x,row.y,row.z),new SingleChest(row.state));
+  }
+  private freezeChestOwnership(reason:string):void {
+    this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);if(!this.recoverySections.includes("chest owners")){this.recoverySections.push("chest owners");this.chestIssues.push({path:"chests",reason});this.loadErrors?.push(`${reason} (original and live owners preserved)`);}this.cancelDrinking();
+  }
+  private chestBlockChanged(x:number,y:number,z:number,id:number):void {
+    const key=furnaceKey(x,y,z),chest=this.chests.get(key);
+    if(id===203){if(!chest&&!this.actionsNeedRecovery)this.chests.set(key,new SingleChest());return;}if(!chest)return;
+    if(chest.contents().length){this.freezeChestOwnership("Chest removed outside its ownership transfer");return;}
+    const lease=chest.reserveContents();if(!lease){this.freezeChestOwnership("Chest changed during ownership transfer");return;}if(lease.retire())this.chests.delete(key);else lease.cancel();
+  }
+  private reconcileChestOwners():void {for(const[key,chest]of this.chests){const[x,y,z]=key.split(",").map(Number),id=this.world.getLoadedBlock(x,y,z);if(id!==undefined&&id!==203)this.chestBlockChanged(x,y,z,id);}}
+
   private restoreBrewingOwners(save:SaveData|undefined):void {
     if(!save)return;
     const probe=createDimensionGeneratedBlockProbe(),dimension=this.dimensionArchive?.active??"overworld";
@@ -818,12 +841,15 @@ export class Game {
 
   private updateBrewingStations(dt:number):void {
     if(this.paused||this.stopped||this.ownershipBusy||this.actionsNeedRecovery)return;
-    this.reconcileBrewingOwners();if(this.actionsNeedRecovery)return;
+    this.reconcileChestOwners();this.reconcileBrewingOwners();if(this.actionsNeedRecovery)return;
     for(const [key,stand]of this.brewingStands){const [x,y,z]=key.split(",").map(Number);if(this.world.getLoadedBlock(x,y,z)===BREWING_STAND)stand.update(dt);}
   }
 
   private beginBlockRelease(x:number,y:number,z:number):ReleaseAttempt {
     return combineReleaseAttempts([()=>this.beginFenceRelease(x,y,z),()=>{
+      if(this.world.getLoadedBlock(x,y,z)!==203)return{kind:"none"};const key=furnaceKey(x,y,z),chest=this.chests.get(key);if(!chest)return{kind:"refused",reason:"Chest ownership is unavailable"};const lease=chest.reserveContents();if(!lease)return{kind:"refused",reason:"Chest contents are busy"};
+      return{kind:"ready",lease:{refundStacks:[],valid:()=>this.chests.get(key)===chest&&this.world.getLoadedBlock(x,y,z)===203&&lease.valid(),consumeAfterReceiverCommit:()=>{if(lease.retire())this.chests.delete(key);},cancel:()=>lease.cancel()}};
+    },()=>{
       const key=furnaceKey(x,y,z),stand=this.brewingStands.get(key);
       if(this.world.getLoadedBlock(x,y,z)!==BREWING_STAND)return{kind:"none"};
       if(!stand)return{kind:"refused",reason:"Brewing stand ownership is unavailable"};
@@ -938,6 +964,7 @@ export class Game {
         chalkboards: [...this.chalkboards.values()].map((b) => ({ ...b })),
         agent: { ...this.agent, slots: this.agent.slots.map((s) => (s ? { ...s } : null)) },
         programs: this.programs,
+        chests:[...this.chests].map(([key,chest])=>{const [x,y,z]=key.split(",").map(Number);return{x,y,z,state:chest.snapshot()};}),
         brewingStands:[...this.brewingStands].map(([key,stand])=>{const [x,y,z]=key.split(",").map(Number);return{x,y,z,state:stand.snapshot()};}),
         furnaces: [...this.furnaces].map(([key, state]) => {
           const [x, y, z] = key.split(",").map(Number);
@@ -953,7 +980,7 @@ export class Game {
     if (this.stopped || Game.activeWriter !== this) return false;
     if (this.ownershipBusy) { this.saveError = "Items are being transferred. Retry saving afterward."; return false; }
     this.markPlayerStatusRecovery();
-    this.reconcileBrewingOwners();
+    this.reconcileChestOwners();this.reconcileBrewingOwners();
     this.leashes.reconcileLoadedReferences(this.leashContext());
     this.leashes.validateCrossReferences(this.leashContext()); this.markLeashRecovery();
     this.balloons.reconcileLoadedReferences(this.leashContext());
@@ -1079,7 +1106,7 @@ export class Game {
       this.redstone.update(dt);
       this.farming.update(dt, 15 - skyDarken(skyAt(this.timeOfDay,this.world.dimension).light));
       for (const f of this.furnaces.values()) tickFurnace(f, dt);
-      this.updateBrewingStations(dt);
+      this.reconcileChestOwners();this.updateBrewingStations(dt);
       this.inventoryScreen.refresh();
     }
 
@@ -1329,6 +1356,7 @@ export class Game {
       this.openInventory(station);
       return;
     }
+    if(place&&t&&this.placeCooldown===0&&t.id===203){const key=furnaceKey(t.x,t.y,t.z);if(!this.chests.has(key)){this.freezeChestOwnership("Physical Chest lacks an owner");return;}this.openChest=key;this.openInventory("chest");return;}
     if(place&&t&&this.placeCooldown===0&&t.id===BREWING_STAND){
       const key=furnaceKey(t.x,t.y,t.z);
       if(!this.brewingStands.has(key)){this.freezeBrewingOwnership("Physical brewing stand lacks an owner");return;}
@@ -1748,7 +1776,7 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
-    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
+    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
     if (this.ownershipBusy) return "Items are being transferred. Retry giving them afterward";
     if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
@@ -1835,7 +1863,8 @@ export class Game {
       beginDestroyOwnership: (x, y, z) => this.beginBlockRelease(x, y, z),
       collect: (agent, filterId) => this.worldDrops.tryPickup({ x: agent.x + .5, y: agent.y, z: agent.z + .5 }, (stack) => giveAgent(agent, stack), filterId),
       destroyContents: (x, y, z) => {
-        const key=furnaceKey(x,y,z),stand=this.brewingStands.get(key);
+        const key=furnaceKey(x,y,z),stand=this.brewingStands.get(key),chest=this.chests.get(key);
+        if(chest)return chest.contents();
         if(stand)return stand.contents();
         const furnace = this.furnaces.get(key); return furnace ? furnaceContents(furnace) : [];
       },
@@ -1861,9 +1890,10 @@ export class Game {
   /** Breaks the targeted block; a broken furnace gives back its contents (Minecraft drops them). */
   private breakAt(t: RaycastHit): void {
     if (this.ownershipBusy || this.actionsNeedRecovery) return;
+    const chest=t.id===203?this.chests.get(furnaceKey(t.x,t.y,t.z)):undefined;
     const stand=t.id===BREWING_STAND?this.brewingStands.get(furnaceKey(t.x,t.y,t.z)):undefined;
     const furnace = t.id === FURNACE ? this.furnaces.get(furnaceKey(t.x, t.y, t.z)) : undefined;
-    const contents = stand?stand.contents():furnace ? furnaceContents(furnace) : [];
+    const contents = chest?chest.contents():stand?stand.contents():furnace ? furnaceContents(furnace) : [];
     // Breaking any cell of a chalkboard removes the whole board (one item drops, from the broken cell).
     const board = chalkboardSizeOf(t.id) ? this.chalkboardAt(t.x, t.y, t.z) : null;
     const release = this.beginBlockRelease(t.x, t.y, t.z);
@@ -1871,7 +1901,7 @@ export class Game {
     const lease = release.kind === "ready" ? release.lease : null;
     const sourceContents = JSON.stringify(contents);
     const sourceValid = () => this.world.getBlock(t.x, t.y, t.z) === t.id &&
-      JSON.stringify(t.id===BREWING_STAND ? this.brewingStands.get(furnaceKey(t.x,t.y,t.z))?.contents() ?? [] : t.id === FURNACE ? furnaceContents(this.furnaces.get(furnaceKey(t.x, t.y, t.z)) ?? createFurnace()) : []) === sourceContents;
+      JSON.stringify(t.id===203 ? this.chests.get(furnaceKey(t.x,t.y,t.z))?.contents() ?? [] : t.id===BREWING_STAND ? this.brewingStands.get(furnaceKey(t.x,t.y,t.z))?.contents() ?? [] : t.id === FURNACE ? furnaceContents(this.furnaces.get(furnaceKey(t.x, t.y, t.z)) ?? createFurnace()) : []) === sourceContents;
     let broken = false;
     try {
       const sink = lease ? joinLeashRefundSink(lease, this.dropSink, sourceValid) : this.dropSink;
@@ -2023,7 +2053,8 @@ export class Game {
     if (this.actionsNeedRecovery && this.inventoryScreen.resumePending()) return;
     const brewing=kind==="brewing_stand"&&this.openBrewing?this.brewingStands.get(this.openBrewing)??null:null;
     if(kind==="brewing_stand"&&!brewing)return;
-    this.inventoryScreen.show(this.inventory, this.mode, kind, furnace,brewing);
+    const chest=kind==="chest"&&this.openChest?this.chests.get(this.openChest)??null:null;if(kind==="chest"&&!chest)return;
+    this.inventoryScreen.show(this.inventory, this.mode, kind, furnace,brewing,chest);
   }
 
   private suspendInput(): void {
@@ -2093,7 +2124,7 @@ export class Game {
   runChat(text: string): string {
     if (this.prepared || this.stopped || Game.handoffBusy) return "World is not active.";
     if (this.actionsNeedRecovery && text.startsWith("/")) {
-      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
+      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
       this.hud.message(reply);
       return reply;
     }

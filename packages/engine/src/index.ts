@@ -126,3 +126,6 @@ export {diagnoseRawBrewingItemOwnership} from "./persistence/save";
 
 export * from "./world/harvest-source";
 export * from "./ownership/harvest-owner";
+
+export * from './ownership/single-chest';
+export * from './persistence/chest-save';

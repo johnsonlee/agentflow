@@ -12,7 +12,7 @@ class Cell {
   setAttribute() {} addEventListener(name: string, fn: (e: unknown) => void) { this.listeners.set(name, [...this.listeners.get(name) ?? [], fn]); } click() {} remove() {}
 }
 function game(cells: Record<string, number> = {}) {
-  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
+  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: {}, recoverySections: [], recoveryOriginal: null, drinkOwner: null, leashes: ownership(), balloons: ownership(),
     paused: false, dead: false, stopped: false, running: true, touch: true, mode: "survival", health: 20, world: { getBlock: (x: number, y: number, z: number) => cells[`${x},${y},${z}`] ?? 0, setBlock: vi.fn() },
     body: { position: { x: .5, y: 32, z: .5 }, yaw: 0, pitch: 0, velocity: { x: 0, y: 0, z: 0 } }, mobs: { mobs: [], raycast: () => null }, mobLoot: new MobLootResolver(),
@@ -35,7 +35,7 @@ it("actual milking refuses walls, closer balloons/NPCs, unsupported or pending-d
   const npc = game(); npc.mobs.raycast = () => ({ mob: createMob(2, "npc", { x: .5, y: 32, z: -1 }), distance: 1 }); npc.inventory.setSlot(0, freshStack(stackId("bucket"))); npc.interact(false, true, false, false, .01); expect(npc.openNpcDialog).toHaveBeenCalledOnce(); expect(npc.inventory.selectedStack().id).toBe(stackId("bucket"));
   for (const defect of ["baby", "dead", "duplicate", "NaN", "far", "pending-empty"]) {
     const g = game(), cow = cowTarget(g, defect === "far" ? 6 : 1); g.inventory.setSlot(0, freshStack(stackId("bucket")));
-    if (defect === "baby") cow.cowState = { lifeStage: "baby" }; if (defect === "dead") cow.health = 0; if (defect === "duplicate") g.mobs.mobs.push({ ...cow }); if (defect === "NaN") cow.position.x = NaN;
+    if (defect === "baby") (cow as unknown as {cowState:{lifeStage:string}}).cowState = { lifeStage: "baby" }; if (defect === "dead") cow.health = 0; if (defect === "duplicate") g.mobs.mobs.push({ ...cow }); if (defect === "NaN") cow.position.x = NaN;
     if (defect === "pending-empty") vi.spyOn(g.mobLoot, "exportPending").mockReturnValue([]);
     g.interact(false, true, false, false, .01); expect(g.inventory.selectedStack().id).toBe(stackId("bucket"));
   }

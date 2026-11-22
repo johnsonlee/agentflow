@@ -4,7 +4,7 @@ import { Inventory, blockId, createHunger, freshStack, stackId } from "../src";
 import { KeyboardMouseInput } from "../../input/src/devices/keyboard-mouse";
 import { Game } from "../../../apps/web/src/application/game";
 function game(cells: Record<string, number> = {}) {
-  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
+  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: {}, recoverySections: [], recoveryOriginal: null, drinkOwner: null,
     leashes: ownership(), balloons: ownership(), paused: false, dead: false, stopped: false, running: true, touch: true, mode: "survival", health: 20,
     world: { getBlock: (x: number, y: number, z: number) => cells[`${x},${y},${z}`] ?? 0, setBlock: vi.fn() }, body: { position: { x: .5, y: 32, z: .5 }, yaw: 0, pitch: 0, velocity: { x: 0, y: 0, z: 0 } },
@@ -63,7 +63,7 @@ it("actual NPC/station/balloon/ordinary-actor priority interrupts drinking; full
   const mob = game(); mob.mobs.raycast = () => ({ distance: 1, mob: { id: 3, kind: "pig" } }); hold(mob, 2); expect(mob.inventory.selectedStack().id).toBe(stackId("water_bottle"));
   const balloon = game(); balloon.balloons.records = [{ key: 1, phase: "active", position: { x: .5, y: 33.4, z: -1 } }]; hold(balloon, 2); expect(balloon.inventory.selectedStack().id).toBe(stackId("water_bottle"));
   const full = game(); for (let i = 1; i < 36; i++) full.inventory.setSlot(i, freshStack(stackId("coal"), 64)); const refs = full.inventory.slots.slice(1); hold(full, 1.6);
-  expect(full.inventory.selectedStack()).toEqual({ id: stackId("glass_bottle"), count: 1 }); refs.forEach((owner, i) => expect(full.inventory.slots[i + 1]).toBe(owner));
+  expect(full.inventory.selectedStack()).toEqual({ id: stackId("glass_bottle"), count: 1 }); refs.forEach((owner:unknown, i:number) => expect(full.inventory.slots[i + 1]).toBe(owner));
 });
 it("actual invalid owner and atomic reducer refusal never debit, and ongoing hold cannot refill the empty result", () => {
   for (const count of [0, 2, NaN]) { const bad = game(); bad.inventory.slots[0] = { id: stackId("water_bottle"), count }; hold(bad, 1.6); expect(bad.inventory.slots[0]!.count).toBe(count); expect(bad.hud.message).toHaveBeenCalledWith("This bottle needs attention before it can be used."); }

@@ -36,7 +36,7 @@ it("preserves all prior registry/atom IDs and adds only sixteen explicit translu
     expect(def.faces).toEqual({ top: name, side: name, bottom: name });
     expect(isItem(id)).toBe(false); expect(isKnownBlockId(id)).toBe(true); expect(placedBlockOf(id)).toBe(id);
   }
-  expect(isKnownBlockId(203)).toBe(false); expect(blockId("glass")).toBe(11); expect(blockId("element_118")).toBe(32886);
+  expect(isKnownBlockId(204)).toBe(false); expect(blockId("glass")).toBe(11); expect(blockId("element_118")).toBe(32886);
 });
 
 it("crafts every primary-source ring with exact eight outputs and one unit consumed per occupied cell", () => {

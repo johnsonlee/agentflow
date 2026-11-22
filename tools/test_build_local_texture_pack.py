@@ -89,6 +89,18 @@ class ConverterTests(unittest.TestCase):
         self.assertEqual(report["tiles"][0]["rgbaSha256"], hashlib.sha256(rgba).hexdigest())
         self.assertEqual(report["packSha256"], hashlib.sha256(self.output.read_bytes()).hexdigest())
 
+    def test_explicit_three_chest_faces_keep_distinct_application_bindings(self):
+        keys = ["chest_top", "chest_side", "chest_bottom"]
+        self.write_manifest([{"key": key, "path": "rgba.png"} for key in keys])
+        allowed = self.root / "keys.json"
+        allowed.write_text(json.dumps(keys))
+        result = self.run_cli("--keys-json", str(allowed))
+        self.assertEqual(result.returncode, 0, result.stderr)
+        pack = json.loads(self.output.read_bytes())
+        self.assertEqual([tile["key"] for tile in pack["tiles"]], keys)
+        for tile in pack["tiles"]:
+            self.assertEqual(base64.b64decode(tile["rgbaBase64"]), Image.open(self.source).convert("RGBA").tobytes())
+
     def test_default_conversion_explicitly_defers_known_keys_to_application(self):
         self.write_manifest([{"key": "explicit_future_key", "path": "rgba.png"}])
         self.assertEqual(self.run_cli().returncode, 0)

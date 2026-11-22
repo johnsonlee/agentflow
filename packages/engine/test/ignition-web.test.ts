@@ -4,7 +4,7 @@ import { Inventory, World, createHunger, stackId, freshStack, blockId } from "..
 import { Game } from "../../../apps/web/src/application/game";
 class Cell { click() {} remove() {} }
 function game() {
- const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] }), own = () => ({ busy:false,records:[],reconcileLoadedReferences:vi.fn(),validateCrossReferences:vi.fn() });
+ const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), own = () => ({ busy:false,records:[],reconcileLoadedReferences:vi.fn(),validateCrossReferences:vi.fn() });
  Object.assign(g,{world:new World(12345),inventory:new Inventory(),hunger:createHunger(),playerStatus:{},recoverySections:[],recoveryOriginal:null,drinkOwner:{elapsed:.7},leashes:own(),balloons:own(),paused:false,dead:false,stopped:false,mode:"survival",health:20,body:{position:{x:.5,y:32,z:.5},yaw:0,pitch:0},hud:{message:vi.fn(),flashDamage:vi.fn()},keyboard:{reset:vi.fn()},screenOpen:()=>false,name:"Ignition",savePayload:vi.fn(()=>'{"version":1}'),markLeashRecovery:vi.fn(),markBalloonRecovery:vi.fn(),leashContext:()=>({})});return g;
 }
 beforeEach(()=>vi.stubGlobal("document",{createElement:()=>new Cell(),pointerLockElement:null}));
@@ -17,10 +17,10 @@ it("raw ignition wear diagnoses saved ownership before sanitation and keeps offh
  const original='\n{ "inventory": {"slots": [{"id":838,"count":1,"damage":64}]}}\n';vi.stubGlobal("localStorage",{getItem:()=>original});const g=game();g.markIgnitionRecovery({ignitionOwnershipIssues:[{path:"inventory.slots[0]",reason:"bad wear"}]});expect(g.recoveryOriginal).toBe(original);expect(g.recoverySections).toContain("saved items");expect(g.trySwapOffhand()).toBe(false);
 });
 it("actual Fire tick applies explicit fire cause only during active survival and passes creative null contact",()=>{
- const g=game(),update=vi.fn(()=>1);g.world.fires={update};g.hurt=vi.fn();g.updateFire(.25);expect(update).toHaveBeenCalledTimes(1);expect(update.mock.calls[0][1]).not.toBeNull();expect(g.hurt).toHaveBeenCalledWith(1,"fire");g.mode="creative";g.updateFire(.25);expect(update.mock.calls[1][1]).toBeNull();
+ const g=game(),update=vi.fn((_dt:number,_contact:unknown)=>1);g.world.fires={update};g.hurt=vi.fn();g.updateFire(.25);expect(update).toHaveBeenCalledTimes(1);expect(update.mock.calls[0][1]).not.toBeNull();expect(g.hurt).toHaveBeenCalledWith(1,"fire");g.mode="creative";g.updateFire(.25);expect(update.mock.calls[1][1]).toBeNull();
 });
 it("menus, pause, death, recovery, stopped and ownership lease pause Fire age and contact clocks",()=>{
- for(const state of [{paused:true},{dead:true},{stopped:true},{screenOpen:()=>true},{recoverySections:["fire"]},{leashes:{busy:true}}]){const g=game(),update=vi.fn(()=>1);g.world.fires={update};Object.assign(g,state);g.hurt=vi.fn();g.updateFire(2);expect(update).not.toHaveBeenCalled();expect(g.hurt).not.toHaveBeenCalled();}
+ for(const state of [{paused:true},{dead:true},{stopped:true},{screenOpen:()=>true},{recoverySections:["fire"]},{leashes:{busy:true}}]){const g=game(),update=vi.fn((_dt:number,_contact:unknown)=>1);g.world.fires={update};Object.assign(g,state);g.hurt=vi.fn();g.updateFire(2);expect(update).not.toHaveBeenCalled();expect(g.hurt).not.toHaveBeenCalled();}
 });
 it("post-edits Fire source mismatch enters recovery rather than silently creating an immortal or fresh Fire",()=>{
  const g=game();vi.stubGlobal("localStorage",{getItem:()=>"original-fire"});g.world.fires={restore:vi.fn(()=>({invalid:true}))};g.restoreFire({fire:{version:1,records:[],contactSeconds:0}});expect(g.recoverySections).toEqual(["fire"]);expect(g.recoveryOriginal).toBe("original-fire");expect(g.world.fires.restore).toHaveBeenCalledWith({version:1,records:[],contactSeconds:0},g.world.exportEdits());

@@ -1,3 +1,4 @@
+import {readChestOwners} from './chest-save';
 import {readBrewingStandOwners} from "./brewing-save";
 import {readBlazeOwners} from "./blaze-save";
 import { DIMENSION_WORLD_KEYS, type DimensionId, type DimensionWorldState, type DimensionArchiveState } from "./dimension-world";
@@ -130,6 +131,7 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
   }
   for(const issue of diagnoseRawWartSupport(raw,dimension,(_dimension,_seed,_version,x,y,z)=>block(x,y,z)))add(issue.path,issue.reason);
   const blaze=readBlazeOwners(raw);for(const issue of blaze.issues)add(issue.path,issue.reason);
+  const chests=readChestOwners(raw,block);for(const issue of chests.issues)add(issue.path,issue.reason);
   const brewing=readBrewingStandOwners(raw,block);for(const issue of brewing.issues)add(issue.path,issue.reason);
   const portals = sanitizePortalState(raw.portals);
   if (!section("portals", portals.invalid, portals.data) || !validatePortalEdits(raw.portals, raw.edits)) add("portals", "Portal records and physical cells must have matching owners");

@@ -8,7 +8,7 @@ class Cell {
   setAttribute() {} addEventListener() {} click() {} remove() {}
 }
 function game(cells: Record<string, number> = { "0,33,-2": blockId("water") }) {
-  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] }), own = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
+  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), own = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: {}, leashes: own(), balloons: own(), recoverySections: [], recoveryOriginal: null,
     dead: false, paused: false, stopped: false, mode: "survival", screenOpen: () => false, hud: { message: vi.fn() }, keyboard: { reset: vi.fn() },
     world: { getBlock: (x: number, y: number, z: number) => cells[`${x},${y},${z}`] ?? 0, setBlock: vi.fn() },

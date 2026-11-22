@@ -14,7 +14,7 @@ class Cell {
   setAttribute(key: string, value: string) { this.attributes[key] = value; } addEventListener() {} click() {} remove() {}
 }
 function game() {
-  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] });
+  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] });
   const ownership = () => ({ busy: false, records: [], beginRelease: vi.fn(() => ({ kind: "none" })), reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: createPlayerStatus(), leashes: ownership(), balloons: ownership(),
     recoverySections: [], recoveryOriginal: null, stopped: false, dead: false, paused: false, mode: "survival", health: 20,
@@ -52,7 +52,7 @@ it("actual status update pauses in every inactive lifecycle, counts creative tim
 it("actual transfer callback maps existing player/Agent/environment causes and resolver retains refused first owner", () => {
   for (const [cause, expected] of [["player", "player"], ["agent", "agent"], ["sunlight", "environment"], ["void", "environment"], ["suffocation", "environment"]]) {
     const g = game(), mob = createMob(1, "spider", { x: 0, y: 32, z: 0 }); g.mobs.mobs = [mob];
-    const tryDrop = vi.fn(() => true); g.mobLoot = { tryDrop }; g.dropSink = vi.fn();
+    const tryDrop = vi.fn((_mob:unknown,_sink:unknown,_at:unknown,_cause:unknown) => true); g.mobLoot = { tryDrop }; g.dropSink = vi.fn();
     expect(g.transferMobDeath(mob, cause)).toBe(true); expect(tryDrop.mock.calls[0][3]).toBe(expected);
   }
   const g = game(), mob = createMob(1, "spider", { x: 0, y: 32, z: 0 }); g.mobLoot = new MobLootResolver(() => 1); g.mobs.mobs = [mob];

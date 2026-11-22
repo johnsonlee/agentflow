@@ -255,6 +255,8 @@ specs.push({id:201,name:"brewing_stand",displayName:"Brewing Stand",faces:faces(
 // Append-only Birch identity; existing saved Oak Planks remain Oak.
 specs.push({id:202,name:"birch_planks",displayName:"Birch Planks",faces:faces("birch_planks"),hardness:3,tool:"axe"});
 
+specs.push({id:203,name:'chest',displayName:'Chest',faces:faces('chest_top','chest_side','chest_bottom'),shape:'box',box:[1/16,0,1/16,15/16,14/16,15/16],collisionBox:[1/16,0,1/16,15/16,14/16,15/16],transparent:true,hardness:3.75,tool:'axe'});
+
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, id: explicitId, ...s }, index) => ({

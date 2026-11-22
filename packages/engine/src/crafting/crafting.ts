@@ -168,6 +168,7 @@ export const RECIPES: readonly Recipe[] = [
   { id: "nether_bricks", pattern: ["##", "##"], key: {"#":"nether_brick"}, result: ["nether_bricks",1] },
   { id: "blaze_powder", ingredients: ["blaze_rod"], result: ["blaze_powder",2] },
   { id:"brewing_stand",pattern:[" R ","CCC"],key:{R:"blaze_rod",C:"cobblestone"},result:["brewing_stand",1],note:"Available cobblestone declaration subset; effective native stone tag membership remains unverified" },
+  {id:'chest',pattern:['###','# #','###'],key:{'#':'oak_planks'},keyTags:{'#':'planks'},result:['chest',1]},
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

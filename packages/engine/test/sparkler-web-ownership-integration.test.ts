@@ -28,14 +28,14 @@ class Cell {
 }
 const orange = () => stackId("orange_sparkler"), blue = () => stackId("blue_sparkler");
 const active = (id = orange()) => ({ ...freshStack(id), sparkler: { state: "active" as const } });
-const atlas = () => ({ tileSize: 16, tilePixels: vi.fn(() => new Uint8ClampedArray(16 * 16 * 4)), uv: vi.fn(() => [0, 0, 1, 1]), data: new Uint8ClampedArray(16 * 16 * 4), width: 16, height: 16 });
+const atlas = () => ({ tileSize: 16, tilePixels: vi.fn((_name:string) => new Uint8ClampedArray(16 * 16 * 4)), uv: vi.fn(() => [0, 0, 1, 1]), data: new Uint8ClampedArray(16 * 16 * 4), width: 16, height: 16 });
 function screen() {
   const value = Object.create(InventoryScreen.prototype);
   Object.assign(value, { inventory: new Inventory(), cursor: null, grid: Array(9).fill(null), width: 3, atlas: atlas(), mode: "survival", render: vi.fn() });
   return value;
 }
 function game() {
-  const value = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [] });
+  const value = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] });
   const ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(value, { inventory: new Inventory(), leashes: ownership(), balloons: ownership(), recoverySections: [], recoveryOriginal: null,
     stopped: false, dead: false, paused: false, screenOpen: () => false, hud: { message: vi.fn() }, sparklerView: { update: vi.fn() },

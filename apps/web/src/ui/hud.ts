@@ -1,3 +1,4 @@
+import {SingleChest} from '@craft/engine';
 import {
   sanitizePlayerStatus, BREWING_PROFILE, type BrewingStand, type BrewingSlot, HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
   cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
@@ -305,7 +306,7 @@ export class Hud {
 }
 
 export type ChemistryKind = "element_constructor" | "compound_creator" | "material_reducer" | "lab_table";
-export type InventoryKind = "inventory" | "crafting_table" | "furnace" | "brewing_stand" | ChemistryKind;
+export type InventoryKind = "inventory" | "crafting_table" | "furnace" | "brewing_stand" | "chest" | ChemistryKind;
 
 const CHEMISTRY_TITLES = new Map<InventoryKind, string>([
   ["element_constructor", "Element Constructor"],
@@ -369,6 +370,7 @@ export class InventoryScreen {
   private furnace: FurnaceState | null = null;
   private furnaceSignature = "";
   private brewing:BrewingStand|null=null;
+  private chest:SingleChest|null=null;private chestSignature="";
   private brewingSignature="";
   private progressFill: HTMLElement | null = null;
   private flameFill: HTMLElement | null = null;
@@ -406,7 +408,7 @@ export class InventoryScreen {
     return !this.root.hidden;
   }
 
-  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null, brewing:BrewingStand|null=null): void {
+  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null, brewing:BrewingStand|null=null,chest:SingleChest|null=null): void {
     // A station switch must return every owned pending item before replacing its screen state.
     if (this.open && !this.hide()) return;
     this.inventory = inventory;
@@ -414,12 +416,13 @@ export class InventoryScreen {
     this.kind = kind;
     this.furnace = kind === "furnace" ? furnace : null;
     this.brewing = kind === "brewing_stand" ? brewing : null;
+    this.chest=kind==="chest"?chest:null;
     // The furnace screen has no crafting grid (as in Minecraft).
     this.chem = isChemistry(kind) ? kind : null;
     this.width =
       kind === "crafting_table" || kind === "compound_creator" || kind === "lab_table" ? 3
         : kind === "material_reducer" ? 1
-          : kind === "furnace" || kind === "brewing_stand" || kind === "element_constructor" ? 0
+          : kind === "chest" || kind === "furnace" || kind === "brewing_stand" || kind === "element_constructor" ? 0
             : mode === "survival" ? 2 : 0;
     this.grid = new Array(this.width * this.width).fill(null);
     this.cursor = null;
@@ -454,7 +457,7 @@ export class InventoryScreen {
   /** Nonthrowing ownership finalization after the entire death batch has committed. */
   clearTransferredPending(): void {
     this.grid = []; this.cursor = null; this.lookup = null; this.recovery = [];
-    this.furnace = null; this.brewing=null; this.chem = null; this.recovering = false;
+    this.furnace = null; this.brewing=null;this.chest=null; this.chem = null; this.recovering = false;
   }
 
   /** Kept items stay in their original screen owner, including when a full bag cannot accept them. */
@@ -488,7 +491,7 @@ export class InventoryScreen {
     this.cursor = null;
     this.lookup = null;
     this.lookupError = "";
-    this.furnace = null; this.brewing=null;
+    this.furnace = null; this.brewing=null;this.chest=null;
     this.recovery = [];
     this.recovering = false;
     this.root.hidden = true;
@@ -498,7 +501,9 @@ export class InventoryScreen {
   /** Called every frame while open: a furnace keeps smelting, so redraw its slots and gauges. */
   refresh(): void {
     if(this.root.hidden)return;
-    if(this.brewing?.removed){this.brewing=null;this.kind="inventory";this.width=this.mode==="survival"?2:0;this.grid=new Array(this.width*this.width).fill(null);this.render();return;}
+    if(this.chest?.removed){this.chest=null;this.kind="inventory";this.width=this.mode==="survival"?2:0;this.grid=new Array(this.width*this.width).fill(null);this.render();return;}
+    if(this.chest){const signature=JSON.stringify(this.chest.snapshot());if(signature!==this.chestSignature)this.render();return;}
+    if(this.brewing?.removed){this.brewing=null;this.chest=null;this.kind="inventory";this.width=this.mode==="survival"?2:0;this.grid=new Array(this.width*this.width).fill(null);this.render();return;}
     if(this.brewing){
       const state=this.brewing.snapshot(),signature=JSON.stringify([state.bottles,state.ingredient,state.fuel,state.fuelUses]);
       if(signature!==this.brewingSignature)this.render();
@@ -518,7 +523,7 @@ export class InventoryScreen {
     const header = el("div", "panel-header");
     const title =
       CHEMISTRY_TITLES.get(this.kind) ??
-      (this.kind === "crafting_table" ? "Crafting Table" : this.kind === "furnace" ? "Furnace" : this.kind==="brewing_stand" ? "Brewing Stand" : mode === "creative" ? "Creative Inventory" : "Inventory");
+      (this.kind === "chest" ? "Chest" : this.kind === "crafting_table" ? "Crafting Table" : this.kind === "furnace" ? "Furnace" : this.kind==="brewing_stand" ? "Brewing Stand" : mode === "creative" ? "Creative Inventory" : "Inventory");
     header.append(el("h2", "", title));
     const close = el("button", "close-button", "✕");
     close.setAttribute("aria-label", "Close inventory");
@@ -539,9 +544,10 @@ export class InventoryScreen {
     else if (this.width > 0) parts.push(this.craftingSection());
     if (this.furnace) parts.push(this.furnaceSection());
     if (this.brewing) parts.push(this.brewingSection());
+    if(this.chest)parts.push(this.chestSection());
     if (this.kind === "inventory") parts.push(this.equipmentSection(), this.offhandSection());
 
-    if (mode === "creative" && !this.furnace && !this.brewing && !this.recovering) {
+    if (mode === "creative" && !this.furnace && !this.brewing && !this.chest && !this.recovering) {
       const tabs = el("div", "palette-tabs");
       for (const [tab, label] of PALETTE_TABS) {
         const b = el("button", `mc-button small palette-tab${tab === this.tab ? " active" : ""}`, label);
@@ -578,7 +584,7 @@ export class InventoryScreen {
       }
       parts.push(grid);
     }
-    if (mode === "survival" || this.working || this.furnace || this.brewing || this.recovering) {
+    if (mode === "survival" || this.working || this.furnace || this.brewing || this.chest || this.recovering) {
       const backpack = el("div", "item-grid");
       for (let i = HOTBAR_SIZE; i < INVENTORY_SIZE; i++) backpack.appendChild(this.slotCell(i));
       parts.push(backpack);
@@ -605,6 +611,8 @@ export class InventoryScreen {
       ? "Recover saved held items into the bag or equip matching armor. Make room before closing; crafting and new item pickup resume afterward."
       : this.chem
       ? CHEMISTRY_HINTS.get(this.chem)!
+      : this.chest
+      ? "Tap a Chest slot or bag slot to move items. Tap matching items to merge them."
       : this.brewing
       ? "Place water or awkward potions in the bottle slots, add an ingredient and Blaze Powder. Tap a finished bottle to collect it."
       : this.furnace
@@ -911,6 +919,14 @@ export class InventoryScreen {
     return section;
   }
 
+  private chestSection():HTMLElement{
+    const chest=this.chest!,state=chest.snapshot();this.chestSignature=JSON.stringify(state);const grid=el("div","item-grid chest-grid");grid.setAttribute("aria-label","Chest storage,27 slots");
+    state.slots.forEach((stack,index)=>{const cell=this.cell(stack?.id??null,stack?.count??0,stack?displayNameOf(stack.id):`Chest slot ${index+1}`,stack);cell.dataset.chest=String(index);cell.setAttribute("aria-label",`Chest slot ${index+1}`+(stack?`: ${displayNameOf(stack.id)} ×${stack.count}`:""));
+      cell.addEventListener("click",()=>{if(!this.canMoveItems())return;const owned=chest.snapshot().slots[index],cursor=this.cursor;
+        if(cursor&&owned&&stacksCompatible(cursor,owned)){const moved=Math.min(stackLimit(owned)-owned.count,cursor.count);if(moved<=0)return;const result=chest.replace(index,cloneStack(owned,owned.count+moved));if(!result.ok)return;this.cursor=moved===cursor.count?null:cloneStack(cursor,cursor.count-moved);}
+        else{const result=chest.replace(index,cursor);if(!result.ok)return;this.cursor=result.returned;}this.render();});grid.append(cell);});return grid;
+  }
+
   private brewingSection():HTMLElement {
     const stand=this.brewing!,state=stand.snapshot();this.brewingSignature=JSON.stringify([state.bottles,state.ingredient,state.fuel,state.fuelUses]);
     const section=el("div","brewing-station"),inputs=el("div","brewing-inputs"),bottles=el("div","brewing-bottles");
@@ -1003,7 +1019,7 @@ export class InventoryScreen {
   private slotCell(index: number): HTMLElement {
     const inventory = this.inventory!;
     const stack = inventory.slots[index];
-    const showCount = this.mode === "survival" || this.working;
+    const showCount = this.mode === "survival" || this.working || this.chest!==null;
     const cell = this.cell(stack?.id ?? null, showCount ? (stack?.count ?? 0) : 0, stack ? displayNameOf(stack.id) : "Empty", stack);
     cell.dataset.slot = String(index);
     const bar = stack ? durabilityBar(stack) : null;
@@ -1011,7 +1027,7 @@ export class InventoryScreen {
     cell.addEventListener("click", () => {
       if (this.recovering && !this.cursor) {
         return;
-      } else if (this.mode === "creative" && !this.working && !this.furnace && !this.cursor) {
+      } else if (this.mode === "creative" && !this.working && !this.furnace && !this.chest && !this.cursor) {
         if (index < HOTBAR_SIZE) inventory.select(index);
       } else if (this.cursor || stack) {
         const transfer = exchangeBagCursor(inventory, index, this.cursor);
