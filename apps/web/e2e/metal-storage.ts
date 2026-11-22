@@ -16,7 +16,7 @@ export async function metalStorageRoute(page:Page,info:TestInfo,mobile:boolean){
  const edits=new Map<string,[number,number,number,number]>(),cell=(x:number,y:number,z:number,id:number)=>edits.set(`${x},${y},${z}`,[x,y,z,id]);
  for(let x=2;x<=12;x++)for(let z=2;z<=11;z++){cell(x,79,z,blockId('stone'));for(let y=80;y<=85;y++)cell(x,y,z,0);}
  cell(table.x,table.y,table.z,blockId('crafting_table'));cell(reducer.x,reducer.y,reducer.z,blockId('material_reducer'));
- const save:SaveData={version:1,name:'Finite ordinary storage and native reducer owners',seed:17,generatorVersion:3,mode:'survival',timeOfDay:.25,player:{position:stand,yaw:0,pitch:0,flying:false},playerState:{health:20},inventory:bag.toJSON(),agent:createAgent(3,80,3),mobs:[],edits:[...edits.values()],gamerules:{doMobSpawning:false,doDaylightCycle:false}};
+ const save:SaveData={version:1,name:'Finite ordinary storage and native reducer owners',seed:17,generatorVersion:3,mode:'survival',timeOfDay:.25,player:{position:stand,yaw:0,pitch:0,flying:false},playerState:{health:20},inventory:bag.toJSON(),agent:createAgent(3,80,3),mobs:{nextId:1,records:[]},edits:[...edits.values()],gamerules:{doMobSpawning:false,doDaylightCycle:false}};
  const identities=kinds.map(row=>({...row,blockId:blockId(row.name),materialId:stackId(row.material),elementId:stackId(row.element)}));
  const errors:string[]=[],phases:unknown[]=[];let stage='initial',failure:string|null=null,contact:CDPSession|undefined;
  const inv=page.locator('.inventory-screen'),press=(l:Locator)=>mobile?l.tap():l.click();
