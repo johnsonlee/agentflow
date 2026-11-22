@@ -1,0 +1,22 @@
+{
+  "revision": "7cde993c6931d225cc39f62175c435a3dc7067f1",
+  "counts": [
+    330,
+    604,
+    202,
+    912,
+    322
+  ],
+  "hashes": {
+    "blocks": "cb6037f52ffe3a1d792a9c00218fc4ee595149ed07432775e8f863df89ad0f3e",
+    "items": "e159b65c93fb79213c95a94674b61a4cc8a1a0e6c89edab950a921c72d83db79",
+    "recipes": "86ddb4c0f6c6893b58b008432b51f174325cd90fcf567d4954a9e1fcb15e821a",
+    "atlas": "a3e16739107bbe0861b3922197b7f2a70d968228783b84092754d96e8e47766d",
+    "tiles": "8b02ca0d3667c3686e07e9f12162036b620171675a4a83e33206b43ecd1355c7",
+    "atlasRGBAUV": "df216f2546d7254d31b38c0d0d6d453d96ea697747d2f3baa190031f32874cae"
+  },
+  "size": [
+    512,
+    512
+  ]
+}

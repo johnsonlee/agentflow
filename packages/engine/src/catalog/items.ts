@@ -1,3 +1,4 @@
+import{woodSlabState}from './wood-slabs';
 import { METAL_NUGGETS } from "./metal-nuggets";
 /**
  * Item registry for things that are not blocks (sticks, tools). Item ids start at
@@ -341,6 +342,7 @@ const BLOCK_DROP_COUNTS = new Map<string, number>([
  * native RNG probabilities, Fortune and Silk Touch are not modeled here.
  */
 export function dropCount(blockIdValue: number, rand: () => number = Math.random): number {
+  if(woodSlabState(blockIdValue)?.half==='double')return 2;
   const name = blockById(blockIdValue).name;
   const range = name === "redstone_ore" ? [4, 5] : name === "glowstone" ? [2, 4] : null;
   if (range) {
@@ -374,6 +376,7 @@ export function baseStackId(id: number): number {
 
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
+  const slab=woodSlabState(id);if(slab&&slab.id!==slab.canonical)return null;
   if (id === blockId("fire") || id === blockId("lava") || id === 192 || id === 193 || id >= 197 && id <= 200) return null;
   if (isKnownBlockId(id)) return id;
   if (!isKnownItemId(id)) return null;

@@ -1,3 +1,4 @@
+import {WOOD_SLAB_STATES,woodSlabBounds}from './wood-slabs';
 import {HAY_AXIS_STATES} from "./hay-block";
 import { METAL_STORAGE_BLOCKS } from "./metal-storage";
 import {CANE_PLANT_ID} from './cane-profile';
@@ -269,6 +270,8 @@ for (const { id, name, displayName, hardness, harvestTier } of METAL_STORAGE_BLO
 
 // Original bounded Hay harvest policy: .75 hand seconds, existing Hoe speed, no native timing claim.
 for(const state of HAY_AXIS_STATES) specs.push({id:state.id,name:state.name,displayName:'Hay Bale',faces:faces('hay_block_top','hay_block_side'),hardness:.75,tool:'hoe',creative:state.creative,...(!state.creative?{drop:'hay_block'}:{})});
+
+for(const state of WOOD_SLAB_STATES)specs.push({id:state.id,name:state.name,displayName:state.species==='oak'?'Oak Slab':'Birch Slab',faces:faces(state.species+'_planks'),shape:state.half==='double'?'cube':'box',...(state.half==='double'?{}:{box:woodSlabBounds(state.id),collisionBox:woodSlabBounds(state.id)}),transparent:state.half!=='double',creative:state.id===state.canonical,hardness:3,tool:'axe',...(state.id!==state.canonical?{drop:state.species+'_slab'}:{})});
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

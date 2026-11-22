@@ -1,3 +1,4 @@
+import{woodSlabBounds}from './wood-slabs';
 import { blockById, isSolid } from "./blocks";
 import type { BlockGetter } from "../simulation/physics";
 
@@ -53,6 +54,7 @@ function fenceBoxes(mask: number, collision: boolean): LocalBox[] {
 export function blockCollisionBoxes(get: BlockGetter, x: number, y: number, z: number, idOverride?: number): readonly LocalBox[] {
   const id = idOverride ?? get(x, y, z), def = blockById(id);
   if (!isSolid(id)) return [];
+  const slab=woodSlabBounds(id);if(slab)return [slab];
   if (def.shape === "brewing_stand") return BREWING_STAND_BOXES;
   return def.shape === "fence" ? fenceBoxes(fenceConnections(get, x, y, z, id), true) : [def.collisionBox ?? FULL];
 }
@@ -60,6 +62,7 @@ export function blockCollisionBoxes(get: BlockGetter, x: number, y: number, z: n
 /** Legacy targeting remains full-cell. New fence and stand shapes target their visible parts. */
 export function blockSelectionBoxes(get: BlockGetter, x: number, y: number, z: number, idOverride?: number): readonly LocalBox[] {
   const id = idOverride ?? get(x, y, z);
+  const slab=woodSlabBounds(id);if(slab)return[slab];
   if (blockById(id).shape === "brewing_stand") return BREWING_STAND_BOXES;
   if(blockById(id).name==="chest")return [blockById(id).box!];
   if(blockById(id).shape==="cane")return [[.15,0,.15,.85,1,.85]];

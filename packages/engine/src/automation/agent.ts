@@ -1,3 +1,6 @@
+import{registerInventoryOwner,isInventoryBusy}from '../ownership/inventory-lease';
+import{woodSlabState}from '../catalog/wood-slabs';
+import{placeAgentWoodSlabAt}from '../ownership/wood-slab-placement';
 import {writablePlacementCell,placementCellsWithinWorld}from"../world/placement-bounds";
 import {hayAxisOf,hayPlacementId} from "../catalog/hay-block";
 import {inspectCaneItemOwner} from '../ownership/cane-items';
@@ -86,7 +89,7 @@ export interface AgentEnv {
 }
 
 export function createAgent(x: number, y: number, z: number, facing = 2): AgentState {
-  return { x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), facing, slots: new Array(AGENT_SLOTS).fill(null), selected: 0 };
+  const agent={ x: Math.floor(x), y: Math.floor(y), z: Math.floor(z), facing, slots: new Array(AGENT_SLOTS).fill(null), selected: 0 };registerInventoryOwner(agent,agent.slots);return agent;
 }
 
 /**
@@ -160,6 +163,7 @@ function addToAgent(agent: AgentState, stack: ItemStack): number {
 
 /** Executes one Agent command against the world. */
 export function runAgentCommand(world: World, agent: AgentState, cmd: AgentCommand, env: AgentEnv = {}): AgentResult {
+  if(isInventoryBusy(agent))return{ok:false,message:"Agent inventory is reserved"};
   if(world.blockSourceLeaseBusy&&cmd.op!=="detect"&&cmd.op!=="inspect")return {ok:false,message:"World source is reserved"};
   const target = (dir: AgentDirection) => {
     const [dx, dy, dz] = agentStep(agent, dir);
@@ -183,6 +187,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const t = target(cmd.dir);
       if(!writablePlacementCell(t.x,t.y,t.z))return {ok:false,message:"Can't place outside the world"};
       const stack=agent.slots[agent.selected];
+      if(stack&&woodSlabState(stack.id))return{ok:placeAgentWoodSlabAt(world,agent,t.x,t.y,t.z,env.playerFeet?.()),message:"Slab placement needs a valid owned source and loaded free half"};
       if(inspectCaneItemOwner(stack).kind==='invalid')return{ok:false,message:'Invalid Sugar Cane item'};
       if(stack?.id===SUGAR_CANE_ITEM_ID)return{ok:plantSugarCane(world,agent,'survival',t.x,t.y,t.z,AGENT_SLOTS,AGENT_SLOTS),message:'Sugar Cane needs an empty spot on supported soil beside water'};
       let placed = stack ? placedBlockOf(stack.id) : null;
@@ -310,6 +315,10 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
 export function giveAgent(agent: AgentState, stack: ItemStack): number;
 export function giveAgent(agent: AgentState, id: number, count: number): number;
 export function giveAgent(agent: AgentState, stackOrId: ItemStack | number, count?: number): number {
+  if(isInventoryBusy(agent)){
+    const remaining=typeof stackOrId==='number'?count:Object.getOwnPropertyDescriptor(stackOrId,'count')?.value;
+    return typeof remaining==='number'?remaining:0;
+  }
   return addToAgent(agent, typeof stackOrId === "number" ? freshStack(stackOrId, count ?? 0) : stackOrId);
 }
 

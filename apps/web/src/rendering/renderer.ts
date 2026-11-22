@@ -1,5 +1,5 @@
 import * as THREE from "three";
-import { CHUNK_SIZE, blockById, blockSelectionBoxes, skyAt, type LocalBox, meshChunk, toChunkCoord, type MeshData, type SkyState, type UvLookup, type World } from "@craft/engine";
+import { CHUNK_SIZE, woodSlabState, blockById, blockSelectionBoxes, skyAt, type LocalBox, meshChunk, toChunkCoord, type MeshData, type SkyState, type UvLookup, type World } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
 interface ChunkEntry {
@@ -215,8 +215,8 @@ export class WorldRenderer {
     this.selection.visible = block !== null;
     this.crack.visible = block !== null && breakProgress > 0;
     if (!block) return;
-    const shape = blockById(this.world.getBlock(block.x, block.y, block.z)).shape;
-    const boxes = shape === "fence" || shape === "brewing_stand" ? blockSelectionBoxes((x, y, z) => this.world.getBlock(x, y, z), block.x, block.y, block.z) : null;
+    const id=this.world.getBlock(block.x,block.y,block.z),shape=blockById(id).shape;
+    const boxes = shape === "fence" || shape === "brewing_stand" || woodSlabState(id) ? blockSelectionBoxes((x, y, z) => this.world.getBlock(x, y, z), block.x, block.y, block.z) : null;
     const key = boxes ? `${shape}:${JSON.stringify(boxes)}` : "cube";
     // Neighbour connections can change while the selected block coordinate stays the same.
     if (key !== this.selectionGeometryKey) {

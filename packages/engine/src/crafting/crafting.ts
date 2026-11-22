@@ -210,6 +210,8 @@ export const RECIPES: readonly Recipe[] = [
   { id: "bone_meal_from_bone", ingredients: ["bone"], result: ["bone_meal", 3] },
   WHITE_DYE_FROM_BONE_MEAL,
   ...BONE_MEAL_DYE_RECIPES,
+  {id:"oak_wooden_slab",pattern:["###"],key:{"#":"oak_planks"},result:["oak_slab",6]},
+  {id:"birch_wooden_slab",pattern:["###"],key:{"#":"birch_planks"},result:["birch_slab",6]},
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

@@ -162,3 +162,9 @@ export * from "./catalog/bone-meal-profile";
 export * from "./ownership/bone-meal-items";
 export * from "./ownership/bone-meal-use";
 export * from "./persistence/bone-meal-ownership";
+
+export * from "./catalog/wood-slabs";
+export * from "./ownership/wood-slab-items";
+export * from "./ownership/wood-slab-placement";
+export * from "./persistence/wood-slab-ownership";
+export {isInventoryBusy} from "./ownership/inventory-lease";

@@ -340,6 +340,13 @@ body.touch .game-canvas { cursor: default; }
 
 /* Keep chat clear of the joystick on touch devices. */
 body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; max-width: min(60vw, 520px); }
+/* Narrow screens cannot fit the instruction log beside all five toolbar buttons. */
+@media (max-width: 720px) {
+  body.touch .chat-log {
+    top: calc(max(8px, env(safe-area-inset-top)) + 56px);
+    max-width: calc(100vw - 12px);
+  }
+}
 
 /* ---------- Crafting, portfolio, NPC ---------- */
 

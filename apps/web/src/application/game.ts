@@ -1,4 +1,5 @@
 import { BONE_MEAL_ITEM_ID, useOwnedBoneMeal, diagnoseRawBoneMealOwnership, type BoneMealOwnershipIssue } from "@craft/engine";
+import { woodSlabState, useOwnedWoodSlab, diagnoseRawWoodSlabOwnership, isInventoryBusy, type WoodSlabOwnershipIssue } from "@craft/engine";
 import { useOwnedLabProduct } from "@craft/engine";
 import { CaneGrowthSystem, readCaneGrowthState } from "@craft/engine";
 import { type CodeWorkspaceData } from "@craft/engine";
@@ -134,6 +135,7 @@ export class Game {
   private wartIssues:Array<{path:string;reason:string}>=[];
   private caneIssues:Array<{path:string;reason:string}>=[];
   private boneMealIssues:BoneMealOwnershipIssue[]=[];
+  private woodSlabIssues:WoodSlabOwnershipIssue[]=[];
   private recyclingIssues:Array<{path:string;reason:string}>=[];
   private blazeIssues:BlazeOwnershipIssue[]=[];
   private brewingIssues:BrewingOwnershipIssue[]=[];
@@ -153,7 +155,7 @@ export class Game {
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
   private readonly mobLoot = new MobLootResolver();
-  private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || [...this.chests.values()].some(chest=>chest.busy) || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
+  private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || !!this.agent && isInventoryBusy(this.agent) || [...this.chests.values()].some(chest=>chest.busy) || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
   private get ownershipBusy(): boolean { return this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy || (!!this.furnaces && [...this.furnaces.values()].some(furnaceMutationBusy)); }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
@@ -271,7 +273,7 @@ export class Game {
     const save = options.save;
     this.restoreDimensions(save);
     this.restoreBrewingOwners(save);this.restoreChestOwners(save);
-    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markBoneMealRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
+    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markBoneMealRecovery(save); this.markWoodSlabRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     if(options.preparedWorld){
       if(!prepareOnly||!save||this.recoverySections.length||!this.acceptPreparedWorld(options.preparedWorld,save))throw new Error("Invalid or already attached prepared arrival World");
@@ -426,6 +428,7 @@ export class Game {
     for(const issue of this.recyclingIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.caneIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.boneMealIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    for(const issue of this.woodSlabIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for(const issue of this.wartIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.portalOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     if (this.recoverySections.includes("portals")) this.loadErrors.push("Damaged portals (original save preserved)");
@@ -1560,6 +1563,15 @@ export class Game {
       return;
     }
 
+    if (place && t && this.placeCooldown === 0 && held && woodSlabState(held.id)) {
+      const slabWorld = this.world, slabMode = this.mode;
+      const hitLocalY = eye.y + dir.y * t.distance - t.y;
+      if (useOwnedWoodSlab(slabWorld, this.inventory, slabMode, t, hitLocalY, this.body.position, () =>
+        this.world === slabWorld && this.mode === slabMode && !this.dead && !this.stopped && !this.paused &&
+        !this.actionsNeedRecovery && !this.screenOpen())) this.placeCooldown = 0.15;
+      return;
+    }
+
     if (place && t && this.placeCooldown === 0) {
       // Plants and other replaceable blocks are replaced in place; otherwise place against the hit face.
       const replace = blockById(t.id).replaceable === true;
@@ -1696,6 +1708,13 @@ export class Game {
   private markBoneMealRecovery(save:SaveData|undefined):void {
     this.boneMealIssues=[...(save?.boneMealOwnershipIssues??[]),...diagnoseRawBoneMealOwnership(save)].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
     if(!this.boneMealIssues.length)return;
+    this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
+    if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
+  }
+
+  private markWoodSlabRecovery(save:SaveData|undefined):void {
+    this.woodSlabIssues=[...(save?.woodSlabOwnershipIssues??[]),...diagnoseRawWoodSlabOwnership(save)].filter((issue,index,all)=>all.findIndex(other=>other.path===issue.path&&other.reason===issue.reason)===index);
+    if(!this.woodSlabIssues.length)return;
     this.cancelDrinking();this.recoveryOriginal??=localStorage.getItem(SAVE_KEY);
     if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
   }

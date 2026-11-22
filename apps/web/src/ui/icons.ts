@@ -1,4 +1,4 @@
-import { BREWING_STAND_PARTS, blockById, isItem, itemById, inspectSparklerState, isSparklerId, SPARKLER_COLORS, sparklerColor, type ItemStack } from "@craft/engine";
+import { WOOD_SLAB_STATES, woodSlabBounds, BREWING_STAND_PARTS, blockById, isItem, itemById, inspectSparklerState, isSparklerId, SPARKLER_COLORS, sparklerColor, type ItemStack } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
 const cache = new WeakMap<TextureAtlas, Map<string, string>>();
@@ -83,6 +83,15 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64, stack?: It
       ctx.fillStyle = "rgba(0,0,0,.22)";
       ctx.fillRect(size * (x + .14), size * .08, size * .04, size * .84);
     }
+  } else if (WOOD_SLAB_STATES.some(state=>state.id===id)) {
+    // The same half-height bounds as world meshing/collision, using unchanged plank pixels.
+    const [x0,y0,z0,x1,y1,z1]=woodSlabBounds(id)!;
+    const project=(x:number,y:number,z:number):[number,number]=>[size*.5+(x-z)*size*.45,size*.72+(x+z-1)*size*.225-y*size*.55];
+    const dx=(x1-x0)/atlas.tileSize,dy=(y1-y0)/atlas.tileSize,dz=(z1-z0)/atlas.tileSize;
+    const top=project(x0,y1,z0),front=project(x0,y1,z1),right=project(x1,y1,z1),img=tileCanvas(atlas,def.faces.side);
+    face(ctx,img,[dx*size*.45,dx*size*.225,-dz*size*.45,dz*size*.225,...top],0);
+    face(ctx,img,[dx*size*.45,dx*size*.225,0,dy*size*.55,...front],.2);
+    face(ctx,img,[dz*size*.45,-dz*size*.225,0,dy*size*.55,...right],.4);
   } else if (def.shape === "box") {
     // Flat redstone parts (plates, buttons, repeaters): their top texture.
     ctx.drawImage(tileCanvas(atlas, def.faces.top), size * 0.15, size * 0.15, size * 0.7, size * 0.7);

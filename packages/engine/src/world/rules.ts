@@ -1,3 +1,5 @@
+import{woodSlabState}from '../catalog/wood-slabs';
+import{placeWoodSlabAt}from '../ownership/wood-slab-placement';
 import {writablePlacementCell,placementCellsWithinWorld}from"./placement-bounds";
 import {hayAxisOf,hayPlacementId} from "../catalog/hay-block";
 import {inspectCaneItemOwner} from '../ownership/cane-items';
@@ -196,6 +198,7 @@ export function placeBlock(
   if(world.blockSourceLeaseBusy)return false;
   if (!writablePlacementCell(x,y,z)) return false;
   const stack = inventory.selectedStack();
+  if(stack&&woodSlabState(stack.id))return placeWoodSlabAt(world,inventory,mode,x,y,z,playerFeet);
   if(inspectCaneItemOwner(stack).kind==="invalid")return false;
   if(stack?.id===SUGAR_CANE_ITEM_ID)return plantSugarCane(world,inventory,mode,x,y,z);
   if(stack?.id===842)return plantNetherWart(world,inventory,mode,x,y,z,36,9);

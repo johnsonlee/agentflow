@@ -23,7 +23,7 @@ export function isInventoryBusy(owner:object):boolean{return owners.get(owner)?.
 export interface PreparedInventoryMutation{valid():boolean;commit():void}
 export interface InventoryMutationLease{readonly slots:(ItemStack|null)[];valid():boolean;prepare(index:number,replacement:ItemStack|null):PreparedInventoryMutation|null;commit(index:number,replacement:ItemStack|null):void;cancel():void}
 /** Only constructor-original real Arrays may receive a trusted synchronous publication. */
-export function reserveInventoryMutation(owner:Inventory):InventoryMutationLease|null{
+export function reserveInventoryMutation(owner:Inventory|{slots:(ItemStack|null)[]}):InventoryMutationLease|null{
  const state=owners.get(owner);if(!state||state.busy)return null;state.busy=true;let active=true;
  const cancel=()=>{if(active){active=false;state.busy=false;}};
  try{
