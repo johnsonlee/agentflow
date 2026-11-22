@@ -5,6 +5,9 @@ import { blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse,
 /** Preowned emptybottles3 and raw SpiderEye1 are disclosed inputs, not acquired outcomes.
  * Water comes from the unchanged seed12345 natural shore. Every fill, drink, Eye meal,
  * pause, selection and save/reload uses actual UI/input; no progress/effect/outcome is assigned. */
+type WaterOwnerProbe = { slot: number; source: { id: number; count: number }; id: number; count: number; mode: string; elapsed: number };
+type WaterTouchProbe = { stickId: number | null; look: { id: number; breaking: boolean } | null };
+
 export async function waterDrinkingRoute(page: Page, info: TestInfo, mobile: boolean) {
   let stage = "create", failure: string | null = null, errors: string[] = [];
   const observations: unknown[] = [];
@@ -20,11 +23,12 @@ export async function waterDrinkingRoute(page: Page, info: TestInfo, mobile: boo
     const elapsed = () => page.evaluate(() => (window.__craft.game! as unknown as { drinkOwner: { elapsed: number } | null }).drinkOwner?.elapsed ?? null);
     const waitProgress = (minimum: number) => page.waitForFunction(value => ((window.__craft.game! as unknown as { drinkOwner: { elapsed: number } | null }).drinkOwner?.elapsed ?? 0) >= value, minimum, { timeout: 20_000 });
     const select = async (index: number) => { if (mobile) await press(page.locator(`.hotbar [data-slot="${index}"]`)); else { await page.keyboard.press(`Digit${index + 1}`); await parkMouse(page); } await expect.poll(() => page.evaluate(() => window.__craft.game!.inventory.selected)).toBe(index); };
-    // Protocol active-point differences generate individual pointer releases. touchEnd itself must be empty.
+    // Chromium156 accepts changed ended contacts: end only the second finger and retain the view.
+    // Isolated CDP diagnostics prove touchMove with a missing point does not release it.
     const tapWithViewHeld = async (locator: Locator, id: number) => {
       const box = (await locator.boundingBox())!;
       await finger!.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [view, { x: box.x + box.width / 2, y: box.y + box.height / 2, id }] });
-      await finger!.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [view] });
+      await finger!.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [{ x: box.x + box.width / 2, y: box.y + box.height / 2, id }] });
     };
     const pause = async (viewHeld = false) => {
       if (mobile && viewHeld) await tapWithViewHeld(page.getByRole("button", { name: "Pause", exact: true }), 122);
@@ -36,7 +40,7 @@ export async function waterDrinkingRoute(page: Page, info: TestInfo, mobile: boo
       const g = window.__craft.game!;
       return { slots: structuredClone(g.inventory.slots), selected: g.inventory.selected, hunger: { ...g.hunger }, status: structuredClone(g.playerStatus), health: g.health,
         drink: (g as unknown as { drinkOwner: { slot: number; count: number; mode: string; elapsed: number } | null }).drinkOwner ? { ...((g as unknown as { drinkOwner: { slot: number; count: number; mode: string; elapsed: number } }).drinkOwner) } : null,
-        errors: [...g.loadErrors], paused: g.paused, dead: g.dead };
+        errors: [...g.loadErrors], paused: g.paused, dead: g.dead, wallTime: performance.now() };
     });
     const record = async (label: string) => { const value = await read(); observations.push({ stage, label, value }); return value; };
     const counts = () => page.evaluate(() => {
@@ -65,12 +69,91 @@ export async function waterDrinkingRoute(page: Page, info: TestInfo, mobile: boo
     } finally { await up(); }
     if (mobile) {
       stage = "unrelated-joystick-release";
+      // Geometry is resolved before the timed hold. No locator round trip spends its remaining budget.
+      const joystickBox = await page.locator(".touch-stick-base").boundingBox(); expect(joystickBox).not.toBeNull();
+      const joystickPoint = { x: joystickBox!.x + joystickBox!.width / 2, y: joystickBox!.y + joystickBox!.height / 2, id: 121 };
+      const pendingSecondFinger: Array<Promise<{ ok: true } | { ok: false; error: unknown }>> = [];
+      const sendSecondFinger = (params: { type: "touchStart" | "touchMove" | "touchEnd"; touchPoints: Array<{ x: number; y: number; id: number }> }) => {
+        // Attach a rejection handler immediately; cleanup settles every send even if an observation fails.
+        const acknowledgement = finger!.send("Input.dispatchTouchEvent", params).then(
+          () => ({ ok: true as const }), (error: unknown) => ({ ok: false as const, error }));
+        pendingSecondFinger.push(acknowledgement); return acknowledgement;
+      };
       try {
-        await down(); await waitProgress(.25); const before = (await elapsed())!;
-        await tapWithViewHeld(page.locator(".touch-stick-base"), 121);
-        expect(await elapsed()).not.toBeNull(); expect((await elapsed())!).toBeGreaterThanOrEqual(before); expect(await counts()).toEqual({ empty: 2, water: 1 });
-        await record("second-finger-joystick-release-retains-view-hold");
-      } finally { await up(); }
+        await down();
+        // A JSHandle retains the original live objects; it never assigns input, progress or results.
+        const witness = await page.waitForFunction(() => {
+          const g = window.__craft.game!, probe = g as unknown as { drinkOwner: WaterOwnerProbe | null; touch: WaterTouchProbe | null };
+          const owner = probe.drinkOwner, look = probe.touch?.look;
+          if (!owner || owner.id !== window.__craft.stackId("water_bottle") || !look?.breaking) return null;
+          const empty = window.__craft.stackId("glass_bottle"), water = window.__craft.stackId("water_bottle");
+          return { owner, look, before: { wallTime: performance.now(), elapsed: owner.elapsed, selected: g.inventory.selected,
+            slot: owner.slot, sourceId: owner.id, sourceCount: owner.count, mode: owner.mode,
+            selectedSourceMatches: owner.source === g.inventory.selectedStack(),
+            counts: { empty: g.inventory.slots.reduce((n, s) => n + (s?.id === empty ? s.count : 0), 0), water: g.inventory.slots.reduce((n, s) => n + (s?.id === water ? s.count : 0), 0) } } };
+        }, undefined, { timeout: 20_000 });
+        try {
+          // Send promptly without awaiting the protocol acknowledgement; observe the real stick start.
+          const secondDown = sendSecondFinger({ type: "touchStart", touchPoints: [view, joystickPoint] });
+          const stickWitness = await page.waitForFunction(w => {
+            if (!w) throw new Error("The original Water owner witness is missing");
+            const g = window.__craft.game!, probe = g as unknown as { drinkOwner: WaterOwnerProbe | null; touch: WaterTouchProbe | null };
+            if (!probe.touch || probe.touch.stickId === null) return null;
+            return { stickId: probe.touch.stickId, sameOwner: probe.drinkOwner === w.owner, sameViewPointer: probe.touch.look === w.look };
+          }, witness, { timeout: 5_000 });
+          try {
+            const secondRelease = sendSecondFinger({ type: "touchEnd", touchPoints: [joystickPoint] });
+            // Capture one coherent snapshot as soon as the actual joystick pointer is released.
+            const afterWitness = await page.waitForFunction(({ original, stick }) => {
+              if (!original) throw new Error("The original Water owner witness is missing");
+              if (!stick) throw new Error("The joystick start witness is missing");
+              const g = window.__craft.game!, probe = g as unknown as { drinkOwner: WaterOwnerProbe | null; touch: WaterTouchProbe | null };
+              if (!probe.touch || probe.touch.stickId !== null) return null;
+              const owner = probe.drinkOwner, empty = window.__craft.stackId("glass_bottle"), water = window.__craft.stackId("water_bottle");
+              return { before: original.before, stickStart: stick, after: { wallTime: performance.now(),
+                sameOwner: owner === original.owner, sameViewPointer: probe.touch.look === original.look,
+                selectedSourceMatches: owner?.source === g.inventory.selectedStack(), viewBreaking: probe.touch.look?.breaking ?? false,
+                stickId: probe.touch.stickId, selected: g.inventory.selected, slot: owner?.slot ?? null,
+                sourceId: owner?.id ?? null, sourceCount: owner?.count ?? null, mode: owner?.mode ?? null, elapsed: owner?.elapsed ?? null,
+                counts: { empty: g.inventory.slots.reduce((n, s) => n + (s?.id === empty ? s.count : 0), 0), water: g.inventory.slots.reduce((n, s) => n + (s?.id === water ? s.count : 0), 0) } } };
+            }, { original: witness, stick: stickWitness }, { timeout: 5_000 });
+            try {
+              const proof = await afterWitness.jsonValue();
+              const acknowledgements = await Promise.all([secondDown, secondRelease]);
+              for (const acknowledgement of acknowledgements) if (!acknowledgement.ok) throw acknowledgement.error;
+              expect(proof).not.toBeNull(); if (!proof) throw new Error("The coherent Water observation is missing");
+              expect(proof.before.selected).toBe(1); expect(proof.before.slot).toBe(1); expect(proof.before.sourceId).toBe(831);
+              expect(proof.before.sourceCount).toBe(1); expect(proof.before.mode).toBe("survival");
+              expect(proof.before.selectedSourceMatches).toBe(true); expect(proof.before.elapsed).toBeGreaterThan(0);
+              expect(proof.before.elapsed).toBeLessThan(1.6); expect(proof.before.counts).toEqual({ empty: 2, water: 1 });
+              expect(proof.stickStart.stickId).not.toBeNull(); expect(proof.stickStart.sameOwner).toBe(true); expect(proof.stickStart.sameViewPointer).toBe(true);
+              expect(proof.after.sameOwner).toBe(true); expect(proof.after.sameViewPointer).toBe(true); expect(proof.after.viewBreaking).toBe(true);
+              expect(proof.after.stickId).toBeNull(); expect(proof.after.selectedSourceMatches).toBe(true); expect(proof.after.selected).toBe(1);
+              expect(proof.after.slot).toBe(1); expect(proof.after.sourceId).toBe(831); expect(proof.after.sourceCount).toBe(1); expect(proof.after.mode).toBe("survival");
+              expect(proof.after.elapsed).not.toBeNull(); expect(proof.after.elapsed!).toBeGreaterThanOrEqual(proof.before.elapsed);
+              expect(proof.after.elapsed!).toBeLessThan(1.6); expect(proof.after.counts).toEqual({ empty: 2, water: 1 });
+              expect(proof.after.wallTime).toBeGreaterThanOrEqual(proof.before.wallTime);
+              observations.push({ stage, label: "second-finger-joystick-release-retains-same-active-owner", value: proof });
+              // Keep the same physical view finger down deliberately until this Water drink completes.
+              await page.waitForFunction(() => window.__craft.game!.inventory.selectedStack()?.id === window.__craft.stackId("glass_bottle"), undefined, { timeout: 20_000 });
+              expect(await counts()).toEqual({ empty: 3, water: 0 }); expect(await elapsed()).toBeNull();
+              await record("same-view-hold-deliberately-completed-after-joystick-release");
+            } finally { await afterWitness.dispose(); }
+          } finally { await stickWitness.dispose(); }
+        } finally { await witness.dispose(); }
+      } finally {
+        try { await up(); }
+        finally {
+          const acknowledgements = await Promise.all(pendingSecondFinger);
+          observations.push({ stage, label: "second-finger-CDP-sends-settled", value: acknowledgements.map(a => a.ok ? { ok: true } : {
+            ok: false, error: a.error instanceof Error ? `${a.error.name}: ${a.error.message}` : String(a.error) }) });
+        }
+      }
+      // Restore the next phase through an actual fresh use edge, not an inventory/progress reset.
+      stage = "fresh-edge-refill-after-joystick-completion";
+      await lookAtCell(page, water.x, water.y, water.z); await use(); await expect.poll(counts).toEqual({ empty: 2, water: 1 });
+      expect(await page.evaluate(() => window.__craft.game!.inventory.slots[1])).toEqual({ id: 831, count: 1 });
+      expect(await elapsed()).toBeNull(); await record("actual-fresh-edge-refill-restores-original-pause-phase-owner");
     } else {
       stage = "actual-wheel-cancel";
       try {
@@ -103,12 +186,15 @@ export async function waterDrinkingRoute(page: Page, info: TestInfo, mobile: boo
     await select(2); await look(page, 0, 1.2); await holdUntil(() => page.waitForFunction(() => Boolean(window.__craft.game!.playerStatus.poison), undefined, { timeout: 20_000 }));
     expect(await countStack(page, "spider_eye")).toBe(0); await select(1); const poisonBefore = await record("actual-eye-poison-before-water-drink"); expect(poisonBefore.status.poison!.remaining).toBeGreaterThan(2.2);
     await holdUntil(() => page.waitForFunction(() => window.__craft.game!.inventory.selectedStack()?.id === window.__craft.stackId("glass_bottle"), undefined, { timeout: 20_000 }));
-    const poisonAfter = await record("actual-water-drink-does-not-cure-live-poison"); expect(poisonAfter.status.poison).toBeDefined(); expect(poisonAfter.status.poison!.remaining).toBeGreaterThan(0); expect(poisonAfter.status.poison!.remaining).toBeLessThan(poisonBefore.status.poison!.remaining); expect(await counts()).toEqual({ empty: 3, water: 0 }); await snap(page, info, "genuinely-eaten-eye-poison-remains-after-drinking-water");
+    const poisonAfter = await record("actual-water-drink-does-not-cure-live-poison");
+    const poisonDrinkWallSeconds = (poisonAfter.wallTime - poisonBefore.wallTime) / 1000;
+    expect(poisonDrinkWallSeconds).toBeGreaterThan(0); expect(poisonDrinkWallSeconds + .1).toBeLessThan(poisonBefore.status.poison!.remaining);
+    expect(poisonAfter.status.poison).toBeDefined(); expect(poisonAfter.status.poison!.remaining).toBeGreaterThan(0); expect(poisonAfter.status.poison!.remaining).toBeLessThan(poisonBefore.status.poison!.remaining); expect(await counts()).toEqual({ empty: 3, water: 0 }); await snap(page, info, "genuinely-eaten-eye-poison-remains-after-drinking-water");
     stage = "final-refill-and-cold"; await lookAtCell(page, water.x, water.y, water.z); await use(); await expect.poll(counts).toEqual({ empty: 2, water: 1 }); await pause(); const finalSave = await quitPaused();
     await page.reload(); await press(page.getByRole("button", { name: /Continue/ })); await waitForTerrain(page); expect(await counts()).toEqual({ empty: 2, water: 1 }); expect(await elapsed()).toBeNull(); expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([]); await snap(page, info, "refilled-container-cold-restored-without-partial-drink");
     await fs.writeFile(info.outputPath("water-drinking-coverage.json"), JSON.stringify({ observations, partialSave, finalSave, errors,
       fixtures: "PreownedEmptyGlassBottle3, rawSpiderEye1/coal1; laterfullbagcobblestone andfood16 input fixture. Actualgeneratorseed12345naturalwater; actualchatteleport/camera. No filledbottle/drinkprogress/Poison/emptyreturn injected.",
-      actual: ["naturalwateractualfill", "realreleasepartialcancel", "actualheldHUD/Digitselectioncancel", mobile ? "nativeviewhold plusindependentjoystickfingerrelease" : "actualwheelcancel", "actualpausepartial/coldfresh1.25snotcomplete", "fullfoodfullbag1.6sdrink/emptyreturn", "sameholdnorefill", "newuseedgerefill", "actualEyeeatingthenwaterdrinkwhilePoisonstillactive", "finalrefill/coldownerrestore"],
+      actual: ["naturalwateractualfill", "realreleasepartialcancel", "actualheldHUD/Digitselectioncancel", mobile ? "nativeviewhold plusobservedindependentjoystickfingerrelease/same-owner-witness/deliberatefinish/actualfreshrefill" : "actualwheelcancel", "actualpausepartial/coldfresh1.25snotcomplete", "fullfoodfullbag1.6sdrink/emptyreturn", "sameholdnorefill", "newuseedgerefill", "actualEyeeatingthenwaterdrinkwhilePoisonstillactive", "finalrefill/coldownerrestore"],
       notCovered: ["primitiveSurvivalbottle/Eyeacquisition (earlierbase138routes)", "PCpointercancel/blur sourceinputwiring (actualhandlerunit/sourceaudit)", "browserdeath/respawn/reset (actualhandlerunit)", "nativeEducationtiming/fullfood/Creativecalibration", "thirst/cure/mud/campfire/brewing", "fullEducation/exactgraphics", "performance/physicalphone"] }, null, 2));
     expect(errors).toEqual([]); stage = "complete";
   } catch (error) { failure = error instanceof Error ? `${error.name}: ${error.message}` : String(error); throw error; }
