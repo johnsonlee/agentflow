@@ -152,15 +152,34 @@ export async function leatherArmorRoute(page:Page,info:TestInfo,mobile:boolean) 
       await expect(inv.locator(`[data-equipment="${p.slot}"] img`)).toHaveAttribute("alt",p.label);expect(await countStack(page,p.name)).toBe(0);}
     await snap(page,info,"leather-all-four-equipped-from-inventory");await close();
     await expect(page.locator("[data-armor-points]")).toHaveAttribute("data-armor-points","7");evidence.crafted=await observe(page);
-    // Legitimate isolated combat navigation; natural terrain is inspected, never rewritten.
-    await command("/gamemode creative");await command(`/tp ${workshop.x+76} 120 ${workshop.z}`);await waitForTerrain(page);
-    const arena=await flat((await observe(page)).position,16);expect(arena).not.toBeNull();
-    if(!arena)throw Error("No loaded natural5x5 combat patch; fail fixture rather than build through evaluate");
+    // Offline seed12345/gen3 provenance selects this natural25column Sand patch.
+    // Real gameplay must independently load and recheck every support/headroom cell.
+    const arena={x:13.5,y:55,z:80.5};
+    const fixtureOwners=(await observe(page));
+    expect(await page.evaluate(()=>({seed:window.__craft.game!.world.seed,version:window.__craft.game!.world.generatorVersion}))).toEqual({seed:12345,version:3});
+    await command("/gamemode creative");await command(`/tp ${arena.x} ${arena.y} ${arena.z}`);await waitForTerrain(page);
+    const loadedPatch=await page.evaluate(p=>{
+      const g=window.__craft.game!;
+      return Array.from({length:25},(_,i)=>{const x=Math.floor(p.x)+i%5-2,z=Math.floor(p.z)+Math.floor(i/5)-2;
+        return{x,z,y:p.y,support:g.world.getLoadedBlock(x,p.y-1,z),air4:[0,1,2,3].map(h=>g.world.getLoadedBlock(x,p.y+h,z))};});
+    },arena);
+    const sand=await page.evaluate(()=>window.__craft.blockId("sand"));
+    for(const c of loadedPatch){expect(c.support).toBe(sand);expect(c.air4).toEqual([0,0,0,0]);}
+    expect((await observe(page)).equipment).toEqual(fixtureOwners.equipment);expect((await observe(page)).slots).toEqual(fixtureOwners.slots);
     const separation=Math.hypot(arena.x-workshop.x,arena.z-workshop.z);expect(separation).toBeGreaterThan(64);expect(separation).toBeLessThan(92);
-    await command(`/tp ${arena.x} ${arena.y} ${arena.z}`);await waitForTerrain(page);await command("/time set night");
+    await command("/time set night");
+    // Summon is3blocks ahead at current yaw. Initial actual camera input established yaw~0.
+    // Starting1block south of center keeps the summon point inside the5x5 patch.
+    await command(`/tp ${arena.x} ${arena.y} ${arena.z+1}`);await waitForTerrain(page);
+    const summonYaw=await page.evaluate(()=>window.__craft.game!.body.yaw);expect(Math.abs(Math.atan2(Math.sin(summonYaw),Math.cos(summonYaw)))).toBeLessThan(.025);
     const previous=(await observe(page)).zombies.map(z=>z.id);await command("/summon zombie");
     const spawned=(await observe(page)).zombies.filter(z=>!previous.includes(z.id));expect(spawned).toHaveLength(1);const zombie=spawned[0];
-    evidence.combatFixture={workshop,arena,separation,zombie,naturalNotEnclosed:true};
+    expect(zombie.position.x).toBeGreaterThanOrEqual(arena.x-2.5);expect(zombie.position.x).toBeLessThan(arena.x+2.5);
+    expect(zombie.position.z).toBeGreaterThanOrEqual(arena.z-2.5);expect(zombie.position.z).toBeLessThan(arena.z+2.5);
+    expect(Math.abs(zombie.position.y-arena.y)).toBeLessThan(1);
+    await command(`/tp ${arena.x} ${arena.y} ${arena.z}`);await waitForTerrain(page);
+    evidence.combatFixture={seed:12345,generatorVersion:3,workshop,arena,separation,loadedPatch,summonYaw,zombie,naturalNotEnclosed:true,
+      provenance:"offline-natural-patches.json:25Sand/id8supports atY54 and4AIR atY55..58; chunks0,4/0,5 SHA256 retained; real loaded cells rechecked above"};
     for(let hit=1;hit<=55;hit++){
       if(hit%10===1)await command("/time set night");
       await command(`/tp ${arena.x} ${arena.y} ${arena.z}`);await waitForTerrain(page);
