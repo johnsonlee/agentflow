@@ -19,7 +19,7 @@ export async function mobPersistenceRoute(page: Page, info: TestInfo, mobile: bo
       const record = (event: string, detail?: unknown) => events.push({ event, wallTime: new Date().toISOString(), detail });
       const before = await page.evaluate(() => {
         const g = window.__craft.game!, m = g.targetMob;
-        const attempts = (window as unknown as { __refusedLoot?: { attempts: unknown[][] } }).__refusedLoot?.attempts.length ?? 0;
+        const attempts = (window as unknown as { __refusedLoot?: { attempts: (readonly unknown[])[] } }).__refusedLoot?.attempts.length ?? 0;
         return { targetId: m?.id ?? null, health: m?.health ?? null, attempts, playerHealth: g.health, dead: g.dead, paused: g.paused, position: { ...g.body.position }, yaw: g.body.yaw, pitch: g.body.pitch,
           modals: [...document.querySelectorAll<HTMLElement>(".inventory-screen,.code-screen,.pause-screen,.death-screen,.npc-screen")].filter(e => !e.hidden && e.getBoundingClientRect().width > 0).map(e => e.className) };
       });
@@ -37,7 +37,7 @@ export async function mobPersistenceRoute(page: Page, info: TestInfo, mobile: bo
         record("touchStart-ack");
         observed = await page.waitForFunction(({ id, health, attempts }) => {
           const g = window.__craft.game!, m = g.mobs.mobs.find(m => m.id === id);
-          const currentAttempts = (window as unknown as { __refusedLoot?: { attempts: unknown[][] } }).__refusedLoot?.attempts.length ?? 0;
+          const currentAttempts = (window as unknown as { __refusedLoot?: { attempts: (readonly unknown[])[] } }).__refusedLoot?.attempts.length ?? 0;
           const state = { browserTime: performance.now(), id, exists: Boolean(m), health: m?.health ?? null, attempts: currentAttempts, targetId: g.targetMob?.id ?? null, playerHealth: g.health, dead: g.dead, paused: g.paused };
           (window as unknown as { __mobAttackProbes: unknown[] }).__mobAttackProbes.push(state);
           return !m || m.health < health! || currentAttempts > attempts ? state : false;
@@ -155,15 +155,15 @@ export async function mobPersistenceRoute(page: Page, info: TestInfo, mobile: bo
   await expect.poll(() => page.evaluate(() => window.__craft.game!.inventory.selected)).toBe(sword);
   await page.evaluate(() => {
     const g = window.__craft.game!, store = g.worldDrops, original = store.planSpawnBatch.bind(store);
-    const fixture = window as unknown as { __refusedLoot: { attempts: unknown[][]; restore: () => void } };
+    const fixture = window as unknown as { __refusedLoot: { attempts: (readonly unknown[])[]; restore: () => void } };
     fixture.__refusedLoot = { attempts: [], restore: () => { store.planSpawnBatch = original; } };
     store.planSpawnBatch = (stacks) => { fixture.__refusedLoot.attempts.push(structuredClone(stacks)); return null; };
   });
   for (let attempt = 0; attempt < 4; attempt++) {
-    if (await page.evaluate(() => (window as unknown as { __refusedLoot: { attempts: unknown[][] } }).__refusedLoot.attempts.length)) break;
+    if (await page.evaluate(() => (window as unknown as { __refusedLoot: { attempts: (readonly unknown[])[] } }).__refusedLoot.attempts.length)) break;
     await hitPig();
   }
-  const refused = await page.evaluate(id => ({ health: window.__craft.game!.mobs.mobs.find(m => m.id === id)!.health, attempts: (window as unknown as { __refusedLoot: { attempts: unknown[][] } }).__refusedLoot.attempts, ground: window.__craft.game!.worldDrops.records }), pig);
+  const refused = await page.evaluate(id => ({ health: window.__craft.game!.mobs.mobs.find(m => m.id === id)!.health, attempts: (window as unknown as { __refusedLoot: { attempts: (readonly unknown[])[] } }).__refusedLoot.attempts, ground: window.__craft.game!.worldDrops.records }), pig);
   expect(refused.health).toBe(1); expect(refused.attempts).toHaveLength(1); expect(refused.ground).toEqual([]);
   const rolled = refused.attempts[0] as { id: number; count: number }[];
   expect(rolled).toHaveLength(1); expect(rolled[0].count).toBeGreaterThanOrEqual(1); expect(rolled[0].count).toBeLessThanOrEqual(3);

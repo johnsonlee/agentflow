@@ -197,7 +197,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (id === AIR) return { ok: false, message: "Nothing to destroy" };
       if (!canBreak(world, "survival", t.x, t.y, t.z)) return { ok: false, message: "Can't destroy that here" };
       if (id === blockId("fire")) return { ok: extinguishFire(world, t.x, t.y, t.z), message: "Fire extinguished" };
-      const portalDependency=world.portals.hasDependency(t.x,t.y,t.z)||netherWartAge(id)!==null||netherWartAge(world.getBlock(t.x,t.y+1,t.z))!==null;
+      const portalDependency=id===blockId("brewing_stand")||world.portals.hasDependency(t.x,t.y,t.z)||netherWartAge(id)!==null||netherWartAge(world.getBlock(t.x,t.y+1,t.z))!==null;
       const portalEdits:import("../world/world").BlockEdit[]=[[t.x,t.y,t.z,AIR]];
       if(portalDependency){
         const portalAbove=world.getBlock(t.x,t.y+1,t.z),portalPartner=doorPartner(world,t.x,t.y,t.z);
@@ -215,7 +215,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
         const supported = tryBlockById(above)?.needsSupport === true;
         const contents = env.worldDrop ? env.destroyContents?.(t.x, t.y, t.z) ?? [] : [];
         const contentsSource = JSON.stringify(contents);
-        const gravel = id === blockId("gravel"), strictOwner=gravel||netherWartAge(id)!==null||netherWartAge(above)!==null, selected = agent.selected, slots = agent.slots;
+        const gravel = id === blockId("gravel"), strictOwner=gravel||id===blockId("brewing_stand")||netherWartAge(id)!==null||netherWartAge(above)!==null, selected = agent.selected, slots = agent.slots;
         const gravelOwner = strictOwner ? gravelOwnerSnapshot(slots, selected, AGENT_SLOTS) : null;
         if (strictOwner && !gravelOwner) return { ok: false, message: "Invalid gravel harvest owner" };
         const gravelPlan = gravel ? world.gravelHarvests.plan(t.x, t.y, t.z, env.gravelRand) : null;

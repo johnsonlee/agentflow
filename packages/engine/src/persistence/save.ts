@@ -1,3 +1,4 @@
+import {readBrewingStandOwners,type SavedBrewingStand} from "./brewing-save";
 import {readBlazeOwners, diagnoseRawBlazeOwnership, type BlazeOwnershipIssue} from "./blaze-save";
 import type {BlazeFireballsData} from "../simulation/blaze-fireballs";
 import { sanitizePortalState, validatePortalEdits, isPortalBlock, type PortalData } from "../simulation/portals";
@@ -39,6 +40,10 @@ export const SAVE_VERSION = 1;
 
 export interface SaveData {
   version: number;
+  /** World-owned brewing ingredients, bottle slots and reserved fuel/work. */
+  brewingStands?:SavedBrewingStand[];
+  /** Derived raw diagnostics; never trusted from saved JSON. */
+  brewingOwnershipIssues?:GlowOwnershipIssue[];
   name: string;
   seed: number;
   /** Active world stays flat; only inactive world owners live in this extension. */
@@ -123,9 +128,12 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   if(data.blazeOwnershipIssues?.length||diagnoseRawBlazeOwnership(data).length)throw new Error("Cannot serialize invalid Blaze ownership");
   // Validate the original complete archive before any flat-world normalization.
   const dimensions = readDimensionArchive(data.dimensions, data, generatedBlockProbe);
+  const brewing=readBrewingStandOwners(data,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",data.seed,data.generatorVersion??1,x,y,z));
+  if(data.brewingOwnershipIssues?.length||brewing.issues.length||diagnoseRawBrewingItemOwnership(data).length)throw new Error("Cannot serialize invalid brewing ownership");
   if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
-  const { blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
   if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
+  if(brewing.present)owned.brewingStands=brewing.stations;
   const portals=sanitizePortalState(owned.portals);
   if(_wartIssues?.length||diagnoseRawWartOwnership(owned).length||diagnoseRawWartSupport(owned,owned.dimensions?.active??"overworld",generatedBlockProbe).length)throw new Error("Cannot serialize hidden Wart item ownership");
   if(_portalsInvalid||_portalIssues?.length||portals.invalid||!validatePortalEdits(owned.portals,owned.edits)||diagnoseRawPortalOwnership(owned).length)throw new Error("Cannot serialize invalid portal ownership");
@@ -167,11 +175,21 @@ export interface GlowOwnershipIssue { path: string; reason: string }
 
 /** Scan raw owners before sanitizeInventoryPending/fromJSON/Agent/furnace loaders can drop state.
  * This produces diagnostics only; Game must preserve the original raw text and block overwrite. */
-function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket" | "ignition" | "portal" | "wart"): GlowOwnershipIssue[] {
+function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler" | "bottle" | "bucket" | "ignition" | "portal" | "wart" | "brewing"): GlowOwnershipIssue[] {
   const issues: GlowOwnershipIssue[] = [];
   if (!isObj(raw)) return issues;
   const check = (value: unknown, path: string, supported = true) => {
     if (typeof value !== "object" || value === null) return;
+    if(field==="brewing"){
+      const identity=Object.getOwnPropertyDescriptor(value,"id");
+      if(identity&&!('value'in identity)){issues.push({path,reason:"unreadable owned item identity before brewing recovery"});return;}
+      const id=identity?.value;
+      if(Number.isSafeInteger(id)&&id>=845&&id<=849){
+        const count=Object.getOwnPropertyDescriptor(value,"count");
+        const descriptors=Reflect.ownKeys(value).every(key=>{const d=Object.getOwnPropertyDescriptor(value,key)!;return (key==="id"||key==="count")&&d.enumerable&&'value'in d;});
+        if(!supported||!isObj(value)||Reflect.ownKeys(value).length!==2||!descriptors||!count||!('value'in count)||count.value!==1)issues.push({path,reason:"invalid or unsupported potion/medicine owner"});
+      }return;
+    }
     if(field==="wart"){
       const id=Object.getOwnPropertyDescriptor(value,"id")?.value;
       if(netherWartAge(id)!==null)issues.push({path,reason:"hidden Wart physical crop cannot be an owned item"});
@@ -218,7 +236,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
         else check(rawOffhand, "inventory.offhand");
       }
     }
-    if ((field === "bottle" || field === "bucket" || field === "ignition" || field === "portal" || field === "wart") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
+    if ((field === "bottle" || field === "bucket" || field === "ignition" || field === "portal" || field === "wart" || field === "brewing") && Object.prototype.hasOwnProperty.call(inventory,"offhand")) check(own(inventory,"offhand"),"inventory.offhand",false);
     const equipment = object(own(inventory, "equipment"), "inventory.equipment");
     if (equipment) for (const key of Object.keys(equipment))
       check(own(equipment, key), `inventory.equipment.${key}`, false); // Glow is never armor.
@@ -228,7 +246,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   if (agent) {
     if (field === "sparkler" && Object.prototype.hasOwnProperty.call(agent, "offhand"))
       issues.push({ path: "agent.offhand", reason: "Agent offhand is an unsupported owner" });
-    if (field === "bottle" || field === "bucket" || field === "ignition" || field === "portal" || field === "wart") check(own(agent,"offhand"),"agent.offhand",false);
+    if (field === "bottle" || field === "bucket" || field === "ignition" || field === "portal" || field === "wart" || field === "brewing") check(own(agent,"offhand"),"agent.offhand",false);
     const valid = integer(own(agent, "x")) && integer(own(agent, "y"), 0, 1000) && integer(own(agent, "z"))
       && integer(own(agent, "facing"), 0, 3) && integer(own(agent, "selected"), 0, 26);
     if (!valid) issues.push({ path: "agent", reason: "invalid owned-item Agent envelope" });
@@ -264,6 +282,7 @@ function diagnoseRawActivationOwnership(raw: unknown, field: "glow" | "sparkler"
   return issues;
 }
 
+export function diagnoseRawBrewingItemOwnership(raw:unknown):GlowOwnershipIssue[]{return diagnoseRawActivationOwnership(raw,"brewing");}
 export function diagnoseRawWartOwnership(raw:unknown):GlowOwnershipIssue[]{return diagnoseRawActivationOwnership(raw,"wart");}
 /** Resolve edited crop support against this realm only, before any edit repair. */
 export function diagnoseRawWartSupport(raw:unknown,dimension:"overworld"|"nether",probe:DimensionGeneratedBlockProbe):GlowOwnershipIssue[]{
@@ -334,6 +353,8 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   const portalOwnershipIssues=diagnoseRawPortalOwnership(raw),portals=sanitizePortalState(own(raw,"portals"));
   const portalsInvalid=portals.invalid||!validatePortalEdits(own(raw,"portals"),own(raw,"edits"));
   const generator=sanitizeGeneratorVersion(own(raw,"generatorVersion")),fluids=sanitizeFluidState(own(raw,"fluids"));
+  const brewing=readBrewingStandOwners(raw,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",seed|0,generator.version,x,y,z));
+  const brewingOwnershipIssues=[...brewing.issues,...diagnoseRawBrewingItemOwnership(raw)];
   const fluidEditsInvalid=(generator.present||fluids.present)&&!validFluidEdits(own(raw,"edits"));
   const fire = sanitizeFireState(own(raw, "fire"));
   const cowStateInvalid = diagnoseRawCowState(own(raw,"mobs"));
@@ -377,6 +398,8 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   };
   if (dimensions.kind === "valid") save.dimensions = dimensions.data;
   if (dimensions.kind === "invalid") { save.dimensionsInvalid = true; save.dimensionOwnershipIssues = dimensions.issues; }
+  if(brewing.present)save.brewingStands=brewing.stations;
+  if(brewingOwnershipIssues.length)save.brewingOwnershipIssues=brewingOwnershipIssues;
   if(portals.present)save.portals=portals.data;
   if(portalsInvalid)save.portalsInvalid=true;
   if(Object.hasOwn(raw,"blazeFireballs"))save.blazeFireballs=blazeOwners.fireballs;

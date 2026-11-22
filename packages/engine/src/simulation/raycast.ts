@@ -13,8 +13,8 @@ export interface RaycastHit {
   distance: number;
 }
 
-/** Exact slab hit for the new fence only; existing block targeting stays voxel-based. */
-function fenceSlab(origin: Vec3, direction: Vec3, x: number, y: number, z: number, bounds: LocalBox): { distance: number; normal: Vec3 } | null {
+/** Exact slab hit for multipart fence/stand; legacy block targeting stays voxel-based. */
+function geometrySlab(origin: Vec3, direction: Vec3, x: number, y: number, z: number, bounds: LocalBox): { distance: number; normal: Vec3 } | null {
   let enter = 0, exit = Infinity;
   let normal: Vec3 = { x: 0, y: 0, z: 0 };
   for (const [axis, low, high, offset] of [["x", bounds[0], bounds[3], x], ["y", bounds[1], bounds[4], y], ["z", bounds[2], bounds[5], z]] as const) {
@@ -64,10 +64,11 @@ export function raycast(
   while (t <= maxDistance) {
     const id = getBlock(x, y, z);
     if (isTarget(id)) {
-      if (tryBlockById(id)?.shape !== "fence") return { x, y, z, id, normal: { ...normal }, distance: t };
+      const shape=tryBlockById(id)?.shape;
+      if (shape !== "fence" && shape !== "brewing_stand") return { x, y, z, id, normal: { ...normal }, distance: t };
       let nearest: { distance: number; normal: Vec3 } | null = null;
       for (const box of blockSelectionBoxes(getBlock, x, y, z, id)) {
-        const hit = fenceSlab(origin, { x: dx, y: dy, z: dz }, x, y, z, box);
+        const hit = geometrySlab(origin, { x: dx, y: dy, z: dz }, x, y, z, box);
         if (hit && hit.distance >= t - 1e-9 && hit.distance <= maxDistance && (!nearest || hit.distance < nearest.distance)) nearest = hit;
       }
       if (nearest) return { x, y, z, id, ...nearest };

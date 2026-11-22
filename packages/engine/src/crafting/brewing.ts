@@ -5,6 +5,7 @@ import type {ItemStack} from '../ownership/inventory';
  * not measured Education1.26.33 behavior. */
 export const BREWING_PROFILE=Object.freeze({seconds:20,fuelUses:20,maxDt:1});
 export type BrewingSlot='ingredient'|'fuel'|0|1|2;
+export interface BrewingContentsLease {readonly contents:readonly ItemStack[];valid():boolean;retire():boolean;cancel():void}
 export interface BrewingData {version:1;bottles:[ItemStack|null,ItemStack|null,ItemStack|null];ingredient:ItemStack|null;fuel:ItemStack|null;fuelUses:number;progressSeconds:number;batch:string|null}
 const products=['water_bottle','awkward_potion','antidote','elixir','eye_drops','tonic'] as const;
 const bottleIds=new Set(products.map(stackId)),fuelId=stackId('blaze_powder');
@@ -44,11 +45,13 @@ export function sanitizeBrewingState(raw:unknown):{data:BrewingData;invalid:numb
  * receive detached copies. Replacing a batch input cancels its work without
  * refunding an already spent fuel use; no stack moves through a UI callback. */
 export class BrewingStand {
- readonly loadIssues:number;private state:BrewingData;private replacing=false;
+ readonly loadIssues:number;private state:BrewingData;private replacing=false;private reservation:symbol|null=null;private retired=false;
+ get busy():boolean{return this.replacing||this.reservation!==null;}
+ get removed():boolean{return this.retired;}
  constructor(raw?:unknown){const read=sanitizeBrewingState(raw);this.state=read.data;this.loadIssues=read.invalid;}
  snapshot():BrewingData {if(this.loadIssues)throw Error('Damaged brewing ownership');return structuredClone(this.state);}
  replace(slot:BrewingSlot,incoming:ItemStack|null):{ok:boolean;returned:ItemStack|null}{
-  if(this.loadIssues||this.replacing)return{ok:false,returned:incoming};
+  if(this.loadIssues||this.retired||this.busy)return{ok:false,returned:incoming};
   this.replacing=true;
   try{
     if(!(slot==='ingredient'||slot==='fuel'||slot===0||slot===1||slot===2)||!owner(incoming,slot))return{ok:false,returned:incoming};
@@ -60,7 +63,7 @@ export class BrewingStand {
   finally{this.replacing=false;}
  }
  update(dt:number):void {
-  if(this.loadIssues||this.replacing||!Number.isFinite(dt)||dt<=0)return;
+  if(this.loadIssues||this.retired||this.busy||!Number.isFinite(dt)||dt<=0)return;
   const s=this.state,r=recipe(s);if(!r){s.progressSeconds=0;s.batch=null;return;}
   if(s.progressSeconds===0){
    if(s.fuelUses===0){if(!s.fuel)return;s.fuel.count--;if(s.fuel.count===0)s.fuel=null;s.fuelUses=BREWING_PROFILE.fuelUses;}
@@ -70,6 +73,14 @@ export class BrewingStand {
   if(s.progressSeconds+1e-9<BREWING_PROFILE.seconds)return;
   s.bottles=s.bottles.map(b=>b?.id===r[0]?{id:r[1],count:1}:b) as BrewingData['bottles'];
   s.ingredient!.count--;if(s.ingredient!.count===0)s.ingredient=null;s.progressSeconds=0;s.batch=null;
+ }
+ reserveContents():BrewingContentsLease|null {
+  if(this.loadIssues||this.retired||this.busy)return null;
+  const token=Symbol('brewing contents');this.reservation=token;
+  const source=JSON.stringify(this.state),contents=Object.freeze(this.contents().map(s=>Object.freeze(s)));let active=true;
+  const valid=()=>active&&this.reservation===token&&!this.retired&&JSON.stringify(this.state)===source;
+  const cancel=()=>{if(active&&this.reservation===token)this.reservation=null;active=false;};
+  return Object.freeze({contents,valid,retire:()=>{if(!valid())return false;this.state=empty();this.retired=true;cancel();return true;},cancel});
  }
  contents():ItemStack[]{if(this.loadIssues)throw Error("Damaged brewing ownership");return [this.state.ingredient,this.state.fuel,...this.state.bottles].filter((s):s is ItemStack=>s!==null).map(s=>({...s}));}
 }

@@ -1,4 +1,4 @@
-import { blockById, isItem, itemById, inspectSparklerState, isSparklerId, SPARKLER_COLORS, sparklerColor, type ItemStack } from "@craft/engine";
+import { BREWING_STAND_PARTS, blockById, isItem, itemById, inspectSparklerState, isSparklerId, SPARKLER_COLORS, sparklerColor, type ItemStack } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
 const cache = new WeakMap<TextureAtlas, Map<string, string>>();
@@ -64,6 +64,16 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64, stack?: It
     ctx.drawImage(tileCanvas(atlas, activeIcon ?? itemById(id).icon), 0, 0, size, size);
   } else if (def.shape === "cross" || def.shape === "torch") {
     ctx.drawImage(tileCanvas(atlas, def.faces.side), size * 0.1, size * 0.1, size * 0.8, size * 0.8);
+  } else if (def.shape === "brewing_stand") {
+    // Project the same original multipart world model, instead of showing a misleading full cube.
+    const project=(x:number,y:number,z:number):[number,number]=>[size*.5+(x-z)*size*.45,size*.84+(x+z-1)*size*.22-y*size*.7];
+    for(const part of [...BREWING_STAND_PARTS].sort((a,b)=>(a.box[0]+a.box[2]+a.box[3]+a.box[5])-(b.box[0]+b.box[2]+b.box[3]+b.box[5]))){
+      const [x0,y0,z0,x1,y1,z1]=part.box,dx=(x1-x0)/atlas.tileSize,dy=(y1-y0)/atlas.tileSize,dz=(z1-z0)/atlas.tileSize,img=tileCanvas(atlas,part.texture);
+      const top=project(x0,y1,z0),front=project(x0,y1,z1),right=project(x1,y1,z1);
+      face(ctx,img,[dx*size*.45,dx*size*.22,-dz*size*.45,dz*size*.22,...top],0);
+      face(ctx,img,[dx*size*.45,dx*size*.22,0,dy*size*.7,...front],.18);
+      face(ctx,img,[dz*size*.45,-dz*size*.22,0,dy*size*.7,...right],.32);
+    }
   } else if (def.shape === "fence") {
     // Original two-post inventory silhouette using the same local plank tile as the world model.
     const plank = tileCanvas(atlas, def.faces.side);

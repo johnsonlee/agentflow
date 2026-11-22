@@ -117,4 +117,8 @@ export { createPortalRouteSave } from "./persistence/portal-route";
 export { prepareOverworldRespawn } from "./world/dimension-respawn";
 export type { PreparedOverworldRespawn } from "./world/dimension-respawn";
 export { BrewingStand, BREWING_PROFILE, sanitizeBrewingState } from "./crafting/brewing";
-export type { BrewingData, BrewingSlot } from "./crafting/brewing";
+export type { BrewingData, BrewingSlot, BrewingContentsLease } from "./crafting/brewing";
+
+export {readBrewingStandOwners} from "./persistence/brewing-save";
+export type {SavedBrewingStand,BrewingOwnershipIssue} from "./persistence/brewing-save";
+export {diagnoseRawBrewingItemOwnership} from "./persistence/save";

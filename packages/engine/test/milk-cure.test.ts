@@ -12,7 +12,7 @@ describe("adult Cow milk and finite cure owners",()=>{
  it("preserves all inherited registries/mob definitions while appending the sourced five identities and bucket recipe",()=>{
   expect(digest(ITEMS.slice(0,576))).toBe(prefix.itemsSHA256);expect(digest(BLOCKS.slice(0,308))).toBe(prefix.blocksSHA256);expect(digest(RECIPES.slice(0,166))).toBe(prefix.recipesSHA256);expect(digest(allAtlasTextureNames().slice(0,862))).toBe(prefix.namesSHA256);
   const oldMobSpecs=Object.fromEntries(Object.entries(MOB_SPECS).slice(0,7));expect(JSON.parse(JSON.stringify(oldMobSpecs))).toEqual(prefix.oldMobSpecs);
-  expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([594, 320, 170, 890]);
+  expect([ITEMS.length,BLOCKS.length,RECIPES.length,allAtlasTextureNames().length]).toEqual([594, 321, 171, 892]);
   expect(ITEMS.slice(576,581).map(x=>[x.id,x.name,x.maxStack])).toEqual([[832,"bucket",16],[833,"milk_bucket",1],[834,"raw_beef",64],[835,"cooked_beef",64],[836,"leather",64]]);
   const grid:(ItemStack|null)[]=Array(9).fill(null);for(const i of [0,2,4])grid[i]={id:stackId("iron_ingot"),count:2};expect(craftOnce(grid,3)).toEqual(bucket());expect(grid.filter(Boolean).map(x=>x!.count)).toEqual([1,1,1]);
  });

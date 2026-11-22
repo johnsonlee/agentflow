@@ -7,9 +7,10 @@ const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).dige
 it("preserves all860 published tile pixels and UVs while appending two whole bottle icons", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
   expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
-  expect(names).toHaveLength(890); expect(names.slice(0, 860)).toEqual(baseline.names);
+  expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
+  expect(names).toHaveLength(892); expect(names.slice(0, 860)).toEqual(baseline.names);
   expect(names.slice(860, 862)).toEqual(["item_glass_bottle", "item_water_bottle"]);
-  expect(new Set(names).size).toBe(890);
+  expect(new Set(names).size).toBe(892);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

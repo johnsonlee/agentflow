@@ -102,7 +102,7 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     // Edit the saved JSON the way a user (or a damaged file) could. The running game saves on
     // pagehide, so stop it saving over the edited file during the reload.
     await page.evaluate(() => {
-      window.__craft.game!.save = () => undefined;
+      window.__craft.game!.save = () => false;
       const key = Object.keys(localStorage).find((k) => k.startsWith("craft.save"))!;
       const text = localStorage.getItem(key)!;
       const save = JSON.parse(text);
@@ -179,7 +179,7 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     await settle(page);
     await page.evaluate(() => window.__craft.game!.save());
     await page.evaluate(() => {
-      window.__craft.game!.save = () => undefined; // keep the edited file through the reload
+      window.__craft.game!.save = () => false; // keep the edited file through the reload
       const save = JSON.parse(localStorage.getItem("craft.save.v1")!);
       save.name = { evil: true };
       save.mode = "constructor";
@@ -229,7 +229,7 @@ test.describe("PC browser: Education Edition Code Builder and Agent", () => {
     // A save edited to x = 1e16 (as the reviewer did) still loads on Continue.
     await page.evaluate(() => window.__craft.game!.save());
     await page.evaluate(() => {
-      window.__craft.game!.save = () => undefined;
+      window.__craft.game!.save = () => false;
       const save = JSON.parse(localStorage.getItem("craft.save.v1")!);
       save.player.position = { x: 1e16, y: 80, z: -1e16 };
       localStorage.setItem("craft.save.v1", JSON.stringify(save));

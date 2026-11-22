@@ -1,7 +1,7 @@
 import { ITEMS } from "../catalog/items";
 import { BLOCKS } from "../catalog/blocks";
 import { WORLD_BORDER } from "../core/math";
-import type { MobKind } from "../simulation/entities";
+import { MOB_SPECS, type MobKind } from "../simulation/entities";
 import type { GameMode } from "../world/rules";
 
 export type Command =
@@ -21,12 +21,16 @@ export type Command =
 const TICKS_PER_DAY = 24000;
 const NAMED_TIMES: Record<string, number> = { day: 1000, noon: 6000, sunset: 12000, night: 13000, midnight: 18000, sunrise: 23000 };
 
+const SUMMON_KINDS=Object.keys(MOB_SPECS) as MobKind[];
+const SUMMON_HELP=`/summon <${SUMMON_KINDS.join("|")}> [name]`;
+const isSummonKind=(kind:string):kind is MobKind=>SUMMON_KINDS.some(registered=>registered===kind);
+
 export const COMMAND_HELP = [
   "/gamemode <creative|survival>",
   "/time set <day|noon|night|midnight|ticks>",
   "/tp <x> <y> <z>  (~ for relative)",
   "/give <block|item> [count]",
-  "/summon <pig|sheep|chicken|zombie|spider|squid|cow|npc> [name]",
+  SUMMON_HELP,
   "/gamerule <doMobSpawning|doDaylightCycle|keepInventory> <true|false>",
   "/seed",
   "/agent tp  (bring your Agent to you)",
@@ -94,8 +98,8 @@ export function parseCommand(input: string): Command {
       return { type: "code", command: args[0].toLowerCase() };
     case "summon": {
       const kind = (args[0] ?? "").toLowerCase().replace(/^minecraft:/, "");
-      if (kind !== "pig" && kind !== "sheep" && kind !== "chicken" && kind !== "npc" && kind !== "zombie" && kind !== "spider" && kind !== "squid" && kind !== "cow") {
-        return { type: "error", message: "Usage: /summon <pig|sheep|chicken|zombie|spider|squid|cow|npc> [name]" };
+      if (!isSummonKind(kind)) {
+        return { type: "error", message: `Usage: ${SUMMON_HELP}` };
       }
       const name = args.slice(1).join(" ").trim().slice(0, 64);
       return name ? { type: "summon", kind, name } : { type: "summon", kind };

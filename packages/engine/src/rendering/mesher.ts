@@ -1,5 +1,5 @@
 import { AIR, blockId, isOpaque, tryBlockById } from "../catalog/blocks";
-import { blockRenderBoxes } from "../catalog/block-geometry";
+import { BREWING_STAND_PARTS, blockRenderBoxes } from "../catalog/block-geometry";
 import { CHUNK_SIZE, WORLD_HEIGHT } from "../world/chunk";
 import type { World } from "../world/world";
 
@@ -130,6 +130,11 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
         if (def.shape === "none") continue;
         if (def.shape === "cross" || def.shape === "torch") {
           addCross(solid, x, y, z, uv(def.faces.side), def.shape === "torch" ? 0.0 : 0.15, def.emissive ? 0xff : lightAt(x, y, z));
+          continue;
+        }
+        if (def.shape === "brewing_stand") {
+          for (const part of BREWING_STAND_PARTS) addBox(solid, x, y, z, part.box,
+            {top:part.texture,side:part.texture,bottom:part.texture}, uv, lightAt(x, y, z));
           continue;
         }
         if (def.shape === "fence") {

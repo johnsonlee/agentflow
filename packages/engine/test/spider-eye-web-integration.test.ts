@@ -13,7 +13,7 @@ class Cell {
   setAttribute(key: string, value: string) { this.attributes[key] = value; } addEventListener() {} click() {} remove() {}
 }
 function game() {
-  const g = Object.create(Game.prototype);
+  const g = Object.assign(Object.create(Game.prototype), { brewingStands: new Map(), brewingIssues: [] });
   const ownership = () => ({ busy: false, records: [], beginRelease: vi.fn(() => ({ kind: "none" })), reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: createPlayerStatus(), leashes: ownership(), balloons: ownership(),
     recoverySections: [], recoveryOriginal: null, stopped: false, dead: false, paused: false, mode: "survival", health: 20,

@@ -9,13 +9,13 @@ export const DIMENSION_WORLD_KEYS = [
   "seed", "generatorVersion", "player", "edits", "npcs", "chalkboards",
   "furnaces", "redstone", "farming", "fire", "fluids", "portals",
   "gravelHarvests", "worldDrops", "mobs", "leashes", "balloons",
-  "snowballProjectiles", "blazeFireballs",
+  "snowballProjectiles", "blazeFireballs", "brewingStands",
 ] as const satisfies readonly (keyof SaveData)[];
 export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[number]>;
 const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
-  "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
+  "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
   "bottleOwnershipIssues", "bucketOwnershipIssues", "cowStateInvalid", "playerStatusInvalid",

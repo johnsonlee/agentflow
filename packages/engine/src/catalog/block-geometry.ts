@@ -8,6 +8,20 @@ export const MAX_BLOCK_COLLISION_HEIGHT = 1.5;
 export const BLOCK_COLLISION_ORIGIN_BELOW = Math.ceil(MAX_BLOCK_COLLISION_HEIGHT) - 1;
 export const FENCE_CONNECTIONS = { north: 1, east: 2, south: 4, west: 8 } as const;
 const FULL: LocalBox = Object.freeze([0, 0, 0, 1, 1, 1]);
+export interface BrewingStandPart { readonly box: LocalBox; readonly texture: "brewing_stand_base" | "brewing_stand_rod" }
+/** Original application dimensions, not measured Education collision or geometry. The three
+ * low feet, connecting struts, post and T rack share the exact same render/solid/target parts. */
+export const BREWING_STAND_PARTS: readonly BrewingStandPart[] = Object.freeze([
+  { box: [5/16,0,11/16,11/16,2/16,15/16], texture: "brewing_stand_base" },
+  { box: [1/16,0,1/16,6/16,2/16,6/16], texture: "brewing_stand_base" },
+  { box: [10/16,0,1/16,15/16,2/16,6/16], texture: "brewing_stand_base" },
+  { box: [7/16,0,4/16,9/16,1/16,13/16], texture: "brewing_stand_base" },
+  { box: [4/16,0,3/16,12/16,1/16,5/16], texture: "brewing_stand_base" },
+  { box: [7/16,1/16,7/16,9/16,14/16,9/16], texture: "brewing_stand_rod" },
+  { box: [3/16,8/16,3/16,13/16,10/16,5/16], texture: "brewing_stand_rod" },
+  { box: [7/16,8/16,4/16,9/16,10/16,13/16], texture: "brewing_stand_rod" },
+].map(part => Object.freeze({box:Object.freeze(part.box) as LocalBox,texture:part.texture as BrewingStandPart["texture"]})));
+const BREWING_STAND_BOXES: readonly LocalBox[] = Object.freeze(BREWING_STAND_PARTS.map(part=>part.box));
 const DIRECTIONS = [[0, -1, 1], [1, 0, 2], [0, 1, 4], [-1, 0, 8]] as const;
 
 /** Explicit local policy: same fence or an opaque solid full cube, excluding glass/thin shapes. */
@@ -39,18 +53,21 @@ function fenceBoxes(mask: number, collision: boolean): LocalBox[] {
 export function blockCollisionBoxes(get: BlockGetter, x: number, y: number, z: number, idOverride?: number): readonly LocalBox[] {
   const id = idOverride ?? get(x, y, z), def = blockById(id);
   if (!isSolid(id)) return [];
+  if (def.shape === "brewing_stand") return BREWING_STAND_BOXES;
   return def.shape === "fence" ? fenceBoxes(fenceConnections(get, x, y, z, id), true) : [def.collisionBox ?? FULL];
 }
 
-/** Legacy targeting remains full-cell, including old non-cube shapes. Fence gaps are targetable gaps. */
+/** Legacy targeting remains full-cell. New fence and stand shapes target their visible parts. */
 export function blockSelectionBoxes(get: BlockGetter, x: number, y: number, z: number, idOverride?: number): readonly LocalBox[] {
   const id = idOverride ?? get(x, y, z);
+  if (blockById(id).shape === "brewing_stand") return BREWING_STAND_BOXES;
   return blockById(id).shape === "fence" ? fenceBoxes(fenceConnections(get, x, y, z, id), false) : [FULL];
 }
 
-/** Mesher only invokes this for fence; legacy shape-specific rendering stays untouched. */
+/** Shared new multipart bounds; legacy shape-specific rendering stays untouched. */
 export function blockRenderBoxes(get: BlockGetter, x: number, y: number, z: number, idOverride?: number): readonly LocalBox[] {
   const id = idOverride ?? get(x, y, z), def = blockById(id);
+  if (def.shape === "brewing_stand") return BREWING_STAND_BOXES;
   return def.shape === "fence" ? fenceBoxes(fenceConnections(get, x, y, z, id), false) : [def.box ?? FULL];
 }
 

@@ -31,3 +31,8 @@ it('rejects an impossible full fuel counter after a batch reservation and blocks
  const idle=water(),before=idle.snapshot();let calls=0;const incoming=new Proxy(stack('water_bottle'),{getPrototypeOf(target){calls++;idle.update(1);expect(idle.replace(1,null).ok).toBe(false);return Reflect.getPrototypeOf(target);}});
  expect(idle.replace(0,incoming).ok).toBe(false);expect(calls).toBeGreaterThan(0);expect(idle.snapshot()).toEqual(before);idle.update(1);expect(idle.snapshot().progressSeconds).toBe(1);expect(idle.snapshot().fuelUses).toBe(19);
 });
+
+it('a destruction reservation freezes every station mutation and retires old screen references once after receipt',()=>{
+ const b=water();b.update(1);const before=b.snapshot(),lease=b.reserveContents()!;expect(lease).not.toBeNull();expect(b.busy).toBe(true);expect(lease.valid()).toBe(true);expect(Object.isFrozen(lease)).toBe(true);expect(b.reserveContents()).toBeNull();b.update(1);expect(b.replace(0,null).ok).toBe(false);expect(b.snapshot()).toEqual(before);lease.cancel();expect(b.busy).toBe(false);expect(lease.valid()).toBe(false);expect(b.snapshot()).toEqual(before);
+ const accepted=b.reserveContents()!;expect(accepted.contents).toEqual(b.contents());expect(accepted.retire()).toBe(true);expect(accepted.retire()).toBe(false);expect(b.removed).toBe(true);expect(b.busy).toBe(false);expect(b.contents()).toEqual([]);b.update(1);expect(b.replace(0,stack('water_bottle')).ok).toBe(false);expect(b.reserveContents()).toBeNull();expect(b.snapshot().bottles).toEqual([null,null,null]);
+});

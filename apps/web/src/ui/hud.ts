@@ -487,6 +487,7 @@ export class InventoryScreen {
   /** Called every frame while open: a furnace keeps smelting, so redraw its slots and gauges. */
   refresh(): void {
     if(this.root.hidden)return;
+    if(this.brewing?.removed){this.brewing=null;this.kind="inventory";this.width=this.mode==="survival"?2:0;this.grid=new Array(this.width*this.width).fill(null);this.render();return;}
     if(this.brewing){
       const state=this.brewing.snapshot(),signature=JSON.stringify([state.bottles,state.ingredient,state.fuel,state.fuelUses]);
       if(signature!==this.brewingSignature)this.render();

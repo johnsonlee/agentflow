@@ -8,7 +8,7 @@ import { DYE_COLORS } from "./dyes";
 import { ELEMENTS } from "../crafting/chemistry-data";
 import { EXTENDED_BLOCK_ID_BASE, isBlockNamespace } from "../core/ids";
 
-export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "fence" | "none";
+export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "fence" | "brewing_stand" | "none";
 
 export interface BlockFaces {
   top: string;
@@ -248,6 +248,9 @@ specs.push({id:194,name:"netherrack",displayName:"Netherrack",faces:faces("nethe
 specs.push({id:195,name:"soul_sand",displayName:"Soul Sand",faces:faces("soul_sand"),shape:"box",box:[0,0,0,1,.875,1],collisionBox:[0,0,0,1,.875,1],hardness:.75,tool:"shovel",surfaceSpeed:.4});
 specs.push({id:196,name:"nether_bricks",displayName:"Nether Bricks",faces:faces("nether_bricks"),hardness:3,tool:"pickaxe",harvestTier:1});
 for(let age=0;age<4;age++)specs.push({id:197+age,name:`nether_wart_${age}`,displayName:"Nether Wart",faces:faces(`nether_wart_stage_${age===0?0:age===3?2:1}`),shape:"cross",solid:false,transparent:true,creative:false,hardness:0,needsSupport:true});
+
+// Original bounded stand profile; physical parts are shared by meshing, collision and targeting.
+specs.push({id:201,name:"brewing_stand",displayName:"Brewing Stand",faces:faces("brewing_stand_base","brewing_stand_rod","brewing_stand_base"),shape:"brewing_stand",solid:true,transparent:true,hardness:.75,tool:"pickaxe",harvestTier:1,needsSupport:true});
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

@@ -34,7 +34,7 @@ function screen() {
   return value;
 }
 function game() {
-  const value = Object.create(Game.prototype);
+  const value = Object.assign(Object.create(Game.prototype), { brewingStands: new Map(), brewingIssues: [] });
   const ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(value, { inventory: new Inventory(), leashes: ownership(), balloons: ownership(), recoverySections: [], recoveryOriginal: null,
     stopped: false, dead: false, paused: false, screenOpen: () => false, hud: { message: vi.fn() }, sparklerView: { update: vi.fn() },

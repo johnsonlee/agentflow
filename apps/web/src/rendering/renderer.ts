@@ -208,14 +208,14 @@ export class WorldRenderer {
     this.selection.visible = block !== null;
     this.crack.visible = block !== null && breakProgress > 0;
     if (!block) return;
-    const fence = blockById(this.world.getBlock(block.x, block.y, block.z)).shape === "fence";
-    const boxes = fence ? blockSelectionBoxes((x, y, z) => this.world.getBlock(x, y, z), block.x, block.y, block.z) : null;
-    const key = boxes ? `fence:${JSON.stringify(boxes)}` : "cube";
+    const shape = blockById(this.world.getBlock(block.x, block.y, block.z)).shape;
+    const boxes = shape === "fence" || shape === "brewing_stand" ? blockSelectionBoxes((x, y, z) => this.world.getBlock(x, y, z), block.x, block.y, block.z) : null;
+    const key = boxes ? `${shape}:${JSON.stringify(boxes)}` : "cube";
     // Neighbour connections can change while the selected block coordinate stays the same.
     if (key !== this.selectionGeometryKey) {
       this.selection.geometry.dispose(); this.crack.geometry.dispose();
-      this.selection.geometry = boxes ? fenceOverlayGeometry(boxes, .004, true) : cubeOutlineGeometry();
-      this.crack.geometry = boxes ? fenceOverlayGeometry(boxes, .006, false) : new THREE.BoxGeometry(1.006, 1.006, 1.006);
+      this.selection.geometry = boxes ? multipartOverlayGeometry(boxes, .004, true) : cubeOutlineGeometry();
+      this.crack.geometry = boxes ? multipartOverlayGeometry(boxes, .006, false) : new THREE.BoxGeometry(1.006, 1.006, 1.006);
       this.selectionGeometryKey = key;
     }
     this.selection.position.set(block.x + 0.5, block.y + 0.5, block.z + 0.5);
@@ -394,9 +394,9 @@ function crackTexture(stage: number): THREE.Texture {
   return tex;
 }
 
-/** Composite original fence overlay. Coordinates stay relative to the legacy cell-centred object.
+/** Composite original multipart overlay. Coordinates stay relative to the legacy cell-centred object.
  * Every temporary box/edge geometry is disposed after copying; final geometry belongs to renderer. */
-function fenceOverlayGeometry(boxes: readonly LocalBox[], inset: number, edges: boolean): THREE.BufferGeometry {
+function multipartOverlayGeometry(boxes: readonly LocalBox[], inset: number, edges: boolean): THREE.BufferGeometry {
   const positions: number[] = [], normals: number[] = [], uvs: number[] = [], indices: number[] = [];
   for (const box of boxes) {
     const cube = new THREE.BoxGeometry(box[3] - box[0] + inset, box[4] - box[1] + inset, box[5] - box[2] + inset);

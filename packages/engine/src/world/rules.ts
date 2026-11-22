@@ -71,7 +71,7 @@ export function breakTime(mode: GameMode, id: number, tool: ToolSpec | null = nu
  */
 export function breakBlock(world: World, inventory: Inventory, mode: GameMode, x: number, y: number, z: number, rand: () => number = Math.random, externalDrops: readonly ItemStack[] = [], sink?: DropSink, ownershipGuard?: OwnershipGuard): boolean {
   if(world.blockSourceLeaseBusy)return false;
-  if(!world.portals.hasDependency(x,y,z)&&netherWartAge(world.getBlock(x,y,z))===null&&netherWartAge(world.getBlock(x,y+1,z))===null)return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard);
+  if(world.getBlock(x,y,z)!==blockId("brewing_stand")&&!world.portals.hasDependency(x,y,z)&&netherWartAge(world.getBlock(x,y,z))===null&&netherWartAge(world.getBlock(x,y+1,z))===null)return breakBlockImpl(world,inventory,mode,x,y,z,rand,externalDrops,sink,ownershipGuard);
   if(!canBreak(world,mode,x,y,z))return false;
   const edits:import("./world").BlockEdit[]=[[x,y,z,AIR]],partner=doorPartner(world,x,y,z),above=world.getBlock(x,y+1,z);
   if(partner)edits.push([...partner,AIR]);if(tryBlockById(above)?.needsSupport)edits.push([x,y+1,z,AIR]);
@@ -84,15 +84,27 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
   const id = world.getBlock(x, y, z), above = world.getBlock(x, y + 1, z);
   if (id === blockId("fire")) return extinguishFire(world, x, y, z);
   const gravel = mode === "survival" && id === blockId("gravel");
-  const strictOwner=gravel||netherWartAge(id)!==null||netherWartAge(above)!==null;
+  const strictOwner=gravel||id===blockId("brewing_stand")||netherWartAge(id)!==null||netherWartAge(above)!==null;
   const selectedBeforeTool = strictOwner ? inventory.selected : undefined;
-  const tool = toolOf(inventory.selectedStack()?.id);
+  const sourceToolStack = inventory.selectedStack();
+  const tool = toolOf(sourceToolStack?.id);
   const selected = inventory.selected, selectedSource = ownershipGuard ? JSON.stringify(inventory.selectedStack()) : "";
   const gravelSlots = inventory.slots;
   const gravelOwner = strictOwner ? gravelOwnerSnapshot(gravelSlots, selected, 36, true) : null;
   if (strictOwner && (selectedBeforeTool !== selected || selected < 0 || selected >= 9 || !gravelOwner)) return false;
   const gravelPlan = gravel ? world.gravelHarvests.plan(x, y, z, rand) : null;
   if (gravel && !gravelPlan) return false;
+  // An acknowledged receiver may change hotbar selection. Its committed drops cannot be
+  // rolled back, so finish this action against its captured tool, never the new selection.
+  const wearHarvestTool = () => {
+    if (id !== blockId("brewing_stand")) { inventory.damageSelected(1); return; }
+    if (!sourceToolStack || !tool) return;
+    sourceToolStack.damage = (sourceToolStack.damage ?? 0) + 1;
+    if (sourceToolStack.damage >= tool.durability) {
+      const owner = inventory.slots.indexOf(sourceToolStack);
+      if (owner >= 0) inventory.slots[owner] = null;
+    }
+  };
   const guardedPartner = ownershipGuard ? doorPartner(world, x, y, z) : null;
   const partnerId = guardedPartner ? world.getBlock(...guardedPartner) : null;
   const sourceValid = () => {
@@ -123,13 +135,13 @@ function breakBlockImpl(world: World, inventory: Inventory, mode: GameMode, x: n
   const partner = ownershipGuard ? guardedPartner : doorPartner(world, x, y, z);
   if(portalBatch)return portalBatch.commit(()=>{
     if(!sink)for(const stack of drops)inventory.addStack(stack);
-    if(mode==="survival"&&tool&&blockById(id).hardness>0)inventory.damageSelected(1);
+    if(mode==="survival"&&tool&&blockById(id).hardness>0)wearHarvestTool();
   });
   world.setBlock(x, y, z, AIR);
   if (partner) world.setBlock(partner[0], partner[1], partner[2], AIR);
   if (supported) world.setBlock(x, y + 1, z, AIR);
   if (!sink) for (const stack of drops) inventory.addStack(stack);
-  if (mode === "survival" && tool && blockById(id).hardness > 0) inventory.damageSelected(1);
+  if (mode === "survival" && tool && blockById(id).hardness > 0) wearHarvestTool();
   return true;
 }
 
