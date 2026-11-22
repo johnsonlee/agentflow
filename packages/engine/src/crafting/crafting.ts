@@ -171,6 +171,8 @@ export const RECIPES: readonly Recipe[] = [
   {id:'chest',pattern:['###','# #','###'],key:{'#':'oak_planks'},keyTags:{'#':'planks'},result:['chest',1]},
   {id:'paper',pattern:['###'],key:{'#':'sugar_cane'},result:['paper',3]},
   {id:'book',ingredients:['paper','paper','paper','leather'],result:['book',1]},
+  // Four shapes/material counts declared in Education 1.26.33's recipe files.
+  ...armorRecipes("leather", "leather"),
 ];
 
 export type CraftingGrid = (ItemStack | null)[];

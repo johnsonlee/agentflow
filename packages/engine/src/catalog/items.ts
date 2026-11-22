@@ -33,7 +33,7 @@ export interface ToolSpec {
 
 export const ARMOR_SLOTS = ["head", "chest", "legs", "feet"] as const;
 export type ArmorSlot = typeof ARMOR_SLOTS[number];
-export type ArmorMaterial = "iron" | "golden" | "diamond";
+export type ArmorMaterial = "iron" | "golden" | "diamond" | "leather";
 export interface ArmorSpec {
   slot: ArmorSlot;
   material: ArmorMaterial;
@@ -110,15 +110,21 @@ const ARMOR_STATS: Record<ArmorMaterial, { multiplier: number; points: readonly 
   iron: { multiplier: 15, points: [2, 6, 5, 2] },
   golden: { multiplier: 7, points: [2, 5, 3, 1] },
   diamond: { multiplier: 33, points: [3, 8, 6, 3] },
+  // Bounded application policy, not calibrated Education values. Only the general
+  // Minecraft chestplate's 3 points / 80 durability has a primary numeric reference.
+  leather: { multiplier: 5, points: [1, 3, 2, 1] },
 };
+const ARMOR_MATERIAL_NAMES: Record<ArmorMaterial, string> = { iron: "Iron", golden: "Golden", diamond: "Diamond", leather: "Leather" };
 const ARMOR_KINDS = ["helmet", "chestplate", "leggings", "boots"] as const;
 const ARMOR_DURABILITY_FACTORS = [11, 16, 15, 13] as const;
 const ARMOR_KIND_NAMES = ["Helmet", "Chestplate", "Leggings", "Boots"] as const;
+// Declared vanilla English labels in the retained Education 1.26.33 client.
+const LEATHER_KIND_NAMES = ["Cap", "Tunic", "Pants", "Boots"] as const;
 function armor(material: ArmorMaterial, index: number): Omit<ItemDef, "id"> {
   const stats = ARMOR_STATS[material];
   const name = `${material}_${ARMOR_KINDS[index]}`;
   return {
-    name, displayName: `${MATERIAL_NAMES[material]} ${ARMOR_KIND_NAMES[index]}`,
+    name, displayName: `${ARMOR_MATERIAL_NAMES[material]} ${(material === "leather" ? LEATHER_KIND_NAMES : ARMOR_KIND_NAMES)[index]}`,
     maxStack: 1, icon: `item_${name}`,
     armor: { slot: ARMOR_SLOTS[index], material, points: stats.points[index], durability: ARMOR_DURABILITY_FACTORS[index] * stats.multiplier },
   };
@@ -242,6 +248,8 @@ const specs: Omit<ItemDef, "id">[] = [
   { name:"tonic",displayName:"Tonic",maxStack:1,icon:"item_tonic" },
   {name:'sugar_cane',displayName:'Sugar Cane',maxStack:MAX_STACK,icon:'item_sugar_cane',places:'sugar_cane_plant'},
   material('paper','Paper'),
+  // Append after Sugar Cane850 / Paper851; never extend the earlier armor spread.
+  ...ARMOR_KINDS.map((_, index) => armor("leather", index)),
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

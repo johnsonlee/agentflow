@@ -1,0 +1,33 @@
+import {it,expect} from 'vitest';
+import {readFileSync} from 'node:fs';
+import {createHash} from 'node:crypto';
+import {ARMOR_SLOTS,BLOCKS,ITEMS,RECIPES,Inventory,SingleChest,WorldDrops,World,armorOf,armorPoints,applyArmorDamage,craftOnce,matchRecipe,durabilityOf,stackId,blockId,readChestStack,parseSave,serializeSave,createAgent,giveAgent,captureDimensionWorld,replaceDimensionWorld,type ItemStack,type SaveData,type CraftingGrid} from '../src';
+const baseline=JSON.parse(readFileSync(new URL('./fixtures/leather-prefix-49e6079.json',import.meta.url),'utf8'));
+const hash=(x:unknown)=>createHash('sha256').update(JSON.stringify(x,(_,v)=>v===Infinity?'Infinity':v)).digest('hex');
+const kinds=['helmet','chestplate','leggings','boots'] as const;
+const durability=[55,80,75,65];
+const piece=(i:number,damage=0):ItemStack=>({id:stackId(`leather_${kinds[i]}`),count:1,...(damage?{damage}:{})});
+it('appends contiguous852..855 after actualCane/Paper with exact old324/596/174 prefixes and no Leather tools',()=>{
+ expect(hash(BLOCKS)).toBe(baseline.blocks);expect(hash(ITEMS.slice(0,596))).toBe(baseline.items);expect(hash(RECIPES.slice(0,174))).toBe(baseline.recipes);
+ expect(ITEMS).toHaveLength(600);expect(RECIPES).toHaveLength(178);expect(ITEMS.slice(594,596).map(x=>[x.name,x.id])).toEqual([['sugar_cane',850],['paper',851]]);
+ expect(ITEMS.slice(596).map(x=>[x.id,x.name,x.displayName,x.maxStack])).toEqual([[852,'leather_helmet','Leather Cap',1],[853,'leather_chestplate','Leather Tunic',1],[854,'leather_leggings','Leather Pants',1],[855,'leather_boots','Leather Boots',1]]);
+ expect(ITEMS.filter(x=>x.tool)).toHaveLength(25);expect(ITEMS.filter(x=>x.armor)).toHaveLength(16);expect(ITEMS.some(x=>(x.tool?.material as string)==='leather')).toBe(false);
+});
+it('crafts four declared shapes at every legal translation, consumes24Leather per set and refuses wrong material/2x2 without debit',()=>{
+ const shapes=[['XXX','X X'],['X X','XXX','XXX'],['XXX','X X','X X'],['X X','X X']];let total=0;
+ shapes.forEach((rows,i)=>{for(let dy=0;dy<=3-rows.length;dy++){const g:CraftingGrid=Array(9).fill(null);rows.forEach((r,y)=>[...r].forEach((v,x)=>{if(v==='X')g[(y+dy)*3+x]={id:stackId('leather'),count:2};}));const count=g.filter(Boolean).length;expect(count).toBe([5,8,7,4][i]);expect(craftOnce(g,3)).toEqual(piece(i));expect(g.filter(Boolean).map(x=>x!.count)).toEqual(Array(count).fill(1));if(dy===0)total+=count;g.find(x=>x)!.id=stackId('paper');const before=structuredClone(g);expect(craftOnce(g,3)).toBeNull();expect(g).toEqual(before);}});expect(total).toBe(24);expect(matchRecipe(Array(4).fill({id:stackId('leather'),count:64}),2)).toBeNull();
+});
+it('uses explicitly uncalibrated app policy for eligible damage, wears current hit before break, and preserves bypass eligibility',()=>{
+ const inv=new Inventory();kinds.forEach((_,i)=>{expect(armorOf(piece(i).id)).toEqual({slot:ARMOR_SLOTS[i],material:'leather',points:[1,3,2,1][i],durability:durability[i]});expect(durabilityOf(piece(i).id)).toBe(durability[i]);expect(inv.swapEquipment(ARMOR_SLOTS[i],piece(i)).ok).toBe(true);});expect(armorPoints(inv)).toBe(7);expect(applyArmorDamage(inv,10,'melee')).toBeCloseTo(7.2);ARMOR_SLOTS.forEach(s=>expect(inv.equipment[s]!.damage).toBe(2));expect(applyArmorDamage(inv,4,'blaze')).toBeCloseTo(2.88);const before=inv.toJSON();for(const kind of['fall','fire','lava','starvation','void']as const)expect(applyArmorDamage(inv,10,kind)).toBe(10);expect(inv.toJSON()).toEqual(before);kinds.forEach((_,i)=>inv.swapEquipment(ARMOR_SLOTS[i],piece(i,durability[i]-1)));expect(applyArmorDamage(inv,4,'melee')).toBeCloseTo(2.88);expect(ARMOR_SLOTS.map(s=>inv.equipment[s])).toEqual([null,null,null,null]);expect(armorPoints(inv)).toBe(0);
+});
+it('wrongslot/invalid wear and fullbag refusal preserve original equipment; a legitimate fullbag swap exchanges exact wear',()=>{
+ const inv=new Inventory();inv.swapEquipment('chest',piece(1,23));for(const invalid of[piece(0),{...piece(1),count:2},{...piece(1),damage:-1},piece(1,80)]){expect(inv.swapEquipment('chest',invalid)).toEqual({ok:false,stack:invalid});expect(inv.equipment.chest).toEqual(piece(1,23));}for(let i=0;i<36;i++)inv.slots[i]={id:blockId('stone'),count:64};expect(inv.unequip('chest')).toBe(false);expect(inv.equipment.chest).toEqual(piece(1,23));inv.slots[35]=piece(1,9);expect(inv.equipFromSlot(35)).toBe(true);expect(inv.equipment.chest).toEqual(piece(1,9));expect(inv.slots[35]).toEqual(piece(1,23));
+});
+it('strict Chest raw boundary retains worn pieces, rejects corrupt counts/metadata/descriptors without evaluating getters',()=>{
+ const chest=new SingleChest();kinds.forEach((_,i)=>expect(chest.replace(i,piece(i,11)).ok).toBe(true));expect(chest.snapshot().slots.slice(0,4)).toEqual(kinds.map((_,i)=>piece(i,11)));
+ for(const bad of[{...piece(0),count:2},piece(0,55),{...piece(1),damage:-1},{...piece(2),book:{pages:['x'.repeat(257)]}},{...piece(3),glow:{state:'active'}}])expect(()=>readChestStack(bad)).toThrow();let gets=0;const bad=piece(0);Object.defineProperty(bad,'damage',{enumerable:true,get(){gets++;return 1;}});expect(()=>readChestStack(bad)).toThrow();expect(gets).toBe(0);
+});
+it('Player equipment, pending, Agent, Chest and worlddrop wear survive cold/realm copies with detached owners',()=>{
+ const inv=new Inventory();kinds.forEach((_,i)=>inv.swapEquipment(ARMOR_SLOTS[i],piece(i,7+i)));inv.slots[35]=piece(0,21);const agent=createAgent(8,90,8);expect(giveAgent(agent,piece(2,31))).toBe(0);const chest=new SingleChest();chest.replace(26,piece(3,41));const w=new World(17,3);w.setBlock(7,90,7,203);const drops=new WorldDrops(w);expect(drops.planSpawnBatch([piece(1,51)],{x:7,y:91,z:7})!.commit()).toBe(true);
+ const raw:SaveData={version:1,name:'Leather owners',seed:17,generatorVersion:3,mode:'survival',timeOfDay:0,player:{position:{x:6,y:90,z:6},yaw:0,pitch:0,flying:false},inventory:inv.toJSON(),inventoryPending:[piece(0,12)],agent,chests:[{x:7,y:90,z:7,state:chest.snapshot()}],worldDrops:drops.toJSON(),edits:w.exportEdits()};raw.dimensions={version:1,active:'overworld',inactive:{nether:{...captureDimensionWorld(raw),generatorVersion:1}},links:[]};const cold=parseSave(serializeSave(raw));expect(cold.inventory).toEqual(raw.inventory);expect(cold.inventoryPending).toEqual(raw.inventoryPending);expect(cold.agent).toEqual(raw.agent);expect(cold.chests).toEqual(raw.chests);expect(cold.worldDrops).toEqual(raw.worldDrops);const other=replaceDimensionWorld(cold,cold.dimensions!.inactive.nether!);other.chests![0].state.slots[26]!.damage=1;expect(cold.chests![0].state.slots[26]!.damage).toBe(41);expect(Inventory.fromJSON(cold.inventory).toJSON()).toEqual(inv.toJSON());
+});

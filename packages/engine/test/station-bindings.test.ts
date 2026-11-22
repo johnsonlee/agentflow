@@ -21,18 +21,18 @@ it("changes exactly eight top/bottom texture references on four stable stations;
 it("publishes an immutable eight-key binding table and a detached validated append-only atlas catalog", () => {
   expect(STATION_FACE_KEYS).toEqual(expected.flatMap(([, name]) => [`${name}_top`, `${name}_bottom`]));
   expect(Object.keys(STATION_FACE_TEXTURES)).toEqual(expected.map(([, name]) => name));
-  const names = allAtlasTextureNames(); expect(names).toHaveLength(899); expect(names.slice(825, 833)).toEqual(STATION_FACE_KEYS); expect(names.slice(885, 890)).toEqual(["item_awkward_potion","item_antidote","item_elixir","item_eye_drops","item_tonic"]);
+  const names = allAtlasTextureNames(); expect(names).toHaveLength(903); expect(names.slice(825, 833)).toEqual(STATION_FACE_KEYS); expect(names.slice(885, 890)).toEqual(["item_awkward_potion","item_antidote","item_elixir","item_eye_drops","item_tonic"]);
   expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
-  expect(names).toContain("chem_station_top"); expect(new Set(names).size).toBe(899);
+  expect(names).toContain("chem_station_top"); expect(new Set(names).size).toBe(903);
   expect([...textureNames(), ...itemTextureNames()].every(key => names.includes(key))).toBe(true);
-  names.pop(); expect(allAtlasTextureNames()).toHaveLength(899); expect(Object.isFrozen(ATLAS_TEXTURE_CATALOG)).toBe(true);
+  names.pop(); expect(allAtlasTextureNames()).toHaveLength(903); expect(Object.isFrozen(ATLAS_TEXTURE_CATALOG)).toBe(true);
   expect(Object.isFrozen(STATION_FACE_KEYS)).toBe(true); expect(Object.values(STATION_FACE_TEXTURES).every(Object.isFrozen)).toBe(true);
 });
 it("refuses an unregistered referenced face instead of silently changing atlas addresses", () => {
   const def = blockById(44), original = def.faces;
   try { def.faces = { ...original, top: "unregistered_station_face" }; expect(() => allAtlasTextureNames()).toThrow("missing from atlas catalog"); }
   finally { def.faces = original; }
-  expect(allAtlasTextureNames()).toHaveLength(899);
+  expect(allAtlasTextureNames()).toHaveLength(903);
 });
 
 it("meshes each station with distinct top and bottom UV bindings and unchanged side faces", () => {
