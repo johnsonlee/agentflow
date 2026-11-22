@@ -384,7 +384,7 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 
 /* ---------- Code Builder ---------- */
 /* Responsive down to 320 px: rows wrap, and flex children may shrink below their content width. */
-.code-panel { box-sizing: border-box; width: min(94vw, 900px); max-height: 92vh; overflow: auto; text-align: left; }
+.code-panel { touch-action: pan-y; overscroll-behavior: contain; box-sizing: border-box; width: min(94vw, 900px); max-height: 92vh; overflow: auto; text-align: left; }
 .code-panel * { box-sizing: border-box; min-width: 0; }
 .cb-meta { display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 8px; }
 /* Name and chat command share a row when there is room, else each takes the full width. */
@@ -545,3 +545,7 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .code-panel.cb-import-mode { touch-action: pan-y; overscroll-behavior: contain; }
 .cb-import input, .cb-import textarea { user-select: text; -webkit-user-select: text; }
 .cb-import-source { touch-action: pan-y; }
+
+.cb-program-picker-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 16px; }
+.cb-program-picker { width: 100%; max-width: 100%; min-height: 44px; font-size: 16px; }
+.cb-working-status { margin: 0 0 10px; color: #383838; font-size: 16px; overflow-wrap: anywhere; }

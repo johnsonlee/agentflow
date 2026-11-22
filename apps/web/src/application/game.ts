@@ -233,6 +233,7 @@ export class Game {
   private frameCount = 0;
   private fpsTimer = 0;
   private autosaveTimer = 0;
+  private savedProgramReceipt: string | null = null;
   private hadPointerLock = false;
   private running = false;
   private readonly root: HTMLElement;
@@ -498,6 +499,8 @@ export class Game {
   /** Stage one live trip without granting the destination save authority. */
   preparePortalTravel(ticket:PortalContactTicket,atlas:TextureAtlas):PortalTravelHandle|null {
     if(this.ownershipBusy||this.paused||this.dead||this.recoverySections.length||this.screenOpen()||Game.activeWriter!==this||!ticket.unchanged())return null;
+    const programIssue = this.pendingProgramIssue();
+    if (programIssue) { this.hud.message(programIssue); return null; }
     const box=bodyBox(this.body.position),frame=ticket.frame;
     if(!this.world.portals.captureOwner(frame)||box.maxX<=frame.x||box.minX>=frame.x+(frame.axis==="x"?frame.width:1)||box.maxY<=frame.y||box.minY>=frame.y+frame.height||box.maxZ<=frame.z||box.minZ>=frame.z+(frame.axis==="z"?frame.width:1))return null;
     let target:Game|null=null,done=false;
@@ -647,7 +650,12 @@ export class Game {
   private commitPreparedTransfer(source:Game,unchanged:()=>boolean,completedDeath:boolean):boolean {
     const pose = { ...this.body.position, yaw: this.body.yaw, pitch: this.body.pitch };
     const samePose = () => this.body.position.x === pose.x && this.body.position.y === pose.y && this.body.position.z === pose.z && this.body.yaw === pose.yaw && this.body.pitch === pose.pitch;
-    const valid = () => unchanged() && samePose() && this.prepared && !this.stopped && !this.dead && !this.actionsNeedRecovery && !this.transferBusy &&
+    const samePrograms = () => {
+      if (!completedDeath && source.pendingProgramIssue()) return false;
+      const from = source.programSnapshot(), to = this.programSnapshot();
+      return from.ok && to.ok && JSON.stringify(from.programs) === JSON.stringify(to.programs);
+    };
+    const valid = () => unchanged() && samePrograms() && samePose() && this.prepared && !this.stopped && !this.dead && !this.actionsNeedRecovery && !this.transferBusy &&
       source !== this && Game.activeWriter === source && source.paused && !source.stopped && (completedDeath?source.dead&&source.health===0&&source.deathState?.phase==="complete"&&source.recoverySections.length===0:!source.dead) && !source.actionsNeedRecovery && !source.transferBusy;
     if (Game.handoffBusy || !valid()) return false;
     Game.handoffBusy = true;
@@ -691,7 +699,17 @@ export class Game {
   stop(): boolean {
     this.cancelDrinking();
     if (this.stopped) return true;
-    if (this.prepared || Game.handoffBusy || !this.save()) return false;
+    if (this.prepared || Game.handoffBusy) return false;
+    const issue = !this.dead && this.pendingProgramIssue();
+    if (issue) { this.saveError = issue; this.hud.message(issue); return false; }
+    if (!this.save()) return false;
+    if (!this.dead) {
+      const current = this.programSnapshot();
+      if (this.pendingProgramIssue() || !current.ok || JSON.stringify(current.programs) !== this.savedProgramReceipt) {
+        this.saveError = "World saved, but program edits changed while saving. Keep this game open and retry Save & Quit.";
+        this.hud.message(this.saveError); return false;
+      }
+    }
     this.retireWithoutSave(); return true;
   }
 
@@ -934,12 +952,21 @@ export class Game {
     finally { lease?.cancel(); }
   }
 
-  private savePayload(recoveryBackup = false, internalSnapshot=false): string {
-    return serializeSave(this.captureSaveData(recoveryBackup,internalSnapshot));
+  private savePayload(recoveryBackup = false, internalSnapshot=false, programOverride?: CodeProgram[]): string {
+    return serializeSave(this.captureSaveData(recoveryBackup,internalSnapshot,programOverride));
   }
 
-  private captureSaveData(recoveryBackup = false, internalSnapshot=false): SaveData {
+  private programSnapshot() {
+    return this.codeBuilder?.prepareProgramSnapshot?.() ?? { ok: true as const, programs: this.programs ?? [], warning: "", accept: () => true };
+  }
+
+  private pendingProgramIssue(): string | null { return this.codeBuilder?.uncommittedProgramIssue?.() ?? null; }
+
+  private captureSaveData(recoveryBackup = false, internalSnapshot=false, programOverride?: CodeProgram[]): SaveData {
     if (this.ownershipBusy && !(internalSnapshot&&!this.stopped&&!this.transferBusy)) throw new Error("An ownership transfer is in progress");
+    const stage = programOverride ? null : this.programSnapshot();
+    if (stage && !stage.ok) throw new Error(stage.error);
+    const checkpointPrograms = programOverride ?? (stage && stage.ok ? stage.programs : this.programs);
     const gravelHarvests = this.world.gravelHarvests.exportState();
     const fire = this.world.fires.exportState();
     const fluids = this.world.fluids.exportState();
@@ -982,7 +1009,7 @@ export class Game {
         ...(hasPlayerStatus(this.playerStatus) && !(recoveryBackup && this.recoverySections.includes("player status")) ? { playerStatus: structuredClone(this.playerStatus) } : {}),
         chalkboards: [...this.chalkboards.values()].map((b) => ({ ...b })),
         agent: { ...this.agent, slots: this.agent.slots.map((s) => (s ? { ...s } : null)) },
-        programs: this.programs,
+        programs: checkpointPrograms,
         chests:[...this.chests].map(([key,chest])=>{const [x,y,z]=key.split(",").map(Number);return{x,y,z,state:chest.snapshot()};}),
         brewingStands:[...this.brewingStands].map(([key,stand])=>{const [x,y,z]=key.split(",").map(Number);return{x,y,z,state:stand.snapshot()};}),
         furnaces: [...this.furnaces].map(([key, state]) => {
@@ -1009,7 +1036,15 @@ export class Game {
       this.hud.message(this.saveError); return false;
     }
     try {
-      localStorage.setItem(SAVE_KEY, this.savePayload());
+      const stage = this.programSnapshot();
+      if (!stage.ok) { this.saveError = stage.error; this.hud.message(this.saveError); return false; }
+      const receipt = JSON.stringify(stage.programs);
+      const payload = this.savePayload(false, false, stage.programs);
+      localStorage.setItem(SAVE_KEY, payload);
+      this.savedProgramReceipt = receipt;
+      // Disk now owns a complete checkpoint. A stale editor acknowledgement must not
+      // turn this successful item/death receipt into a reported failed world write.
+      try { stage.accept(); } catch { /* Keep newer session work; do not roll back disk. */ }
       this.saveError = ""; return true;
     } catch {
       this.saveError = "World could not be saved. Keep this game open, retry, or export a backup before leaving.";

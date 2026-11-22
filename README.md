@@ -230,3 +230,8 @@ silently truncated. The conversion form uses plaintext, labelled controls, 16 px
 text and 44 px new touch targets with scrolling for phone orientations. This does
 not claim that every older block-editor layout or physical device has been fixed
 or tested.
+
+
+Code Builder now offers a **Saved program or draft** picker. Numbered options distinguish programs with the same name. Editing uses a detached working copy: selecting, editing, and saving never changes an already-running program's code. Choose **Run** explicitly to run the selected saved version. Switching preserves valid edits; invalid working edits stay available for repair. **New** retains an empty session draft that can be selected again.
+
+Valid block edits are included in world autosaves, backups, and Save & Quit, without requiring **Save program**. A failed browser write leaves the session edit available. Invalid uncommitted edits keep the last valid saved AST safe during necessary world checkpoints and death; alive Save & Quit and voluntary world travel require repairing that draft first. Private invalid block edits and original text-import drafts are session-only and can end with a mandatory death/world replacement. No new save fields or text workspace persistence are added. The original JS/Python subset conversion, separate Run, and per-language text drafts remain available.

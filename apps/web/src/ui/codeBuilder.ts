@@ -1,6 +1,7 @@
 import {
   AGENT_DIRECTIONS, AGENT_SLOTS, CODE_BLOCK_CHOICES, MAX_NESTING, MAX_REPEAT, compileAgentText, validateProgram, type AgentTextLanguage, type TextDiagnostic, type AgentCommand, type AgentDirection, type CodeBlock, type CodeProgram,
 } from "@craft/engine";
+import { CodeProgramWorkspace, type ProgramSnapshot } from "./codeProgramWorkspace";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -31,7 +32,7 @@ export interface CodeBuilderHost {
   running(): boolean;
   /** Hands the player's selected hotbar stack to the Agent; returns a status message. */
   giveHeldToAgent(): string;
-  save(): void;
+  save(): boolean | void;
 }
 
 let importPanelId = 0;
@@ -46,9 +47,10 @@ interface CodeDraft { source: string; name: string; issue?: { message: string; f
 export class CodeBuilderScreen {
   readonly root = el("div", "screen code-screen");
   private readonly panel = el("div", "panel code-panel");
-  private program: CodeProgram = { name: "My program", trigger: { type: "run" }, blocks: [] };
+  private readonly workspace: CodeProgramWorkspace;
+  private get program(): CodeProgram { return this.workspace.program; }
   /** The drop zone taps add to, and its nesting depth (the program itself is 0). */
-  private target: CodeBlock[] = this.program.blocks;
+  private target: CodeBlock[] = [];
   private targetDepth = 0;
   private dragging: { block: CodeBlock; from: CodeBlock[] | null } | null = null;
   private status = "";
@@ -59,6 +61,7 @@ export class CodeBuilderScreen {
   private readonly codeDrafts: Record<AgentTextLanguage, CodeDraft> = { javascript: { source: "", name: "" }, python: { source: "", name: "" } };
 
   constructor(container: HTMLElement, private readonly host: CodeBuilderHost, private readonly onClose: () => void) {
+    this.workspace = new CodeProgramWorkspace(this.host.programs);
     this.root.hidden = true;
     this.root.appendChild(this.panel);
     for (const type of ["keydown", "keyup", "keypress"]) this.panel.addEventListener(type, e => { if (this.importing && !this.root.hidden) e.stopPropagation(); });
@@ -70,11 +73,8 @@ export class CodeBuilderScreen {
   }
 
   show(): void {
-    // Edit the most recent program (or a new one).
-    const last = this.host.programs[this.host.programs.length - 1];
-    if (last) this.program = last;
-    this.target = this.program.blocks;
-    this.targetDepth = 0;
+    this.workspace.open();
+    this.resetTarget();
     this.status = "";
     this.importing = false;
     this.render();
@@ -85,15 +85,14 @@ export class CodeBuilderScreen {
     this.root.hidden = true;
   }
 
-  /** Saves the program into the world, unless it's invalid (then shows why and returns false). */
+  /** Pure world-checkpoint stage. Invalid UI work leaves last valid owned programs intact. */
+  prepareProgramSnapshot(): ProgramSnapshot { return this.workspace.prepareSnapshot(); }
+  uncommittedProgramIssue(): string | null { return this.workspace.unsavedIssue(); }
+  private resetTarget(): void { this.target = this.program.blocks; this.targetDepth = 0; this.dragging = null; }
   private commit(): boolean {
-    const problems = validateProgram(this.program);
-    if (problems.length > 0) {
-      this.status = problems.join("; ");
-      return false;
-    }
-    if (!this.host.programs.includes(this.program)) this.host.programs.push(this.program);
-    this.host.save();
+    const committed = this.workspace.commitCurrent();
+    if (!committed.ok) { this.status = committed.error ?? "Program could not be committed."; return false; }
+    if (this.host.save() === false) this.status = "Program changes are kept in this game. The world could not be saved; keep it open and retry.";
     return true;
   }
 
@@ -107,7 +106,8 @@ export class CodeBuilderScreen {
     return false;
   }
 
-  private render(focus?: "name" | "import"): void {
+  private render(focus?: "name" | "import" | "picker"): void {
+    const before = this.program; this.workspace.open(); if (before !== this.program) this.resetTarget();
     this.panel.className = `panel code-panel${this.importing ? " cb-import-mode" : ""}`;
     if (this.importing) { this.renderImport(); return; }
     const header = el("div", "panel-header");
@@ -117,6 +117,23 @@ export class CodeBuilderScreen {
     close.addEventListener("click", () => this.onClose());
     header.append(close);
 
+    const pickerField = el("label", "cb-program-picker-field", "Saved program or draft");
+    const picker = el("select", "cb-select cb-program-picker"); picker.setAttribute("aria-label", "Saved program or draft");
+    const optionNodes: HTMLOptionElement[] = [];
+    const refreshChoices = () => {
+      const choices = this.workspace.choices();
+      choices.forEach((choice, i) => { if (optionNodes[i]) optionNodes[i].textContent = choice.label; });
+    };
+    for (const choice of this.workspace.choices()) { const option = new Option(choice.label, choice.value, false, choice.selected); optionNodes.push(option); picker.append(option); }
+    picker.addEventListener("keydown", e => e.stopPropagation()); picker.addEventListener("keyup", e => e.stopPropagation());
+    picker.addEventListener("change", () => {
+      const selected = this.workspace.select(picker.value);
+      if (!selected.ok) this.status = selected.error ?? "Program selection was refused.";
+      else { this.resetTarget(); this.status = "Program selected. The Agent was not run or stopped."; this.host.save(); }
+      this.render("picker");
+    });
+    pickerField.append(picker);
+    const workingStatus = el("p", "cb-working-status", this.workspace.status()); workingStatus.setAttribute("role", "status");
     const palette = el("div", "cb-palette");
     palette.setAttribute("aria-label", "Blocks");
     for (const entry of PALETTE) {
@@ -140,7 +157,7 @@ export class CodeBuilderScreen {
     name.value = this.program.name;
     name.setAttribute("aria-label", "Program name");
     name.addEventListener("keydown", (e) => e.stopPropagation());
-    name.addEventListener("change", () => (this.program.name = name.value.trim() || "My program"));
+    name.addEventListener("change", () => { this.program.name = name.value.trim() || "My program"; refreshChoices(); workingStatus.textContent = this.workspace.status(); });
     const chat = el("input", "mc-input");
     chat.placeholder = "chat command (optional)";
     chat.value = this.program.trigger.type === "chat" ? this.program.trigger.command : "";
@@ -149,6 +166,7 @@ export class CodeBuilderScreen {
     chat.addEventListener("change", () => {
       const word = chat.value.trim().toLowerCase().split(/\s+/)[0] ?? "";
       this.program.trigger = word ? { type: "chat", command: word } : { type: "run" };
+      workingStatus.textContent = this.workspace.status();
     });
     meta.append(name, chat);
 
@@ -169,7 +187,9 @@ export class CodeBuilderScreen {
         this.render();
         return;
       }
-      this.host.run(this.program);
+      const owned = this.workspace.ownedProgram;
+      if (!owned) { this.status = "The program list changed. Select a program and try again."; this.render(); return; }
+      this.host.run(owned);
       this.onClose();
     });
     const stop = el("button", "mc-button", "■ Stop");
@@ -185,28 +205,26 @@ export class CodeBuilderScreen {
     });
     const newProgram = el("button", "mc-button", "New");
     newProgram.addEventListener("click", () => {
-      if (this.program.blocks.length > 0 && !this.commit()) {
-        this.render();
-        return;
-      }
-      this.program = { name: `Program ${this.host.programs.length + 1}`, trigger: { type: "run" }, blocks: [] };
-      this.target = this.program.blocks;
-      this.targetDepth = 0;
-      this.render();
+      const created = this.workspace.newProgram();
+      if (!created.ok) { this.status = created.error ?? "Your working draft needs repair."; this.render(); return; }
+      this.resetTarget(); this.host.save(); this.render("name");
     });
     const fromCode = el("button", "mc-button cb-import-open", "Create program from code");
     fromCode.addEventListener("click", () => { this.importing = true; this.render(); });
-    actions.append(run, stop, give, newProgram, fromCode);
+    const saveProgram = el("button", "mc-button", "Save program");
+    saveProgram.addEventListener("click", () => { this.status = ""; if (this.commit()) this.status ||= "Program changes saved. Already-running code is unchanged."; this.render("name"); });
+    actions.append(run, stop, saveProgram, give, newProgram, fromCode);
     const status = el("p", "cb-status", this.status);
     status.setAttribute("role", "status");
-    this.panel.replaceChildren(header, meta, palette, workspace, actions, status);
+    this.panel.replaceChildren(header, pickerField, workingStatus, meta, palette, workspace, actions, status);
     if (focus === "name") name.focus();
     if (focus === "import") fromCode.focus();
+    if (focus === "picker") picker.focus();
   }
 
   private defaultImportName(): string {
-    const pending = this.program.blocks.length > 0 && !this.host.programs.includes(this.program) ? 1 : 0;
-    return `Converted program ${this.host.programs.length + pending + 1}`;
+    const stage = this.workspace.prepareSnapshot();
+    return `Converted program ${(stage.ok ? stage.programs.length : this.host.programs.length) + 1}`;
   }
 
   /** Compile first, then validate pending block work, before changing any program owner. */
@@ -222,14 +240,12 @@ export class CodeBuilderScreen {
       draft.issue = { message: "Enter at least one supported Agent command that can run.", focus: "source" };
       this.render(); return;
     }
-    const problems = validateProgram(this.program);
-    if (problems.length) {
-      draft.issue = { message: `Your current block program needs repair: ${problems[0]}. Return to blocks before creating another program.`, focus: "back" };
+    const imported = this.workspace.addImported(result.program);
+    if (!imported.ok) {
+      draft.issue = { message: `Your current block program needs repair: ${imported.error}. Return to blocks before creating another program.`, focus: "back" };
       this.render(); return;
     }
-    if (this.program.blocks.length > 0 && !this.host.programs.includes(this.program)) this.host.programs.push(this.program);
-    this.host.programs.push(result.program);
-    this.program = result.program; this.target = this.program.blocks; this.targetDepth = 0;
+    this.resetTarget();
     this.importing = false; draft.issue = undefined;
     this.status = "Program created as blocks. Review it, then choose Run when ready.";
     this.host.save();
