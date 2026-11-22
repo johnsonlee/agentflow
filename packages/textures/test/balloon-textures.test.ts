@@ -7,9 +7,10 @@ import { buildAtlas, generateTile, hasItemTile } from "../src/index";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("appends exactly sixteen original color icons and preserves all833 catalog entries, original pixels and UVs", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names), historical = buildAtlas(baseline.names);
-  expect(names).toHaveLength(885); expect(names.slice(0, 833)).toEqual(baseline.names);
+  expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
+  expect(names).toHaveLength(890); expect(names.slice(0, 833)).toEqual(baseline.names);
   expect(names.slice(833, 849)).toEqual(BALLOON_COLORS.map(color => color.icon));
-  expect(new Set(names).size).toBe(885); expect([atlas.width, atlas.height, atlas.tileSize]).toEqual(baseline.layout);
+  expect(new Set(names).size).toBe(890); expect([atlas.width, atlas.height, atlas.tileSize]).toEqual(baseline.layout);
   expect(hash(historical.data)).toBe(baseline.atlasRGBA_SHA256);
   for (const name of baseline.names) {
     expect(hash(generateTile(name))).toBe(baseline.tiles[name as keyof typeof baseline.tiles]);

@@ -6,8 +6,9 @@ import baseline from "./fixtures/flint-240b979.json";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("preserves all867 published pixels and UVs while appending one original Flint icon", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
-  expect(names).toHaveLength(885); expect(names.slice(0, 867)).toEqual(baseline.names);
-  expect(names.slice(867, 868)).toEqual(["item_flint"]); expect(new Set(names).size).toBe(885);
+  expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
+  expect(names).toHaveLength(890); expect(names.slice(0, 867)).toEqual(baseline.names);
+  expect(names.slice(867, 868)).toEqual(["item_flint"]); expect(new Set(names).size).toBe(890);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

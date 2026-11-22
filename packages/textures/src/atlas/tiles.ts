@@ -1,3 +1,4 @@
+import { BREWING_ITEM_GENERATORS } from "../artwork/brewing";
 import {netherrackTile,soulSandTile,netherBricksTile,wartTile,NETHER_ITEM_GENERATORS} from "../artwork/nether";
 import { lavaTile, obsidianTile } from "../artwork/fluids";
 import { portalTile } from "../artwork/portals";
@@ -325,10 +326,10 @@ export const TILE_GENERATORS: Record<string, (t: Tile) => Tile> = {
 
 /** True if `name` has an item sprite (fixed sprites, or a chemistry element/isotope/compound/product). */
 export function hasItemTile(name: string): boolean {
-  return Object.prototype.hasOwnProperty.call(ITEM_TILE_GENERATORS, name) || Object.prototype.hasOwnProperty.call(NETHER_ITEM_GENERATORS,name) || chemistryItemTile(name) !== undefined;
+  return Object.prototype.hasOwnProperty.call(ITEM_TILE_GENERATORS, name) || Object.prototype.hasOwnProperty.call(NETHER_ITEM_GENERATORS,name) || Object.prototype.hasOwnProperty.call(BREWING_ITEM_GENERATORS,name) || chemistryItemTile(name) !== undefined;
 }
 
-export const TILE_NAMES: readonly string[] = Object.freeze([...Object.keys(TILE_GENERATORS), ...STATION_FACE_KEYS]);
+export const TILE_NAMES: readonly string[] = Object.freeze([...Object.keys(TILE_GENERATORS), ...STATION_FACE_KEYS, ...Object.keys(BREWING_ITEM_GENERATORS)]);
 
 /** Generates the RGBA pixels of a named 16x16 tile. Unknown names produce a magenta/black "missing texture". */
 export function generateTile(name: string): Uint8ClampedArray<ArrayBuffer> {
@@ -336,7 +337,7 @@ export function generateTile(name: string): Uint8ClampedArray<ArrayBuffer> {
   const source = Object.prototype.hasOwnProperty.call(STATION_FACE_FALLBACKS, name) ? STATION_FACE_FALLBACKS[name] : name;
   const t = new Tile(source);
   const has = (o: object) => Object.prototype.hasOwnProperty.call(o, source);
-  const gen = has(TILE_GENERATORS) ? TILE_GENERATORS[source] : has(ITEM_TILE_GENERATORS) ? ITEM_TILE_GENERATORS[source] : chemistryItemTile(source);
+  const gen = has(TILE_GENERATORS) ? TILE_GENERATORS[source] : has(ITEM_TILE_GENERATORS) ? ITEM_TILE_GENERATORS[source] : has(BREWING_ITEM_GENERATORS) ? BREWING_ITEM_GENERATORS[source as keyof typeof BREWING_ITEM_GENERATORS] : chemistryItemTile(source);
   if (gen) return gen(t).data;
   return t.fill((x, y) => ((x < 8) !== (y < 8) ? [248, 0, 248] : [0, 0, 0])).data;
 }

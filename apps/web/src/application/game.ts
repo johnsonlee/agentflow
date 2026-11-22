@@ -1,5 +1,5 @@
 import {
-  parseSave, PortalContact, preparePortalArrival, createPortalRouteSave, type PortalContactTicket, type DimensionWorldState, captureDimensionWorld, readBlazeOwners, type BlazeOwnershipIssue, readDimensionArchive, createDimensionGeneratedBlockProbe, type DimensionsData, type DimensionSaveIssue,
+  prepareOverworldRespawn as prepareRespawnWorld, replaceDimensionWorld, parseSave, PortalContact, preparePortalArrival, createPortalRouteSave, type PortalContactTicket, type DimensionWorldState, captureDimensionWorld, readBlazeOwners, type BlazeOwnershipIssue, readDimensionArchive, createDimensionGeneratedBlockProbe, type DimensionsData, type DimensionSaveIssue,
   tryUsePortalIgnition, isPortalActionBusy, tryUseFluidBucket, isFluidActionBusy, isFluidBlock, igniteFire, extinguishFire, cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, LeashStore, joinLeashRefundSink, type LeashContext, LEASH_PROFILE,
   BalloonStore, balloonColorOf, raycastBalloons, combineReleaseAttempts, type ReleaseAttempt,
   diagnoseRawWartSupport, diagnoseRawWartOwnership, SnowballProjectiles, tryThrowSnowball, bodyBox, boxIntersectsFences, type SnowballImpact, AIR, MAX_PLAYER_HEALTH, PlayerDeathTransfer, sanitizePlayerState, validatePlayerDeathOwnership, type PlayerDeathState, MobLootResolver, WorldDrops, type DropSink, type ItemStack, FarmingSystem, tillSoil, wheatAge, canBuildAt, skyDarken, ARMOR_SLOTS, applyArmorDamage, baseStackId, isItem, isKnownId, tryBlockById, COMMAND_HELP, MOB_SPECS, SEA_LEVEL, WORLD_HEIGHT, DAY_LENGTH, EYE_HEIGHT, Inventory, World, blockAtEyes, blockById, blockId, breakBlock, displayNameOf, toolOf,
@@ -488,19 +488,7 @@ export class Game {
       if(!route)throw Error("Portal route refused");
       target=Game.prepare(this.container,atlas,{name:this.name,seed:route.seed,mode:this.mode,touch:!!this.touch,save:route,preparedWorld:arrival.world},this.events);
       const staged=target,initialTarget=JSON.parse(staged.savePayload(false,true)) as SaveData;
-      const targetOwners=(value:SaveData)=>JSON.stringify(Object.fromEntries(Object.entries(value).filter(([key])=>key!=="edits")));
-      const initialOwners=targetOwners(initialTarget),probe=createDimensionGeneratedBlockProbe();
-      const initialEdits=new Map(initialTarget.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
-      const preparedUnchanged=(current:SaveData)=>{
-        if(targetOwners(current)!==initialOwners)return false;
-        const edits=new Map(current.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
-        if([...initialEdits.keys()].some(key=>!edits.has(key)))return false;
-        const cell=(map:Map<string,number>,x:number,y:number,z:number)=>map.get(`${x},${y},${z}`)??probe(targetDimension,initialTarget.seed,initialTarget.generatorVersion??1,x,y,z);
-        return current.edits.every(([x,y,z,id])=>{
-          const key=`${x},${y},${z}`;if(initialEdits.has(key)&&initialEdits.get(key)===id)return true;
-          return id===blockId("obsidian")&&cell(initialEdits,x,y,z)===blockId("lava")&&[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].some(([dx,dy,dz])=>cell(initialEdits,x+dx,y+dy,z+dz)===blockId("water")&&cell(edits,x+dx,y+dy,z+dz)===blockId("water"));
-        });
-      };
+      const preparedUnchanged=this.preparedOwnerGuard(initialTarget,targetDimension);
       const cancel=()=>{if(done)return;done=true;staged.discardPrepared();resume();};
       return Object.freeze({target:staged,prepareFrame:(budgetMs=8)=>{if(!sourceUnchanged()||!arrival.unchanged()){cancel();throw Error("Portal preparation cancelled");}return staged.prepareFrame(budgetMs);},commit:(external=()=>true)=>{
         if(!sourceUnchanged()||!arrival.unchanged()||!external()){cancel();return false;}
@@ -520,6 +508,67 @@ export class Game {
         done=true;this.portalTransfer=false;return true;
       },cancel});
     }catch{target?.discardPrepared();resume();return null;}
+  }
+
+  /** Complete the death receipt in its own realm before preparing a new living context. */
+  prepareOverworldRespawn(atlas:TextureAtlas):PortalTravelHandle|null {
+    if(this.recoverySections.length){this.deathError="Saved data needs repair. Export a backup before respawning.";return null;}
+    if(this.world.dimension!=="nether"||this.ownershipBusy||!this.dead||!this.deathState||this.recoverySections.length||Game.activeWriter!==this)return null;
+    if(!this.tryDeathTransfer()||this.deathState.phase!=="complete")return null;
+    let target:Game|null=null,done=false;
+    const previousPaused=this.paused;
+    const resume=()=>{this.portalTransfer=false;if(Game.activeWriter===this&&!this.stopped){this.paused=previousPaused;this.keyboard.reset();}};
+    try {
+      const sourceVersion=this.world.blockMutationVersion,original=this.savePayload(),source=JSON.parse(original) as SaveData;
+      this.portalTransfer=true;this.paused=true;this.cancelDrinking();this.keyboard.reset();
+      const sourceUnchanged=()=>!done&&!this.stopped&&this.dead&&this.health===0&&this.deathState?.phase==="complete"&&Game.activeWriter===this&&this.portalTransfer&&this.world.blockMutationVersion===sourceVersion&&this.savePayload(false,true)===original;
+      if(!sourceUnchanged())throw Error("Death source changed");
+      const state:DimensionWorldState=source.dimensions?.inactive.overworld??{seed:source.seed,generatorVersion:2,player:{...source.player,flying:false},edits:[]};
+      const arrival=prepareRespawnWorld(state);
+      if(!arrival||!sourceUnchanged())throw Error("No safe Overworld respawn");
+      const route=(world:DimensionWorldState):SaveData=>{
+        const next=replaceDimensionWorld(source,world);
+        next.player={...source.player,position:{...arrival.position},flying:false};
+        next.playerState={health:MAX_HEALTH};next.hunger=createHunger();delete next.playerStatus;
+        if(next.agent)next.agent={...next.agent,...arrival.agentPosition,slots:next.agent.slots};
+        next.dimensions={version:1,active:"overworld",inactive:{nether:captureDimensionWorld(source)},links:source.dimensions?.links??[]};
+        serializeSave(next,createDimensionGeneratedBlockProbe());return next;
+      };
+      const initialRoute=route(arrival.state);
+      target=Game.prepare(this.container,atlas,{name:this.name,seed:initialRoute.seed,mode:this.mode,touch:!!this.touch,save:initialRoute,preparedWorld:arrival.world},this.events);
+      const staged=target,initialTarget=JSON.parse(staged.savePayload(false,true)) as SaveData,preparedUnchanged=this.preparedOwnerGuard(initialTarget,"overworld");
+      const cancel=()=>{if(done)return;done=true;staged.discardPrepared();resume();};
+      return Object.freeze({target:staged,prepareFrame:(budgetMs=8)=>{if(!sourceUnchanged()||!arrival.unchanged()){cancel();throw Error("Respawn preparation cancelled");}return staged.prepareFrame(budgetMs);},commit:(external=()=>true)=>{
+        try {
+          if(!sourceUnchanged()||!arrival.unchanged()||!external()){cancel();return false;}
+          const current=JSON.parse(staged.savePayload(false,true)) as SaveData;
+          if(!preparedUnchanged(current)){cancel();return false;}
+          const targetVersion=staged.world.blockMutationVersion;
+          const finalRoute=route({...arrival.state,edits:current.edits,...(current.portals?{portals:current.portals}:{})});
+          staged.dimensionArchive=finalRoute.dimensions;
+          const targetSnapshot=staged.savePayload(false,true);
+          const unchanged=()=>external()&&sourceUnchanged()&&arrival.unchanged()&&staged.world.blockMutationVersion===targetVersion&&staged.recoverySections.length===0&&staged.savePayload(false,true)===targetSnapshot;
+          if(!staged.commitPreparedTransfer(this,unchanged,true)){cancel();return false;}
+          done=true;this.portalTransfer=false;return true;
+        }catch{cancel();return false;}
+      },cancel});
+    }catch{target?.discardPrepared();resume();this.deathError="Overworld respawn could not be prepared. Your world and items remain preserved. Retry or export a backup.";return null;}
+  }
+
+  private preparedOwnerGuard(initialTarget:SaveData,targetDimension:"overworld"|"nether"):(current:SaveData)=>boolean {
+      const targetOwners=(value:SaveData)=>JSON.stringify(Object.fromEntries(Object.entries(value).filter(([key])=>key!=="edits")));
+      const initialOwners=targetOwners(initialTarget),probe=createDimensionGeneratedBlockProbe();
+      const initialEdits=new Map(initialTarget.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
+      return (current:SaveData)=>{
+        if(targetOwners(current)!==initialOwners)return false;
+        const edits=new Map(current.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
+        if([...initialEdits.keys()].some(key=>!edits.has(key)))return false;
+        const cell=(map:Map<string,number>,x:number,y:number,z:number)=>map.get(`${x},${y},${z}`)??probe(targetDimension,initialTarget.seed,initialTarget.generatorVersion??1,x,y,z);
+        return current.edits.every(([x,y,z,id])=>{
+          const key=`${x},${y},${z}`;if(initialEdits.has(key)&&initialEdits.get(key)===id)return true;
+          return id===blockId("obsidian")&&cell(initialEdits,x,y,z)===blockId("lava")&&[[0,1,0],[1,0,0],[-1,0,0],[0,0,1],[0,0,-1]].some(([dx,dy,dz])=>cell(initialEdits,x+dx,y+dy,z+dz)===blockId("water")&&cell(edits,x+dx,y+dy,z+dz)===blockId("water"));
+        });
+      };
   }
 
   /** Compare against a detached reconstruction; never restore into the guarded arrival owner. */
@@ -558,10 +607,14 @@ export class Game {
 
   /** Publishes one ready target, then retires the expected paused source without saving it. */
   commitPrepared(source: Game, unchanged:()=>boolean=()=>true): boolean {
+    return this.commitPreparedTransfer(source,unchanged,false);
+  }
+
+  private commitPreparedTransfer(source:Game,unchanged:()=>boolean,completedDeath:boolean):boolean {
     const pose = { ...this.body.position, yaw: this.body.yaw, pitch: this.body.pitch };
     const samePose = () => this.body.position.x === pose.x && this.body.position.y === pose.y && this.body.position.z === pose.z && this.body.yaw === pose.yaw && this.body.pitch === pose.pitch;
     const valid = () => unchanged() && samePose() && this.prepared && !this.stopped && !this.dead && !this.actionsNeedRecovery && !this.transferBusy &&
-      source !== this && Game.activeWriter === source && source.paused && !source.stopped && !source.dead && !source.actionsNeedRecovery && !source.transferBusy;
+      source !== this && Game.activeWriter === source && source.paused && !source.stopped && (completedDeath?source.dead&&source.health===0&&source.deathState?.phase==="complete"&&source.recoverySections.length===0:!source.dead) && !source.actionsNeedRecovery && !source.transferBusy;
     if (Game.handoffBusy || !valid()) return false;
     Game.handoffBusy = true;
     try {
@@ -577,7 +630,7 @@ export class Game {
       this.positionCamera();
       if (!valid() || !this.renderer.isAreaReady(2) || !valid()) { this.retireWithoutSave(); return false; }
       this.prepared = false; this.paused = false; this.lastTime = time;
-      this.keyboard.enabled = true; if (this.touch) this.touch.enabled = true;
+      this.keyboard.enabled = !completedDeath||!this.screenOpen(); if (this.touch) this.touch.enabled = !completedDeath||!this.screenOpen();
       this.running = true; Game.activeWriter = this;
       source.retireWithoutSave();
       return true;
@@ -662,6 +715,7 @@ export class Game {
 
   /** A failed item transfer keeps the same death overlay and all original owners. */
   respawn(): boolean {
+    if(this.world?.dimension==="nether"){this.deathError="Prepare a safe Overworld respawn before continuing.";return false;}
     this.cancelDrinking();
     if (this.ownershipBusy || this.actionsNeedRecovery || !this.dead || !this.deathState || !this.tryDeathTransfer()) return false;
     this.dead = false; this.paused = false; this.deathState = undefined; this.deathError = "";

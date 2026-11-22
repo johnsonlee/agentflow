@@ -84,6 +84,7 @@ describe("procedural textures", () => {
         ...Array.from({ length: 8 }, (_, age) => `wheat_stage_${age}`),
         ...Array.from({ length: 3 }, (_, age) => `nether_wart_stage_${age}`),
         "item_nether_brick", "item_nether_wart", "item_blaze_rod", "item_blaze_powder",
+        "item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic",
       ].sort(),
     );
   });

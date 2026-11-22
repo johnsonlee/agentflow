@@ -6,10 +6,11 @@ import baseline from "./fixtures/spider-eye-8e4c66c.json";
 const hash = (data: Uint8ClampedArray) => createHash("sha256").update(data).digest("hex");
 it("preserves every published859 tile pixel and UV while appending the original Spider Eye sprite", () => {
   const names = allAtlasTextureNames(), atlas = buildAtlas(names);
-  expect(names).toHaveLength(885);
+  expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
+  expect(names).toHaveLength(890);
   expect(names.slice(0, 859)).toEqual(baseline.names);
   expect(names.slice(859, 860)).toEqual(["item_spider_eye"]);
-  expect(new Set(names).size).toBe(885);
+  expect(new Set(names).size).toBe(890);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {
     const old = baseline.tiles[name as keyof typeof baseline.tiles];

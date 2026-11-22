@@ -113,3 +113,8 @@ export { PortalContact, PORTAL_CONTACT_SECONDS } from "./simulation/portal-conta
 export type { PortalContactTicket } from "./simulation/portal-contact";
 export { preparePortalArrival } from "./world/portal-arrival";
 export { createPortalRouteSave } from "./persistence/portal-route";
+
+export { prepareOverworldRespawn } from "./world/dimension-respawn";
+export type { PreparedOverworldRespawn } from "./world/dimension-respawn";
+export { BrewingStand, BREWING_PROFILE, sanitizeBrewingState } from "./crafting/brewing";
+export type { BrewingData, BrewingSlot } from "./crafting/brewing";

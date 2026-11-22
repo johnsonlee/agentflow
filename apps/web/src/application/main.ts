@@ -319,15 +319,42 @@ function showPause(): void {
 function showDeath(): void {
   if (!game || app.querySelector(".death-screen")) return;
   const g = game;
+  let respawning=false;
   const status = el("p", "save-status"); status.setAttribute("role", "alert");
-  const s = overlay("death-screen", el("h2", "", "You died!"), button("Respawn", () => {
-    if (!g.respawn()) { showSaveStatus(status, g.deathError || "Respawn could not complete. Your items remain preserved."); return; }
-    s.remove();
-  }, "mc-button primary"), button("Title Screen", () => {
+  const respawnButton=button("Respawn",()=>{
+    if(respawning)return;
+    if(g.world.dimension!=="nether"){
+      if(!g.respawn()){showSaveStatus(status,g.deathError||"Respawn could not complete. Your items remain preserved.");return;}
+      s.remove();return;
+    }
+    if(resourceBusy||game!==g){showSaveStatus(status,"The world changed. Retry from its current menu.");return;}
+    respawning=true;respawnButton.disabled=true;
+    const generation=resourceGeneration,trip=g.prepareOverworldRespawn(atlas);
+    const failed=(message:string)=>{trip?.cancel();respawning=false;respawnButton.disabled=false;showSaveStatus(status,message);};
+    if(!trip){failed(g.deathError||"No safe Overworld respawn could be prepared. Your world and items remain preserved; retry or export a backup.");return;}
+    showSaveStatus(status,"Preparing a safe Overworld respawn…");
+    const started=performance.now(),unchanged=()=>game===g&&resourceGeneration===generation&&!resourceBusy;
+    const frame=()=>{
+      try{
+        if(!unchanged()){failed("Respawn cancelled because the world changed. Your world and items remain preserved.");return;}
+        if(performance.now()-started>30000){failed("Overworld terrain is not ready. Your world and items remain preserved; retry or export a backup.");return;}
+        if(!trip.prepareFrame()){requestAnimationFrame(frame);return;}
+        if(!trip.commit(unchanged)){failed("Respawn could not complete. Your world and items remain preserved; retry or export a backup.");return;}
+        game=trip.target;respawning=false;s.remove();
+        if(!game.save())game.hud.message("Respawned in the Overworld, but the browser save failed. Open the menu to export a backup before leaving.");
+      }catch{failed("Overworld respawn failed. Your world and items remain preserved; retry or export a backup.");}
+    };
+    requestAnimationFrame(frame);
+  },"mc-button primary");
+  const s = overlay("death-screen", el("h2", "", "You died!"),respawnButton, button("Title Screen", () => {
+    if(respawning){showSaveStatus(status,"Respawn is being prepared. Your world and items remain preserved.");return;}
     if (!g.stop()) { showSaveStatus(status, g.saveError); return; }
     game = null;
     showTitle();
-  }), button("Export world backup", () => { g.exportSaveBackup(); showSaveStatus(status, "Backup download requested. Keep the downloaded file before leaving."); }), status);
+  }), button("Export world backup", () => {
+    if(respawning){showSaveStatus(status,"Respawn is being prepared. Retry the backup afterward.");return;}
+    g.exportSaveBackup(); showSaveStatus(status, "Backup download requested. Keep the downloaded file before leaving.");
+  }), status);
   if (g.deathError) showSaveStatus(status, g.deathError);
 }
 

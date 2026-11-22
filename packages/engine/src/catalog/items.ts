@@ -235,6 +235,11 @@ const specs: Omit<ItemDef, "id">[] = [
   material("nether_wart", "Nether Wart"),
   material("blaze_rod", "Blaze Rod"),
   material("blaze_powder", "Blaze Powder"),
+  { name:"awkward_potion",displayName:"Awkward Potion",maxStack:1,icon:"item_awkward_potion" },
+  { name:"antidote",displayName:"Antidote",maxStack:1,icon:"item_antidote" },
+  { name:"elixir",displayName:"Elixir",maxStack:1,icon:"item_elixir" },
+  { name:"eye_drops",displayName:"Eye Drops",maxStack:1,icon:"item_eye_drops" },
+  { name:"tonic",displayName:"Tonic",maxStack:1,icon:"item_tonic" },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

@@ -1,5 +1,5 @@
 import {
-  HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
+  BREWING_PROFILE, type BrewingStand, type BrewingSlot, HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
   cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
   type PlayerStatus, type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
@@ -294,7 +294,7 @@ export class Hud {
 }
 
 export type ChemistryKind = "element_constructor" | "compound_creator" | "material_reducer" | "lab_table";
-export type InventoryKind = "inventory" | "crafting_table" | "furnace" | ChemistryKind;
+export type InventoryKind = "inventory" | "crafting_table" | "furnace" | "brewing_stand" | ChemistryKind;
 
 const CHEMISTRY_TITLES = new Map<InventoryKind, string>([
   ["element_constructor", "Element Constructor"],
@@ -357,6 +357,8 @@ export class InventoryScreen {
   private mode: GameMode = "creative";
   private furnace: FurnaceState | null = null;
   private furnaceSignature = "";
+  private brewing:BrewingStand|null=null;
+  private brewingSignature="";
   private progressFill: HTMLElement | null = null;
   private flameFill: HTMLElement | null = null;
   private chem: ChemistryKind | null = null;
@@ -393,19 +395,20 @@ export class InventoryScreen {
     return !this.root.hidden;
   }
 
-  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null): void {
+  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null, brewing:BrewingStand|null=null): void {
     // A station switch must return every owned pending item before replacing its screen state.
     if (this.open && !this.hide()) return;
     this.inventory = inventory;
     this.mode = mode;
     this.kind = kind;
     this.furnace = kind === "furnace" ? furnace : null;
+    this.brewing = kind === "brewing_stand" ? brewing : null;
     // The furnace screen has no crafting grid (as in Minecraft).
     this.chem = isChemistry(kind) ? kind : null;
     this.width =
       kind === "crafting_table" || kind === "compound_creator" || kind === "lab_table" ? 3
         : kind === "material_reducer" ? 1
-          : kind === "furnace" || kind === "element_constructor" ? 0
+          : kind === "furnace" || kind === "brewing_stand" || kind === "element_constructor" ? 0
             : mode === "survival" ? 2 : 0;
     this.grid = new Array(this.width * this.width).fill(null);
     this.cursor = null;
@@ -440,7 +443,7 @@ export class InventoryScreen {
   /** Nonthrowing ownership finalization after the entire death batch has committed. */
   clearTransferredPending(): void {
     this.grid = []; this.cursor = null; this.lookup = null; this.recovery = [];
-    this.furnace = null; this.chem = null; this.recovering = false;
+    this.furnace = null; this.brewing=null; this.chem = null; this.recovering = false;
   }
 
   /** Kept items stay in their original screen owner, including when a full bag cannot accept them. */
@@ -474,7 +477,7 @@ export class InventoryScreen {
     this.cursor = null;
     this.lookup = null;
     this.lookupError = "";
-    this.furnace = null;
+    this.furnace = null; this.brewing=null;
     this.recovery = [];
     this.recovering = false;
     this.root.hidden = true;
@@ -483,7 +486,14 @@ export class InventoryScreen {
 
   /** Called every frame while open: a furnace keeps smelting, so redraw its slots and gauges. */
   refresh(): void {
-    if (this.root.hidden || !this.furnace) return;
+    if(this.root.hidden)return;
+    if(this.brewing){
+      const state=this.brewing.snapshot(),signature=JSON.stringify([state.bottles,state.ingredient,state.fuel,state.fuelUses]);
+      if(signature!==this.brewingSignature)this.render();
+      else{const progress=this.panel.querySelector<HTMLProgressElement>("[data-brewing-progress]");if(progress){progress.value=state.progressSeconds;progress.dataset.brewingProgress=String(state.progressSeconds);}}
+      return;
+    }
+    if(!this.furnace)return;
     const f = this.furnace;
     const signature = JSON.stringify([f.input, f.fuel, f.output]);
     if (signature !== this.furnaceSignature) this.render();
@@ -496,7 +506,7 @@ export class InventoryScreen {
     const header = el("div", "panel-header");
     const title =
       CHEMISTRY_TITLES.get(this.kind) ??
-      (this.kind === "crafting_table" ? "Crafting Table" : this.kind === "furnace" ? "Furnace" : mode === "creative" ? "Creative Inventory" : "Inventory");
+      (this.kind === "crafting_table" ? "Crafting Table" : this.kind === "furnace" ? "Furnace" : this.kind==="brewing_stand" ? "Brewing Stand" : mode === "creative" ? "Creative Inventory" : "Inventory");
     header.append(el("h2", "", title));
     const close = el("button", "close-button", "✕");
     close.setAttribute("aria-label", "Close inventory");
@@ -516,9 +526,10 @@ export class InventoryScreen {
     else if (this.chem) parts.push(this.chemistrySection());
     else if (this.width > 0) parts.push(this.craftingSection());
     if (this.furnace) parts.push(this.furnaceSection());
+    if (this.brewing) parts.push(this.brewingSection());
     if (this.kind === "inventory") parts.push(this.equipmentSection(), this.offhandSection());
 
-    if (mode === "creative" && !this.furnace && !this.recovering) {
+    if (mode === "creative" && !this.furnace && !this.brewing && !this.recovering) {
       const tabs = el("div", "palette-tabs");
       for (const [tab, label] of PALETTE_TABS) {
         const b = el("button", `mc-button small palette-tab${tab === this.tab ? " active" : ""}`, label);
@@ -555,7 +566,7 @@ export class InventoryScreen {
       }
       parts.push(grid);
     }
-    if (mode === "survival" || this.working || this.furnace || this.recovering) {
+    if (mode === "survival" || this.working || this.furnace || this.brewing || this.recovering) {
       const backpack = el("div", "item-grid");
       for (let i = HOTBAR_SIZE; i < INVENTORY_SIZE; i++) backpack.appendChild(this.slotCell(i));
       parts.push(backpack);
@@ -582,6 +593,8 @@ export class InventoryScreen {
       ? "Recover saved held items into the bag or equip matching armor. Make room before closing; crafting and new item pickup resume afterward."
       : this.chem
       ? CHEMISTRY_HINTS.get(this.chem)!
+      : this.brewing
+      ? "Place water or awkward potions in the bottle slots, add an ingredient and Blaze Powder. Tap a finished bottle to collect it."
       : this.furnace
       ? "Tap a slot to pick items up, then tap the furnace's top slot (to smelt) or bottom slot (fuel). Tap the result to collect it."
       : mode === "creative" && !this.working
@@ -884,6 +897,30 @@ export class InventoryScreen {
     row.append(grid, el("span", "craft-arrow", "➜"), ...this.resultCell(result, () => this.grid.fill(null)));
     section.append(row);
     return section;
+  }
+
+  private brewingSection():HTMLElement {
+    const stand=this.brewing!,state=stand.snapshot();this.brewingSignature=JSON.stringify([state.bottles,state.ingredient,state.fuel,state.fuelUses]);
+    const section=el("div","brewing-station"),inputs=el("div","brewing-inputs"),bottles=el("div","brewing-bottles");
+    const slot=(key:BrewingSlot,label:string)=>{
+      const stack=typeof key==="number"?state.bottles[key]:state[key];
+      const cell=this.cell(stack?.id??null,stack?.count??0,stack?displayNameOf(stack.id):label,stack);cell.dataset.brewing=String(key);cell.setAttribute("aria-label",label+(stack?`: ${displayNameOf(stack.id)} ×${stack.count}`:""));
+      cell.addEventListener("click",()=>{
+        if(!this.canMoveItems())return;
+        const current=stand.snapshot(),owned=typeof key==="number"?current.bottles[key]:current[key],cursor=this.cursor;
+        if(cursor&&owned&&typeof key!=="number"&&stacksCompatible(cursor,owned)){
+          const moved=Math.min(stackLimit(owned)-owned.count,cursor.count);if(moved<=0)return;
+          const result=stand.replace(key,{...owned,count:owned.count+moved});if(!result.ok)return;
+          cursor.count-=moved;if(cursor.count===0)this.cursor=null;
+        }else{const result=stand.replace(key,cursor);if(!result.ok)return;this.cursor=result.returned;}
+        this.render();
+      });return cell;
+    };
+    inputs.append(slot("ingredient","Brewing ingredient"),slot("fuel","Blaze Powder fuel"));
+    for(const i of [0,1,2] as const)bottles.append(slot(i,`Bottle ${i+1}`));
+    const progress=el("progress");progress.max=BREWING_PROFILE.seconds;progress.value=state.progressSeconds;progress.dataset.brewingProgress=String(state.progressSeconds);progress.setAttribute("aria-label","Brewing progress");
+    const fuel=el("p","",`Fuel uses remaining: ${state.fuelUses}`);fuel.dataset.brewingFuel=String(state.fuelUses);
+    section.append(inputs,progress,bottles,fuel);return section;
   }
 
   /** Minecraft furnace layout: input over a flame gauge over fuel, an arrow, then the result. */
