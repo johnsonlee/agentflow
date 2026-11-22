@@ -297,7 +297,8 @@ export class CodeBuilderScreen {
       const diagnostic = draft.issue?.diagnostic;
       if (diagnostic) { const range = diagnosticSelection(draft.source, diagnostic); source.setSelectionRange(range.start, range.end); }
     }
-    if (draft.issue) issue.scrollIntoView({ block: "nearest" });
+    // Leave room around the alert: nearest-edge scrolling can clip a fractional pixel.
+    if (draft.issue) issue.scrollIntoView({ block: "center", inline: "nearest" });
   }
 
   /** A drop zone listing `blocks` at nesting `depth`; tapping it makes it the tap target. */
