@@ -13,7 +13,7 @@ it('appends only Birch202; all old321 block definitions,594 items and two Overwo
  for(const old of baseline.chunks){const c=new TerrainGenerator(12345,2).generate(old.x,old.z);expect(createHash('sha256').update(new Uint8Array(c.blocks.buffer)).digest('hex')).toBe(old.sha256);}
 });
 it('preserves all171 recipe positions and all non-Birch legacy results while correcting Birch output identity',()=>{
- expect(RECIPES).toHaveLength(baseline.recipes.length+7);
+ expect(RECIPES).toHaveLength(baseline.recipes.length+8);
  baseline.recipes.forEach((old:Recipe,index:number)=>{const now=RECIPES[index];if(old.id==='oak_planks_from_birch'){expect(now).toEqual({id:'birch_planks',ingredients:['birch_log'],result:['birch_planks',4]});expect(matchRecipe(grid(old),3)?.result).toEqual(s('birch_planks',4));}else{expect(now.id).toBe(old.id);expect(withLegacyBirchRecipes([now])[0]).toEqual(old);expect(matchRecipe(grid(old),3)?.result).toEqual(baseline.recipeOutputs[index].result);}});
 });
 it('Birch log converts in any grid cell to four Birch Planks and debits exactly one log',()=>{
