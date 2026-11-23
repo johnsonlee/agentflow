@@ -1,3 +1,4 @@
+import{inspectComposterItemOwner}from './composter-items';
 import{inspectWoodSlabItemOwner}from './wood-slab-items';
 import {inspectBoneMealItemOwner} from './bone-meal-items';
 import {inspectRecyclingEquipment} from "./metal-recycling";
@@ -9,6 +10,7 @@ import { inspectGlowState } from "./glow-stick-state";
 import { inspectSparklerState } from "./sparkler-state";
 /** Shared validation for every supported stateful stack owner; no state is repaired or defaulted. */
 export function inspectItemState(raw: unknown, bulk = false) {
+  const compost=inspectComposterItemOwner(raw);if(compost.kind==='invalid')return compost;
   const slab=inspectWoodSlabItemOwner(raw);if(slab.kind==='invalid')return slab;
   const bone=inspectBoneMealItemOwner(raw);if(bone.kind==="invalid")return bone;
   const recycling=inspectRecyclingEquipment(raw,bulk);if(recycling.kind==="invalid")return recycling;

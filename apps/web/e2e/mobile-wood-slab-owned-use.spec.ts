@@ -1,0 +1,3 @@
+import{test}from'@playwright/test';import{woodSlabOwnedUseRoute,woodSlabCorruptBackupRoute}from'./wood-slab-owned-use';
+test('mobile: portrait landscape finite Slabs and cold owners, plus720HUDlayout',async({page},info)=>{test.setTimeout(720000);for(const v of[{width:390,height:844},{width:915,height:412}])await woodSlabOwnedUseRoute(page,info,true,v);});
+test('mobile: portrait landscape hidden Slab recovery and exact original backup',async({page},info)=>{test.setTimeout(240000);for(const v of[{width:390,height:844},{width:915,height:412}])await woodSlabCorruptBackupRoute(page,info,true,v);});

@@ -216,7 +216,7 @@ export class WorldRenderer {
     this.crack.visible = block !== null && breakProgress > 0;
     if (!block) return;
     const id=this.world.getBlock(block.x,block.y,block.z),shape=blockById(id).shape;
-    const boxes = shape === "fence" || shape === "brewing_stand" || woodSlabState(id) ? blockSelectionBoxes((x, y, z) => this.world.getBlock(x, y, z), block.x, block.y, block.z) : null;
+    const boxes = shape === "fence" || shape === "brewing_stand" || shape === "composter" || woodSlabState(id) ? blockSelectionBoxes((x, y, z) => this.world.getBlock(x, y, z), block.x, block.y, block.z) : null;
     const key = boxes ? `${shape}:${JSON.stringify(boxes)}` : "cube";
     // Neighbour connections can change while the selected block coordinate stays the same.
     if (key !== this.selectionGeometryKey) {

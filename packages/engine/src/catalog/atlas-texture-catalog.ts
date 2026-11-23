@@ -888,4 +888,4 @@ export const ATLAS_TEXTURE_CATALOG: readonly string[] = Object.freeze([
   "item_iron_nugget", "item_gold_nugget",
   "hay_block_top", "hay_block_side",
   "item_bone", "item_bone_meal"
-]);
+,"composter_inside","composter_side","composter_bottom","composter_top","composter_compost","composter_ready"]);

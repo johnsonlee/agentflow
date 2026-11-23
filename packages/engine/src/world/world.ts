@@ -1,3 +1,4 @@
+import{ComposterStore}from '../simulation/composter-store';
 import { PortalSystem, isPortalActionBusy } from "../simulation/portals";
 import { FluidSystem, planFluidChanges, isLavaBlock, isWaterBlock } from "../simulation/fluids";
 import { FireSystem } from "../simulation/fire";
@@ -22,6 +23,7 @@ export type BlockListener = (x: number, y: number, z: number, id: number) => voi
  */
 export class World {
   readonly generator: TerrainGenerator | NetherGenerator;
+  readonly composters=new ComposterStore(this);
   readonly gravelHarvests = new GravelHarvestResolver(this);
   readonly fires = new FireSystem(this);
   readonly fluids = new FluidSystem(this);
@@ -224,10 +226,11 @@ export class World {
     const detached=edits.map(e=>[...e] as BlockEdit),portal=this.portals.planChanges(detached);if(!portal)return null;
     const expected:WorldCellSnapshot[]=[...portal.expected];
     for(const e of detached){if(!isKnownBlockId(e[3]))return null;const s=this.captureCell(e[0],e[1],e[2]);if(!s)return null;expected.push(s);}
+    const compost=this.composters.reserveWorldChanges(detached);if(!compost)return null;
     const token=Symbol("block-source-lease");let released=false,used=false,handoff=false;
-    const valid=()=>!released&&!used&&(this.sourceLease===token||handoff)&&portal.valid()&&expected.every(s=>this.cellUnchanged(s));
+    const valid=()=>!released&&!used&&(this.sourceLease===token||handoff)&&portal.valid()&&compost.valid()&&expected.every(s=>this.cellUnchanged(s));
     this.sourceLease=token;this.sourceLeaseDepth++;
-    const release=()=>{if(released)return;released=true;if(this.sourceLease===token)this.sourceLease=undefined;this.sourceLeaseDepth--;};
+    const release=()=>{if(released)return;released=true;if(this.sourceLease===token)this.sourceLease=undefined;this.sourceLeaseDepth--;compost.release();};
     return {valid,release,commit:(finalize?:()=>void)=>{
       if(!valid()){release();return false;}
       // No callback between releasing the write lock and entering batchBusy.
@@ -261,16 +264,17 @@ export class World {
         if(explicitAbove&&explicitAbove[3]!==blockId("fire"))continue;
         staged.set(aboveKey,[e[0],e[1]+1,e[2],AIR]);
       }
+      const compost=this.composters.planChanges([...staged.values()]);if(!compost)return false;
       const captures:WorldCellSnapshot[]=[];
       for(const e of staged.values()){const snapshot=this.captureCell(e[0],e[1],e[2]);if(!snapshot)return false;captures.push(snapshot);if(snapshot.id!==e[3])changed.push(e);}
-      if(!changed.length||!portalPlan.valid()||!resolution.valid()||expected.some(s=>!this.cellUnchanged(s))||ownerValid&&!ownerValid()||!portalPlan.valid()||!resolution.valid()||captures.some(s=>!this.cellUnchanged(s))||expected.some(s=>!this.cellUnchanged(s)))return false;
+      if(!changed.length||!compost.valid()||!portalPlan.valid()||!resolution.valid()||expected.some(s=>!this.cellUnchanged(s))||ownerValid&&!ownerValid()||!compost.valid()||!portalPlan.valid()||!resolution.valid()||captures.some(s=>!this.cellUnchanged(s))||expected.some(s=>!this.cellUnchanged(s)))return false;
       for(const[x,y,z,id]of changed){
         const chunk=this.peek(x,z)!;chunk.set(toLocalCoord(x),y,toLocalCoord(z),id);this.mutationVersion++;this.cellRevisions.set(`${x},${y},${z}`,this.mutationVersion);this.gravelHarvests.invalidate(x,y,z);
         const ck=chunkKey(chunk.cx,chunk.cz);let edits=this.edits.get(ck);if(!edits)this.edits.set(ck,edits=new Map());edits.set(Chunk.index(toLocalCoord(x),y,toLocalCoord(z)),id);
         notifyChunks.add(ck);if(toLocalCoord(x)===0)notifyChunks.add(chunkKey(chunk.cx-1,chunk.cz));if(toLocalCoord(x)===CHUNK_SIZE-1)notifyChunks.add(chunkKey(chunk.cx+1,chunk.cz));if(toLocalCoord(z)===0)notifyChunks.add(chunkKey(chunk.cx,chunk.cz-1));if(toLocalCoord(z)===CHUNK_SIZE-1)notifyChunks.add(chunkKey(chunk.cx,chunk.cz+1));
       }
       for(const[x,y,z]of changed)this.fires.blockChanged(x,y,z);
-      portalPlan.commit();
+      portalPlan.commit();compost.commit();
       finalize?.();
       committed=true;
       this.lightTouched.clear();for(const[x,y,z]of changed)relightBlock(this.lightAccess,x,y,z);for(const k of this.lightTouched)notifyChunks.add(k);this.lightTouched.clear();
@@ -280,6 +284,13 @@ export class World {
       for(const k of notifyChunks){const[cx,cz]=k.split(",").map(Number);this.emit(cx,cz);}
     }
     return committed;
+  }
+
+  /** Trusted co-owned metadata/source publication without changing a block. Requires a real
+   * loaded expected cell and preserves commitBlockBatch empty/same-ID refusal semantics. */
+  commitOwnedState(expected:readonly WorldCellSnapshot[],ownerValid:()=>boolean,finalize:()=>void):boolean{
+    if(this.batchBusy||this.sourceLease||!expected.length)return false;this.batchBusy=true;
+    try{if(expected.some(s=>!this.cellUnchanged(s))||!ownerValid()||expected.some(s=>!this.cellUnchanged(s)))return false;finalize();return true;}finally{this.batchBusy=false;}
   }
 
   /** Valid ordinary writes preserve lazy generation; callers needing refusal use loaded batches. */
@@ -317,13 +328,13 @@ export class World {
     return out;
   }
 
-  importEdits(edits: readonly BlockEdit[]): void {
-    if(this.batchBusy||isPortalActionBusy(this))return;
-    // Import replaces logical world contents, including same-ID cells; restore decisions afterward.
-    this.gravelHarvests.clear();
-    this.fires.clear();
-    this.fluids.clear();
-    for (const [x, y, z, id] of edits) this.setBlock(x, y, z, id);
+  importEdits(edits: readonly BlockEdit[],compostersRaw?:unknown): void {
+    if(this.batchBusy||this.sourceLease||isPortalActionBusy(this))return;
+    const compost=this.composters.beginImport(compostersRaw,edits);if(!compost)return;let completed=false;
+    if(compost.scoped)this.loadingChunks++;
+    try{this.gravelHarvests.clear();this.fires.clear();this.fluids.clear();
+      for(const[x,y,z,id]of edits)this.setBlock(x,y,z,id);completed=true;
+    }finally{compost.finish(completed);if(compost.scoped){this.loadingChunks--;if(this.loadingChunks===0)this.flushNotifications();}}
   }
 
   /** Y of the highest solid, non-plant block in a column, or -1. */

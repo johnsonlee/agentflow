@@ -66,6 +66,24 @@ export function sanitizeWorldDrops(raw: unknown): { data: WorldDropsData; invali
   try { return readWorldDrops(raw); } catch { return { data: { nextKey: 1, records: [] }, invalid: 1 }; }
 }
 
+export interface PreparedWorldDropReceipt{readonly key:number;valid():boolean;commit():void;cancel():void}
+const receiptOwners=new WeakMap<object,{world:LoadedWorld;items:Map<number,DroppedItemRecord>;busy:boolean}>();
+const receiptBusy=(owner:object)=>receiptOwners.get(owner)?.busy===true;
+/** Constructor-original receiver only; no public registrar or overrideable callback is used.
+ * commit is a trusted synchronous finalizer, called only immediately after valid() while
+ * the source World batch admits no intervening callbacks. */
+export function reserveWorldDropReceipt(receiver:WorldDrops,world:LoadedWorld,stack:ItemStack,position:Vec3):PreparedWorldDropReceipt|null{
+ const owner=receiptOwners.get(receiver);if(!owner||owner.world!==world||owner.busy)return null;
+ const field=(name:string)=>{const d=Object.getOwnPropertyDescriptor(receiver,name);return d&&'value'in d?d:undefined;};
+ try{const clean=validStack(stack),next=field('nextKey'),disposed=field('disposed'),transferring=field('transferring');if(!clean||!vector(position)||field('loadIssues')?.value!==0||!next?.writable||!disposed||disposed.value||!transferring||transferring.value||field('items')?.value!==owner.items||!Number.isSafeInteger(next.value)||next.value<1||next.value>=Number.MAX_SAFE_INTEGER||clean.count>stackLimit(clean))return null;
+ const p=structuredClone(position),key=next.value,count=owner.items.size;let active=true;owner.busy=true;
+ const cancel=()=>{if(active){active=false;owner.busy=false;}};
+ const valid=()=>active&&receiptOwners.get(receiver)===owner&&owner.busy&&field('items')?.value===owner.items&&field('nextKey')?.writable===true&&field('nextKey')?.value===key&&field('disposed')?.value===false&&field('loadIssues')?.value===0&&field('transferring')?.value===false&&owner.items.size===count;
+ const record:DroppedItemRecord={key,stack:cloneStack(clean),position:p,velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:WORLD_DROP_PROFILE.pickupDelay};
+ return Object.freeze({key,valid,cancel,commit:()=>{if(!active)return;owner.items.set(key,record);(receiver as unknown as{nextKey:number}).nextKey=key+1;cancel();}});
+ }catch{return null;}
+}
+
 /** Persistent authoritative stacks. Rendering/unloading never owns or deletes them. */
 export class WorldDrops {
   private readonly items = new Map<number, DroppedItemRecord>();
@@ -76,13 +94,14 @@ export class WorldDrops {
   constructor(private readonly world: LoadedWorld, raw?: unknown) {
     const loaded = sanitizeWorldDrops(raw); this.loadIssues = loaded.invalid; this.nextKey = loaded.data.nextKey;
     for (const r of loaded.data.records) this.items.set(r.key, r);
+    receiptOwners.set(this,{world:this.world,items:this.items,busy:false});
   }
   get records(): DroppedItemRecord[] { return [...this.items.values()].map(copyRecord); }
   toJSON(): WorldDropsData { return { nextKey: this.nextKey, records: this.records }; }
   dispose(): void { this.disposed = true; }
 
   planSpawnBatch(stacks: readonly ItemStack[], position: Vec3, velocity: Vec3 = { x: 0, y: 0, z: 0 }): DropBatch | null {
-    if (this.disposed || !vector(position) || !vector(velocity, true) || !Array.isArray(stacks)) return null;
+    if (this.disposed || receiptBusy(this) || !vector(position) || !vector(velocity, true) || !Array.isArray(stacks)) return null;
     const clean: ItemStack[] = []; let needed = 0;
     for (const s of stacks) {
       const stack = validStack(s, true); if (!stack) return null;
@@ -93,7 +112,7 @@ export class WorldDrops {
     if (needed > 100000 || this.nextKey + needed > Number.MAX_SAFE_INTEGER) return null;
     const p = { ...position }, v = { ...velocity }; let used = false;
     return { commit: () => {
-      if (used || this.disposed || this.nextKey + needed > Number.MAX_SAFE_INTEGER) return false;
+      if (used || this.disposed || receiptBusy(this) || this.nextKey + needed > Number.MAX_SAFE_INTEGER) return false;
       used = true;
       const records: DroppedItemRecord[] = []; let key = this.nextKey;
       for (const s of clean) for (let left = s.count; left > 0;) {
@@ -112,7 +131,7 @@ export class WorldDrops {
     return true;
   }
   update(dt: number): void {
-    if (this.disposed || !Number.isFinite(dt) || dt <= 0) return;
+    if (this.disposed || receiptBusy(this) || !Number.isFinite(dt) || dt <= 0) return;
     const active: DroppedItemRecord[] = [];
     for (const r of this.items.values()) {
       if (!this.loaded(r.position)) continue;
@@ -147,7 +166,7 @@ export class WorldDrops {
     }
   }
   tryPickup(position: Vec3, receive: (stack: ItemStack) => number, filterId?: number): number {
-    if (this.disposed || this.transferring || !vector(position) || (filterId !== undefined && !isKnownId(filterId))) return 0;
+    if (this.disposed || receiptBusy(this) || this.transferring || !vector(position) || (filterId !== undefined && !isKnownId(filterId))) return 0;
     let collected = 0; this.transferring = true;
     try {
       for (const r of this.items.values()) {

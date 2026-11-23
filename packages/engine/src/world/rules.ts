@@ -1,3 +1,5 @@
+import{composterLevel}from '../catalog/composter';
+import{placeComposterAt}from '../ownership/composter-use';
 import{woodSlabState}from '../catalog/wood-slabs';
 import{placeWoodSlabAt}from '../ownership/wood-slab-placement';
 import {writablePlacementCell,placementCellsWithinWorld}from"./placement-bounds";
@@ -198,6 +200,7 @@ export function placeBlock(
   if(world.blockSourceLeaseBusy)return false;
   if (!writablePlacementCell(x,y,z)) return false;
   const stack = inventory.selectedStack();
+  if(stack&&composterLevel(stack.id)!==null)return placeComposterAt(world,inventory,mode,x,y,z,playerFeet);
   if(stack&&woodSlabState(stack.id))return placeWoodSlabAt(world,inventory,mode,x,y,z,playerFeet);
   if(inspectCaneItemOwner(stack).kind==="invalid")return false;
   if(stack?.id===SUGAR_CANE_ITEM_ID)return plantSugarCane(world,inventory,mode,x,y,z);

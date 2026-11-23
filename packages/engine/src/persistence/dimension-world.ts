@@ -1,3 +1,5 @@
+import{readComposterOwners}from './composter-state';
+import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
 import {diagnoseRawBoneMealOwnership} from './bone-meal-ownership';
 import { readCaneGrowthState } from "./cane-growth-state";
@@ -11,7 +13,7 @@ export type { DimensionId } from "../core/dimensions";
  * parser for untrusted inactive-world archives and does not initiate travel. */
 export const DIMENSION_WORLD_KEYS = [
   "seed", "generatorVersion", "player", "edits", "npcs", "chalkboards",
-  "furnaces", "redstone", "farming", "caneGrowth", "fire", "fluids", "portals",
+  "furnaces", "composters", "redstone", "farming", "caneGrowth", "fire", "fluids", "portals",
   "gravelHarvests", "worldDrops", "mobs", "leashes", "balloons",
   "snowballProjectiles", "blazeFireballs", "brewingStands", "chests",
 ] as const satisfies readonly (keyof SaveData)[];
@@ -20,13 +22,14 @@ const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
   "codeWorkspaceInvalid", "caneGrowthInvalid",
-  "woodSlabOwnershipIssues", "recyclingOwnershipIssues", "caneOwnershipIssues", "boneMealOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
+  "composterOwnershipIssues", "woodSlabOwnershipIssues", "recyclingOwnershipIssues", "caneOwnershipIssues", "boneMealOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
   "bottleOwnershipIssues", "bucketOwnershipIssues", "cowStateInvalid", "playerStatusInvalid",
   "fireInvalid", "ignitionOwnershipIssues", "gravelHarvestInvalid",
 ] as const satisfies readonly (keyof SaveData)[];
 function assertNoSourceDiagnostics(save: SaveData): void {
+  if(diagnoseRawComposterOwnership(save).length)throw new Error("Invalid source Composter ownership");
   if(diagnoseRawWoodSlabOwnership(save).length)throw new Error("Invalid source Slab ownership");
   if(diagnoseRawBoneMealOwnership(save).length)throw new Error("Invalid source Bone/Bone Meal ownership");
   const growth = Object.getOwnPropertyDescriptor(save, "caneGrowth");
@@ -59,6 +62,7 @@ function assertWorldEnvelope(world: DimensionWorldState): void {
       throw new Error("Foreign owner, accessor or non-enumerable field in dimension world");
     }
   }
+  if(diagnoseRawComposterOwnership(world).length)throw new Error("Invalid dimension Composter ownership");
   if(diagnoseRawWoodSlabOwnership(world).length)throw new Error("Invalid dimension Slab ownership");
   if(diagnoseRawBoneMealOwnership(world).length)throw new Error("Invalid dimension Bone/Bone Meal ownership");
   if (readCaneGrowthState(world.caneGrowth).kind === "invalid") throw new Error("Invalid dimension Cane growth state");
@@ -79,6 +83,7 @@ export function captureDimensionWorld(save: SaveData): DimensionWorldState {
     if (!("value" in descriptor)) throw new Error("Accessor in dimension source");
     if (descriptor.value !== undefined) world[key] = descriptor.value;
   }
+  const compost=readComposterOwners(save);if(compost.kind==='invalid')throw new Error('Invalid Composter co-state');if(compost.data.records.length)world.composters=compost.data;else delete world.composters;
   assertWorldEnvelope(world as DimensionWorldState);
   return structuredClone(world) as DimensionWorldState;
 }

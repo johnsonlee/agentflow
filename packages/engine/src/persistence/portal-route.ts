@@ -38,7 +38,7 @@ export function createPortalRouteSave(source:SaveData,sourceDimension:DimensionI
   const previous=read.data.inactive[targetDimension];
   if(previous){
    const staticOwners=(w:DimensionWorldState)=>Object.fromEntries(Object.entries(w).filter(([k])=>k!=="edits"&&k!=="portals"&&k!=="player"));
-   if(!sameJSON(staticOwners(previous),staticOwners(captureDimensionWorld(next))))return null;
+   if(!sameJSON(staticOwners(captureDimensionWorld(previous as SaveData)),staticOwners(captureDimensionWorld(next))))return null;
    const edits=new Map(next.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
    const before=new Map(previous.edits.map(e=>[`${e[0]},${e[1]},${e[2]}`,e[3]]));
    const cell=(map:Map<string,number>,x:number,y:number,z:number)=>map.get(`${x},${y},${z}`)??probe(targetDimension,previous.seed,previous.generatorVersion??1,x,y,z);

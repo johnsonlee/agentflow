@@ -10,7 +10,7 @@ const hash=(value:unknown)=>createHash('sha256').update(JSON.stringify(value,(_,
 const stack=(name:string,count=1):ItemStack=>({id:stackId(name),count});
 function flat(){const w=new World(7,3);for(let x=-2;x<=3;x++)for(let z=-2;z<=2;z++){w.setBlock(x,79,z,blockId('stone'));for(let y=80;y<=83;y++)w.setBlock(x,y,z,0);}return w;}
 it('appends three ordinary205..207 blocks and six recipes without changing324 blocks,600 items or179 archived recipes',()=>{
- expect(BLOCKS).toHaveLength(330);expect(ITEMS).toHaveLength(604);expect(RECIPES).toHaveLength(202);
+ expect(BLOCKS).toHaveLength(345);expect(ITEMS).toHaveLength(604);expect(RECIPES).toHaveLength(205);
  expect(hash(BLOCKS.slice(0,324))).toBe(baseline.hashes.blocks);expect(hash(ITEMS.slice(0,600))).toBe(baseline.hashes.items);expect(hash(RECIPES.slice(0,179))).toBe(baseline.hashes.recipes);
  expect(METAL_STORAGE_BLOCKS.map(b=>[b.id,b.name])).toEqual([[205,'iron_block'],[206,'gold_block'],[207,'diamond_block']]);
  expect(new Set(BLOCKS.map(b=>b.id)).size).toBe(BLOCKS.length);

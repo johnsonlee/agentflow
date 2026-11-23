@@ -1,3 +1,5 @@
+import{composterLevel}from '../catalog/composter';
+import{placeAgentComposterAt}from '../ownership/composter-use';
 import{registerInventoryOwner,isInventoryBusy}from '../ownership/inventory-lease';
 import{woodSlabState}from '../catalog/wood-slabs';
 import{placeAgentWoodSlabAt}from '../ownership/wood-slab-placement';
@@ -187,6 +189,7 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       const t = target(cmd.dir);
       if(!writablePlacementCell(t.x,t.y,t.z))return {ok:false,message:"Can't place outside the world"};
       const stack=agent.slots[agent.selected];
+      if(stack&&composterLevel(stack.id)!==null)return{ok:placeAgentComposterAt(world,agent,t.x,t.y,t.z,env.playerFeet?.()),message:'Composter placement needs an owned empty station and loaded free space'};
       if(stack&&woodSlabState(stack.id))return{ok:placeAgentWoodSlabAt(world,agent,t.x,t.y,t.z,env.playerFeet?.()),message:"Slab placement needs a valid owned source and loaded free half"};
       if(inspectCaneItemOwner(stack).kind==='invalid')return{ok:false,message:'Invalid Sugar Cane item'};
       if(stack?.id===SUGAR_CANE_ITEM_ID)return{ok:plantSugarCane(world,agent,'survival',t.x,t.y,t.z,AGENT_SLOTS,AGENT_SLOTS),message:'Sugar Cane needs an empty spot on supported soil beside water'};

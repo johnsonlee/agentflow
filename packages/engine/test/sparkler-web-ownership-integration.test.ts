@@ -40,7 +40,7 @@ function game() {
   Object.assign(value, { inventory: new Inventory(), leashes: ownership(), balloons: ownership(), recoverySections: [], recoveryOriginal: null,
     stopped: false, dead: false, paused: false, screenOpen: () => false, hud: { message: vi.fn() }, sparklerView: { update: vi.fn() },
     leashContext: () => ({}), markLeashRecovery: vi.fn(), markBalloonRecovery: vi.fn(), keyboard: { reset: vi.fn() }, name: "Sparkler recovery", savePayload: vi.fn(() => '{"version":1}'),
-    world: { getBlock: () => 0 }, body: { position: { x: 0, y: 32, z: 0 }, yaw: 0, pitch: 0 }, mobs: { raycast: () => null },
+    world: { composters: {busy:false,loadIssues:[],isDisposed:false}, getBlock: () => 0 }, body: { position: { x: 0, y: 32, z: 0 }, yaw: 0, pitch: 0 }, mobs: { raycast: () => null },
     creativeCooldown: 0, placeCooldown: 0, attackCooldown: 0, mode: "survival", hunger: { food: 20 }, redstone: { interact: () => false },
     openInventory: vi.fn(), openNpcDialog: vi.fn(), releaseLeashes: vi.fn(() => true) });
   return value;

@@ -9,11 +9,11 @@ const s=(name:string,count=1):ItemStack=>({id:stackId(name),count});
 function grid(recipe:Recipe,mixed=false):Array<ItemStack|null>{const out:Array<ItemStack|null>=Array(9).fill(null);let p=0;if(recipe.pattern)recipe.pattern.forEach((row,y)=>[...row].forEach((key,x)=>{if(key!==' '){let name=recipe.key![key];if(mixed&&recipe.keyTags?.[key]==='planks'&&p++%2===0)name='birch_planks';out[y*3+x]=s(name,2);}}));else recipe.ingredients!.forEach((name,i)=>out[i]=s(name,2));return out;}
 function flat(){const w=new World(7,2);for(let x=-3;x<=3;x++)for(let z=-3;z<=3;z++){w.setBlock(x,79,z,blockId('stone'));for(let y=80;y<=83;y++)w.setBlock(x,y,z,AIR);}return w;}
 it('appends only Birch202; all old321 block definitions,594 items and two Overworld gen2 chunks remain exact',()=>{
- expect(blockId('birch_planks')).toBe(202);expect(BLOCKS).toHaveLength(baseline.blockCount+9);expect(sha(BLOCKS.slice(0,baseline.blockCount))).toBe(baseline.blocksSHA256);expect(ITEMS).toHaveLength(baseline.itemCount+10);expect(sha(ITEMS.slice(0,baseline.itemCount))).toBe(baseline.itemsSHA256);
+ expect(blockId('birch_planks')).toBe(202);expect(BLOCKS).toHaveLength(baseline.blockCount+24);expect(sha(BLOCKS.slice(0,baseline.blockCount))).toBe(baseline.blocksSHA256);expect(ITEMS).toHaveLength(baseline.itemCount+10);expect(sha(ITEMS.slice(0,baseline.itemCount))).toBe(baseline.itemsSHA256);
  for(const old of baseline.chunks){const c=new TerrainGenerator(12345,2).generate(old.x,old.z);expect(createHash('sha256').update(new Uint8Array(c.blocks.buffer)).digest('hex')).toBe(old.sha256);}
 });
 it('preserves all171 recipe positions and all non-Birch legacy results while correcting Birch output identity',()=>{
- expect(RECIPES).toHaveLength(baseline.recipes.length+31);
+ expect(RECIPES).toHaveLength(baseline.recipes.length+34);
  baseline.recipes.forEach((old:Recipe,index:number)=>{const now=RECIPES[index];if(old.id==='oak_planks_from_birch'){expect(now).toEqual({id:'birch_planks',ingredients:['birch_log'],result:['birch_planks',4]});expect(matchRecipe(grid(old),3)?.result).toEqual(s('birch_planks',4));}else{expect(now.id).toBe(old.id);expect(withLegacyBirchRecipes([now])[0]).toEqual(old);expect(matchRecipe(grid(old),3)?.result).toEqual(baseline.recipeOutputs[index].result);}});
 });
 it('Birch log converts in any grid cell to four Birch Planks and debits exactly one log',()=>{

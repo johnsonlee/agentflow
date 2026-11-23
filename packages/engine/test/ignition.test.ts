@@ -28,7 +28,7 @@ it("preserves every inherited definition/recipe/key while appending only the usa
   expect(JSON.parse(JSON.stringify(E.BLOCKS.slice(0, 308)))).toEqual(baseline.blocks);
   expect(JSON.parse(JSON.stringify(withLegacyBirchRecipes(E.RECIPES.slice(0, 167))))).toEqual(baseline.recipes);
   expect(E.allAtlasTextureNames().slice(0, 868)).toEqual(baseline.names);
-  expect([E.ITEMS.length, E.BLOCKS.length, E.RECIPES.length, E.allAtlasTextureNames().length]).toEqual([604,330,202,912]);
+  expect([E.ITEMS.length, E.BLOCKS.length, E.RECIPES.length, E.allAtlasTextureNames().length]).toEqual([604,345,205,918]);
   expect(E.allAtlasTextureNames().slice(868,870)).toEqual(["fire", "item_flint_and_steel"]);
   expect(E.blockDrops(E.blockId("fire"))).toEqual([]); expect(E.creativeBlocks().some(b => b.name === "fire")).toBe(false);
 });

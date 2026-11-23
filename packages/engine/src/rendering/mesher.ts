@@ -1,3 +1,4 @@
+import{composterParts}from '../catalog/composter';
 import {hayFaceAppearance} from "../catalog/hay-block";
 import { AIR, blockId, isOpaque, tryBlockById } from "../catalog/blocks";
 import { BREWING_STAND_PARTS, blockRenderBoxes } from "../catalog/block-geometry";
@@ -133,6 +134,7 @@ export function meshChunk(world: World, cx: number, cz: number, uv: UvLookup): C
           addCross(solid, x, y, z, uv(def.faces.side), def.shape === "torch" ? 0.0 : 0.15, def.emissive ? 0xff : lightAt(x, y, z));
           continue;
         }
+        if(def.shape==='composter'){for(const part of composterParts(id)!)addBox(solid,x,y,z,part.box,{top:part.top,side:part.side,bottom:part.bottom},uv,lightAt(x,y,z));continue;}
         if (def.shape === "brewing_stand") {
           for (const part of BREWING_STAND_PARTS) addBox(solid, x, y, z, part.box,
             {top:part.texture,side:part.texture,bottom:part.texture}, uv, lightAt(x, y, z));

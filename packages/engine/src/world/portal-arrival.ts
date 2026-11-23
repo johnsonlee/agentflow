@@ -22,7 +22,7 @@ export function preparePortalArrival(input:DimensionWorldState,dimension:Dimensi
   const detached=replaceDimensionWorld({} as SaveData,input);
   if(readDimensionArchive({version:1,active:dimension,inactive:{},links:[]},detached,createDimensionGeneratedBlockProbe()).kind!=='valid')return null;
   const state=structuredClone(input),world=new World(state.seed,state.generatorVersion??1,dimension);
-  world.importEdits(state.edits);
+  world.importEdits(state.edits,state.composters);
   if(world.gravelHarvests.restore(state.gravelHarvests).invalid||world.fires.restore(state.fire,state.edits).invalid||world.fluids.restore(state.fluids).invalid||world.portals.restore(state.portals,state.edits).invalid)return null;
   const finish=(landing:PortalLanding,created:boolean):PreparedPortalArrival|null=>{
    const p=landing.position,cells:WorldCellSnapshot[]=[];

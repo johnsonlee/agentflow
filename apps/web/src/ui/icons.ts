@@ -1,3 +1,4 @@
+import{composterParts}from '../../../../packages/engine/src/catalog/composter';
 import { WOOD_SLAB_STATES, woodSlabBounds, BREWING_STAND_PARTS, blockById, isItem, itemById, inspectSparklerState, isSparklerId, SPARKLER_COLORS, sparklerColor, type ItemStack } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
 
@@ -82,6 +83,16 @@ export function blockIcon(atlas: TextureAtlas, id: number, size = 64, stack?: It
       ctx.drawImage(plank, size * x, size * .08, size * .18, size * .84);
       ctx.fillStyle = "rgba(0,0,0,.22)";
       ctx.fillRect(size * (x + .14), size * .08, size * .04, size * .84);
+    }
+  } else if (def.shape === "composter") {
+    // Draw the actual hollow shared parts, back to front, rather than a solid cube.
+    const project=(x:number,y:number,z:number):[number,number]=>[size*.5+(x-z)*size*.4,size*.72+(x+z-1)*size*.2-y*size*.5];
+    for(const part of [...composterParts(id)!].sort((a,b)=>(a.box[0]+a.box[2])-(b.box[0]+b.box[2]))){
+      const[x0,y0,z0,x1,y1,z1]=part.box,dx=(x1-x0)/atlas.tileSize,dy=(y1-y0)/atlas.tileSize,dz=(z1-z0)/atlas.tileSize;
+      const top=project(x0,y1,z0),front=project(x0,y1,z1),right=project(x1,y1,z1);
+      face(ctx,tileCanvas(atlas,part.top),[dx*size*.4,dx*size*.2,-dz*size*.4,dz*size*.2,...top],0);
+      face(ctx,tileCanvas(atlas,part.side),[dx*size*.4,dx*size*.2,0,dy*size*.5,...front],.2);
+      face(ctx,tileCanvas(atlas,part.side),[dz*size*.4,-dz*size*.2,0,dy*size*.5,...right],.4);
     }
   } else if (WOOD_SLAB_STATES.some(state=>state.id===id)) {
     // The same half-height bounds as world meshing/collision, using unchanged plank pixels.

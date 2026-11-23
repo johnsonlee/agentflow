@@ -1,3 +1,4 @@
+import{COMPOSTER_STATES}from './composter';
 import {WOOD_SLAB_STATES,woodSlabBounds}from './wood-slabs';
 import {HAY_AXIS_STATES} from "./hay-block";
 import { METAL_STORAGE_BLOCKS } from "./metal-storage";
@@ -12,7 +13,7 @@ import { DYE_COLORS } from "./dyes";
 import { ELEMENTS } from "../crafting/chemistry-data";
 import { EXTENDED_BLOCK_ID_BASE, isBlockNamespace } from "../core/ids";
 
-export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "fence" | "brewing_stand" | "cane" | "none";
+export type RenderShape = "cube" | "cross" | "liquid" | "torch" | "box" | "fence" | "brewing_stand" | "composter" | "cane" | "none";
 
 export interface BlockFaces {
   top: string;
@@ -272,6 +273,8 @@ for (const { id, name, displayName, hardness, harvestTier } of METAL_STORAGE_BLO
 for(const state of HAY_AXIS_STATES) specs.push({id:state.id,name:state.name,displayName:'Hay Bale',faces:faces('hay_block_top','hay_block_side'),hardness:.75,tool:'hoe',creative:state.creative,...(!state.creative?{drop:'hay_block'}:{})});
 
 for(const state of WOOD_SLAB_STATES)specs.push({id:state.id,name:state.name,displayName:state.species==='oak'?'Oak Slab':'Birch Slab',faces:faces(state.species+'_planks'),shape:state.half==='double'?'cube':'box',...(state.half==='double'?{}:{box:woodSlabBounds(state.id),collisionBox:woodSlabBounds(state.id)}),transparent:state.half!=='double',creative:state.id===state.canonical,hardness:3,tool:'axe',...(state.id!==state.canonical?{drop:state.species+'_slab'}:{})});
+
+for(const state of COMPOSTER_STATES)specs.push({id:state.id,name:state.name,displayName:'Composter',faces:faces('composter_top','composter_side','composter_bottom'),shape:'composter',transparent:true,creative:state.creative,hardness:3,tool:'axe',...(state.creative?{}:{drop:'composter'})});
 
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");

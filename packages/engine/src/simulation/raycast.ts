@@ -66,7 +66,7 @@ export function raycast(
     const id = getBlock(x, y, z);
     if (isTarget(id)) {
       const shape=tryBlockById(id)?.shape;
-      if (shape !== "fence" && shape !== "brewing_stand" && !woodSlabState(id)) return { x, y, z, id, normal: { ...normal }, distance: t };
+      if (shape !== "fence" && shape !== "brewing_stand" && shape!=="composter" && !woodSlabState(id)) return { x, y, z, id, normal: { ...normal }, distance: t };
       let nearest: { distance: number; normal: Vec3 } | null = null;
       for (const box of blockSelectionBoxes(getBlock, x, y, z, id)) {
         const hit = geometrySlab(origin, { x: dx, y: dy, z: dz }, x, y, z, box);

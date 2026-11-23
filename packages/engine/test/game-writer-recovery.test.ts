@@ -5,7 +5,7 @@ const writer=Game as unknown as {activeWriter:Game|null};
 afterEach(()=>{writer.activeWriter=null;vi.unstubAllGlobals();vi.restoreAllMocks();});
 it.each(["root-allocation","root-attachment"])("a failed destination %s preserves the previous world's public save authority",failure=>{
  const setItem=vi.fn();vi.stubGlobal("localStorage",{getItem:()=>null,setItem});
- const original=Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }),payload='{"name":"Original world","inventory":{"slots":[{"id":191,"count":1}]}}';
+ const original=Object.assign(Object.create(Game.prototype), { markComposterStoreRecovery:vi.fn(), statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }),payload='{"name":"Original world","inventory":{"slots":[{"id":191,"count":1}]}}';
  const owners=()=>({busy:false,reconcileLoadedReferences:vi.fn(),validateCrossReferences:vi.fn()});
  Object.assign(original,{stopped:false,leashes:owners(),balloons:owners(),recoverySections:[],markPlayerStatusRecovery:vi.fn(),markLeashRecovery:vi.fn(),markBalloonRecovery:vi.fn(),leashContext:()=>({}),savePayload:()=>payload,hud:{message:vi.fn()}});
  writer.activeWriter=original;expect(original.save()).toBe(true);setItem.mockClear();

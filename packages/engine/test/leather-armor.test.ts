@@ -9,7 +9,7 @@ const durability=[55,80,75,65];
 const piece=(i:number,damage=0):ItemStack=>({id:stackId(`leather_${kinds[i]}`),count:1,...(damage?{damage}:{})});
 it('appends contiguous852..855 after actualCane/Paper with exact old324/596/174 prefixes and no Leather tools',()=>{
  expect(hash(BLOCKS.slice(0,324))).toBe(baseline.blocks);expect(hash(ITEMS.slice(0,596))).toBe(baseline.items);expect(hash(RECIPES.slice(0,174))).toBe(baseline.recipes);
- expect(ITEMS).toHaveLength(604);expect(RECIPES).toHaveLength(202);expect(ITEMS.slice(594,596).map(x=>[x.name,x.id])).toEqual([['sugar_cane',850],['paper',851]]);
+ expect(ITEMS).toHaveLength(604);expect(RECIPES).toHaveLength(205);expect(ITEMS.slice(594,596).map(x=>[x.name,x.id])).toEqual([['sugar_cane',850],['paper',851]]);
  expect(ITEMS.slice(596,600).map(x=>[x.id,x.name,x.displayName,x.maxStack])).toEqual([[852,'leather_helmet','Leather Cap',1],[853,'leather_chestplate','Leather Tunic',1],[854,'leather_leggings','Leather Pants',1],[855,'leather_boots','Leather Boots',1]]);
  expect(ITEMS.filter(x=>x.tool)).toHaveLength(25);expect(ITEMS.filter(x=>x.armor)).toHaveLength(16);expect(ITEMS.some(x=>(x.tool?.material as string)==='leather')).toBe(false);
 });

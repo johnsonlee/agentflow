@@ -1,3 +1,4 @@
+import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
 import {diagnoseRawBoneMealOwnership} from './bone-meal-ownership';
 import { readCaneGrowthState } from "./cane-growth-state";
@@ -130,7 +131,7 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
     if (invalid || !canonicalEqual(raw[name], cleaned)) { add(name, "Malformed archived state; refusing silent repair or dropped owners"); return false; }
     return true;
   };
-  for (const diagnose of [diagnoseRawWoodSlabOwnership, diagnoseRawBoneMealOwnership, diagnoseRawCaneOwnership, diagnoseRawBrewingItemOwnership, diagnoseRawWartOwnership, diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership]) {
+  for (const diagnose of [diagnoseRawComposterOwnership, diagnoseRawWoodSlabOwnership, diagnoseRawBoneMealOwnership, diagnoseRawCaneOwnership, diagnoseRawBrewingItemOwnership, diagnoseRawWartOwnership, diagnoseRawPortalOwnership, diagnoseRawIgnitionOwnership, diagnoseRawBucketOwnership, diagnoseRawBottleOwnership, diagnoseRawGlowOwnership, diagnoseRawSparklerOwnership]) {
     for (const issue of diagnose(raw)) add(issue.path, issue.reason);
   }
   for(const issue of diagnoseRawWartSupport(raw,dimension,(_dimension,_seed,_version,x,y,z)=>block(x,y,z)))add(issue.path,issue.reason);

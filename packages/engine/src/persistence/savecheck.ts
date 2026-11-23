@@ -1,3 +1,4 @@
+import{inspectComposterItemOwner}from '../ownership/composter-items';
 import{registerInventoryOwner}from '../ownership/inventory-lease';
 import{inspectWoodSlabItemOwner}from '../ownership/wood-slab-items';
 import {inspectBoneMealItemOwner} from '../ownership/bone-meal-items';
@@ -32,7 +33,7 @@ const num = (v: unknown, lo = -1e7, hi = 1e7): v is number => typeof v === "numb
 
 /** A valid stack, or null (for empty or invalid). */
 export function sanitizeStack(raw: unknown): ItemStack | null {
-  if (!isObj(raw) || inspectWoodSlabItemOwner(raw).kind==='invalid' || inspectBoneMealItemOwner(raw).kind==="invalid" || inspectRecyclingEquipment(raw).kind === "invalid" || inspectCaneItemOwner(raw).kind==="invalid" || inspectBottleOwner(raw).kind === "invalid" || inspectBucketOwner(raw).kind === "invalid") return null;
+  if (!isObj(raw) || inspectComposterItemOwner(raw).kind==='invalid' || inspectWoodSlabItemOwner(raw).kind==='invalid' || inspectBoneMealItemOwner(raw).kind==="invalid" || inspectRecyclingEquipment(raw).kind === "invalid" || inspectCaneItemOwner(raw).kind==="invalid" || inspectBottleOwner(raw).kind === "invalid" || inspectBucketOwner(raw).kind === "invalid") return null;
   const id = own(raw, "id");
   const count = own(raw, "count");
   if (!int(id, 0, 100000) || !isKnownId(id)) return null;

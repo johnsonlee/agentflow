@@ -19,7 +19,7 @@ function game() {
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: createPlayerStatus(), leashes: ownership(), balloons: ownership(),
     recoverySections: [], recoveryOriginal: null, stopped: false, dead: false, paused: false, mode: "survival", health: 20,
     screenOpen: () => false, hud: { message: vi.fn(), flashDamage: vi.fn() }, keyboard: { reset: vi.fn() },
-    world: { getBlock: () => 0 }, body: { position: { x: 0, y: 32, z: 0 }, yaw: 0, pitch: 0 }, mobs: { raycast: () => null, mobs: [] },
+    world: { composters: {busy:false,loadIssues:[],isDisposed:false}, getBlock: () => 0 }, body: { position: { x: 0, y: 32, z: 0 }, yaw: 0, pitch: 0 }, mobs: { raycast: () => null, mobs: [] },
     creativeCooldown: 0, placeCooldown: 0, attackCooldown: 0, eatTimer: 0, redstone: { interact: () => false }, leashContext: () => ({}),
     markLeashRecovery: vi.fn(), markBalloonRecovery: vi.fn(), name: "Poison recovery", savePayload: vi.fn(() => '{"version":1}') });
   return g;

@@ -18,7 +18,7 @@ export function prepareOverworldRespawn(input:DimensionWorldState):PreparedOverw
   const detached=replaceDimensionWorld({} as SaveData,input),probe=createDimensionGeneratedBlockProbe();
   if(readDimensionArchive({version:1,active:'overworld',inactive:{},links:[]},detached,probe).kind!=='valid')return null;
   const state=structuredClone(input),world=new World(state.seed,state.generatorVersion??1,'overworld');
-  world.importEdits(state.edits);
+  world.importEdits(state.edits,state.composters);
   if(world.gravelHarvests.restore(state.gravelHarvests).invalid||world.fires.restore(state.fire,state.edits).invalid||world.fluids.restore(state.fluids).invalid||world.portals.restore(state.portals,state.edits).invalid)return null;
   // Explicit bounded generation belongs to preparation, never to the later validity guard.
   for(const x of [-10,0])for(const z of [-10,0])world.getBlock(x,1,z);

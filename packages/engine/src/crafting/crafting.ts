@@ -17,7 +17,7 @@ export interface Recipe {
   pattern?: string[];
   key?: Record<string, string>;
   /** Available Oak/Birch subset of the declared native plank tag, matched per occupied cell. */
-  keyTags?: Readonly<Record<string, "planks">>;
+  keyTags?: Readonly<Record<string, "planks"|"wooden_slabs">>;
   /** Shapeless ingredients (block or item names). */
   ingredients?: string[];
   result: [block: string, count: number];
@@ -212,6 +212,7 @@ export const RECIPES: readonly Recipe[] = [
   ...BONE_MEAL_DYE_RECIPES,
   {id:"oak_wooden_slab",pattern:["###"],key:{"#":"oak_planks"},result:["oak_slab",6]},
   {id:"birch_wooden_slab",pattern:["###"],key:{"#":"birch_planks"},result:["birch_slab",6]},
+  {id:"composter",pattern:["# #","# #","###"],key:{"#":"oak_slab"},keyTags:{"#":"wooden_slabs"},result:["composter",1]},
 ];
 
 export type CraftingGrid = (ItemStack | null)[];
@@ -236,7 +237,7 @@ function shapedMatches(recipe: Recipe, cells: number[][]): boolean {
   const pattern = recipe.pattern!;
   if (pattern.length !== cells.length || pattern[0].length !== cells[0].length) return false;
   const accepts = (ch: string, id: number) => ch === " " ? id === 0
-    : recipe.keyTags?.[ch] === "planks" ? plankTagIds.has(id) : stackId(recipe.key![ch]) === id;
+    : recipe.keyTags?.[ch] === "planks" ? plankTagIds.has(id) : recipe.keyTags?.[ch] === "wooden_slabs" ? id===211||id===214 : stackId(recipe.key![ch]) === id;
   const direct = pattern.every((row, r) => [...row].every((ch, c) => accepts(ch, cells[r][c])));
   const mirrored = pattern.every((row, r) => [...row].every((ch, c) => accepts(ch, cells[r][row.length - 1 - c])));
   return direct || mirrored;

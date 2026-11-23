@@ -1,3 +1,4 @@
+import{composterLevel}from './composter';
 import{woodSlabState}from './wood-slabs';
 import { METAL_NUGGETS } from "./metal-nuggets";
 /**
@@ -376,6 +377,7 @@ export function baseStackId(id: number): number {
 
 /** Block id an item places, or null (blocks place themselves). */
 export function placedBlockOf(id: number): number | null {
+  const compost=composterLevel(id);if(compost!==null&&compost!==0)return null;
   const slab=woodSlabState(id);if(slab&&slab.id!==slab.canonical)return null;
   if (id === blockId("fire") || id === blockId("lava") || id === 192 || id === 193 || id >= 197 && id <= 200) return null;
   if (isKnownBlockId(id)) return id;
