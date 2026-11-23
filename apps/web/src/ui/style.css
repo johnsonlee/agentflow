@@ -572,3 +572,13 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .npc-save { position: sticky; bottom: 0; background: #c6c6c6; padding: 6px 0; }
 .npc-save .mc-button { width: 100%; }
 @media (max-width: 500px) { .npc-action-controls .mc-button { flex: 1 1 100%; } }
+
+/* Import remains a single scrollable document for touch, keyboard and short landscape viewports. */
+.world-import-screen .panel { touch-action: pan-y; }
+.world-import-screen .panel > * { flex-shrink: 0; min-width: 0; max-width: 100%; }
+.world-import-screen .mc-button { min-height: 44px; }
+.world-import-screen .world-import-preview, .world-import-screen .save-status { overflow-wrap: anywhere; }
+.world-import-preview p { margin: 6px 0; }
+.world-import-screen button:disabled { opacity: .6; }
+
+.world-import-screen .hint, .world-import-screen .save-status, .world-import-preview { font-size: 16px; }

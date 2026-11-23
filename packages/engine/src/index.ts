@@ -177,3 +177,5 @@ export * from "./simulation/composter-store";
 export * from "./ownership/agent-farming";
 
 export * from "./education/npc-actions";
+
+export * from "./persistence/world-save-import";

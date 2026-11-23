@@ -3,6 +3,8 @@ import { buildAtlas, MAX_PACK_BYTES, parseLocalTexturePack, type ParsedLocalText
 import { readLocalTexturePack, writeLocalTexturePack } from "../persistence/resourcePackStore";
 import { blockIcon } from "../ui/icons";
 import { Game, SAVE_KEY } from "./game";
+import { createWorldImportScreen, downloadWorldBackup } from "../ui/worldSaveImport";
+import { WORLD_IMPORT_BACKUP_KEY } from "../persistence/worldSaveImport";
 import "../ui/style.css";
 
 const app = document.getElementById("app")!;
@@ -26,6 +28,9 @@ const touch = params.has("touch")
 document.body.classList.toggle("touch", touch);
 
 let game: Game | null = null;
+let importNotice = "";
+let disposeImport: (() => void) | null = null;
+function leaveImport(): void { disposeImport?.(); disposeImport = null; }
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
   const e = document.createElement(tag);
@@ -58,6 +63,7 @@ function screen(className: string, ...children: HTMLElement[]): HTMLElement {
 }
 
 function showTitle(): void {
+  leaveImport();
   resourceGeneration++;
   app.replaceChildren();
   const title = el("div", "title-screen");
@@ -74,9 +80,14 @@ function showTitle(): void {
   const save = loadSave();
   if (save) menu.appendChild(button(`Continue “${save.name}”`, () => startGame({ save }), "mc-button primary"));
   menu.appendChild(button("Create New World", showCreate, save ? "mc-button" : "mc-button primary"));
+  menu.appendChild(button("Import world / backup", showWorldImport));
+  let previous: string | null = null;
+  try { previous = localStorage.getItem(WORLD_IMPORT_BACKUP_KEY); } catch { /* The world menu remains usable if backup storage is unavailable. */ }
+  if (previous !== null) { const raw = previous; menu.appendChild(button("Download previous world backup", () => { try { downloadWorldBackup(raw); } catch { importNotice = "The backup download could not start. Your saved world is unchanged."; showTitle(); } })); }
   menu.appendChild(button("Resource Packs", () => showResourcePacks()));
   menu.appendChild(button("How to Play", showHelp));
   title.append(logo, heading, tagline, menu);
+  if (importNotice) { const status = el("p", "save-status", importNotice); status.setAttribute("role", "status"); title.append(status); }
   if (packNotice) { const status = el("p", "pack-status", packNotice); status.setAttribute("role", "alert"); title.append(status); }
   title.append(el("p", "footer", localPack
     ? "Not affiliated with Mojang or Microsoft. Local texture packs stay on this device."
@@ -84,8 +95,23 @@ function showTitle(): void {
   app.appendChild(title);
 }
 
+function showWorldImport(): void {
+  if (game || resourceBusy) return;
+  leaveImport();
+  const generation = ++resourceGeneration;
+  const screen = createWorldImportScreen({
+    storage: { getItem: key => localStorage.getItem(key), setItem: (key, value) => localStorage.setItem(key, value) }, saveKey: SAVE_KEY,
+    stillCurrent: () => game === null && !resourceBusy && resourceGeneration === generation,
+    onBack: showTitle,
+    onImported: () => { importNotice = "World imported. Choose Continue to open it."; showTitle(); },
+  });
+  disposeImport = screen.dispose;
+  app.replaceChildren(screen.element);
+}
+
 /** Local texture changes are staged and committed only while no Game is active. */
 function showResourcePacks(message = ""): void {
+  leaveImport();
   if (game || resourceBusy) return;
   const generation = ++resourceGeneration;
   let candidate: LocalPack | null = null;
@@ -161,6 +187,7 @@ function showResourcePacks(message = ""): void {
 }
 
 function showCreate(): void {
+  leaveImport();
   const name = el("input", "mc-input");
   name.value = "My World";
   name.setAttribute("aria-label", "World name");
@@ -194,6 +221,7 @@ function showCreate(): void {
 }
 
 function showHelp(): void {
+  leaveImport();
   const list = el("div", "help");
   list.innerHTML = `
     <h3>Computer</h3>
@@ -217,6 +245,8 @@ function showHelp(): void {
 
 function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?: GameMode; spawnAnimals?: boolean }): void {
   if (resourceBusy) return;
+  leaveImport();
+  importNotice = "";
   resourceGeneration++;
   app.replaceChildren();
   const loading = screen("loading-screen", el("h2", "", "Generating world…"));
