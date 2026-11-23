@@ -174,3 +174,4 @@ export * from "./persistence/composter-ownership";
 export * from "./ownership/composter-items";
 export * from "./ownership/composter-use";
 export * from "./simulation/composter-store";
+export * from "./ownership/agent-farming";

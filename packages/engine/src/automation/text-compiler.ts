@@ -91,7 +91,7 @@ class TextParser {
     if (method.value === "move") {
       const dir = this.direction(); this.take(","); const count = this.integer(0, 100); this.take(")");
       for (let i = 0; i < count; i++) commands.push({ op: "move", dir });
-    } else if (method.value === "place" || method.value === "destroy") {
+    } else if (method.value === "place" || method.value === "destroy" || method.value === "till") {
       const dir = this.direction(); this.take(")"); commands.push({ op: method.value, dir });
     } else if (method.value === "turn") {
       let side: "left" | "right";

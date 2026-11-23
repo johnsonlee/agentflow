@@ -1,3 +1,4 @@
+import { plantOwnedWheat } from "@craft/engine";
 import { BONE_MEAL_ITEM_ID, useOwnedBoneMeal, diagnoseRawBoneMealOwnership, type BoneMealOwnershipIssue } from "@craft/engine";
 import { woodSlabState, useOwnedWoodSlab, diagnoseRawWoodSlabOwnership, isInventoryBusy, type WoodSlabOwnershipIssue } from "@craft/engine";
 import { COMPOSTER_ID, composterLevel, readComposterOwners, diagnoseRawComposterOwnership, useOwnedComposter, placeComposterAt, type ComposterIssue } from "@craft/engine";
@@ -1256,6 +1257,17 @@ export class Game {
     if(portal)this.events.onPortalTravel?.(this,portal);
   }
 
+  private ownedFarmingContext() {
+    const world=this.world,mode=this.mode,agent=this.agent,feet=this.body.position;
+    const axes=["x","y","z"] as const;
+    const pose=axes.map(axis=>Object.getOwnPropertyDescriptor(feet,axis));
+    const readable=pose.every(field=>!!field && "value" in field && Number.isFinite(field.value));
+    return {world,mode,valid:()=>readable && this.world===world && this.mode===mode && this.agent===agent &&
+      this.body.position===feet && axes.every((axis,index)=>{const field=Object.getOwnPropertyDescriptor(feet,axis);return !!field && "value" in field && field.value===pose[index]!.value;}) &&
+      !world.composters.isDisposed && !this.prepared && !this.portalTransfer && !Game.handoffBusy &&
+      !this.dead && !this.stopped && !this.paused && !this.actionsNeedRecovery && !this.screenOpen()};
+  }
+
   private ownedPlacementContext() {
     const world=this.world,mode=this.mode,feet=this.body.position,agent=this.agent;
     const pose={x:agent.x,y:agent.y,z:agent.z};
@@ -1263,6 +1275,7 @@ export class Game {
     return {world,mode,feet,additionalActors,actors:[{feet},...additionalActors],valid:()=>
       this.world===world && this.mode===mode && this.body.position===feet && this.agent===agent &&
       agent.x===pose.x && agent.y===pose.y && agent.z===pose.z && !world.composters.isDisposed &&
+      !this.prepared && !this.portalTransfer && !Game.handoffBusy &&
       !this.dead && !this.stopped && !this.paused && !this.actionsNeedRecovery && !this.screenOpen()};
   }
 
@@ -1603,6 +1616,12 @@ export class Game {
       return;
     }
 
+
+    if (place && t && this.placeCooldown===0 && held?.id===stackId("wheat_seeds")) {
+      const context=this.ownedFarmingContext(),replace=blockById(t.id).replaceable===true;
+      if(plantOwnedWheat(context.world,this.inventory,context.mode,replace?t.x:t.x+t.normal.x,replace?t.y:t.y+t.normal.y,replace?t.z:t.z+t.normal.z,context.valid)) this.placeCooldown=.15;
+      return;
+    }
 
     if (place && t && this.placeCooldown === 0 && held && woodSlabState(held.id)) {
       const context=this.ownedPlacementContext();
@@ -2070,7 +2089,10 @@ export class Game {
     }
     let result: ReturnType<typeof runAgentCommand>;
     try {
+      const farming = cmd.op==="till" || cmd.op==="place";
+      const lifecycleValid = farming ? this.ownedFarmingContext().valid : undefined;
       result = runAgentCommand(this.world, this.agent, cmd as AgentCommand, {
+      lifecycleValid,
       attack: (x, y, z) => {
         const mob = this.mobs.mobs.find((m) => Math.floor(m.position.x) === x && Math.floor(m.position.z) === z && Math.abs(m.position.y - y) < 1.5);
         if (!mob) return false;
@@ -2092,7 +2114,8 @@ export class Game {
       });
       // Defence in depth: anything but a result object stops the program.
       if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
-      this.agentView.moveTo(this.agent);
+      // Farming changes terrain and cargo, not the Agent pose; do not reread a refused malformed actor in the view.
+      if(!farming) this.agentView.moveTo(this.agent);
       // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
       if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
     } catch (e) {

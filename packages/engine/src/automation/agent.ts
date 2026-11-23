@@ -1,6 +1,8 @@
+import{ownedCargoFingerprint}from '../ownership/owned-placement-cargo';
+import{plantOwnedWheat,tillOwnedAgentSoil}from '../ownership/agent-farming';
 import{composterLevel}from '../catalog/composter';
 import{placeAgentComposterAt}from '../ownership/composter-use';
-import{registerInventoryOwner,isInventoryBusy}from '../ownership/inventory-lease';
+import{registerInventoryOwner,isInventoryBusy,reserveInventoryMutation}from '../ownership/inventory-lease';
 import{woodSlabState}from '../catalog/wood-slabs';
 import{placeAgentWoodSlabAt}from '../ownership/wood-slab-placement';
 import {writablePlacementCell,placementCellsWithinWorld}from"../world/placement-bounds";
@@ -25,7 +27,7 @@ import { blockDrops, netherWartAge } from "../simulation/farming";
 import { AIR, tryBlockById, blockById, blockId, isSolid } from "../catalog/blocks";
 import { FACING_DIRS } from "../education/chalkboard";
 import type { ItemStack } from "../ownership/inventory";
-import { isKnownId, placedBlockOf } from "../catalog/items";
+import { isKnownId, placedBlockOf, stackId } from "../catalog/items";
 import { doorPartner, orientedPlacement } from "../simulation/redstone";
 import { WORLD_HEIGHT } from "../world/chunk";
 import { WORLD_BORDER, type Vec3 } from "../core/math";
@@ -41,6 +43,7 @@ export type AgentCommand =
   | { op: "move"; dir: AgentDirection }
   | { op: "turn"; side: "left" | "right" }
   | { op: "place"; dir: AgentDirection }
+  | { op: "till"; dir: AgentDirection }
   | { op: "destroy"; dir: AgentDirection }
   | { op: "detect"; dir: AgentDirection }
   | { op: "inspect"; dir: AgentDirection }
@@ -69,6 +72,8 @@ export interface AgentResult {
 
 /** Hooks into the game for commands that touch mobs or the player. */
 export interface AgentEnv {
+  /** Active Game owner guard, excluding the operation's own inventory lease. */
+  lifecycleValid?():boolean;
   /** Acquires scoped external ownership before planning a block destruction; busy must refuse. */
   beginDestroyOwnership?(x: number, y: number, z: number): ReleaseAttempt;
   /** Optional live player feet for new fence placement/connection overlap checks. */
@@ -163,6 +168,10 @@ function addToAgent(agent: AgentState, stack: ItemStack): number {
   return insertStackIntoSlots(agent.slots, stack);
 }
 
+/** Dry original-owner validation before reading action coordinates or selection.
+ * Release immediately: this does not change any legacy placement transaction. */
+function readableAgentActionOwner(agent:AgentState):boolean{const proof=reserveInventoryMutation(agent);if(!proof)return false;try{ownedCargoFingerprint(agent,proof.slots);return true;}catch{return false;}finally{proof.cancel();}}
+
 /** Executes one Agent command against the world. */
 export function runAgentCommand(world: World, agent: AgentState, cmd: AgentCommand, env: AgentEnv = {}): AgentResult {
   if(isInventoryBusy(agent))return{ok:false,message:"Agent inventory is reserved"};
@@ -185,10 +194,22 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
     case "turn":
       agent.facing = (agent.facing + (cmd.side === "left" ? 3 : 1)) % 4;
       return { ok: true };
+    case "till": {
+      if(!AGENT_DIRECTIONS.includes(cmd.dir))return{ok:false,message:"Unknown till direction"};
+      if(!readableAgentActionOwner(agent))return{ok:false,message:"Invalid Agent farming owner"};
+      const t=target(cmd.dir);return{ok:tillOwnedAgentSoil(world,agent,t.x,t.y,t.z,env.lifecycleValid),message:"Tilling needs loaded Grass or Dirt with clear Air above and permission"};
+    }
     case "place": {
+      // Dry descriptor/clone proof before any pose, selection or slot read. It does not
+      // normalize cargo or change legacy placement transactions. New Seeds then acquire
+      // their original constructor-branded lease in plantOwnedWheat.
+      if(!AGENT_DIRECTIONS.includes(cmd.dir))return{ok:false,message:"Unknown placement direction"};
+      if(!readableAgentActionOwner(agent))return{ok:false,message:"Invalid Agent placement owner"};
       const t = target(cmd.dir);
       if(!writablePlacementCell(t.x,t.y,t.z))return {ok:false,message:"Can't place outside the world"};
       const stack=agent.slots[agent.selected];
+      const selectedId=stack&&Object.getOwnPropertyDescriptor(stack,'id');if(stack&&(!selectedId||!('value'in selectedId)))return{ok:false,message:'Unreadable placement item'};
+      if(stack&&Object.getOwnPropertyDescriptor(stack,'id')?.value===stackId('wheat_seeds'))return{ok:plantOwnedWheat(world,agent,'survival',t.x,t.y,t.z,env.lifecycleValid),message:'Seeds need a loaded empty cell above Farmland'};
       if(stack&&composterLevel(stack.id)!==null)return{ok:placeAgentComposterAt(world,agent,t.x,t.y,t.z,env.playerFeet?.()),message:'Composter placement needs an owned empty station and loaded free space'};
       if(stack&&woodSlabState(stack.id))return{ok:placeAgentWoodSlabAt(world,agent,t.x,t.y,t.z,env.playerFeet?.()),message:"Slab placement needs a valid owned source and loaded free half"};
       if(inspectCaneItemOwner(stack).kind==='invalid')return{ok:false,message:'Invalid Sugar Cane item'};

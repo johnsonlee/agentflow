@@ -1,3 +1,4 @@
+import{plantOwnedWheat}from '../ownership/agent-farming';
 import{composterLevel}from '../catalog/composter';
 import{placeComposterAt}from '../ownership/composter-use';
 import{woodSlabState}from '../catalog/wood-slabs';
@@ -17,7 +18,7 @@ import type { DropSink } from "../ownership/world-drops";
 import { AIR, tryBlockById, blockById, blockId, isOpaque, type BlockDef } from "../catalog/blocks";
 import { WORLD_HEIGHT } from "./chunk";
 import { Inventory, type ItemStack } from "../ownership/inventory";
-import { placedBlockOf, toolOf, type ToolSpec } from "../catalog/items";
+import { placedBlockOf, stackId, toolOf, type ToolSpec } from "../catalog/items";
 import { blockDrops, farmlandId, farmlandMoisture, wheatAge, netherWartAge } from "../simulation/farming";
 import { meltAround } from "../crafting/labeffects";
 import { doorPartner, orientedPlacement } from "../simulation/redstone";
@@ -200,6 +201,8 @@ export function placeBlock(
   if(world.blockSourceLeaseBusy)return false;
   if (!writablePlacementCell(x,y,z)) return false;
   const stack = inventory.selectedStack();
+  const selectedId=stack&&Object.getOwnPropertyDescriptor(stack,'id');if(stack&&(!selectedId||!('value'in selectedId)))return false;
+  if(stack&&Object.getOwnPropertyDescriptor(stack,'id')?.value===stackId('wheat_seeds'))return plantOwnedWheat(world,inventory,mode,x,y,z);
   if(stack&&composterLevel(stack.id)!==null)return placeComposterAt(world,inventory,mode,x,y,z,playerFeet);
   if(stack&&woodSlabState(stack.id))return placeWoodSlabAt(world,inventory,mode,x,y,z,playerFeet);
   if(inspectCaneItemOwner(stack).kind==="invalid")return false;

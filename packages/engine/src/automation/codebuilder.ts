@@ -154,6 +154,7 @@ const own = (o: Record<string, unknown>, key: string): unknown => (Object.protot
 const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
   ["move", (c) => isDir(own(c, "dir"))],
   ["place", (c) => isDir(own(c, "dir"))],
+  ["till", (c) => isDir(own(c, "dir"))],
   ["destroy", (c) => isDir(own(c, "dir"))],
   ["detect", (c) => isDir(own(c, "dir"))],
   ["inspect", (c) => isDir(own(c, "dir"))],

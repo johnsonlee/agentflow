@@ -16,6 +16,7 @@ const PALETTE: Array<{ id: string; label: string; kind: "command" | "loop" | "lo
   { id: "move", label: "move", kind: "command", make: () => ({ type: "command", cmd: { op: "move", dir: "forward" } }) },
   { id: "turn", label: "turn", kind: "command", make: () => ({ type: "command", cmd: { op: "turn", side: "left" } }) },
   { id: "place", label: "place", kind: "command", make: () => ({ type: "command", cmd: { op: "place", dir: "forward" } }) },
+  { id: "till", label: "till soil", kind: "command", make: () => ({ type: "command", cmd: { op: "till", dir: "forward" } }) },
   { id: "destroy", label: "destroy", kind: "command", make: () => ({ type: "command", cmd: { op: "destroy", dir: "forward" } }) },
   { id: "attack", label: "attack", kind: "command", make: () => ({ type: "command", cmd: { op: "attack", dir: "forward" } }) },
   { id: "select", label: "select slot", kind: "command", make: () => ({ type: "command", cmd: { op: "select", slot: 0 } }) },
@@ -308,7 +309,7 @@ export class CodeBuilderScreen {
     policy.id = `${this.importId}-policy`;
     const persistence = el("p", "cb-import-note", this.sourcePersistenceNote());
     const details = el("details", "cb-import-help"); details.append(el("summary", "", "Supported subset and limits"));
-    details.append(el("p", "", "Commands: move, turn, place, destroy, and slot selection. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
+    details.append(el("p", "", "Commands: move, turn, place, till, destroy, and slot selection. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
     const example = this.importLanguage === "javascript" ? 'agent.setSlot(1);\nfor (let step = 0; step < 2; step++) {\n    agent.move(FORWARD, 1);\n}\nif (agent.blockIs("stone", UP)) {\n    agent.turn(RIGHT_TURN);\n}' : 'agent.set_slot(1)\nfor step in range(2):\n    agent.move(FORWARD, 1)\nif agent.block_is("stone", UP):\n    agent.turn(TurnDirection.RIGHT)';
     details.append(el("pre", "", example), el("p", "", "Exact block names are an application extension. detect uses this game's any-solid-block rule, which differs from native MakeCode. Limits: 16 KiB of UTF-8 source, 4,096 tokens, 2,000 blocks, four nesting levels and 100 repeats. Oversized text is rejected in full, never cut off. Strings have no escapes; loop counters cannot shadow constants or keywords."));
     source.setAttribute("aria-describedby", `${policy.id} ${issue.id}`); source.setAttribute("aria-invalid", draft.issue?.focus === "source" ? "true" : "false");
@@ -412,7 +413,7 @@ export class CodeBuilderScreen {
 
   private commandFields(cmd: AgentCommand): HTMLElement[] {
     const names: Record<AgentCommand["op"], string> = {
-      move: "Agent move", turn: "Agent turn", place: "Agent place", destroy: "Agent destroy", attack: "Agent attack", select: "Agent select slot",
+      move: "Agent move", turn: "Agent turn", place: "Agent place", till: "Agent till", destroy: "Agent destroy", attack: "Agent attack", select: "Agent select slot",
       drop: "Agent drop slot", detect: "Agent detect", inspect: "Agent inspect", collect: "Agent collect",
     };
     const out: HTMLElement[] = [el("span", "", names[cmd.op])];

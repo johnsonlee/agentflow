@@ -1,0 +1,63 @@
+// Actual Game ray/effect/owner regressions. DOM/renderer/input are fixtures; World, Inventory and save receipts are real.
+import { afterEach,beforeEach,expect,it,vi } from "vitest";
+const h=vi.hoisted(()=>({disposed:[] as string[],failMessage:false,failRender:false,throwRendererDispose:false,throwKeyboardDispose:false,ready:true,readyCameraX:null as number|null,onKeyboardDispose:null as (()=>void)|null,rootRemoved:0,frames:0,shown:[] as unknown[]}));
+vi.mock("../src/rendering/renderer",async()=>{const {Scene}=await import("three");return {WorldRenderer:class{scene=new Scene();camera={position:{x:0,y:0,z:0,set(x:number,y:number,z:number){this.x=x;this.y=y;this.z=z;}},rotation:{set(){}}};resize(){}isAreaReady(){return h.ready&&(h.readyCameraX===null||this.camera.position.x===h.readyCameraX);}updateChunks(){}render(){if(h.failRender)throw Error("target render failed");}dispose(){h.disposed.push("renderer");if(h.throwRendererDispose)throw Error("renderer dispose");}}};});
+vi.mock("@craft/input",()=>({KeyboardMouseInput:class{enabled=true;reset(){}dispose(){h.disposed.push("keyboard");h.onKeyboardDispose?.();if(h.throwKeyboardDispose)throw Error("keyboard dispose");}requestPointerLock(){}},TouchControls:class{enabled=true;setVisible(){}dispose(){h.disposed.push("touch");}},mergeFrames:()=>({})}));
+vi.mock("../src/ui/hud",()=>({ChatInput:class{open=false;hide(){this.open=false;}},Hud:class{flashDamage(){}dispose(){h.disposed.push("hud");}message(){if(h.failMessage)throw Error("late HUD failure");}},InventoryScreen:class{open=false;show(...args:unknown[]){this.open=true;h.shown=args;}refresh(){}hide(){this.open=false;}restorePending(){return false;}pendingItems(){return [];}freezeForDeath(){}}}));
+vi.mock("../src/ui/screens",()=>({Portfolio:class{dropped=0;photos=[];},ChatInput:class{open=false;hide(){this.open=false;}},PortfolioScreen:class{hide(){}},NpcDialog:class{hide(){}},ChalkboardDialog:class{hide(){}},BookScreen:class{open=false;show(){this.open=true;}hide(){this.open=false;}}}));
+vi.mock("../src/ui/codeBuilder",()=>({CodeBuilderScreen:class{hide(){}}}));
+vi.mock("../src/ui/chalkboards",()=>({ChalkboardViews:class{dispose(){h.disposed.push("chalk");}}}));
+vi.mock("../src/rendering/agentView",()=>({AgentView:class{moveTo(){}snap(){}dispose(){h.disposed.push("agent");}}}));
+vi.mock("../src/rendering/worldDropsView",()=>({WorldDropsView:class{dispose(){h.disposed.push("drops");}}}));
+vi.mock("../src/rendering/snowballProjectilesView",()=>({SnowballProjectilesView:class{impact(){}dispose(){h.disposed.push("snowballs");}}}));
+vi.mock("../src/rendering/leash-view",()=>({LeashView:class{dispose(){h.disposed.push("leash");}}}));
+vi.mock("../src/rendering/balloonView",()=>({BalloonView:class{dispose(){h.disposed.push("balloon");}}}));
+vi.mock("../src/rendering/glow-stick-view",()=>({GlowStickView:class{dispose(){h.disposed.push("glow");}}}));
+vi.mock("../src/rendering/sparkler-view",()=>({SparklerView:class{dispose(){h.disposed.push("sparkler");}}}));
+import { Game } from "../src/application/game";
+import type { TextureAtlas } from "@craft/textures";
+class Element extends EventTarget{getContext(){return {fillStyle:"",fillRect(){}};}className="";hidden=false;style={};parent:Element|null=null;children:Element[]=[];appendChild(e:Element){this.children.push(e);e.parent=this;return e;}remove(){h.rootRemoved++;if(this.parent)this.parent.children=this.parent.children.filter(e=>e!==this);this.parent=null;}}
+import { Inventory } from "../../../packages/engine/src/ownership/inventory";
+import { parseSave,type SaveData } from "../../../packages/engine/src/persistence/save";
+import { stackId } from "../../../packages/engine/src/catalog/items";
+import { blockId } from "../../../packages/engine/src/catalog/blocks";
+import { SAVE_KEY } from "../src/application/game";
+const writer=Game as unknown as {activeWriter:Game|null};
+const blobs:Blob[]=[];let stored:string|null=null;
+beforeEach(()=>{
+ Object.assign(h,{disposed:[],failMessage:false,failRender:false,throwRendererDispose:false,throwKeyboardDispose:false,ready:true,readyCameraX:null,onKeyboardDispose:null,rootRemoved:0,frames:0});
+ blobs.length=0;stored=null;vi.useFakeTimers();
+ vi.stubGlobal("document",Object.assign(new EventTarget(),{createElement:()=>Object.assign(new Element(),{click(){},download:"",href:""}),pointerLockElement:null}));
+ vi.stubGlobal("window",Object.assign(new EventTarget(),{innerWidth:800,innerHeight:600}));
+ vi.stubGlobal("localStorage",{getItem:(key:string)=>key===SAVE_KEY?stored:null,setItem:(key:string,value:string)=>{if(key===SAVE_KEY)stored=value;}});
+ vi.stubGlobal("URL",{createObjectURL:(blob:Blob)=>{blobs.push(blob);return "blob:test";},revokeObjectURL:vi.fn()});
+ vi.stubGlobal("requestAnimationFrame",vi.fn(()=>++h.frames));vi.stubGlobal("cancelAnimationFrame",vi.fn());writer.activeWriter=null;
+});
+afterEach(()=>{vi.runOnlyPendingTimers();vi.useRealTimers();writer.activeWriter=null;vi.unstubAllGlobals();vi.restoreAllMocks();});
+function construct(save:SaveData){return new Game(new Element() as unknown as HTMLElement,{} as TextureAtlas,{name:save.name,seed:save.seed,mode:save.mode,touch:false,save},{onPause:vi.fn(),onDeath:vi.fn()});}
+import {serializeSave} from '@craft/engine';
+type EffectGame=Pick<Game,keyof Game>&{interact(breaking:boolean,place:boolean,using:boolean,pick:boolean,dt:number):void;stepAgent(dt:number):void;};
+
+
+import {reserveInventoryMutation} from '../../../packages/engine/src/ownership/inventory-lease';
+function seed(count=2,mode:'survival'|'creative'='survival'):SaveData{
+ const bag=new Inventory();bag.slots[0]={id:211,count};bag.slots[1]={id:214,count:3};
+ const save:SaveData={version:1,name:'Slab actual Game fixture',seed:7,generatorVersion:3,mode,timeOfDay:.25,player:{position:{x:.5,y:80,z:3.5},yaw:0,pitch:Math.atan2(-1.62,3),flying:false},inventory:bag.toJSON(),playerState:{health:20},edits:[],mobs:{nextId:1,records:[]},gamerules:{doMobSpawning:false,doDaylightCycle:false}};
+ for(let x=-3;x<=4;x++)for(let z=-1;z<=5;z++){save.edits.push([x,79,z,blockId('stone')]);for(let y=80;y<=84;y++)save.edits.push([x,y,z,0]);}
+ return save;
+}
+const unique=(s:SaveData)=>{s.edits=[...new Map(s.edits.map(e=>[e.slice(0,3).join(','),e])).values()];return s;};
+function active(raw=seed(),original?:string){stored=original??serializeSave(raw);const g=construct(parseSave(stored))as unknown as EffectGame;g.world.getChunk(0,0);g.start();return g;}
+const use=(g:EffectGame)=>g.interact(false,true,false,false,.26),retire=(g:EffectGame)=>(g as unknown as{retireWithoutSave():void}).retireWithoutSave();
+function aim(g:EffectGame,x:number,y:number,z:number){const dx=x-g.body.position.x,dy=y-g.body.position.y-1.62,dz=z-g.body.position.z;g.body.yaw=Math.atan2(-dx,-dz);g.body.pitch=Math.atan2(dy,Math.hypot(dx,dz));}
+
+import{createAgent,farmlandId,wheatId,type CodeProgram,type AgentCommand,type AgentDirection}from'@craft/engine';
+function farmRaw(count=1,agentSeed=false):SaveData{const raw=seed();const inv=new Inventory();inv.slots[0]={id:agentSeed?blockId('stone'):stackId('wheat_seeds'),count:agentSeed?1:count};inv.slots[1]={id:blockId('stone'),count:1};raw.inventory=inv.toJSON();raw.agent=createAgent(agentSeed?0:3,80,agentSeed?0:4);raw.agent.slots[0]={id:blockId('stone'),count:1};raw.agent.slots[26]={id:stackId('wheat_seeds'),count};raw.agent.selected=26;raw.edits.push([0,79,0,farmlandId(0)]);return unique(raw);}
+const cmd=(op:'move'|'place'|'till',dir:AgentDirection):CodeProgram['blocks'][number]=>({type:'command',cmd:{op,dir}as AgentCommand});
+function run(g:EffectGame,commands:CodeProgram['blocks']){expect(g.runProgram({name:'Actual finite farming commands',trigger:{type:'run'},blocks:commands})).toBe(true);}
+for(const count of[1,3])it(`actual Player Seed${count} publishes capturednullable source beforeobserverselection/save andcold`,()=>{const g=active(farmRaw(count));const source=g.inventory.slots[0];let calls=0;const off=g.world.onBlockChanged((x,y,z,id)=>{if(x!==0||y!==80||z!==0||id!==wheatId(0))return;calls++;expect(g.inventory.slots[0]).toEqual(count===1?null:{id:stackId('wheat_seeds'),count:count-1});g.inventory.slots[3]=g.inventory.slots[0];g.inventory.slots[0]=null;g.inventory.selected=1;expect(g.save()).toBe(true);});try{use(g);expect(calls).toBe(1);expect(g.inventory.slots[1]).toEqual({id:blockId('stone'),count:1});expect(source!.count).toBe(count);const cold=parseSave(stored!);retire(g);const next=active(cold);try{expect(next.world.getLoadedBlock(0,80,0)).toBe(wheatId(0));expect(next.inventory.toJSON()).toEqual(cold.inventory);expect(next.loadErrors).toEqual([]);}finally{retire(next);}}finally{off();retire(g);}});
+for(const count of[1,3])it(`actual Agent27 Seed${count} retainsStone throughfirstobserverreentry, quota refusal/retry andcold`,()=>{const g=active(farmRaw(count,true));const source=g.agent.slots[26],disk=stored;let calls=0;const off=g.world.onBlockChanged((x,y,z,id)=>{if(x!==0||y!==80||z!==0||id!==wheatId(0))return;calls++;expect(g.agent.slots[26]).toEqual(count===1?null:{id:stackId('wheat_seeds'),count:count-1});g.agent.slots[1]=g.agent.slots[26];g.agent.slots[26]=null;g.agent.selected=0;});try{run(g,[cmd('move','up'),cmd('place','down'),cmd('move','down')]);g.stepAgent(1);expect(g.agent.y).toBe(81);g.stepAgent(1);g.stepAgent(1);expect(calls).toBe(1);expect(g.agent.y).toBe(80);expect(g.agent.slots[0]).toEqual({id:blockId('stone'),count:1});expect(source!.count).toBe(count);const bag=structuredClone(g.agent);vi.stubGlobal('localStorage',{getItem:()=>stored,setItem:()=>{throw Error('quota');}});expect(g.save()).toBe(false);expect(stored).toBe(disk);expect(g.agent).toEqual(bag);expect(g.world.getLoadedBlock(0,80,0)).toBe(wheatId(0));vi.stubGlobal('localStorage',{getItem:()=>stored,setItem:(_k:string,v:string)=>stored=v});expect(g.save()).toBe(true);const cold=parseSave(stored!);retire(g);const next=active(cold);try{expect(next.agent.slots).toEqual(bag.slots);expect(next.agent.selected).toBe(0);expect(next.world.getLoadedBlock(0,80,0)).toBe(wheatId(0));expect(next.loadErrors).toEqual([]);}finally{retire(next);}}finally{off();retire(g);}});
+it('actual Game till command preservesallcargo/Hoe and publishesnewFarmland beforeobserver checkpoint',()=>{const raw=farmRaw(2,true);raw.edits.push([0,79,0,blockId('dirt')]);raw.agent!.slots[2]={id:stackId('wooden_hoe'),count:1,damage:0};const g=active(unique(raw)),bag=structuredClone(g.agent);let calls=0;const off=g.world.onBlockChanged((x,y,z,id)=>{if(x===0&&y===79&&z===0&&id===farmlandId(0)){calls++;expect(g.agent).toEqual(bag);expect(g.save()).toBe(true);}});try{run(g,[cmd('till','down')]);g.stepAgent(1);expect(calls).toBe(1);expect(g.agent).toEqual(bag);expect(parseSave(stored!).edits.some(e=>e[0]===0&&e[1]===79&&e[2]===0&&e[3]===farmlandId(0))).toBe(true);}finally{off();retire(g);}});
+it('actual Game farmdispatch neverreads refusedmalformedAgentpose orpassesittoanimation',()=>{const g=active(farmRaw(1,true));let reads=0;Object.defineProperty(g.agent,'x',{get(){reads++;g.world.setBlock(2,80,0,3);return 0;},enumerable:true,configurable:true});try{run(g,[cmd('place','down')]);g.stepAgent(1);expect(reads).toBe(0);expect(g.world.getLoadedBlock(2,80,0)).toBe(0);expect(g.agent.slots[26]).toEqual({id:stackId('wheat_seeds'),count:1});}finally{Object.defineProperty(g.agent,'x',{value:0,writable:true,enumerable:true,configurable:true});retire(g);}});
+it('actual Game preparedtransition duringloadedplantplan refuseswithoutdebit andcanretryafterphaseends',()=>{const g=active(farmRaw(1));const capture=g.world.captureCell.bind(g.world);let hit=false;g.world.captureCell=(x,y,z)=>{const cell=capture(x,y,z);if(!hit&&x===0&&y===80&&z===0){hit=true;(g as unknown as{prepared:boolean}).prepared=true;}return cell;};try{use(g);expect(hit).toBe(true);expect(g.world.getLoadedBlock(0,80,0)).toBe(0);expect(g.inventory.slots[0]).toEqual({id:stackId('wheat_seeds'),count:1});(g as unknown as{prepared:boolean}).prepared=false;use(g);expect(g.world.getLoadedBlock(0,80,0)).toBe(wheatId(0));expect(g.inventory.slots[0]).toBeNull();}finally{(g as unknown as{prepared:boolean}).prepared=false;retire(g);}});
+it('actual Game Agentforeignlease refusesunconsumedrunnerstep then executesafterleasecancellation',()=>{const g=active(farmRaw(1,true));try{run(g,[cmd('move','up'),cmd('place','down')]);g.stepAgent(1);const lease=reserveInventoryMutation(g.agent)!;expect(lease).not.toBeNull();g.stepAgent(1);expect(g.world.getLoadedBlock(0,80,0)).toBe(0);expect(g.save()).toBe(false);lease.cancel();g.stepAgent(1);expect(g.world.getLoadedBlock(0,80,0)).toBe(wheatId(0));expect(g.agent.slots[26]).toBeNull();}finally{retire(g);}});
