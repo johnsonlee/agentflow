@@ -1,3 +1,4 @@
+import{transferOwnedAgentItems}from '../ownership/agent-transfer';
 import{ownedCargoFingerprint}from '../ownership/owned-placement-cargo';
 import{plantOwnedWheat,tillOwnedAgentSoil}from '../ownership/agent-farming';
 import{composterLevel}from '../catalog/composter';
@@ -49,6 +50,7 @@ export type AgentCommand =
   | { op: "inspect"; dir: AgentDirection }
   | { op: "attack"; dir: AgentDirection }
   | { op: "select"; slot: number }
+  | { op: "transfer"; quantity: number; sourceSlot: number; destinationSlot: number }
   | { op: "drop"; slot: number; dir?: AgentDirection; quantity?: number }
   | { op: "collect"; filterId?: number };
 
@@ -298,6 +300,10 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
     case "attack": {
       const t = target(cmd.dir);
       return env.attack?.(t.x, t.y, t.z) ? { ok: true } : { ok: false, message: "Nothing to attack" };
+    }
+    case "transfer": {
+      const ok=transferOwnedAgentItems(agent,cmd.quantity,cmd.sourceSlot,cmd.destinationSlot,env.lifecycleValid);
+      return ok?{ok:true}:{ok:false,message:"Transfer refused: exact quantity, compatible capacity and live Agent ownership required"};
     }
     case "select":
       if (!Number.isInteger(cmd.slot) || cmd.slot < 0 || cmd.slot >= AGENT_SLOTS) return { ok: false, message: "Slot must be 1-27" };

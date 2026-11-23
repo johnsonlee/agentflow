@@ -19,6 +19,7 @@ const PALETTE: Array<{ id: string; label: string; kind: "command" | "loop" | "lo
   { id: "till", label: "till soil", kind: "command", make: () => ({ type: "command", cmd: { op: "till", dir: "forward" } }) },
   { id: "destroy", label: "destroy", kind: "command", make: () => ({ type: "command", cmd: { op: "destroy", dir: "forward" } }) },
   { id: "attack", label: "attack", kind: "command", make: () => ({ type: "command", cmd: { op: "attack", dir: "forward" } }) },
+  { id: "transfer", label: "transfer items", kind: "command", make: () => ({ type: "command", cmd: { op: "transfer", quantity: 5, sourceSlot: 4, destinationSlot: 0 } }) },
   { id: "select", label: "select slot", kind: "command", make: () => ({ type: "command", cmd: { op: "select", slot: 0 } }) },
   { id: "collect", label: "collect items", kind: "command", make: () => ({ type: "command", cmd: { op: "collect" } }) },
   { id: "drop", label: "drop slot", kind: "command", make: () => ({ type: "command", cmd: { op: "drop", slot: 0, dir: "forward" } }) },
@@ -309,7 +310,7 @@ export class CodeBuilderScreen {
     policy.id = `${this.importId}-policy`;
     const persistence = el("p", "cb-import-note", this.sourcePersistenceNote());
     const details = el("details", "cb-import-help"); details.append(el("summary", "", "Supported subset and limits"));
-    details.append(el("p", "", "Commands: move, turn, place, till, destroy, and slot selection. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
+    details.append(el("p", "", "Commands: move, turn, place, till, destroy, slot selection, and agent.transfer(quantity, sourceSlot, destinationSlot) using slots 1–27. Transfer requires the exact owned quantity and compatible capacity; refusal changes nothing. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
     const example = this.importLanguage === "javascript" ? 'agent.setSlot(1);\nfor (let step = 0; step < 2; step++) {\n    agent.move(FORWARD, 1);\n}\nif (agent.blockIs("stone", UP)) {\n    agent.turn(RIGHT_TURN);\n}' : 'agent.set_slot(1)\nfor step in range(2):\n    agent.move(FORWARD, 1)\nif agent.block_is("stone", UP):\n    agent.turn(TurnDirection.RIGHT)';
     details.append(el("pre", "", example), el("p", "", "Exact block names are an application extension. detect uses this game's any-solid-block rule, which differs from native MakeCode. Limits: 16 KiB of UTF-8 source, 4,096 tokens, 2,000 blocks, four nesting levels and 100 repeats. Oversized text is rejected in full, never cut off. Strings have no escapes; loop counters cannot shadow constants or keywords."));
     source.setAttribute("aria-describedby", `${policy.id} ${issue.id}`); source.setAttribute("aria-invalid", draft.issue?.focus === "source" ? "true" : "false");
@@ -414,7 +415,7 @@ export class CodeBuilderScreen {
   private commandFields(cmd: AgentCommand): HTMLElement[] {
     const names: Record<AgentCommand["op"], string> = {
       move: "Agent move", turn: "Agent turn", place: "Agent place", till: "Agent till", destroy: "Agent destroy", attack: "Agent attack", select: "Agent select slot",
-      drop: "Agent drop slot", detect: "Agent detect", inspect: "Agent inspect", collect: "Agent collect",
+      transfer: "Agent transfer items", drop: "Agent drop slot", detect: "Agent detect", inspect: "Agent inspect", collect: "Agent collect",
     };
     const out: HTMLElement[] = [el("span", "", names[cmd.op])];
     if ("dir" in cmd && cmd.dir !== undefined) out.push(this.dirSelect(cmd.dir, (d) => (cmd.dir = d)));
@@ -436,6 +437,15 @@ export class CodeBuilderScreen {
       slot.addEventListener("keydown", (e) => e.stopPropagation());
       slot.addEventListener("change", () => (cmd.slot = Math.max(1, Math.min(AGENT_SLOTS, Number(slot.value) || 1)) - 1));
       out.push(slot);
+    }
+    if(cmd.op==="transfer"){
+      for(const [key,label,visible,min,max,offset]of [["quantity","Quantity","Quantity",1,Number.MAX_SAFE_INTEGER,0],["sourceSlot","Source slot","From slot",1,AGENT_SLOTS,1],["destinationSlot","Destination slot","To slot",1,AGENT_SLOTS,1]] as const){
+        const field=el("label",`cb-transfer-field${key==="quantity"?" cb-transfer-quantity":""}`);
+        const input=el("input","cb-number cb-transfer-number");input.type="number";input.min=String(min);input.max=String(max);input.step="1";input.value=String(cmd[key]+offset);input.setAttribute("aria-label",label);
+        input.addEventListener("keydown",e=>e.stopPropagation());
+        // Keep invalid edits diagnosable; validation refuses Run/commit; checkpoints retain last valid programs.
+        input.addEventListener("change",()=>{cmd[key]=input.value.trim()===""?NaN:Number(input.value)-offset;});field.append(el("span","cb-transfer-label",visible),input);out.push(field);
+      }
     }
     if (cmd.op === "drop") {
       const quantity = el("input", "cb-number"); quantity.type = "number"; quantity.min = "1"; quantity.max = "64";

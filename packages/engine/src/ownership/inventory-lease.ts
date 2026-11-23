@@ -21,7 +21,9 @@ export function registerInventoryOwner(owner:object,slots:(ItemStack|null)[]):vo
 }
 export function isInventoryBusy(owner:object):boolean{return owners.get(owner)?.busy??false;}
 export interface PreparedInventoryMutation{valid():boolean;commit():void}
-export interface InventoryMutationLease{readonly slots:(ItemStack|null)[];valid():boolean;prepare(index:number,replacement:ItemStack|null):PreparedInventoryMutation|null;commit(index:number,replacement:ItemStack|null):void;cancel():void}
+export interface InventoryBatchCell{readonly index:number;readonly replacement:ItemStack|null}
+export interface PreparedInventoryBatch{valid():boolean;commit():boolean}
+export interface InventoryMutationLease{readonly slots:(ItemStack|null)[];valid():boolean;prepareBatch(cells:readonly InventoryBatchCell[]):PreparedInventoryBatch|null;prepare(index:number,replacement:ItemStack|null):PreparedInventoryMutation|null;commit(index:number,replacement:ItemStack|null):void;cancel():void}
 /** Only constructor-original real Arrays may receive a trusted synchronous publication. */
 export function reserveInventoryMutation(owner:Inventory|{slots:(ItemStack|null)[]}):InventoryMutationLease|null{
  const state=owners.get(owner);if(!state||state.busy)return null;state.busy=true;let active=true;
@@ -39,6 +41,31 @@ export function reserveInventoryMutation(owner:Inventory|{slots:(ItemStack|null)
    // world publication. No callbacks/validation remain between world writes and this real-array write.
    return Object.freeze({valid:ready,commit:()=>{if(!active||published)return;published=true;state.slots[index]=replacement;cancel();}});
   };
-  return Object.freeze({slots:state.slots,valid,prepare,commit:(index:number,replacement:ItemStack|null)=>{const staged=prepare(index,replacement);if(staged?.valid())staged.commit();},cancel});
+  const prepareBatch=(cells:readonly InventoryBatchCell[]):PreparedInventoryBatch|null=>{
+   try{
+    if(!valid()||!Array.isArray(cells)||cells.length<1||cells.length>state.slots.length)return null;
+    const length=Object.getOwnPropertyDescriptor(state.slots,'length')?.value,seen=new Set<number>();
+    const staged: {index:number;replacement:ItemStack|null;original:ItemStack|null}[]=[];
+    for(const item of cells){
+     const index=item.index,replacement=item.replacement;
+     if(!Number.isInteger(index)||index<0||index>=length||seen.has(index)||replacement!==null&&(!replacement||typeof replacement!=='object'))return null;
+     seen.add(index);const cell=Object.getOwnPropertyDescriptor(state.slots,String(index));
+     if(!cell||!('value'in cell)||cell.writable!==true)return null;
+     staged.push({index,replacement,original:cell.value});
+    }
+    let published=false;
+    const ready=()=>!published&&valid()&&Object.getOwnPropertyDescriptor(state.slots,'length')?.value===length&&staged.every(cell=>{
+     const now=Object.getOwnPropertyDescriptor(state.slots,String(cell.index));return !!now&&'value'in now&&now.writable===true&&now.value===cell.original;
+    });
+    return Object.freeze({valid:ready,commit:()=>{
+     if(!ready())return false;
+     // Constructor-original real array + own writable cells. All validation is complete;
+     // these detached local records contain no getters/callbacks between trusted writes.
+     published=true;for(const cell of staged)state.slots[cell.index]=cell.replacement;
+     cancel();return true;
+    }});
+   }catch{return null;}
+  };
+  return Object.freeze({slots:state.slots,valid,prepareBatch,prepare,commit:(index:number,replacement:ItemStack|null)=>{const staged=prepare(index,replacement);if(staged?.valid())staged.commit();},cancel});
  }catch{cancel();return null;}
 }

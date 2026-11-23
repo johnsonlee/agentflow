@@ -98,6 +98,9 @@ class TextParser {
       if (this.language === "python") { this.take("TurnDirection"); this.take("."); const t = this.take(undefined, "id"); if (t.value !== "LEFT" && t.value !== "RIGHT") textFail(t, "Expected TurnDirection.LEFT or RIGHT"); side = t.value === "LEFT" ? "left" : "right"; }
       else { const t = this.take(undefined, "id"); if (t.value !== "LEFT_TURN" && t.value !== "RIGHT_TURN") textFail(t, "Expected LEFT_TURN or RIGHT_TURN"); side = t.value === "LEFT_TURN" ? "left" : "right"; }
       this.take(")"); commands.push({ op: "turn", side });
+    } else if (method.value === "transfer") {
+      const quantity=this.integer(1,Number.MAX_SAFE_INTEGER);this.take(",");const source=this.integer(1,27);this.take(",");const destination=this.integer(1,27);this.take(")");
+      commands.push({op:"transfer",quantity,sourceSlot:source-1,destinationSlot:destination-1});
     } else if (method.value === (this.language === "javascript" ? "setSlot" : "set_slot")) {
       const slot = this.integer(1, 27); this.take(")"); commands.push({ op: "select", slot: slot - 1 });
     } else textFail(method, "Unsupported Agent method in this text subset");

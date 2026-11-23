@@ -160,6 +160,7 @@ const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
   ["inspect", (c) => isDir(own(c, "dir"))],
   ["attack", (c) => isDir(own(c, "dir"))],
   ["turn", (c) => own(c, "side") === "left" || own(c, "side") === "right"],
+  ["transfer",(c)=>Number.isSafeInteger(own(c,"quantity"))&&(own(c,"quantity") as number)>0&&isSlot(own(c,"sourceSlot"))&&isSlot(own(c,"destinationSlot"))],
   ["select", (c) => isSlot(own(c, "slot"))],
   ["drop", (c) => isSlot(own(c, "slot")) && (own(c, "dir") === undefined || isDir(own(c, "dir"))) && (own(c, "quantity") === undefined || (Number.isSafeInteger(own(c, "quantity")) && (own(c, "quantity") as number) > 0))],
   ["collect", (c) => own(c, "filterId") === undefined || (typeof own(c, "filterId") === "number" && isKnownId(own(c, "filterId") as number))],

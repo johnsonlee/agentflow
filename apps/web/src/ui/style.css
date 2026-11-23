@@ -416,6 +416,10 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 }
 .cb-select, .cb-number { font: inherit; min-height: 32px; }
 .cb-number { width: 56px; }
+/* Transfer has three labeled fields; wrap within the existing scrollable Code Builder. */
+.cb-transfer-field { display: flex; flex-direction: column; gap: 4px; flex: 0 1 96px; max-width: 100%; color: inherit; font-size: 13px; }
+.cb-transfer-field.cb-transfer-quantity { flex-basis: 120px; }
+.cb-transfer-number { width: 100%; min-width: 44px; min-height: 44px; padding: 6px 8px; font-size: 16px; }
 .cb-mini { background: rgba(0,0,0,0.25); color: #fff; border: 0; min-width: 32px; min-height: 32px; border-radius: 4px; }
 .cb-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 8px; }
 .cb-status { color: #c0392b; min-height: 1em; }

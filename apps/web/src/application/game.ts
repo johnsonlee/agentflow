@@ -1262,6 +1262,19 @@ export class Game {
     if(portal)this.events.onPortalTravel?.(this,portal);
   }
 
+  /** Agent inventory transfer owns the Agent lease itself. Preserve every OTHER busy
+   * owner and active runner/session guard without rejecting that operation's own lease. */
+  private ownedAgentTransferContext(runner:ProgramRunner) {
+    const world=this.world,mode=this.mode,agent=this.agent;
+    return ()=>!this.screenOpen()&&!this.statusOwner.busy&&!this.inventory.busy&&
+      ![...this.chests.values()].some(chest=>chest.busy)&&![...this.brewingStands.values()].some(stand=>stand.busy)&&
+      !this.leashes.busy&&!this.balloons.busy&&!this.mobs.fireballBusy&&
+      !world.composters.busy&&!isFluidActionBusy(world)&&!isPortalActionBusy(world)&&
+      ![...this.furnaces.values()].some(furnaceMutationBusy)&&!world.composters.isDisposed&&!world.blockSourceLeaseBusy&&
+      !this.prepared&&!this.portalTransfer&&!Game.handoffBusy&&!this.stopped&&!this.dead&&!this.paused&&!this.actionsNeedRecovery&&
+      Game.activeWriter===this&&this.runner===runner&&this.world===world&&this.mode===mode&&this.agent===agent;
+  }
+
   private ownedFarmingContext() {
     const world=this.world,mode=this.mode,agent=this.agent,feet=this.body.position;
     const axes=["x","y","z"] as const;
@@ -2101,7 +2114,8 @@ export class Game {
     let result: ReturnType<typeof runAgentCommand>;
     try {
       const farming = cmd.op==="till" || cmd.op==="place";
-      const lifecycleValid = farming ? this.ownedFarmingContext().valid : undefined;
+      const transfer=cmd.op==="transfer";
+      const lifecycleValid = farming ? this.ownedFarmingContext().valid : transfer ? this.ownedAgentTransferContext(runner) : undefined;
       result = runAgentCommand(this.world, this.agent, cmd as AgentCommand, {
       lifecycleValid,
       attack: (x, y, z) => {
@@ -2126,7 +2140,7 @@ export class Game {
       // Defence in depth: anything but a result object stops the program.
       if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
       // Farming changes terrain and cargo, not the Agent pose; do not reread a refused malformed actor in the view.
-      if(!farming) this.agentView.moveTo(this.agent);
+      if(!farming&&!transfer) this.agentView.moveTo(this.agent);
       // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
       if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
     } catch (e) {
