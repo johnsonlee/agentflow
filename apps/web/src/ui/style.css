@@ -599,3 +599,4 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 
 /* Drop-all uses the existing direction control and a reachable touch/keyboard palette action. */
 .cb-palette-block[data-palette="drop-all"] { min-height:44px; min-width:44px; font-size:16px; }
+.cb-block[data-type="drop-all"] .cb-select { min-height:44px; min-width:44px; font-size:16px; }
