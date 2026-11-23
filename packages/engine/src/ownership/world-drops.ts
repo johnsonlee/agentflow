@@ -1,11 +1,11 @@
 import { AIR } from "../catalog/blocks";
+import{labCanonical}from "./lab-inventory-snapshot";
 import type { ItemStack } from "./inventory";
 import { baseStackId, durabilityOf, isKnownId } from "../catalog/items";
 import { WORLD_BORDER, type Vec3 } from "../core/math";
 import { bodyBox, boxCollides, GRAVITY, moveAxis, TERMINAL_VELOCITY } from "../simulation/physics";
 import { sanitizeStack } from "../persistence/savecheck";
-import { cloneStack, stackLimit, stacksCompatible } from "./stack";
-import{labCanonical}from "./lab-inventory-snapshot";
+import { cloneStack, stackLimit, stacksCompatible, snapshotFactoryStack, type FactoryStackSnapshot } from "./stack";
 import { inspectItemState } from "./item-state";
 import { WORLD_HEIGHT } from "../world/chunk";
 import type { World } from "../world/world";
@@ -67,6 +67,32 @@ export function sanitizeWorldDrops(raw: unknown): { data: WorldDropsData; invali
   try { return readWorldDrops(raw); } catch { return { data: { nextKey: 1, records: [] }, invalid: 1 }; }
 }
 
+interface LiveDropBirth{stack:ItemStack;position:Vec3;velocity:Vec3}
+const liveDropBirths=new WeakMap<object,LiveDropBirth>();
+const liveBirthGet=Function.prototype.call.bind(WeakMap.prototype.get) as (map:WeakMap<object,LiveDropBirth>,key:object)=>LiveDropBirth|undefined;
+const liveBirthSet=Function.prototype.call.bind(WeakMap.prototype.set) as (map:WeakMap<object,LiveDropBirth>,key:object,birth:LiveDropBirth)=>void;
+const descriptor=Object.getOwnPropertyDescriptor,keysOf=Reflect.ownKeys,prototypeOf=Object.getPrototypeOf;
+const ordinaryObjectPrototype=Object.prototype;
+function ownNewLiveDrop(record:DroppedItemRecord):DroppedItemRecord{
+ liveBirthSet(liveDropBirths,record,{stack:record.stack,position:record.position,velocity:record.velocity});return record;
+}
+interface LiveDropSnapshot{root:DroppedItemRecord;stack:FactoryStackSnapshot;values:readonly number[]}
+function snapshotLiveDrop(value:unknown):LiveDropSnapshot|undefined{
+ try{
+  if(!value||typeof value!=='object')return undefined;const birth=liveBirthGet(liveDropBirths,value);if(!birth)return undefined;
+  if(prototypeOf(value)!==ordinaryObjectPrototype)return undefined;const fields:Record<string,PropertyDescriptor>=Object.create(null),names=keysOf(value);
+  if(names.length!==6)return undefined;for(const name of names){if(typeof name!=='string'||!['key','stack','position','velocity','ageSeconds','pickupDelaySeconds'].includes(name))return undefined;const d=descriptor(value,name);if(!d?.enumerable||!('value'in d))return undefined;fields[name]=d;}
+  if(fields.stack.value!==birth.stack||fields.position.value!==birth.position||fields.velocity.value!==birth.velocity)return undefined;
+  const stack=snapshotFactoryStack(birth.stack);if(!stack)return undefined;const values:number[]=[];
+  for(const vector of [birth.position,birth.velocity]){if(prototypeOf(vector)!==ordinaryObjectPrototype||keysOf(vector).length!==3)return undefined;for(const axis of ['x','y','z']){const d=descriptor(vector,axis);if(!d?.enumerable||!('value'in d)||typeof d.value!=='number'||!Number.isFinite(d.value))return undefined;values.push(d.value);}}
+  for(const name of ['key','ageSeconds','pickupDelaySeconds']){const number=fields[name].value;if(typeof number!=='number'||!Number.isFinite(number))return undefined;values.push(number);}
+  if(Math.abs(values[0])>WORLD_BORDER||Math.abs(values[2])>WORLD_BORDER||values[1]< -1024||values[1]>1024||values.slice(3,6).some(value=>Math.abs(value)>256))return undefined;
+  if(!Number.isSafeInteger(fields.key.value)||fields.key.value<1||fields.key.value>=Number.MAX_SAFE_INTEGER||fields.ageSeconds.value<0||fields.ageSeconds.value>WORLD_DROP_PROFILE.lifetime||fields.pickupDelaySeconds.value<0||fields.pickupDelaySeconds.value>WORLD_DROP_PROFILE.lifetime)return undefined;
+  return{root:value as DroppedItemRecord,stack,values};
+ }catch{return undefined;}
+}
+const equalValues=(a:readonly unknown[],b:readonly unknown[])=>a.length===b.length&&a.every((value,index)=>Object.is(value,b[index]));
+
 export interface PreparedWorldDropReceipt{readonly key:number;valid():boolean;commit():void;cancel():void}
 const receiptOwners=new WeakMap<object,{world:LoadedWorld;items:Map<number,DroppedItemRecord>;busy:boolean}>();
 const receiptBusy=(owner:object)=>receiptOwners.get(owner)?.busy===true;
@@ -80,7 +106,7 @@ export function reserveWorldDropReceipt(receiver:WorldDrops,world:LoadedWorld,st
  const p=structuredClone(position),key=next.value,count=owner.items.size;let active=true;owner.busy=true;
  const cancel=()=>{if(active){active=false;owner.busy=false;}};
  const valid=()=>active&&receiptOwners.get(receiver)===owner&&owner.busy&&field('items')?.value===owner.items&&field('nextKey')?.writable===true&&field('nextKey')?.value===key&&field('disposed')?.value===false&&field('loadIssues')?.value===0&&field('transferring')?.value===false&&owner.items.size===count;
- const record:DroppedItemRecord={key,stack:cloneStack(clean),position:p,velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:WORLD_DROP_PROFILE.pickupDelay};
+ const record=ownNewLiveDrop({key,stack:cloneStack(clean),position:p,velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:WORLD_DROP_PROFILE.pickupDelay});
  return Object.freeze({key,valid,cancel,commit:()=>{if(!active)return;owner.items.set(key,record);(receiver as unknown as{nextKey:number}).nextKey=key+1;cancel();}});
  }catch{return null;}
 }
@@ -93,32 +119,25 @@ const dropRecordEntries=Function.prototype.call.bind(Map.prototype.entries) as (
 export interface PreparedWorldDropBatchReceipt{valid():boolean;commit():void;cancel():void}
 /** Admission does not publish keys/items. Caller must validate this receipt immediately
  * before trusted source batch commit; no external hook may run between the two finalizers. */
-export function reserveWorldDropBatchReceipt(receiver:WorldDrops,world:LoadedWorld,stacks:readonly ItemStack[],position:Vec3):PreparedWorldDropBatchReceipt|null{
+export function reserveWorldDropBatchReceipt(receiver:WorldDrops,world:LoadedWorld,x:number,y:number,z:number,...stacks:ItemStack[]):PreparedWorldDropBatchReceipt|null{
+ // Rest arguments are a new local Array; position is supplied as primitives. No foreign
+ // container/position graph is reflected on the drop-all admission path.
  const owner=receiptOwners.get(receiver);if(!owner||owner.world!==world||owner.busy)return null;
- const field=(name:string)=>{const d=Object.getOwnPropertyDescriptor(receiver,name);return d&&'value'in d?d:undefined;};
+ const field=(name:string)=>{const d=descriptor(receiver,name);return d&&'value'in d?d:undefined;};
  try{
-  if(!Array.isArray(stacks)||stacks.length>27||!vector(position))return null;
-  const clean:ItemStack[]=[];
-  for(const stack of stacks){const copy=validStack(stack);if(!copy)return null;clean.push(copy);}
+  if(stacks.length>27||![x,y,z].every(Number.isFinite)||Math.abs(x)>WORLD_BORDER||Math.abs(z)>WORLD_BORDER||y< -1024||y>1024)return null;
+  const staged:ItemStack[]=[];for(const stack of stacks){const proof=snapshotFactoryStack(stack);if(!proof)return null;const clean=validStack(proof.data);if(!clean)return null;staged.push(clean);}
   const next=field('nextKey'),items=owner.items;
-  if(!next?.writable||!Number.isSafeInteger(next.value)||next.value<1||next.value+clean.length>Number.MAX_SAFE_INTEGER||field('items')?.value!==items||Object.getPrototypeOf(items)!==Map.prototype||Reflect.ownKeys(items).length!==0||field('world')?.value!==world||field('disposed')?.value!==false||field('transferring')?.value!==false||field('loadIssues')?.value!==0||receiptOwners.get(receiver)!==owner||owner.busy)return null;
-  const key=next.value,count=dropRecordCount(items),p={...position};let active=true;
-  // Existing receiver records must also remain exact: same-size replacement or private
-  // metadata/key mutation must not be hidden by a count-only receiver check.
-  const snapshot=()=>{
-   const seen=new Set<object>();
-   const copy=(value:unknown):unknown=>{
-    if(value===null||typeof value==='string'||typeof value==='boolean'||typeof value==='number'&&Number.isFinite(value))return value;
-    if(!value||typeof value!=='object'||seen.has(value)||!Array.isArray(value)&&![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw Error('Unreadable drop owner');seen.add(value);
-    if(Array.isArray(value)){if(Object.getPrototypeOf(value)!==Array.prototype||Reflect.ownKeys(value).length!==value.length+1)throw Error('Extra drop array fields');return Array.from({length:value.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(value,String(i));if(!d?.enumerable||!('value'in d))throw Error('Unreadable drop array');return copy(d.value);});}
-    const out:Record<string,unknown>={};for(const name of Reflect.ownKeys(value)){const d=Object.getOwnPropertyDescriptor(value,name)!;if(typeof name!=='string'||!d.enumerable||!('value'in d))throw Error('Unreadable drop field');Object.defineProperty(out,name,{value:copy(d.value),enumerable:true});}return out;
-   };
-   const records:unknown[]=[];for(const [id,record]of dropRecordEntries(items)){const row=copy(record) as Record<string,unknown>;if(id!==row.key)throw Error('Drop key mismatch');records.push(row);}
-   const raw={nextKey:key,records},checked=sanitizeWorldDrops(raw);if(checked.invalid||labCanonical(raw)!==labCanonical(checked.data))throw Error('Noncanonical receiver');return labCanonical(raw);
-  },before=snapshot();
-  const records=clean.map((stack,index):DroppedItemRecord=>({key:key+index,stack:cloneStack(stack),position:{...p},velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:WORLD_DROP_PROFILE.pickupDelay}));
+  if(!next?.writable||!Number.isSafeInteger(next.value)||next.value<1||next.value+staged.length>Number.MAX_SAFE_INTEGER||field('items')?.value!==items||Object.getPrototypeOf(items)!==Map.prototype||Reflect.ownKeys(items).length!==0||field('world')?.value!==world||field('disposed')?.value!==false||field('transferring')?.value!==false||field('loadIssues')?.value!==0||receiptOwners.get(receiver)!==owner||owner.busy)return null;
+  const key=next.value,count=dropRecordCount(items);let active=true;
+  const existing:LiveDropSnapshot[]=[];for(const[id,record]of dropRecordEntries(items)){const proof=snapshotLiveDrop(record);if(!proof||id!==proof.values[6]||id>=key)return null;const canonical=validStack(proof.stack.data);if(!canonical||labCanonical(canonical)!==labCanonical(proof.stack.data))return null;existing.push(proof);}
+  const records=staged.map((stack,index)=>ownNewLiveDrop({key:key+index,stack,position:{x,y,z},velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:WORLD_DROP_PROFILE.pickupDelay}));
   const cancel=()=>{if(active){active=false;owner.busy=false;}};
-  const valid=()=>{try{return active&&receiptOwners.get(receiver)===owner&&owner.busy&&field('items')?.value===items&&Object.getPrototypeOf(items)===Map.prototype&&Reflect.ownKeys(items).length===0&&dropRecordCount(items)===count&&field('world')?.value===world&&field('nextKey')?.writable===true&&field('nextKey')?.value===key&&field('disposed')?.value===false&&field('transferring')?.value===false&&field('loadIssues')?.value===0&&snapshot()===before;}catch{return false;}};
+  const valid=()=>{try{
+   if(!active||receiptOwners.get(receiver)!==owner||!owner.busy||field('items')?.value!==items||Object.getPrototypeOf(items)!==Map.prototype||Reflect.ownKeys(items).length!==0||dropRecordCount(items)!==count||field('world')?.value!==world||field('nextKey')?.writable!==true||field('nextKey')?.value!==key||field('disposed')?.value!==false||field('transferring')?.value!==false||field('loadIssues')?.value!==0)return false;
+   let index=0;for(const[id,record]of dropRecordEntries(items)){const prior=existing[index++],now=snapshotLiveDrop(record);if(!prior||!now||record!==prior.root||id!==now.values[6]||now.stack.root!==prior.stack.root||!equalValues(now.values,prior.values)||!equalValues(now.stack.values,prior.stack.values))return false;}
+   return index===existing.length;
+  }catch{return false;}};
   owner.busy=true;
   return Object.freeze({valid,cancel,commit:()=>{if(!active)return;for(const record of records)publishDropRecord(items,record.key,record);(receiver as unknown as{nextKey:number}).nextKey=key+records.length;cancel();}});
  }catch{return null;}
@@ -133,7 +152,7 @@ export class WorldDrops {
   readonly loadIssues: number;
   constructor(private readonly world: LoadedWorld, raw?: unknown) {
     const loaded = sanitizeWorldDrops(raw); this.loadIssues = loaded.invalid; this.nextKey = loaded.data.nextKey;
-    for (const r of loaded.data.records) this.items.set(r.key, r);
+    for (const r of loaded.data.records) this.items.set(r.key, ownNewLiveDrop(r));
     receiptOwners.set(this,{world:this.world,items:this.items,busy:false});
   }
   get records(): DroppedItemRecord[] { return [...this.items.values()].map(copyRecord); }
@@ -157,7 +176,7 @@ export class WorldDrops {
       const records: DroppedItemRecord[] = []; let key = this.nextKey;
       for (const s of clean) for (let left = s.count; left > 0;) {
         const n = Math.min(left, stackLimit(s)); left -= n;
-        records.push({ key: key++, stack: cloneStack(s, n), position: { ...p }, velocity: { ...v }, ageSeconds: 0, pickupDelaySeconds: WORLD_DROP_PROFILE.pickupDelay });
+        records.push(ownNewLiveDrop({ key: key++, stack: cloneStack(s, n), position: { ...p }, velocity: { ...v }, ageSeconds: 0, pickupDelaySeconds: WORLD_DROP_PROFILE.pickupDelay }));
       }
       for (const r of records) this.items.set(r.key, r);
       this.nextKey = key; return true;
@@ -183,7 +202,7 @@ export class WorldDrops {
         for (const axis of ["x", "z", "y"] as const) {
           const trial = { ...r.position };
           if (moveAxis(get, trial, axis, r.velocity[axis] * h, WORLD_DROP_PROFILE.bodySize, WORLD_DROP_PROFILE.bodySize)) r.velocity[axis] = 0;
-          if (Math.abs(trial.x) <= WORLD_BORDER && Math.abs(trial.z) <= WORLD_BORDER && this.loaded(trial)) r.position = trial;
+          if (Math.abs(trial.x) <= WORLD_BORDER && Math.abs(trial.z) <= WORLD_BORDER && this.loaded(trial)) { r.position = trial; const birth=liveBirthGet(liveDropBirths,r);if(birth)birth.position=trial; }
           else r.velocity[axis] = 0;
           if (r.position.y < -1024) { r.position.y = -1024; r.velocity.y = 0; }
         }

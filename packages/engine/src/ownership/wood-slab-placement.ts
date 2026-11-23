@@ -1,3 +1,4 @@
+import{cloneStack}from './stack';
 import{WORLD_HEIGHT}from '../world/chunk';
 import{ownedCargoFingerprint}from './owned-placement-cargo';
 import{AIR,blockId,tryBlockById}from'../catalog/blocks';
@@ -34,7 +35,7 @@ export function planWoodSlabPlacement(world:World,canonical:number,mode:'surviva
 
 function owned(world:World,owner:Inventory|AgentState,mode:'survival'|'creative',x:number,y:number,z:number,half:SlabHalf,actors:readonly{feet:Vec3;height?:number}[],lifecycleValid:()=>boolean,extraExpected:readonly WorldCellSnapshot[]=[]):boolean{
  if(world.blockSourceLeaseBusy)return false;const lease=reserveInventoryMutation(owner);if(!lease)return false;let committed=false;
- try{const snapshot=()=>ownedCargoFingerprint(owner,lease.slots),before=snapshot(),index=data(owner,'selected'),cell=Object.getOwnPropertyDescriptor(lease.slots,String(index));if(!cell||!('value'in cell)||!cell.writable)return false;const source=cell.value as ItemStack|null;if(!source||inspectWoodSlabItemOwner(source).kind!=='valid')return false;const canonical=source.id,replacement=mode==='survival'?(source.count===1?null:{id:canonical,count:source.count-1}):source,staged=lease.prepare(index,replacement);if(!staged)return false;
+ try{const snapshot=()=>ownedCargoFingerprint(owner,lease.slots),before=snapshot(),index=data(owner,'selected'),cell=Object.getOwnPropertyDescriptor(lease.slots,String(index));if(!cell||!('value'in cell)||!cell.writable)return false;const source=cell.value as ItemStack|null;if(!source||inspectWoodSlabItemOwner(source).kind!=='valid')return false;const canonical=source.id,replacement=mode==='survival'?(source.count===1?null:cloneStack(source,source.count-1)):source,staged=lease.prepare(index,replacement);if(!staged)return false;
  const plan=planWoodSlabPlacement(world,canonical,mode,x,y,z,half,actors);if(!plan)return false;const actorBefore=actors.map(a=>labCanonical(actorData(a)));
  const valid=()=>lifecycleValid()&&lease.valid()&&staged.valid()&&data(owner,'selected')===index&&Object.getOwnPropertyDescriptor(lease.slots,String(index))?.value===source&&snapshot()===before&&actors.length===actorBefore.length&&actors.every((a,i)=>labCanonical(actorData(a))===actorBefore[i]);
  world.commitBlockBatch(plan.edits,()=>{if(mode==='survival')staged.commit();else lease.cancel();committed=true;},[...plan.expected,...extraExpected],valid);return committed;

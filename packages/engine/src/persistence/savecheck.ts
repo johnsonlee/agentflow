@@ -1,3 +1,4 @@
+import{cloneStack}from '../ownership/stack';
 import { readNpcActionField, type NpcActions } from "../education/npc-actions";
 import{inspectComposterItemOwner}from '../ownership/composter-items';
 import{registerInventoryOwner}from '../ownership/inventory-lease';
@@ -61,7 +62,7 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
     if (typeof own(book, "title") === "string") s.book.title = (own(book, "title") as string).slice(0, 32);
     if (typeof own(book, "author") === "string") s.book.author = (own(book, "author") as string).slice(0, 32);
   }
-  return s;
+  return cloneStack(s);
 }
 
 /** The inventory UI owns at most nine crafting cells and one held stack. */
