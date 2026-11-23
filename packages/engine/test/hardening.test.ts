@@ -80,7 +80,7 @@ describe("save loading is strict and total", () => {
     for (const name of PROTO_NAMES) expect(isKnownId(name as unknown as number), name).toBe(false);
     expect(sanitizeStack({ id: "__proto__", count: 1 })).toBeNull();
     expect(sanitizeStack({ id: 1, count: 1 })).toEqual({ id: 1, count: 1 });
-    const inv = Inventory.fromJSON({ slots: [{ id: "constructor", count: 1 }, { id: 1, count: 3 }], selected: 0 });
+    const inv = Inventory.fromJSON({ slots: [{ id: "constructor" as unknown as number, count: 1 }, { id: 1, count: 3 }], selected: 0 });
     expect(inv.slots.slice(0, 2)).toEqual([null, { id: 1, count: 3 }]);
     expect(() => Inventory.fromJSON({ slots: "nope", selected: "x" } as never)).not.toThrow();
   });
