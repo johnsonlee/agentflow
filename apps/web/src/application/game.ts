@@ -23,7 +23,7 @@ import {
   MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  teleportOwnedAgentToPlayer, readOwnedAgentItemCount, type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
+  teleportOwnedAgentToPlayer, readOwnedAgentItemCount, readOwnedAgentItemSpace, type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
@@ -2064,7 +2064,8 @@ export class Game {
     let querySession:(()=>boolean)|undefined;
     const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true,
       (dir) => inspectLoadedAgentBlock(this.world, this.agent, dir),
-      slot=>readOwnedAgentItemCount(queryAgent,slot,()=>!!querySession&&querySession()&&this.recoverySections.length===0&&this.agent===queryAgent&&this.world===queryWorld&&this.mode===queryMode));
+      slot=>readOwnedAgentItemCount(queryAgent,slot,()=>!!querySession&&querySession()&&this.recoverySections.length===0&&this.agent===queryAgent&&this.world===queryWorld&&this.mode===queryMode),
+      slot=>readOwnedAgentItemSpace(queryAgent,slot,()=>!!querySession&&querySession()&&this.recoverySections.length===0&&this.agent===queryAgent&&this.world===queryWorld&&this.mode===queryMode));
     if ("error" in started) {
       this.hud.message(`Can't run "${String((program as { name?: unknown })?.name ?? "program")}": ${started.error}`);
       return false;

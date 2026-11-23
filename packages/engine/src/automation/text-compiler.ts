@@ -84,7 +84,7 @@ class TextParser {
       const condition = this.condition(); if (this.language === "javascript") this.take(")");
       const then = this.body(depth); this.lines(); let otherwise: CodeBlock[] = [];
       if (this.is("else")) { this.take("else"); otherwise = this.body(depth); }
-      if("slot" in condition)return [this.node({type:"if-item-count",slot:condition.slot,equals:condition.equals,then,else:otherwise},at)];
+      if("slot" in condition)return [this.node({type:condition.type,slot:condition.slot,equals:condition.equals,then,else:otherwise},at)];
       return [this.node({ type: "if", dir: condition.dir, ...(condition.name !== undefined ? { condition: { type: "block-is", name: condition.name } } : {}), then, else: otherwise }, at)];
     }
     if (!this.is("agent")) textFail(at, "Unsupported statement; only Agent commands, finite for and if/else are supported");
@@ -124,10 +124,10 @@ class TextParser {
     if (this.language === "javascript" && (this.is("}") || this.location().kind === "eof")) return;
     textFail(this.location(), this.language === "python" ? "Expected end of Python line" : "Expected semicolon or line ending");
   }
-  private condition(): { dir: AgentDirection; name?: string } | {slot:number;equals:number} {
+  private condition(): { dir: AgentDirection; name?: string } | {type:"if-item-count"|"if-item-space";slot:number;equals:number} {
     this.take("agent"); this.take("."); const method = this.take(undefined, "id"); this.take("(");
-    if(method.value===(this.language==="javascript"?"getItemCount":"get_item_count")){
-      const slot=this.integer(1,27);this.take(")");this.take(this.language==="javascript"?"===":"==");const equals=this.integer(0,Number.MAX_SAFE_INTEGER);return{slot:slot-1,equals};
+    if(method.value===(this.language==="javascript"?"getItemCount":"get_item_count")||method.value===(this.language==="javascript"?"getItemSpace":"get_item_space")){
+      const slot=this.integer(1,27);this.take(")");this.take(this.language==="javascript"?"===":"==");const equals=this.integer(0,Number.MAX_SAFE_INTEGER);return{type:method.value==="getItemSpace"||method.value==="get_item_space"?"if-item-space":"if-item-count",slot:slot-1,equals};
     }
     if (method.value === "detect") {
       this.take("AgentDetection"); this.take("."); this.take(this.language === "javascript" ? "Block" : "BLOCK"); this.take(","); const dir = this.direction(); this.take(")"); return { dir };

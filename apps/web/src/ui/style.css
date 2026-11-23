@@ -593,3 +593,6 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 
 /* The new program teleport action retains a reachable touch target. */
 .cb-palette-block[data-palette="teleport-to-player"] { min-height: 44px; min-width: 44px; font-size: 16px; }
+
+/* Item-space uses the same wrapping, labeled numeric controls and reachable palette action. */
+.cb-palette-block[data-palette="if-item-space"] { min-height:44px; min-width:44px; font-size:16px; }
