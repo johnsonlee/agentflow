@@ -19,7 +19,7 @@ it("line comments, CRLF and quoted comment characters are scanned without runnin
  expect(compileAgentText('if (agent.blockIs("stone//tail", UP)) {}','javascript').ok).toBe(false);
 });
 it.each([
- 'agent.setItem(STONE, 64, 1);','agent.teleportToPlayer();','agent.setAssist(PLACE_ON_MOVE, true);','agent.inspect(AgentInspection.Block, UP);',
+ 'agent.setItem(STONE, 64, 1);','agent.teleport(1,80,1);','agent.setAssist(PLACE_ON_MOVE, true);','agent.inspect(AgentInspection.Block, UP);',
  'player.onChat("x", function () { agent.turn(LEFT_TURN); });','const x = 1;','agent.move(FORWARD, 1 + 2);','agent.move(FORWARD, Math.random());',
  'agent.move(FORWARD, -1);','agent.move(FORWARD, 1.5);','agent.move(FORWARD, 1e2);','agent.move(FORWARD, 01);','agent.move(FORWARD, 0x10);',
  'agent.move(FORWARD, 1) agent.turn(LEFT_TURN)','agent.move(FORWARD, 1); window.fetch("https://invalid");','agent.constructor("return 1")();',
@@ -29,7 +29,7 @@ it.each([
  'agent.set_slot(1);','if (agent.blockIs("stone\\n", UP)) {}','/* block comments unsupported */ agent.move(FORWARD,1);'
 ])("atomically refuses unsupported JS, including otherwise valid prefixes: %s",text=>{const result=compileAgentText('agent.turn(LEFT_TURN);\n'+text,'javascript');expect(result.ok).toBe(false);expect(result).not.toHaveProperty('program');if(!result.ok){expect(result.diagnostics).toHaveLength(1);expect(result.diagnostics[0].line).toBeGreaterThanOrEqual(2);expect(result.diagnostics[0].column).toBeGreaterThanOrEqual(1);expect(result.diagnostics[0].endColumn).toBeGreaterThan(result.diagnostics[0].column);}});
 it.each([
- 'import os','from os import system','def on_chat():\n    agent.place(UP)','agent.set_item(STONE,64,1)','agent.teleport_to_player()',
+ 'import os','from os import system','def on_chat():\n    agent.place(UP)','agent.set_item(STONE,64,1)','agent.teleport(1,80,1)',
  'agent.move(FORWARD, steps)','for i in range(1,4):\n    agent.place(UP)','for i in range(101):\n    agent.place(UP)',
  'for i in range(4):\n  agent.place(UP)','for i in range(4):\n\tagent.place(UP)','for i in range(4):\n        agent.place(UP)',
  'if agent.detect(AgentDetection.BLOCK, UP)\n    agent.place(UP)','if agent.detect(AgentDetection.Block, UP):\n    agent.place(UP)',

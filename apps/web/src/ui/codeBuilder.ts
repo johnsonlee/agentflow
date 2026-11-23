@@ -13,6 +13,7 @@ function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text 
 
 /** Palette entries: what each block creates. */
 const PALETTE: Array<{ id: string; label: string; kind: "command" | "loop" | "logic"; make: () => CodeBlock }> = [
+  { id:"teleport-to-player",label:"teleport to player",kind:"command",make:()=>({type:"command",cmd:{op:"teleport-to-player"}}) },
   { id: "move", label: "move", kind: "command", make: () => ({ type: "command", cmd: { op: "move", dir: "forward" } }) },
   { id: "turn", label: "turn", kind: "command", make: () => ({ type: "command", cmd: { op: "turn", side: "left" } }) },
   { id: "place", label: "place", kind: "command", make: () => ({ type: "command", cmd: { op: "place", dir: "forward" } }) },
@@ -311,7 +312,7 @@ export class CodeBuilderScreen {
     policy.id = `${this.importId}-policy`;
     const persistence = el("p", "cb-import-note", this.sourcePersistenceNote());
     const details = el("details", "cb-import-help"); details.append(el("summary", "", "Supported subset and limits"));
-    details.append(el("p", "", "Commands: move, turn, place, till, destroy, slot selection, and agent.transfer(quantity, sourceSlot, destinationSlot) using slots 1–27. Transfer requires the exact owned quantity and compatible capacity; refusal changes nothing. Finite for loops and if/else are supported, including item-count equality: agent.getItemCount(slot) === count (JavaScript) or agent.get_item_count(slot) == count (Python). Empty slots count as 0 under app policy; unavailable inventory stops the program. No variables, general expressions, inventory grants, teleport, assist, or native project import."));
+    details.append(el("p", "", "Commands: teleport to player (agent.teleportToPlayer() in JavaScript or agent.teleport_to_player() in Python), move, turn, place, till, destroy, slot selection, and agent.transfer(quantity, sourceSlot, destinationSlot) using slots 1–27. Transfer requires the exact owned quantity and compatible capacity; refusal changes nothing. Finite for loops and if/else are supported, including item-count equality: agent.getItemCount(slot) === count (JavaScript) or agent.get_item_count(slot) == count (Python). Empty slots count as 0 under app policy; unavailable inventory stops the program. No variables, general expressions, inventory grants, coordinate teleport, assist, or native project import."));
     const example = this.importLanguage === "javascript" ? 'agent.setSlot(1);\nfor (let step = 0; step < 2; step++) {\n    agent.move(FORWARD, 1);\n}\nif (agent.blockIs("stone", UP)) {\n    agent.turn(RIGHT_TURN);\n}' : 'agent.set_slot(1)\nfor step in range(2):\n    agent.move(FORWARD, 1)\nif agent.block_is("stone", UP):\n    agent.turn(TurnDirection.RIGHT)';
     details.append(el("pre", "", example), el("p", "", "Exact block names are an application extension. detect uses this game's any-solid-block rule, which differs from native MakeCode. Limits: 16 KiB of UTF-8 source, 4,096 tokens, 2,000 blocks, four nesting levels and 100 repeats. Oversized text is rejected in full, never cut off. Strings have no escapes; loop counters cannot shadow constants or keywords."));
     source.setAttribute("aria-describedby", `${policy.id} ${issue.id}`); source.setAttribute("aria-invalid", draft.issue?.focus === "source" ? "true" : "false");
@@ -424,7 +425,7 @@ export class CodeBuilderScreen {
   private commandFields(cmd: AgentCommand): HTMLElement[] {
     const names: Record<AgentCommand["op"], string> = {
       move: "Agent move", turn: "Agent turn", place: "Agent place", till: "Agent till", destroy: "Agent destroy", attack: "Agent attack", select: "Agent select slot",
-      transfer: "Agent transfer items", drop: "Agent drop slot", detect: "Agent detect", inspect: "Agent inspect", collect: "Agent collect",
+      "teleport-to-player":"Agent teleport to player", transfer: "Agent transfer items", drop: "Agent drop slot", detect: "Agent detect", inspect: "Agent inspect", collect: "Agent collect",
     };
     const out: HTMLElement[] = [el("span", "", names[cmd.op])];
     if ("dir" in cmd && cmd.dir !== undefined) out.push(this.dirSelect(cmd.dir, (d) => (cmd.dir = d)));

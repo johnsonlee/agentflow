@@ -41,6 +41,7 @@ export type AgentDirection = "forward" | "back" | "left" | "right" | "up" | "dow
 export const AGENT_DIRECTIONS: readonly AgentDirection[] = ["forward", "back", "left", "right", "up", "down"];
 
 export type AgentCommand =
+  | { op: "teleport-to-player" }
   | { op: "move"; dir: AgentDirection }
   | { op: "turn"; side: "left" | "right" }
   | { op: "place"; dir: AgentDirection }
@@ -80,6 +81,8 @@ export interface AgentEnv {
   beginDestroyOwnership?(x: number, y: number, z: number): ReleaseAttempt;
   /** Optional live player feet for new fence placement/connection overlap checks. */
   playerFeet?(): Vec3;
+  /** Game-owned player-relative teleport; absent means unavailable. */
+  teleportToPlayer?(): boolean;
   /** New physical mode; absent preserves legacy direct inventory-transfer behavior. */
   worldDrop?: DropSink;
   /** Deterministic engine-test seam only; browser production does not inject harvest outcomes. */
@@ -183,6 +186,10 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
     return { x: agent.x + dx, y: agent.y + dy, z: agent.z + dz };
   };
   switch (cmd.op) {
+    case "teleport-to-player": {
+      if(typeof env.teleportToPlayer!=="function"||env.lifecycleValid&&env.lifecycleValid()!==true)return{ok:false,message:"Teleport to player unavailable"};
+      const ok=env.teleportToPlayer()===true;return{ok,message:ok?undefined:"No safe Agent teleport is available"};
+    }
     case "move": {
       const t = target(cmd.dir);
       if (t.y < 0 || t.y >= WORLD_HEIGHT) return { ok: false, message: "Can't move out of the world" };

@@ -89,7 +89,9 @@ class TextParser {
     }
     if (!this.is("agent")) textFail(at, "Unsupported statement; only Agent commands, finite for and if/else are supported");
     this.take("agent"); this.take("."); const method = this.take(undefined, "id"); this.take("("); const commands: AgentCommand[] = [];
-    if (method.value === "move") {
+    if (method.value === (this.language === "javascript" ? "teleportToPlayer" : "teleport_to_player")) {
+      this.take(")"); commands.push({op:"teleport-to-player"});
+    } else if (method.value === "move") {
       const dir = this.direction(); this.take(","); const count = this.integer(0, 100); this.take(")");
       for (let i = 0; i < count; i++) commands.push({ op: "move", dir });
     } else if (method.value === "place" || method.value === "destroy" || method.value === "till") {

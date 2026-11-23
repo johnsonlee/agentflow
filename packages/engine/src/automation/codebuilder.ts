@@ -164,6 +164,7 @@ const own = (o: Record<string, unknown>, key: string): unknown => ((() => {const
 
 /** Allowed Agent commands and their parameter checks (a Map: no prototype keys). */
 const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
+  ["teleport-to-player",c=>Reflect.ownKeys(c).length===1&&Object.getOwnPropertyDescriptor(c,"op")?.value==="teleport-to-player"],
   ["move", (c) => isDir(own(c, "dir"))],
   ["place", (c) => isDir(own(c, "dir"))],
   ["till", (c) => isDir(own(c, "dir"))],

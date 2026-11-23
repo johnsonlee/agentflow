@@ -23,7 +23,7 @@ import {
   MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  readOwnedAgentItemCount, type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
+  teleportOwnedAgentToPlayer, readOwnedAgentItemCount, type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
@@ -2010,7 +2010,7 @@ export class Game {
     return key ? (this.chalkboards.get(key) ?? null) : null;
   }
 
-  /** A spot next to the player (on their left, Education Edition style), facing where they look. */
+  /** Existing app policy: a safe spot near the player; native offsets/facing are uncalibrated. */
   private agentNearPlayer(position = this.body.position): AgentState | null {
     const p = findAgentPosition(this.world, position, this.body.yaw);
     if (!p) return null;
@@ -2019,12 +2019,12 @@ export class Game {
   }
 
   /** /agent tp: brings the Agent next to the player. */
-  teleportAgent(): boolean {
-    if (this.ownershipBusy || this.actionsNeedRecovery) return false;
-    const next = this.agentNearPlayer();
-    if (!next) return false;
-    Object.assign(this.agent, { x: next.x, y: next.y, z: next.z, facing: next.facing });
-    this.agentView.snap(this.agent);
+  teleportAgent(lifecycleValid:()=>boolean=()=>true): boolean {
+    const world=this.world,agent=this.agent,mode=this.mode,feet=this.body.position,yaw=this.body.yaw;
+    const valid=()=>lifecycleValid()===true&&this.world===world&&this.agent===agent&&this.mode===mode&&
+      this.body.position===feet&&this.body.yaw===yaw&&!this.ownershipBusy&&!this.actionsNeedRecovery;
+    if(!teleportOwnedAgentToPlayer(world,agent,feet,yaw,valid))return false;
+    this.agentView.snap(agent);
     return true;
   }
 
@@ -2123,8 +2123,8 @@ export class Game {
     let result: ReturnType<typeof runAgentCommand>;
     try {
       const farming = cmd.op==="till" || cmd.op==="place";
-      const transfer=cmd.op==="transfer";
-      const lifecycleValid = farming ? this.ownedFarmingContext().valid : transfer ? this.ownedAgentTransferContext(runner) : undefined;
+      const transfer=cmd.op==="transfer",teleport=cmd.op==="teleport-to-player";
+      const lifecycleValid = farming ? this.ownedFarmingContext().valid : (transfer||teleport) ? this.ownedAgentTransferContext(runner) : undefined;
       result = runAgentCommand(this.world, this.agent, cmd as AgentCommand, {
       lifecycleValid,
       attack: (x, y, z) => {
@@ -2136,6 +2136,7 @@ export class Game {
       giveToPlayer: (stack) => this.dead ? stack.count : this.inventory.addStack(stack),
       worldDrop: this.dropSink,
       playerFeet: () => this.body.position,
+      teleportToPlayer:()=>this.teleportAgent(lifecycleValid),
       beginDestroyOwnership: (x, y, z) => this.beginBlockRelease(x, y, z),
       collect: (agent, filterId) => this.worldDrops.tryPickup({ x: agent.x + .5, y: agent.y, z: agent.z + .5 }, (stack) => giveAgent(agent, stack), filterId),
       destroyContents: (x, y, z) => {
@@ -2150,7 +2151,7 @@ export class Game {
       // Defence in depth: anything but a result object stops the program.
       if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
       // Farming changes terrain and cargo, not the Agent pose; do not reread a refused malformed actor in the view.
-      if(!farming&&!transfer) this.agentView.moveTo(this.agent);
+      if(!farming&&!transfer&&!teleport) this.agentView.moveTo(this.agent);
       // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
       if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
     } catch (e) {

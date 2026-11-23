@@ -181,3 +181,5 @@ export * from "./education/npc-actions";
 export * from "./persistence/world-save-import";
 
 export * from "./ownership/agent-item-count";
+
+export * from "./ownership/agent-teleport";
