@@ -60,6 +60,8 @@ export function lexAgentText(source: string, language: AgentTextLanguage): TextT
       }
       if ("().,;:{}=<+".includes(c)) {
         const pair = s.slice(i, i + 2);
+        if(s.slice(i,i+3)==="==="){emit("punct","===",line,column);i+=3;continue;}
+        if(pair==="=="){emit("punct",pair,line,column);i+=2;continue;}
         if (pair === "<=" || pair === "++") { emit("punct", pair, line, column); i += 2; }
         else { emit("punct", c, line, column); i++; }
         continue;

@@ -23,7 +23,7 @@ import {
   MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
+  readOwnedAgentItemCount, type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
@@ -2060,13 +2060,17 @@ export class Game {
     if (this.dead || this.ownershipBusy || this.actionsNeedRecovery) return false;
     this.runner?.stop();
     this.runner = null;
+    const queryAgent=this.agent,queryWorld=this.world,queryMode=this.mode;
+    let querySession:(()=>boolean)|undefined;
     const started = startProgram(program, undefined, (dir) => runAgentCommand(this.world, this.agent, { op: "detect", dir }).value === true,
-      (dir) => inspectLoadedAgentBlock(this.world, this.agent, dir));
+      (dir) => inspectLoadedAgentBlock(this.world, this.agent, dir),
+      slot=>readOwnedAgentItemCount(queryAgent,slot,()=>!!querySession&&querySession()&&this.recoverySections.length===0&&this.agent===queryAgent&&this.world===queryWorld&&this.mode===queryMode));
     if ("error" in started) {
       this.hud.message(`Can't run "${String((program as { name?: unknown })?.name ?? "program")}": ${started.error}`);
       return false;
     }
     this.runner = started.runner;
+    querySession=this.ownedAgentTransferContext(started.runner);
     this.runnerName = program.name;
     this.stepTimer = 0;
     this.runnerStarted = this.clock;
@@ -2101,11 +2105,16 @@ export class Game {
     try {
       cmd = runner.next();
     } catch (e) {
+      // Reentrant Run/Stop owns the replacement session; this old continuation is retired.
+      if(this.runner!==runner)return;
       // Defence in depth: a broken program must never break the game loop.
       this.runner = null;
       this.hud.message(`"${this.runnerName}" stopped: ${e instanceof Error ? e.message : String(e)}`);
       return;
     }
+    // A condition callback may synchronously start another program. Never dispatch, clear
+    // or report an old command over the newly installed runner/session.
+    if(this.runner!==runner)return;
     if (!cmd) {
       this.runner = null;
       this.hud.message(runner.error ? `"${this.runnerName}": ${runner.error}` : `"${this.runnerName}" finished`);
@@ -2137,6 +2146,7 @@ export class Game {
       },
       afterDestroy: (x, y, z) => { this.furnaces.delete(furnaceKey(x, y, z)); },
       });
+      if(this.runner!==runner)return;
       // Defence in depth: anything but a result object stops the program.
       if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
       // Farming changes terrain and cargo, not the Agent pose; do not reread a refused malformed actor in the view.
@@ -2144,6 +2154,7 @@ export class Game {
       // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
       if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
     } catch (e) {
+      if(this.runner!==runner)return;
       this.runner = null;
       this.hud.message(`"${this.runnerName}" stopped: ${e instanceof Error ? e.message : String(e)}`);
       return;

@@ -69,3 +69,10 @@ export function reserveInventoryMutation(owner:Inventory|{slots:(ItemStack|null)
   return Object.freeze({slots:state.slots,valid,prepareBatch,prepare,commit:(index:number,replacement:ItemStack|null)=>{const staged=prepare(index,replacement);if(staged?.valid())staged.commit();},cancel});
  }catch{cancel();return null;}
 }
+
+/** Read-only constructor-original owner proof. Never reserves, releases or changes a lease. */
+export function readOriginalInventorySlots(owner:object):(ItemStack|null)[]|undefined{
+ try{const state=owners.get(owner),d=Object.getOwnPropertyDescriptor(owner,'slots');
+  return state&&!state.busy&&d&&'value'in d&&d.value===state.slots?state.slots:undefined;
+ }catch{return undefined;}
+}

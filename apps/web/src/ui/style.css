@@ -586,3 +586,7 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .world-import-screen button:disabled { opacity: .6; }
 
 .world-import-screen .hint, .world-import-screen .save-status, .world-import-preview { font-size: 16px; }
+
+/* Item-count fields retain visible labels and wrap inside the existing Code Builder. */
+.cb-count-field { display:flex; flex-direction:column; gap:4px; font-size:14px; min-width:0; }
+.cb-number.cb-count-number { min-height:44px; min-width:44px; width:120px; max-width:100%; box-sizing:border-box; font-size:16px; }

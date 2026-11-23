@@ -15,6 +15,7 @@ import { AGENT_DIRECTIONS, type AgentCommand, type AgentDirection } from "./agen
 export type CodeBlock =
   | { type: "command"; cmd: AgentCommand }
   | { type: "repeat"; times: number; body: CodeBlock[] }
+  | { type: "if-item-count"; slot:number; equals:number; then:CodeBlock[]; else:CodeBlock[] }
   | { type: "if"; dir: AgentDirection; condition?: BlockCondition; then: CodeBlock[]; else: CodeBlock[] }
   | { type: "until"; dir: AgentDirection; condition?: BlockCondition; body: CodeBlock[] };
 
@@ -48,6 +49,8 @@ export type DetectFn = (dir: AgentDirection) => boolean;
 /** Undefined means the target cannot be inspected (unloaded, outside the world or unavailable). */
 export type InspectBlockFn = (dir: AgentDirection) => string | undefined;
 
+export type ItemCountFn = (slot:number) => number | undefined;
+
 export class ProgramRunner {
   private readonly stack: Frame[];
   steps = 0;
@@ -59,7 +62,7 @@ export class ProgramRunner {
    * sees the current world. Every condition check counts towards `stepLimit` too, so a
    * repeat-until that never becomes true still ends.
    */
-  constructor(program: CodeProgram, readonly stepLimit = DEFAULT_STEP_LIMIT, private readonly detect: DetectFn = () => false, private readonly inspect?: InspectBlockFn) {
+  constructor(program: CodeProgram, readonly stepLimit = DEFAULT_STEP_LIMIT, private readonly detect: DetectFn = () => false, private readonly inspect?: InspectBlockFn, private readonly itemCount?:ItemCountFn) {
     this.stack = [{ blocks: program.blocks, index: 0, remaining: 1 }];
   }
 
@@ -116,6 +119,15 @@ export class ProgramRunner {
         if (times > 0 && block.body.length > 0) this.stack.push({ blocks: block.body, index: 0, remaining: times });
         continue;
       }
+      if (block.type === "if-item-count") {
+        if(!this.count())return null;
+        let value:number|undefined;try{value=this.itemCount?.(block.slot);}catch{value=undefined;}
+        if(this.stopped||this.error!==null)return null;
+        if(!Number.isSafeInteger(value)||value!<0){this.error="Stopped: Agent item count unavailable";return null;}
+        const branch=value===block.equals?block.then:block.else;
+        if(branch.length)this.stack.push({blocks:branch,index:0,remaining:1});
+        continue;
+      }
       if (block.type === "if") {
         if (!this.count()) return null;
         const match = this.matches(block);
@@ -148,7 +160,7 @@ const isSlot = (n: unknown) => typeof n === "number" && Number.isInteger(n) && n
 const isPlainObject = (v: unknown): v is Record<string, unknown> =>
   typeof v === "object" && v !== null && !Array.isArray(v) && (Object.getPrototypeOf(v) === Object.prototype || Object.getPrototypeOf(v) === null);
 /** Own (not inherited) property, so names like "constructor" or "__proto__" never resolve. */
-const own = (o: Record<string, unknown>, key: string): unknown => (Object.prototype.hasOwnProperty.call(o, key) ? o[key] : undefined);
+const own = (o: Record<string, unknown>, key: string): unknown => ((() => {const d=Object.getOwnPropertyDescriptor(o,key);return d&&"value"in d?d.value:undefined;})());
 
 /** Allowed Agent commands and their parameter checks (a Map: no prototype keys). */
 const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
@@ -210,6 +222,12 @@ function checkProgram(p: unknown): string[] {
         const times = own(b, "times");
         if (!(typeof times === "number" && Number.isInteger(times) && times >= 0 && times <= MAX_REPEAT)) problems.push(`repeat must be 0-${MAX_REPEAT}`);
         visit(own(b, "body"), depth + 1);
+      } else if (type === "if-item-count") {
+        const descriptors=Object.getOwnPropertyDescriptors(b);
+        const fields=['type','slot','equals','then','else'];
+        if(Reflect.ownKeys(descriptors).length!==fields.length||fields.some(key=>!descriptors[key]||!('value'in descriptors[key]))) {problems.push("Invalid item-count condition fields");continue;}
+        if(!isSlot(own(b,'slot'))||!Number.isSafeInteger(own(b,'equals'))||(own(b,'equals') as number)<0)problems.push("Invalid item-count slot or equality");
+        visit(own(b,'then'),depth+1);visit(own(b,'else'),depth+1);
       } else if (type === "if") {
         if (!isDir(own(b, "dir"))) problems.push(`Unknown direction ${String(own(b, "dir"))}`);
         if (readProgramCondition(b).kind === "invalid") problems.push("Invalid specific block condition");
@@ -256,8 +274,8 @@ export function loadPrograms(raw: unknown): { programs: CodeProgram[]; errors: s
 }
 
 /** Every run path goes through here: a runner for a valid program, or the reason it can't run. */
-export function startProgram(program: unknown, stepLimit = DEFAULT_STEP_LIMIT, detect?: DetectFn, inspect?: InspectBlockFn): { runner: ProgramRunner } | { error: string } {
+export function startProgram(program: unknown, stepLimit = DEFAULT_STEP_LIMIT, detect?: DetectFn, inspect?: InspectBlockFn, itemCount?:ItemCountFn): { runner: ProgramRunner } | { error: string } {
   const problems = validateProgram(program);
   if (problems.length > 0) return { error: problems[0] };
-  return { runner: new ProgramRunner(program as CodeProgram, stepLimit, detect, inspect) };
+  return { runner: new ProgramRunner(program as CodeProgram, stepLimit, detect, inspect, itemCount) };
 }

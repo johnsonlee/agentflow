@@ -25,6 +25,7 @@ const PALETTE: Array<{ id: string; label: string; kind: "command" | "loop" | "lo
   { id: "drop", label: "drop slot", kind: "command", make: () => ({ type: "command", cmd: { op: "drop", slot: 0, dir: "forward" } }) },
   { id: "repeat", label: "repeat", kind: "loop", make: () => ({ type: "repeat", times: 4, body: [] }) },
   { id: "until", label: "repeat until detect", kind: "loop", make: () => ({ type: "until", dir: "forward", body: [] }) },
+  { id: "if-item-count", label: "if Agent item count", kind: "logic", make: () => ({ type:"if-item-count",slot:4,equals:5,then:[],else:[] }) },
   { id: "if", label: "if detect", kind: "logic", make: () => ({ type: "if", dir: "forward", then: [], else: [] }) },
 ];
 
@@ -310,7 +311,7 @@ export class CodeBuilderScreen {
     policy.id = `${this.importId}-policy`;
     const persistence = el("p", "cb-import-note", this.sourcePersistenceNote());
     const details = el("details", "cb-import-help"); details.append(el("summary", "", "Supported subset and limits"));
-    details.append(el("p", "", "Commands: move, turn, place, till, destroy, slot selection, and agent.transfer(quantity, sourceSlot, destinationSlot) using slots 1–27. Transfer requires the exact owned quantity and compatible capacity; refusal changes nothing. Finite for loops and if/else are supported. No variables, expressions, inventory grants, teleport, assist, or native project import."));
+    details.append(el("p", "", "Commands: move, turn, place, till, destroy, slot selection, and agent.transfer(quantity, sourceSlot, destinationSlot) using slots 1–27. Transfer requires the exact owned quantity and compatible capacity; refusal changes nothing. Finite for loops and if/else are supported, including item-count equality: agent.getItemCount(slot) === count (JavaScript) or agent.get_item_count(slot) == count (Python). Empty slots count as 0 under app policy; unavailable inventory stops the program. No variables, general expressions, inventory grants, teleport, assist, or native project import."));
     const example = this.importLanguage === "javascript" ? 'agent.setSlot(1);\nfor (let step = 0; step < 2; step++) {\n    agent.move(FORWARD, 1);\n}\nif (agent.blockIs("stone", UP)) {\n    agent.turn(RIGHT_TURN);\n}' : 'agent.set_slot(1)\nfor step in range(2):\n    agent.move(FORWARD, 1)\nif agent.block_is("stone", UP):\n    agent.turn(TurnDirection.RIGHT)';
     details.append(el("pre", "", example), el("p", "", "Exact block names are an application extension. detect uses this game's any-solid-block rule, which differs from native MakeCode. Limits: 16 KiB of UTF-8 source, 4,096 tokens, 2,000 blocks, four nesting levels and 100 repeats. Oversized text is rejected in full, never cut off. Strings have no escapes; loop counters cannot shadow constants or keywords."));
     source.setAttribute("aria-describedby", `${policy.id} ${issue.id}`); source.setAttribute("aria-invalid", draft.issue?.focus === "source" ? "true" : "false");
@@ -366,7 +367,7 @@ export class CodeBuilderScreen {
   }
 
   private blockView(block: CodeBlock, list: CodeBlock[], index: number, depth: number): HTMLElement {
-    const view = el("div", `cb-block cb-${block.type === "command" ? "command" : block.type === "if" ? "logic" : "loop"}`);
+    const view = el("div", `cb-block cb-${block.type === "command" ? "command" : (block.type === "if" || block.type === "if-item-count") ? "logic" : "loop"}`);
     view.dataset.type = block.type === "command" ? block.cmd.op : block.type;
     view.draggable = true;
     view.addEventListener("dragstart", (e) => {
@@ -386,6 +387,14 @@ export class CodeBuilderScreen {
       times.addEventListener("keydown", (e) => e.stopPropagation());
       times.addEventListener("change", () => (block.times = Math.max(0, Math.min(MAX_REPEAT, Number(times.value) || 0))));
       row.append(el("span", "", "repeat"), times, el("span", "", "times"));
+    } else if(block.type==="if-item-count"){
+      row.append(el("span","","if Agent item count"));
+      for(const [key,label,min,max,offset]of [["slot","Count slot",1,AGENT_SLOTS,1],["equals","Equals count",0,Number.MAX_SAFE_INTEGER,0]] as const){
+        const field=el("label","cb-count-field"),input=el("input","cb-number cb-count-number");
+        input.type="number";input.min=String(min);input.max=String(max);input.step="1";input.value=String(block[key]+offset);input.setAttribute("aria-label",label);
+        input.addEventListener("keydown",e=>e.stopPropagation());input.addEventListener("change",()=>{block[key]=input.value.trim()===""?NaN:Number(input.value)-offset;});
+        field.append(el("span","",key==="slot"?"Slot":"Equals"),input);row.append(field);
+      }
     } else {
       row.append(el("span", "", block.type === "if" ? "if Agent detects block" : "repeat until Agent detects block"), this.dirSelect(block.dir, (d) => (block.dir = d)));
       const kind = el("select", "cb-select");
@@ -408,7 +417,7 @@ export class CodeBuilderScreen {
     row.append(...this.moveButtons(list, index));
     view.append(row);
     if (block.type === "repeat" || block.type === "until") view.append(this.zone(block.body, "do", depth + 1));
-    if (block.type === "if") view.append(this.zone(block.then, "then", depth + 1), el("span", "cb-label", "else"), this.zone(block.else, "else", depth + 1));
+    if (block.type === "if" || block.type === "if-item-count") view.append(this.zone(block.then, "then", depth + 1), el("span", "cb-label", "else"), this.zone(block.else, "else", depth + 1));
     return view;
   }
 
@@ -489,20 +498,20 @@ export class CodeBuilderScreen {
 
 /** Nesting a block adds: 0 for commands, 1 + the deepest child for loops and ifs. */
 function height(block: CodeBlock): number {
-  const children = block.type === "repeat" || block.type === "until" ? [block.body] : block.type === "if" ? [block.then, block.else] : [];
+  const children = block.type === "repeat" || block.type === "until" ? [block.body] : (block.type === "if" || block.type === "if-item-count") ? [block.then, block.else] : [];
   if (children.length === 0) return 0;
   return 1 + Math.max(0, ...children.flat().map(height));
 }
 
 /** True if `list` is `block`'s own body (or nested inside it): dropping there would lose the block. */
 function contains(block: CodeBlock, list: CodeBlock[]): boolean {
-  const children = block.type === "repeat" || block.type === "until" ? [block.body] : block.type === "if" ? [block.then, block.else] : [];
+  const children = block.type === "repeat" || block.type === "until" ? [block.body] : (block.type === "if" || block.type === "if-item-count") ? [block.then, block.else] : [];
   return children.some((c) => c === list || c.some((b) => contains(b, list)));
 }
 
 /** Empty text, zero moves and zero-repeat-only snippets do not create empty programs. */
 function hasImportedCommand(blocks: readonly CodeBlock[]): boolean {
-  return blocks.some(block => block.type === "command" || (block.type === "repeat" ? block.times > 0 && hasImportedCommand(block.body) : block.type === "if" ? hasImportedCommand(block.then) || hasImportedCommand(block.else) : hasImportedCommand(block.body)));
+  return blocks.some(block => block.type === "command" || (block.type === "repeat" ? block.times > 0 && hasImportedCommand(block.body) : (block.type === "if" || block.type === "if-item-count") ? hasImportedCommand(block.then) || hasImportedCommand(block.else) : hasImportedCommand(block.body)));
 }
 function diagnosticSelection(source: string, diagnostic: TextDiagnostic): { start: number; end: number } {
   let offset = 0;
