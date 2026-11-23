@@ -52,6 +52,7 @@ export type AgentCommand =
   | { op: "attack"; dir: AgentDirection }
   | { op: "select"; slot: number }
   | { op: "transfer"; quantity: number; sourceSlot: number; destinationSlot: number }
+  | { op: "drop-all"; dir: AgentDirection }
   | { op: "drop"; slot: number; dir?: AgentDirection; quantity?: number }
   | { op: "collect"; filterId?: number };
 
@@ -89,6 +90,8 @@ export interface AgentEnv {
   gravelRand?: () => number;
   /** Detached external contents join the same destruction batch, never a second receiver. */
   destroyContents?(x: number, y: number, z: number): readonly ItemStack[];
+  /** Game-owned atomic all-slot transfer into its original physical drop receiver. */
+  dropAll?(agent:AgentState,dir:AgentDirection):boolean;
   collect?(agent: AgentState, filterId?: number): number;
   /** Hits a mob in the cell; returns true if one was there. */
   attack?(x: number, y: number, z: number): boolean;
@@ -316,6 +319,11 @@ export function runAgentCommand(world: World, agent: AgentState, cmd: AgentComma
       if (!Number.isInteger(cmd.slot) || cmd.slot < 0 || cmd.slot >= AGENT_SLOTS) return { ok: false, message: "Slot must be 1-27" };
       agent.selected = cmd.slot;
       return { ok: true };
+    case "drop-all": {
+      const fields=Object.getOwnPropertyDescriptors(cmd);
+      if(Reflect.ownKeys(fields).length!==2||!fields.op?.enumerable||fields.op.value!=="drop-all"||!fields.dir?.enumerable||!('value'in fields.dir)||!AGENT_DIRECTIONS.includes(fields.dir.value as AgentDirection))return{ok:false,message:"Invalid drop-all command"};
+      const ok=env.dropAll?.(agent,fields.dir.value as AgentDirection)===true;return{ok,message:ok?undefined:"Drop all refused: live cargo and physical world ownership required"};
+    }
     case "drop": {
       if (!Number.isInteger(cmd.slot) || cmd.slot < 0 || cmd.slot >= AGENT_SLOTS ||
         (cmd.dir !== undefined && !AGENT_DIRECTIONS.includes(cmd.dir)) ||

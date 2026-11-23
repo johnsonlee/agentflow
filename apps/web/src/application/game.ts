@@ -23,7 +23,7 @@ import {
   MILK_DRINK_SECONDS, isAdultCow, WATER_DRINK_SECONDS, EAT_SECONDS, EXHAUSTION, addExhaustion, canEat, createFurnace, createHunger, finishMeal, sanitizePlayerStatus, tickPlayerStatus, clearPlayerStatus, type PlayerStatus, furnaceContents, tickFurnace,
   tickHunger, knockbackFrom, mobAttack, findSummonSpot, canPlaceChalkboard, chalkboardCells, chalkboardKey, chalkboardSizeOf,
   facingTowards, findAgentPosition, Redstone, sanitizeScheduled, isWritableBook, isWrittenBook, stackId, type Chalkboard, ProgramRunner, createAgent, runAgentCommand,
-  teleportOwnedAgentToPlayer, readOwnedAgentItemCount, readOwnedAgentItemSpace, type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
+  teleportOwnedAgentToPlayer, dropAllOwnedAgentItems, readOwnedAgentItemCount, readOwnedAgentItemSpace, type AgentState, type CodeProgram, giveAgent, inspectLoadedAgentBlock, loadPrograms, startProgram, type AgentCommand,
   clampPosition, sanitizeMobState, sanitizeAgent, sanitizeChalkboards, sanitizeEdits, sanitizeFurnaces, sanitizeHunger, sanitizeNpcs, type FurnaceState, type HungerState,
 } from "@craft/engine";
 import { KeyboardMouseInput, TouchControls, mergeFrames } from "@craft/input";
@@ -2124,8 +2124,10 @@ export class Game {
     let result: ReturnType<typeof runAgentCommand>;
     try {
       const farming = cmd.op==="till" || cmd.op==="place";
-      const transfer=cmd.op==="transfer",teleport=cmd.op==="teleport-to-player";
-      const lifecycleValid = farming ? this.ownedFarmingContext().valid : (transfer||teleport) ? this.ownedAgentTransferContext(runner) : undefined;
+      const dropAll=cmd.op==="drop-all",transfer=cmd.op==="transfer",teleport=cmd.op==="teleport-to-player";
+      const dropReceiver=dropAll?this.worldDrops:undefined;
+      const ownedContext=(transfer||teleport||dropAll)?this.ownedAgentTransferContext(runner):undefined;
+      const lifecycleValid = farming ? this.ownedFarmingContext().valid : dropAll ? ()=>ownedContext!()&&this.worldDrops===dropReceiver : ownedContext;
       result = runAgentCommand(this.world, this.agent, cmd as AgentCommand, {
       lifecycleValid,
       attack: (x, y, z) => {
@@ -2136,6 +2138,7 @@ export class Game {
       },
       giveToPlayer: (stack) => this.dead ? stack.count : this.inventory.addStack(stack),
       worldDrop: this.dropSink,
+      dropAll:(agent,dir)=>dropAllOwnedAgentItems(this.world,agent,dir,dropReceiver!,lifecycleValid),
       playerFeet: () => this.body.position,
       teleportToPlayer:()=>this.teleportAgent(lifecycleValid),
       beginDestroyOwnership: (x, y, z) => this.beginBlockRelease(x, y, z),
@@ -2152,7 +2155,7 @@ export class Game {
       // Defence in depth: anything but a result object stops the program.
       if (typeof result !== "object" || result === null || typeof result.ok !== "boolean") throw new Error("invalid Agent command");
       // Farming changes terrain and cargo, not the Agent pose; do not reread a refused malformed actor in the view.
-      if(!farming&&!transfer&&!teleport) this.agentView.moveTo(this.agent);
+      if(!farming&&!transfer&&!teleport&&!dropAll) this.agentView.moveTo(this.agent);
       // Like Education Edition, a failed action (e.g. a blocked move) doesn't stop the program.
       if (!result.ok && result.message) this.hud.message(`Agent: ${result.message}`);
     } catch (e) {

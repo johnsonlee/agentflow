@@ -596,3 +596,6 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 
 /* Item-space uses the same wrapping, labeled numeric controls and reachable palette action. */
 .cb-palette-block[data-palette="if-item-space"] { min-height:44px; min-width:44px; font-size:16px; }
+
+/* Drop-all uses the existing direction control and a reachable touch/keyboard palette action. */
+.cb-palette-block[data-palette="drop-all"] { min-height:44px; min-width:44px; font-size:16px; }

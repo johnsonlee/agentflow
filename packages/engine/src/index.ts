@@ -184,3 +184,5 @@ export * from "./ownership/agent-item-count";
 export * from "./ownership/agent-item-space";
 
 export * from "./ownership/agent-teleport";
+
+export * from "./ownership/agent-drop-all";

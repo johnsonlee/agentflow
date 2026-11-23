@@ -5,6 +5,7 @@ import { WORLD_BORDER, type Vec3 } from "../core/math";
 import { bodyBox, boxCollides, GRAVITY, moveAxis, TERMINAL_VELOCITY } from "../simulation/physics";
 import { sanitizeStack } from "../persistence/savecheck";
 import { cloneStack, stackLimit, stacksCompatible } from "./stack";
+import{labCanonical}from "./lab-inventory-snapshot";
 import { inspectItemState } from "./item-state";
 import { WORLD_HEIGHT } from "../world/chunk";
 import type { World } from "../world/world";
@@ -81,6 +82,45 @@ export function reserveWorldDropReceipt(receiver:WorldDrops,world:LoadedWorld,st
  const valid=()=>active&&receiptOwners.get(receiver)===owner&&owner.busy&&field('items')?.value===owner.items&&field('nextKey')?.writable===true&&field('nextKey')?.value===key&&field('disposed')?.value===false&&field('loadIssues')?.value===0&&field('transferring')?.value===false&&owner.items.size===count;
  const record:DroppedItemRecord={key,stack:cloneStack(clean),position:p,velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:WORLD_DROP_PROFILE.pickupDelay};
  return Object.freeze({key,valid,cancel,commit:()=>{if(!active)return;owner.items.set(key,record);(receiver as unknown as{nextKey:number}).nextKey=key+1;cancel();}});
+ }catch{return null;}
+}
+
+/** Multi-stack receipt for the original Agent drop-all owner. These captured Map intrinsics
+ * avoid invoking a caller-added receiver method during trusted cross-owner finalization. */
+const publishDropRecord=Function.prototype.call.bind(Map.prototype.set) as (map:Map<number,DroppedItemRecord>,key:number,record:DroppedItemRecord)=>void;
+const dropRecordCount=Function.prototype.call.bind(Object.getOwnPropertyDescriptor(Map.prototype,'size')!.get!) as (map:Map<number,DroppedItemRecord>)=>number;
+const dropRecordEntries=Function.prototype.call.bind(Map.prototype.entries) as (map:Map<number,DroppedItemRecord>)=>IterableIterator<[number,DroppedItemRecord]>;
+export interface PreparedWorldDropBatchReceipt{valid():boolean;commit():void;cancel():void}
+/** Admission does not publish keys/items. Caller must validate this receipt immediately
+ * before trusted source batch commit; no external hook may run between the two finalizers. */
+export function reserveWorldDropBatchReceipt(receiver:WorldDrops,world:LoadedWorld,stacks:readonly ItemStack[],position:Vec3):PreparedWorldDropBatchReceipt|null{
+ const owner=receiptOwners.get(receiver);if(!owner||owner.world!==world||owner.busy)return null;
+ const field=(name:string)=>{const d=Object.getOwnPropertyDescriptor(receiver,name);return d&&'value'in d?d:undefined;};
+ try{
+  if(!Array.isArray(stacks)||stacks.length>27||!vector(position))return null;
+  const clean:ItemStack[]=[];
+  for(const stack of stacks){const copy=validStack(stack);if(!copy)return null;clean.push(copy);}
+  const next=field('nextKey'),items=owner.items;
+  if(!next?.writable||!Number.isSafeInteger(next.value)||next.value<1||next.value+clean.length>Number.MAX_SAFE_INTEGER||field('items')?.value!==items||Object.getPrototypeOf(items)!==Map.prototype||Reflect.ownKeys(items).length!==0||field('world')?.value!==world||field('disposed')?.value!==false||field('transferring')?.value!==false||field('loadIssues')?.value!==0||receiptOwners.get(receiver)!==owner||owner.busy)return null;
+  const key=next.value,count=dropRecordCount(items),p={...position};let active=true;
+  // Existing receiver records must also remain exact: same-size replacement or private
+  // metadata/key mutation must not be hidden by a count-only receiver check.
+  const snapshot=()=>{
+   const seen=new Set<object>();
+   const copy=(value:unknown):unknown=>{
+    if(value===null||typeof value==='string'||typeof value==='boolean'||typeof value==='number'&&Number.isFinite(value))return value;
+    if(!value||typeof value!=='object'||seen.has(value)||!Array.isArray(value)&&![Object.prototype,null].includes(Object.getPrototypeOf(value)))throw Error('Unreadable drop owner');seen.add(value);
+    if(Array.isArray(value)){if(Object.getPrototypeOf(value)!==Array.prototype||Reflect.ownKeys(value).length!==value.length+1)throw Error('Extra drop array fields');return Array.from({length:value.length},(_,i)=>{const d=Object.getOwnPropertyDescriptor(value,String(i));if(!d?.enumerable||!('value'in d))throw Error('Unreadable drop array');return copy(d.value);});}
+    const out:Record<string,unknown>={};for(const name of Reflect.ownKeys(value)){const d=Object.getOwnPropertyDescriptor(value,name)!;if(typeof name!=='string'||!d.enumerable||!('value'in d))throw Error('Unreadable drop field');Object.defineProperty(out,name,{value:copy(d.value),enumerable:true});}return out;
+   };
+   const records:unknown[]=[];for(const [id,record]of dropRecordEntries(items)){const row=copy(record) as Record<string,unknown>;if(id!==row.key)throw Error('Drop key mismatch');records.push(row);}
+   const raw={nextKey:key,records},checked=sanitizeWorldDrops(raw);if(checked.invalid||labCanonical(raw)!==labCanonical(checked.data))throw Error('Noncanonical receiver');return labCanonical(raw);
+  },before=snapshot();
+  const records=clean.map((stack,index):DroppedItemRecord=>({key:key+index,stack:cloneStack(stack),position:{...p},velocity:{x:0,y:0,z:0},ageSeconds:0,pickupDelaySeconds:WORLD_DROP_PROFILE.pickupDelay}));
+  const cancel=()=>{if(active){active=false;owner.busy=false;}};
+  const valid=()=>{try{return active&&receiptOwners.get(receiver)===owner&&owner.busy&&field('items')?.value===items&&Object.getPrototypeOf(items)===Map.prototype&&Reflect.ownKeys(items).length===0&&dropRecordCount(items)===count&&field('world')?.value===world&&field('nextKey')?.writable===true&&field('nextKey')?.value===key&&field('disposed')?.value===false&&field('transferring')?.value===false&&field('loadIssues')?.value===0&&snapshot()===before;}catch{return false;}};
+  owner.busy=true;
+  return Object.freeze({valid,cancel,commit:()=>{if(!active)return;for(const record of records)publishDropRecord(items,record.key,record);(receiver as unknown as{nextKey:number}).nextKey=key+records.length;cancel();}});
  }catch{return null;}
 }
 

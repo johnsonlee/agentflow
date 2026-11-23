@@ -178,6 +178,7 @@ const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
   ["turn", (c) => own(c, "side") === "left" || own(c, "side") === "right"],
   ["transfer",(c)=>Number.isSafeInteger(own(c,"quantity"))&&(own(c,"quantity") as number)>0&&isSlot(own(c,"sourceSlot"))&&isSlot(own(c,"destinationSlot"))],
   ["select", (c) => isSlot(own(c, "slot"))],
+  ["drop-all",c=>{const fields=Object.getOwnPropertyDescriptors(c);return Reflect.ownKeys(fields).length===2&&fields.op?.enumerable===true&&fields.op.value==='drop-all'&&fields.dir?.enumerable===true&&'value'in fields.dir&&isDir(fields.dir.value);}],
   ["drop", (c) => isSlot(own(c, "slot")) && (own(c, "dir") === undefined || isDir(own(c, "dir"))) && (own(c, "quantity") === undefined || (Number.isSafeInteger(own(c, "quantity")) && (own(c, "quantity") as number) > 0))],
   ["collect", (c) => own(c, "filterId") === undefined || (typeof own(c, "filterId") === "number" && isKnownId(own(c, "filterId") as number))],
 ]);
@@ -246,6 +247,7 @@ function checkProgram(p: unknown): string[] {
         const op = isPlainObject(c) ? own(c, "op") : undefined;
         const check = typeof op === "string" ? OPS.get(op) : undefined;
         if (!isPlainObject(c) || !check) problems.push(`Unknown command ${typeof op === "string" ? op : String(typeof op)}`);
+        else if (op==='drop-all'&&(Reflect.ownKeys(b).length!==2||Object.getOwnPropertyDescriptor(b,'type')?.enumerable!==true||Object.getOwnPropertyDescriptor(b,'cmd')?.enumerable!==true))problems.push('Invalid drop-all block fields');
         else if (!check(c)) {
           const dir = own(c, "dir");
           problems.push(dir !== undefined && !isDir(dir) ? `Unknown direction ${String(dir)}` : `Invalid ${op} parameters`);
