@@ -1,3 +1,4 @@
+import { readNpcActionField, readNpcActions, NPC_MAX_BUTTONS, type NpcActions } from "@craft/engine";
 import { sanitizePhotos, BOOK_MAX_PAGES, BOOK_PAGE_CHARS, BOOK_TITLE_CHARS, CHALKBOARD_SIZES, canEditChalkboard, clampChalkText, isWritableBook, signBook, writeBook, type Chalkboard, type ItemStack } from "@craft/engine";
 import type { Mob } from "@craft/engine";
 
@@ -131,56 +132,127 @@ export class PortfolioScreen {
   }
 }
 
-/** Education Edition NPC dialogue: players read it; creative (world builder) players can edit it. */
+/** Local Creative editing is an app policy, not native World Builder authorization. */
+export interface NpcEdit { name: string; dialogue: string; npcActions?: NpcActions }
 export class NpcDialog {
   readonly root = el("div", "screen npc-screen");
   private readonly panel = el("div", "panel npc-panel");
-
-  constructor(container: HTMLElement, private readonly onClose: () => void, private readonly onRename: (mob: Mob) => void) {
-    this.root.hidden = true;
-    this.root.appendChild(this.panel);
-    container.appendChild(this.root);
+  private generation = 0;
+  private listeners: Array<() => void> = [];
+  private listen(target: HTMLElement, type: string, listener: EventListener): void {
+    target.addEventListener(type, listener);
+    this.listeners.push(() => target.removeEventListener(type, listener));
   }
-
-  get open(): boolean {
-    return !this.root.hidden;
+  constructor(container: HTMLElement, private readonly onClose: () => void, private readonly onSave: (mob: Mob, draft: NpcEdit) => boolean) {
+    this.root.hidden = true; this.root.appendChild(this.panel); container.appendChild(this.root);
   }
-
-  show(mob: Mob, editable: boolean): void {
+  get open(): boolean { return !this.root.hidden; }
+  show(mob: Mob, editable: boolean, current: () => boolean = () => false): void {
+    this.hide();
+    const generation = this.generation;
+    const active = () => generation === this.generation && this.open && current();
     const title = el("h2", "", mob.name ?? "NPC");
     const text = el("p", "npc-text", mob.dialogue ?? "");
     const parts: HTMLElement[] = [title, text];
-    if (editable) {
-      const name = el("input", "mc-input");
-      name.value = mob.name ?? "";
-      name.setAttribute("aria-label", "NPC name");
-      const dialogue = el("textarea", "mc-input npc-edit");
-      dialogue.value = mob.dialogue ?? "";
-      dialogue.setAttribute("aria-label", "NPC dialogue");
-      for (const input of [name, dialogue]) input.addEventListener("keydown", (e) => e.stopPropagation());
-      const save = el("button", "mc-button primary", "Save");
-      save.addEventListener("click", () => {
-        mob.name = name.value.trim() || "NPC";
-        mob.dialogue = dialogue.value;
-        this.onRename(mob);
-        this.onClose();
-      });
-      const label = (t: string, input: HTMLElement) => {
-        const l = el("label", "field");
-        l.append(el("span", "", t), input);
-        return l;
-      };
-      parts.push(label("Name", name), label("Dialogue", dialogue), save);
+    const actions = readNpcActionField(mob);
+    const message = el("p", "npc-error"); message.setAttribute("role", "status");
+    if (actions.kind === "invalid") {
+      parts.push(el("p", "npc-error", "NPC links need repair. Export the original world backup."));
+    } else {
+      if (actions.kind === "valid" && actions.data.buttons.length) {
+        const links = el("div", "npc-links");
+        for (const button of actions.data.buttons) {
+          const link = el("a", "npc-url", button.label);
+          link.href = button.url; link.target = "_blank"; link.rel = "noopener noreferrer";
+          link.title = `${button.url} (opens in a new tab)`;
+          let pointerOwner: { id: number; type: string } | null = null;
+          const guard = (event: Event) => {
+            try {
+              if (active()) {
+                const now = readNpcActionField(mob);
+                if (active() && now.kind === "valid" && JSON.stringify(now.data) === JSON.stringify(actions.data)) {
+                  const pointer = event as PointerEvent;
+                  if (event.type === "pointerdown") {
+                    pointerOwner = typeof pointer.pointerId === "number" && pointer.pointerId >= 0 && !!pointer.pointerType
+                      ? { id: pointer.pointerId, type: pointer.pointerType } : null;
+                    return;
+                  }
+                  if (event.type === "pointercancel") { pointerOwner = null; return; }
+                  if (event.type === "click" || event.type === "auxclick") {
+                    const pointing = typeof pointer.pointerType === "string" ? pointer.pointerType !== "" : (pointer.detail ?? 0) > 0;
+                    if (pointing && (!pointerOwner || typeof pointer.pointerId === "number" && pointer.pointerId !== pointerOwner.id || typeof pointer.pointerType === "string" && pointer.pointerType !== pointerOwner.type)) {
+                      // The opening canvas gesture may be retargeted after this overlay appears.
+                      // Cancel that activation, keeping the native link ready for a NEW gesture.
+                      event.preventDefault(); return;
+                    }
+                    pointerOwner = null;
+                  }
+                  // Keyboard/AT semantic activation stays native; compatibility mousedown never arms.
+                  return;
+                }
+              }
+            } catch { /* Validation/lifecycle exceptions never allow default navigation. */ }
+            pointerOwner = null;
+            event.preventDefault(); link.removeAttribute("href");
+            message.textContent = "This NPC interaction is no longer active. Close and talk again.";
+          };
+          for (const name of ["click", "auxclick", "pointerdown", "pointercancel", "mousedown", "keydown", "contextmenu"]) this.listen(link, name, guard);
+          links.append(link);
+        }
+        parts.push(links, el("p", "hint", "Links open in a new tab. The world stays here."));
+      }
+      if (editable) {
+        const name = el("input", "mc-input"); name.value = mob.name ?? ""; name.setAttribute("aria-label", "NPC name");
+        const dialogue = el("textarea", "mc-input npc-edit"); dialogue.value = mob.dialogue ?? ""; dialogue.setAttribute("aria-label", "NPC dialogue");
+        const label = (text: string, input: HTMLElement) => { const field = el("label", "field"); field.append(el("span", "", text), input); return field; };
+        let rows = (actions.kind === "valid" ? actions.data.buttons : []).map(b => ({ label: b.label, url: b.url }));
+        const editor = el("div", "npc-action-editor"), add = el("button", "mc-button", "Add URL");
+        const render = () => {
+          editor.replaceChildren();
+          rows.forEach((row, index) => {
+            const group = el("fieldset", "npc-action-row"); group.append(el("legend", "", `URL button ${index + 1}`));
+            const caption = el("input", "mc-input"); caption.value = row.label; caption.setAttribute("aria-label", `URL button ${index + 1} label`);
+            const url = el("input", "mc-input"); url.type = "url"; url.value = row.url; url.placeholder = "https://…"; url.setAttribute("aria-label", `URL button ${index + 1} address`);
+            this.listen(caption, "input", () => { row.label = caption.value; }); this.listen(url, "input", () => { row.url = url.value; });
+            const controls = el("div", "npc-action-controls");
+            for (const [text, offset] of [["Move up", -1], ["Move down", 1]] as const) {
+              const move = el("button", "mc-button", text); move.setAttribute("aria-label", `${text} URL button ${index + 1}`); move.disabled = index + offset < 0 || index + offset >= rows.length;
+              this.listen(move, "click", () => { if (!active()) return; [rows[index], rows[index + offset]] = [rows[index + offset], rows[index]]; render(); }); controls.append(move);
+            }
+            const remove = el("button", "mc-button", "Remove"); remove.setAttribute("aria-label", `Remove URL button ${index + 1}`);
+            this.listen(remove, "click", () => { if (!active()) return; rows.splice(index, 1); render(); }); controls.append(remove);
+            group.append(label("Button label (1–12 characters)", caption), label("Web address", url), controls); editor.append(group);
+          });
+          add.disabled = rows.length >= NPC_MAX_BUTTONS;
+        };
+        this.listen(add, "click", () => { if (!active() || rows.length >= NPC_MAX_BUTTONS) return; rows.push({ label: "", url: "" }); render(); }); render();
+        const save = el("button", "mc-button primary", "Save");
+        this.listen(save, "click", () => {
+          if (!active()) { message.textContent = "This NPC interaction is no longer active. Close and talk again."; return; }
+          const result = readNpcActions({ version: 1, buttons: rows.map(row => ({ kind: "url", label: row.label.trim(), url: row.url.trim() })) });
+          if (result.kind !== "valid" || name.value.trim().length > 64 || dialogue.value.length > 2000) {
+            message.textContent = "Use labels of 1–12 characters and absolute http:// or https:// addresses without spaces or sign-in credentials (up to 2,048 characters). Name: up to 64; dialogue: up to 2,000."; return;
+          }
+          const draft: NpcEdit = { name: name.value.trim() || "NPC", dialogue: dialogue.value, ...(result.data.buttons.length ? { npcActions: result.data } : {}) };
+          if (this.onSave(mob, draft)) this.onClose();
+          else message.textContent = "The NPC could not be updated. Close and talk again.";
+        });
+        const saveRow = el("div", "npc-save"); saveRow.append(save);
+        parts.push(label("Name", name), label("Dialogue", dialogue), el("h3", "", "URL buttons"), editor, add, el("p", "hint", "Local Creative editing. Up to six links; commands and automatic actions are not supported."), saveRow);
+      }
     }
-    const close = el("button", "mc-button", "Close");
-    close.addEventListener("click", () => this.onClose());
-    parts.push(close);
+    const close = el("button", "mc-button", "Close"); this.listen(close, "click", () => { if (generation === this.generation && this.open) this.onClose(); });
+    parts.push(message, close);
     this.panel.replaceChildren(...parts);
     this.root.hidden = false;
+    this.panel.scrollTop = 0;
+    this.panel.onkeydown = e => { e.stopPropagation(); if (e.code === "Escape" && generation === this.generation && this.open) { e.preventDefault(); this.onClose(); } };
   }
-
   hide(): void {
-    this.root.hidden = true;
+    this.generation++; this.root.hidden = true;
+    for (const remove of this.listeners.splice(0)) remove();
+    for (const link of this.panel.querySelectorAll("a")) link.removeAttribute("href");
+    this.panel.replaceChildren(); this.panel.onkeydown = null;
   }
 }
 

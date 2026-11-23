@@ -1,3 +1,4 @@
+import { copyNpcActions, type NpcActions } from "@craft/engine";
 import {BlazeFireballs,type BlazeFireballsData,type BlazeFireballImpact,type BlazeBox} from "../../../../packages/engine/src/simulation/blaze-fireballs";
 import {BLAZE,blazeCanShoot} from "../../../../packages/engine/src/simulation/blaze";
 import {buildBlazeModel,animateBlazeModel} from "../rendering/blaze-model";
@@ -194,6 +195,7 @@ export interface SavedNpc {
   yaw: number;
   name: string;
   dialogue: string;
+  npcActions?: NpcActions;
 }
 
 const MAX_ANIMALS = 12;
@@ -261,7 +263,7 @@ export class MobManager {
 
   get idsExhausted(): boolean { return this.nextId >= Number.MAX_SAFE_INTEGER; }
 
-  spawn(kind: MobKind, position: Vec3, extra: { name?: string; dialogue?: string; yaw?: number } = {}): Mob {
+  spawn(kind: MobKind, position: Vec3, extra: { name?: string; dialogue?: string; yaw?: number; npcActions?: NpcActions } = {}): Mob {
     if (this.disposed || this.naturalSpawning || this.world.blockSourceLeaseBusy || this.ownershipBusy()) throw new Error("Creature ownership transfer is in progress or retired");
     if (this.nextId >= Number.MAX_SAFE_INTEGER) throw new Error("Creature IDs are exhausted; no creature was summoned");
     const mob = createMob(this.nextId++, kind, position, extra);
@@ -308,6 +310,52 @@ export class MobManager {
       disposeModel(model);
       this.models.delete(mob.id);
     }
+  }
+
+  /** Stage a hidden attached view before publishing any NPC data. */
+  prepareNpcRefresh(mob: Mob, name: string, current: () => boolean): { commit: (publish: () => void) => boolean; cancel: () => void } | null {
+    if (this.disposed || mob.kind !== "npc" || !this.mobs.includes(mob) || !current()) return null;
+    const old = this.models.get(mob.id);
+    const model = buildModel({ ...mob, name });
+    model.position.copy(mob.position); model.rotation.y = mob.yaw; model.visible = false;
+    let done = false;
+    const discard = () => {
+      try { Object.defineProperty(model, "visible", { value: false }); } catch { /* Detach even if a view hook changed this descriptor. */ }
+      if (this.models.get(mob.id) === model) {
+        if (old) Map.prototype.set.call(this.models, mob.id, old);
+        else Map.prototype.delete.call(this.models, mob.id);
+      }
+      // Cleanup cannot turn an already committed edit into a refusal. A hostile/failed
+      // view hook must also not retain a visible staged model on pre-publication refusal.
+      try { this.scene.remove(model); } catch {
+        if (model.parent === this.scene) { const i = this.scene.children.indexOf(model); if (i >= 0) this.scene.children.splice(i, 1); model.parent = null; }
+      }
+      try { disposeModel(model); } catch { /* Data publication never depends on view disposal. */ }
+    };
+    const cancel = () => { if (!done) { done = true; discard(); } };
+    try { this.scene.add(model); }
+    catch (error) { cancel(); throw error; }
+    return {
+      cancel,
+      commit: publish => {
+        if (done || this.disposed || !this.mobs.includes(mob) || this.models.get(mob.id) !== old || model.parent !== this.scene || !current()) { cancel(); return false; }
+        // Stage registry replacement too: hooks/failure must precede data publication.
+        this.models.set(mob.id, model);
+        const visible = Object.getOwnPropertyDescriptor(model, "visible");
+        const oldVisible = old && Object.getOwnPropertyDescriptor(old, "visible");
+        if (!current() || !visible || !("value" in visible) || !visible.writable || visible.value !== false || old && (!oldVisible || !("value" in oldVisible) || !oldVisible.writable)) { cancel(); return false; }
+        // The caller's all-field data commit is the last operation allowed to refuse.
+        publish();
+        done = true;
+        Object.defineProperty(model, "visible", { value: true });
+        if (old) {
+          Object.defineProperty(old, "visible", { value: false });
+          try { this.scene.remove(old); } catch { /* Committed data remains authoritative. */ }
+          try { disposeModel(old); } catch { /* A cleanup error is not a failed edit. */ }
+        }
+        return true;
+      },
+    };
   }
 
   /** Rebuilds an NPC's model after its name changes. */
@@ -543,7 +591,7 @@ export class MobManager {
   exportNpcs(): SavedNpc[] {
     return this.mobs
       .filter((m) => m.kind === "npc")
-      .map((m) => ({ x: m.position.x, y: m.position.y, z: m.position.z, yaw: m.yaw, name: m.name ?? "NPC", dialogue: m.dialogue ?? "" }));
+      .map((m) => { const npcActions = copyNpcActions(m); return { ...(npcActions ? { npcActions } : {}), x: m.position.x, y: m.position.y, z: m.position.z, yaw: m.yaw, name: m.name ?? "NPC", dialogue: m.dialogue ?? "" }; });
   }
 
   /** Grass/daylight approximation using an isolated stream; no native biome/weight calibration. */

@@ -206,7 +206,7 @@ function showHelp(): void {
     <h3>Education Edition features</h3>
     <p><b>Allow</b> / <b>Deny</b>: in Survival you can only build above Allow blocks, never above Deny blocks. <b>Border</b> blocks are unbreakable.</p>
     <p><b>Camera &amp; Portfolio</b>: <b>C</b> (📷) takes a photo, <b>P</b> (🖼) opens the portfolio, where you can caption, save or delete photos.</p>
-    <p><b>NPCs</b>: <code>/summon npc Name</code>; right click (tap) an NPC to talk. In Creative you can edit its name and dialogue.</p>
+    <p><b>NPCs</b>: <code>/summon npc Name</code>; right click (tap) an NPC to talk. In Creative you can edit its name, dialogue and up to six URL buttons. Links open only when clicked. Creative editing is a local app policy; native World Builder permissions, command actions and automatic actions are not supported.</p>
     <h3>Crafting &amp; mobs</h3>
     <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep, chickens and adult cows roam grassland; left click to attack (sheep drop wool). Buckets collect and place one Water or Lava source at a time. Liquids stay in place. Water above or beside Lava turns it into Obsidian; use a Diamond Pickaxe to harvest it. Lava hurts on contact. Use an empty Bucket on an adult cow for milk. Hold use to drink milk and remove active effects.</p>
     <p>Survival death drops carried items and worn armor. Use <code>/gamerule keepInventory true</code> to keep them; this world rule is saved.</p>

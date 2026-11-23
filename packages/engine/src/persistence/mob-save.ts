@@ -1,3 +1,4 @@
+import { copyNpcActions, readNpcActionField, type NpcActions } from "../education/npc-actions";
 import {isBlazeState,type BlazeState} from "../simulation/blaze";
 import { isCowState, type CowState } from "../simulation/cows";
 import { createSquidState, SQUID, type SquidState } from "../simulation/aquatics";
@@ -31,6 +32,7 @@ export interface MobSnapshot {
   stuckTimer?: number;
   name?: string;
   dialogue?: string;
+  npcActions?: NpcActions;
   /** Absence means unresolved; an empty array is a resolved zero result awaiting successful delivery. */
   pendingLoot?: ItemStack[];
   /** Frozen attribution of a new pending roll; absent legacy rolls retain old base-only bounds. */
@@ -49,6 +51,8 @@ function readMob(raw: unknown): MobSnapshot | null {
   if (!plain(raw)) return null;
   const id = own(raw, "id"), kind = own(raw, "kind"), position = own(raw, "position"), velocity = own(raw, "velocity"), yaw = own(raw, "yaw"), health = own(raw, "health"), onGround = own(raw, "onGround"), thinkTimer = own(raw, "thinkTimer"), walking = own(raw, "walking"), hurtTimer = own(raw, "hurtTimer");
   if (typeof id !== "number" || !Number.isSafeInteger(id) || id < 1 || id >= Number.MAX_SAFE_INTEGER || typeof kind !== "string" || !Object.prototype.hasOwnProperty.call(MOB_SPECS, kind) || !vector(position) || !vector(velocity, true) || !finite(yaw) || typeof onGround !== "boolean" || !finite(thinkTimer) || typeof walking !== "boolean" || !finite(hurtTimer) || hurtTimer < 0) return null;
+  const actions = readNpcActionField(raw);
+  if (actions.kind === "invalid" || actions.kind === "valid" && kind !== "npc") return null;
   const spec = MOB_SPECS[kind as MobKind];
   if (kind === "npc" ? health !== "invulnerable" : !finite(health) || health <= 0 || health > spec.maxHealth) return null;
   const result: MobSnapshot = { id, kind: kind as MobKind, position: { ...position }, velocity: { ...velocity }, yaw, health: health as MobSnapshot["health"], onGround, thinkTimer, walking, hurtTimer };
@@ -82,6 +86,7 @@ function readMob(raw: unknown): MobSnapshot | null {
     const name = own(raw, "name"), dialogue = own(raw, "dialogue");
     if (typeof name !== "string" || name.length > 64 || typeof dialogue !== "string" || dialogue.length > 2000) return null;
     result.name = name; result.dialogue = dialogue;
+    if (actions.kind === "valid") result.npcActions = actions.data;
   }
   const pending = own(raw, "pendingLoot");
   const hasCause = Object.prototype.hasOwnProperty.call(raw, "pendingLootCause");
@@ -138,7 +143,10 @@ export function sanitizeMobState(raw: unknown): SanitizedMobState {
 
 /** Captures detached supported fields only; invalid live state refuses saving rather than losing ownership. */
 export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[], pendingLootCause?: MobLootCause): MobSnapshot {
+  const actions = copyNpcActions(mob);
+  if (actions && mob.kind !== "npc") throw new Error("Only NPCs can own URL buttons");
   const raw: Record<string, unknown> = {
+    ...(actions ? { npcActions: actions } : {}),
     id: mob.id, kind: mob.kind, position: { ...mob.position }, velocity: { ...mob.velocity }, yaw: mob.yaw,
     health: mob.kind === "npc" && mob.health === Infinity ? "invulnerable" : mob.health, onGround: mob.onGround, thinkTimer: mob.thinkTimer,
     walking: mob.walking, hurtTimer: mob.hurtTimer,
@@ -159,7 +167,7 @@ export function mobSnapshot(mob: Mob, pendingLoot?: ItemStack[], pendingLootCaus
 export function restoreMobSnapshot(snapshot: MobSnapshot): Mob {
   const saved = readMob(snapshot);
   if (!saved) throw new Error("Cannot restore invalid mob snapshot");
-  const mob = createMob(saved.id, saved.kind, saved.position, { yaw: saved.yaw, name: saved.name, dialogue: saved.dialogue });
+  const mob = createMob(saved.id, saved.kind, saved.position, { yaw: saved.yaw, name: saved.name, dialogue: saved.dialogue, ...(saved.npcActions ? { npcActions: saved.npcActions } : {}) });
   if (saved.cowState) mob.cowState = { ...saved.cowState };
   if (saved.blazeState) mob.blazeState = { ...saved.blazeState };
   if (saved.squidState) mob.squidState = { ...saved.squidState, swimDirection: { ...saved.squidState.swimDirection } };

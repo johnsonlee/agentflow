@@ -1,3 +1,4 @@
+import { copyNpcActions, type NpcActions } from "../education/npc-actions";
 import {BLAZE,createBlazeState,stepBlaze,type BlazeState} from "./blaze";
 import { COW, createCowState, type CowState } from "./cows";
 import { createSquidState, stepSquid, type SquidState } from "./aquatics";
@@ -122,10 +123,14 @@ export interface Mob {
   /** NPC display name and dialogue (Education Edition NPC). */
   name?: string;
   dialogue?: string;
+  npcActions?: NpcActions;
 }
 
-export function createMob(id: number, kind: MobKind, position: Vec3, extra: Partial<Pick<Mob, "name" | "dialogue" | "yaw">> = {}): Mob {
+export function createMob(id: number, kind: MobKind, position: Vec3, extra: Partial<Pick<Mob, "name" | "dialogue" | "yaw" | "npcActions">> = {}): Mob {
+  const npcActions = copyNpcActions(extra);
+  if (kind !== "npc" && npcActions) throw new Error("Only NPCs can own URL buttons");
   return {
+    ...(npcActions ? { npcActions } : {}),
     id,
     kind,
     position: { ...position },

@@ -1,3 +1,4 @@
+import { diagnoseRawNpcActions } from "../education/npc-actions";
 import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
 import {diagnoseRawBoneMealOwnership} from './bone-meal-ownership';
@@ -185,13 +186,14 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
     }
   }
   const mobs = sanitizeMobState(raw.mobs); const mobsValid = section("mobs", !!mobs.invalid, mobs.data);
+  if (diagnoseRawNpcActions(raw)) add("npcs", "Invalid NPC URL buttons");
   const legacyNpcs = sanitizeNpcs(raw.npcs);
   // Current saves mirror authoritative modern NPCs into the legacy cache. Its
   // historical height bounds are narrower than the valid modern actor bounds.
   // Accept that cache unchanged only when every field matches validated actors.
   const modernNpcMirror = mobs.data.records.filter(m => m.kind === "npc").map(m => ({
     x: m.position.x, y: m.position.y, z: m.position.z, yaw: m.yaw,
-    name: m.name ?? "NPC", dialogue: m.dialogue ?? "",
+    name: m.name ?? "NPC", dialogue: m.dialogue ?? "", ...(m.npcActions ? { npcActions: m.npcActions } : {}),
   }));
   section("npcs", false, !canonicalEqual(raw.npcs, legacyNpcs) && mobs.present && mobsValid && !mobs.invalid ? modernNpcMirror : legacyNpcs);
   const drops = sanitizeWorldDrops(raw.worldDrops); section("worldDrops", !!drops.invalid, drops.data);

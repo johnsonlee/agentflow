@@ -556,3 +556,19 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .cb-program-picker-field { display: flex; flex-direction: column; gap: 6px; margin-bottom: 8px; font-size: 16px; }
 .cb-program-picker { width: 100%; max-width: 100%; min-height: 44px; font-size: 16px; }
 .cb-working-status { margin: 0 0 10px; color: #383838; font-size: 16px; overflow-wrap: anywhere; }
+
+/* NPC URL authoring retains the existing panel style, with reachable touch controls. */
+.npc-screen .npc-panel { max-height: calc(100dvh - 24px); overflow-y: auto; overscroll-behavior: contain; min-width: 0; }
+.npc-links, .npc-action-editor { display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+.npc-url { display: flex; align-items: center; min-height: 44px; padding: 8px 12px; background: #eee; border: 2px solid #555; color: #0645ad; text-decoration: underline; overflow-wrap: anywhere; }
+.npc-url:focus-visible { outline: 3px solid #ffe400; outline-offset: 2px; }
+.npc-action-row { min-width: 0; margin: 0; padding: 10px; border: 2px solid #555; display: flex; flex-direction: column; gap: 8px; }
+.npc-action-row input { width: 100%; min-width: 0; box-sizing: border-box; }
+.npc-action-controls { display: flex; flex-wrap: wrap; gap: 8px; }
+.npc-screen .mc-button, .npc-screen .mc-input { min-height: 44px; }
+.npc-screen .mc-input { font-size: 16px; }
+.npc-error { margin: 0; color: #681616; overflow-wrap: anywhere; }
+.npc-error:empty { display: none; }
+.npc-save { position: sticky; bottom: 0; background: #c6c6c6; padding: 6px 0; }
+.npc-save .mc-button { width: 100%; }
+@media (max-width: 500px) { .npc-action-controls .mc-button { flex: 1 1 100%; } }

@@ -1,3 +1,5 @@
+import { readNpcActionField, diagnoseRawNpcActions } from "@craft/engine";
+import type { NpcEdit } from "../ui/screens";
 import { plantOwnedWheat } from "@craft/engine";
 import { BONE_MEAL_ITEM_ID, useOwnedBoneMeal, diagnoseRawBoneMealOwnership, type BoneMealOwnershipIssue } from "@craft/engine";
 import { woodSlabState, useOwnedWoodSlab, diagnoseRawWoodSlabOwnership, isInventoryBusy, type WoodSlabOwnershipIssue } from "@craft/engine";
@@ -146,7 +148,7 @@ export class Game {
   private openChest:string|null=null;
   readonly chests=new Map<string,SingleChest>();
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
+  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("NPC links") || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
   private dimensionArchive: DimensionsData | undefined;
   private dimensionIssues: DimensionSaveIssue[] = [];
   private stopped = false;
@@ -212,6 +214,7 @@ export class Game {
   private readonly chat: ChatInput;
   private readonly portfolioScreen: PortfolioScreen;
   private readonly npcDialog: NpcDialog;
+  private npcSession: { mob: Mob; id: number; world: World; manager: MobManager } | null = null;
   private readonly chalkDialog: ChalkboardDialog;
   private readonly bookScreen: BookScreen;
   /** Chalkboards by anchor key, and each occupied cell -> its board's anchor key. */
@@ -276,7 +279,7 @@ export class Game {
     const save = options.save;
     this.restoreDimensions(save);
     this.restoreBrewingOwners(save);this.restoreChestOwners(save);
-    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markBoneMealRecovery(save); this.markWoodSlabRecovery(save); this.markComposterRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.restorePlayerStatus(save);
+    this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markBoneMealRecovery(save); this.markWoodSlabRecovery(save); this.markComposterRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.markNpcRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     if(options.preparedWorld){
       if(!prepareOnly||!save||this.recoverySections.length||!this.acceptPreparedWorld(options.preparedWorld,save))throw new Error("Invalid or already attached prepared arrival World");
@@ -392,12 +395,13 @@ export class Game {
       onSwapOffhand: () => { this.trySwapOffhand(); },
     }, options.touch);
     this.registerCleanup("hud", () => this.hud.dispose());
-    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
+    this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("NPC links") ? "Damaged NPC links. Export a backup before continuing." : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
       ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
-    this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob) => this.mobs.refresh(mob));
+    this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob, draft) => this.commitNpcEdit(mob, draft));
+    this.registerCleanup("NPC dialog", () => { this.npcSession = null; this.npcDialog.hide(); });
     this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
     this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen));
     this.chalkViews = new ChalkboardViews(this.renderer.scene);
@@ -444,6 +448,7 @@ export class Game {
     for (const issue of save?.sparklerOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.bottleOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     for (const issue of save?.bucketOwnershipIssues ?? []) this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
+    if (this.recoverySections.includes("NPC links")) this.loadErrors.push("Damaged NPC URL buttons (original save preserved)");
     if (save?.cowStateInvalid) this.loadErrors.push("Damaged adult cows (original save preserved)");
     if (this.recoverySections.includes("gravel harvest decisions")) this.loadErrors.push("Damaged gravel harvest decisions (original save preserved)");
     if (this.leashes.loadIssues) this.loadErrors.push("Damaged leashes (original save preserved)");
@@ -817,7 +822,7 @@ export class Game {
 
   private tryDeathTransfer(): boolean {
     if (this.ownershipBusy || !this.deathState) return false;
-    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
+    if (this.actionsNeedRecovery) { this.deathError = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before respawning." : this.recoverySections.includes("NPC links") ? "Damaged NPC links. Export a backup before continuing." : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup and repair the saved data before respawning." : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup and repair the saved data before respawning." : "Damaged player status. Export a backup and repair the saved data before respawning."; return false; }
     if (this.recoverySections.includes("player state")) { this.deathError = "Damaged player state. Export a backup and repair the saved data before respawning."; return false; }
     let validOwners = false;
     try { validOwners = validatePlayerDeathOwnership(this.inventory.toJSON(), this.inventoryScreen.pendingItems()); } catch { /* Retain uncloneable live ownership for recovery. */ }
@@ -1825,6 +1830,12 @@ export class Game {
     if(!this.itemsNeedRecovery)this.recoverySections.push("saved items");
   }
 
+  private markNpcRecovery(save: SaveData | undefined): void {
+    if (!save?.npcActionsInvalid && !diagnoseRawNpcActions(save)) return;
+    this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
+    if (!this.recoverySections.includes("NPC links")) this.recoverySections.push("NPC links");
+  }
+
   private markPortalRecovery(save: Pick<SaveData, "portalOwnershipIssues"> | undefined): void {
     if (!save?.portalOwnershipIssues?.length) return;
     this.cancelDrinking(); this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
@@ -2013,7 +2024,7 @@ export class Game {
 
   /** Moves the selected hotbar stack into the Agent's inventory (creative: a copy). */
   giveHeldToAgent(): string {
-    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
+    if (this.actionsNeedRecovery) return this.itemsNeedRecovery ? "Saved items need repair. Export a backup before moving items" : this.recoverySections.includes("NPC links") ? "Damaged NPC links. Export a backup before continuing." : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before moving items": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before moving items" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before moving items" : "Damaged player status. Export a backup before moving items";
     if (this.ownershipBusy) return "Items are being transferred. Retry giving them afterward";
     if (this.dead) return "Respawn before giving items to the Agent";
     const held = this.inventory.selectedStack();
@@ -2307,12 +2318,53 @@ export class Game {
     if (document.pointerLockElement) document.exitPointerLock();
   }
 
+  private npcSessionCurrent(mob: Mob): boolean {
+    const session = this.npcSession;
+    return !!session && session.mob === mob && session.id === mob.id && session.world === this.world && session.manager === this.mobs &&
+      Game.activeWriter === this && !this.ownershipBusy && !this.dead && !this.paused && !this.recoverySections.length &&
+      mob.kind === "npc" && this.mobs.mobs.includes(mob) && this.npcDialog.open;
+  }
+
   private openNpcDialog(mob: Mob): void {
+    if (Game.activeWriter !== this || this.ownershipBusy || this.dead || this.paused || this.recoverySections.length || mob.kind !== "npc" || !this.mobs.mobs.includes(mob)) return;
     this.suspendInput();
-    this.npcDialog.show(mob, this.mode === "creative");
+    this.npcSession = { mob, id: mob.id, world: this.world, manager: this.mobs };
+    this.npcDialog.show(mob, this.mode === "creative", () => this.npcSessionCurrent(mob));
+  }
+
+  /** Validates the whole draft and current original actor before publishing any field. */
+  private commitNpcEdit(mob: Mob, draft: NpcEdit): boolean {
+    try {
+      if (!this.npcSessionCurrent(mob) || this.mode !== "creative") return false;
+      if (!draft || ![Object.prototype, null].includes(Object.getPrototypeOf(draft))) return false;
+      const ds = Object.getOwnPropertyDescriptors(draft);
+      if (Reflect.ownKeys(draft).some(k => typeof k !== "string" || !["name", "dialogue", "npcActions"].includes(k))) return false;
+      for (const key of ["name", "dialogue"] as const) if (!ds[key] || !("value" in ds[key]) || !ds[key].enumerable || typeof ds[key].value !== "string") return false;
+      const name = ds.name.value as string, dialogue = ds.dialogue.value as string;
+      if (!name.trim() || name.trim() !== name || name.length > 64 || dialogue.length > 2000) return false;
+      const actions = readNpcActionField(draft); if (actions.kind === "invalid") return false;
+      const live = Object.getOwnPropertyDescriptors(mob);
+      for (const key of ["name", "dialogue"] as const) if (!live[key] || !("value" in live[key]) || !live[key].writable) return false;
+      if (live.npcActions ? !("value" in live.npcActions) || !live.npcActions.configurable : actions.kind === "valid" && !Object.isExtensible(mob)) return false;
+      const current = () => this.npcSessionCurrent(mob) && this.mode === "creative" &&
+        (["name", "dialogue", "npcActions"] as const).every(key => {
+          const before = live[key], now = Object.getOwnPropertyDescriptor(mob, key);
+          return !before ? !now : !!now && "value" in now && now.value === before.value && now.writable === before.writable && now.configurable === before.configurable && now.enumerable === before.enumerable;
+        }) && (!!live.npcActions || actions.kind !== "valid" || Object.isExtensible(mob));
+      const view = this.mobs.prepareNpcRefresh(mob, name, current);
+      if (!view) return false;
+      try {
+        return view.commit(() => {
+          Object.defineProperties(mob, { name: { value: name }, dialogue: { value: dialogue } });
+          if (actions.kind === "valid") Object.defineProperty(mob, "npcActions", { value: actions.data, enumerable: true, writable: true, configurable: true });
+          else Reflect.deleteProperty(mob, "npcActions");
+        });
+      } finally { view.cancel(); }
+    } catch { return false; }
   }
 
   private closeNpcDialog(): void {
+    this.npcSession = null;
     this.npcDialog.hide();
     this.resumeInput();
   }
@@ -2367,7 +2419,7 @@ export class Game {
   runChat(text: string): string {
     if (this.prepared || this.stopped || Game.handoffBusy) return "World is not active.";
     if (this.actionsNeedRecovery && text.startsWith("/")) {
-      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
+      const reply = this.itemsNeedRecovery ? "Saved items need repair. Export a backup before using commands" : this.recoverySections.includes("NPC links") ? "Damaged NPC links. Export a backup before continuing." : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") ? "Damaged liquids or terrain version. Export a backup before continuing." : this.recoverySections.includes("fire") ? "Damaged fire. Export a backup before using commands": this.recoverySections.includes("gravel harvest decisions") ? "Damaged gravel harvest decisions. Export a backup before using commands" : this.recoverySections.includes("adult cows") && !this.recoverySections.includes("player status") ? "Damaged adult cows. Export a backup before using commands" : "Damaged player status. Export a backup before using commands";
       this.hud.message(reply);
       return reply;
     }

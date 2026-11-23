@@ -1,3 +1,4 @@
+import { readNpcActionField, type NpcActions } from "../education/npc-actions";
 import{inspectComposterItemOwner}from '../ownership/composter-items';
 import{registerInventoryOwner}from '../ownership/inventory-lease';
 import{inspectWoodSlabItemOwner}from '../ownership/wood-slab-items';
@@ -150,14 +151,17 @@ export function sanitizeFurnaces(raw: unknown): { furnaces: Array<{ x: number; y
 }
 
 /** Valid saved NPCs. */
-export function sanitizeNpcs(raw: unknown): Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }> {
-  const out: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }> = [];
+export function sanitizeNpcs(raw: unknown): Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string; npcActions?: NpcActions }> {
+  const out: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string; npcActions?: NpcActions }> = [];
   try {
     if (!Array.isArray(raw)) return out;
     for (const n of raw) {
       if (!isObj(n) || !num(own(n, "x")) || !num(own(n, "y"), -100, 1000) || !num(own(n, "z")) || !num(own(n, "yaw"), -1e4, 1e4) ||
         typeof own(n, "name") !== "string" || typeof own(n, "dialogue") !== "string") continue;
+      const actions = readNpcActionField(n);
+      if (actions.kind === "invalid") continue;
       out.push({
+        ...(actions.kind === "valid" ? { npcActions: actions.data } : {}),
         x: own(n, "x") as number, y: own(n, "y") as number, z: own(n, "z") as number, yaw: own(n, "yaw") as number,
         name: (own(n, "name") as string).slice(0, 64), dialogue: (own(n, "dialogue") as string).slice(0, 2000),
       });

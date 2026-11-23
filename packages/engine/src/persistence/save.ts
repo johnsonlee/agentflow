@@ -1,3 +1,4 @@
+import { diagnoseRawNpcActions, type NpcActions } from "../education/npc-actions";
 import{readComposterOwners,type CompostersData}from './composter-state';
 import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
@@ -108,8 +109,10 @@ export interface SaveData {
   bucketOwnershipIssues?: GlowOwnershipIssue[];
   /** Derived raw new-Cow corruption diagnostic; never trusted or serialized. */
   cowStateInvalid?: boolean;
+  /** Derived raw URL-action diagnostic before legacy/modern NPC sanitation. Never serialized. */
+  npcActionsInvalid?: boolean;
   /** Education Edition NPCs placed in the world (optional for older saves). */
-  npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string }>;
+  npcs?: Array<{ x: number; y: number; z: number; yaw: number; name: string; dialogue: string; npcActions?: NpcActions }>;
   /** Survival hunger (optional for older saves; defaults to full). */
   hunger?: HungerState;
   /** Active-play-only status owner; absent legacy/empty saves have no effect. */
@@ -154,6 +157,7 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
+  if (data.npcActionsInvalid || diagnoseRawNpcActions(data)) throw new Error("Cannot serialize invalid NPC URL buttons");
   const caneGrowth = readCaneGrowthState(data.caneGrowth);
   if (data.caneGrowthInvalid || caneGrowth.kind === "invalid") throw new Error("Cannot serialize invalid Cane growth state");
   const codeWorkspace = readCodeWorkspace(data.codeWorkspace);
@@ -172,7 +176,7 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   const brewing=readBrewingStandOwners(data,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",data.seed,data.generatorVersion??1,x,y,z));
   if(data.brewingOwnershipIssues?.length||brewing.issues.length||diagnoseRawBrewingItemOwnership(data).length)throw new Error("Cannot serialize invalid brewing ownership");
   if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
-  const { composterOwnershipIssues:_composterIssues, woodSlabOwnershipIssues:_woodSlabIssues, boneMealOwnershipIssues:_boneMealIssues, caneGrowthInvalid: _caneGrowthInvalid, codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { composterOwnershipIssues:_composterIssues, woodSlabOwnershipIssues:_woodSlabIssues, boneMealOwnershipIssues:_boneMealIssues, caneGrowthInvalid: _caneGrowthInvalid, codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, npcActionsInvalid: _npcInvalid, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
   if (codeWorkspace.kind === "valid") owned.codeWorkspace = codeWorkspace.data;
   if (caneGrowth.kind === "valid") owned.caneGrowth = caneGrowth.data;
   if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
@@ -409,6 +413,7 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   const brewingOwnershipIssues=[...brewing.issues,...diagnoseRawBrewingItemOwnership(raw)];
   const fluidEditsInvalid=(generator.present||fluids.present)&&!validFluidEdits(own(raw,"edits"));
   const fire = sanitizeFireState(own(raw, "fire"));
+  const npcActionsInvalid = diagnoseRawNpcActions(raw);
   const cowStateInvalid = diagnoseRawCowState(own(raw,"mobs"));
   const gravelHarvest = sanitizeGravelHarvestState(own(raw,"gravelHarvests"));
   const name = own(raw, "name");
@@ -484,6 +489,7 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   if (fire.present) save.fire = fire.data;
   if (fire.invalid) save.fireInvalid = true;
   if (cowStateInvalid) save.cowStateInvalid = true;
+  if (npcActionsInvalid) save.npcActionsInvalid = true;
   if (gravelHarvest.present) save.gravelHarvests = gravelHarvest.data;
   if (gravelHarvest.invalid) save.gravelHarvestInvalid = true;
   const status = sanitizePlayerStatus(own(raw, "playerStatus"));
