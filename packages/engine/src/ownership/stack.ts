@@ -12,16 +12,40 @@ const birthGet=Function.prototype.call.bind(WeakMap.prototype.get) as (map:WeakM
 const ownField=Object.getOwnPropertyDescriptor,ownKeys=Reflect.ownKeys,prototype=Object.getPrototypeOf;
 const objectPrototype=Object.prototype,arrayPrototype=Array.prototype;
 export function cloneStack(stack: ItemStack, count = stack.count): ItemStack {
-  const bookField=ownField(stack,'book');
+  const bookField=ownField(stack,'book'),damageField=ownField(stack,'damage');
   // Unsupported accessor input is copied as an untrusted descriptor tree, never evaluated/adopted.
   // Callers' structural/factory gates refuse it; no photo owner is silently reconstructed.
   if(bookField&&!('value'in bookField))return Object.defineProperties({},Object.getOwnPropertyDescriptors(stack)) as ItemStack;
   let book:ItemStack['book'],glow:ItemStack['glow'],sparkler:ItemStack['sparkler'];
   const result={ ...stack, count, ...(bookField?.value ? { book: (book=cloneBookData(bookField.value)) } : {}), ...(stack.glow ? { glow: (glow={ ...stack.glow }) } : {}), ...(stack.sparkler ? { sparkler: (sparkler={ ...stack.sparkler }) } : {}) };
+  // Canonicalize only supported optional own-data undefined values, on new
+  // allocations. Never repair a photo marker, unknown field, accessor or zero wear.
+  if (bookField && "value" in bookField && bookField.value === undefined) delete result.book;
+  if (damageField && "value" in damageField && damageField.value === undefined) delete result.damage;
+  if (book && !hasBookPhotos(book)) for (const name of ["title", "author"] as const) {
+    const field = ownField(book, name);
+    if (field && "value" in field && field.value === undefined) delete book[name];
+  }
   // Only this freshly allocated result and its freshly allocated nested nodes acquire
   // provenance. No public function can adopt an arbitrary existing node or Proxy.
   stackBirths.set(result,{book,pages:book?ownField(book,'pages')?.value:undefined,glow,sparkler,
     ...(book?.photoPages?{photoTree:[book.photoPages,book.photoPages.entries,...book.photoPages.entries]}:{})});
+  return result;
+}
+/** Canonical-ID ownership clone. Normalize only the freshly allocated factory root;
+ * spreading that root into another object would discard its private provenance. */
+export function cloneStackWithBaseId(stack: ItemStack): ItemStack {
+  const sourceId = ownField(stack, "id"), sourceCount = ownField(stack, "count");
+  if (!sourceId || !("value" in sourceId) || typeof sourceId.value !== "number"
+    || !sourceCount || !("value" in sourceCount) || typeof sourceCount.value !== "number")
+    return Object.defineProperties({}, Object.getOwnPropertyDescriptors(stack)) as ItemStack;
+  const result = cloneStack(stack, sourceCount.value);
+  // cloneStack preserves accessor input as an untrusted descriptor tree. Never
+  // inspect/normalize that tree or turn it into a factory-born owner.
+  if (!birthGet(stackBirths, result)) return result;
+  const id = ownField(result, "id");
+  if (id && "value" in id && typeof id.value === "number" && id.writable)
+    result.id = baseStackId(id.value);
   return result;
 }
 export interface FactoryStackSnapshot{readonly root:ItemStack;readonly values:readonly(string|number|boolean)[];readonly data:ItemStack}
@@ -89,7 +113,7 @@ export function stackLimit(stack: ItemStack): number {
 export function insertStackIntoSlots(slots: (ItemStack | null)[], incoming: ItemStack, excludedIndex = -1): number {
   if (!isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count <= 0
     || inspectItemState(incoming, true).kind === "invalid" || !hasCloneableBookMetadata(incoming)) return incoming.count;
-  const stack = { ...cloneStack(incoming), id: baseStackId(incoming.id) };
+  const stack = cloneStackWithBaseId(incoming);
   const limit = stackLimit(stack);
   let left = stack.count;
   if (limit > 1) for (let index = 0; index < slots.length && left > 0; index++) {
@@ -110,7 +134,7 @@ export function insertStackIntoSlots(slots: (ItemStack | null)[], incoming: Item
 export function spaceForStackInSlots(slots: readonly (ItemStack | null)[], incoming: ItemStack): number {
   if (!isKnownId(incoming.id) || !Number.isSafeInteger(incoming.count) || incoming.count <= 0
     || inspectItemState(incoming, true).kind === "invalid" || !hasCloneableBookMetadata(incoming)) return 0;
-  const stack = { ...cloneStack(incoming), id: baseStackId(incoming.id) }, limit = stackLimit(stack);
+  const stack = cloneStackWithBaseId(incoming), limit = stackLimit(stack);
   return slots.reduce((total, current) => total + (!current ? limit
     : limit > 1 && stacksCompatible(current, stack) ? Math.max(0, limit - current.count) : 0), 0);
 }

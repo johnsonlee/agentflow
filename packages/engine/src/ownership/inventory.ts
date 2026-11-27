@@ -4,7 +4,7 @@ import { planBottleFill, planBottleDrink, inspectBottleOwner, type BottleFillRes
 import { inspectItemState } from "./item-state";
 import { isSparklerId, type SparklerState, type SparklerActivationResult } from "./sparkler-state";
 import { ARMOR_SLOTS, armorOf, baseStackId, isKnownId, stackId, toolOf, type ArmorSlot } from "../catalog/items";
-import { cloneStack, hasCloneableBookMetadata, insertStackIntoSlots, planGlowActivation, planSparklerActivation, spaceForStackInSlots, stackLimit, stacksCompatible } from "./stack";
+import { cloneStack, cloneStackWithBaseId, hasCloneableBookMetadata, insertStackIntoSlots, planGlowActivation, planSparklerActivation, spaceForStackInSlots, stackLimit, stacksCompatible } from "./stack";
 import { freshStack, type GlowActivationResult, type GlowStickState } from "./glow-stick-state";
 import { sanitizeStack } from "../persistence/savecheck";
 
@@ -244,7 +244,7 @@ export class Inventory {
     if (!Number.isInteger(slot) || slot < 0 || slot >= INVENTORY_SIZE) return false;
     if (stack && (!isKnownId(stack.id) || !Number.isSafeInteger(stack.count) || stack.count < 1
       || inspectItemState(stack).kind === "invalid" || !hasCloneableBookMetadata(stack) || stack.count > stackLimit(stack))) return false;
-    this.slots[slot] = stack ? { ...cloneStack(stack), id: baseStackId(stack.id) } : null;
+    this.slots[slot] = stack ? cloneStackWithBaseId(stack) : null;
     return true;
   }
 
