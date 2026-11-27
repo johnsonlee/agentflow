@@ -1,0 +1,6 @@
+import{it,expect}from'vitest';
+import{readFileSync}from'node:fs';
+import{createBookFonts}from'../src/assessment/book-fonts';
+const text=new Uint8Array(readFileSync(new URL('../src/assessment/fonts/NotoSansCJKhk-Regular.otf',import.meta.url))),emoji=new Uint8Array(readFileSync(new URL('../src/assessment/fonts/NotoEmoji.ttf',import.meta.url)));
+it('actual pinned font parser supports required CJK and complete emoji clusters; not a PDF visual assertion',()=>{const fonts=createBookFonts(text,emoji);for(const value of['Latin café Ω','世界 中文 繁體 日本語 한글','😀','❤️','👩‍🔬','👨‍👩‍👧‍👦','🏳️‍🌈','👍🏽','🇰🇷','1️⃣','é']){const runs=fonts.runs(value);expect(runs.map(r=>r.text).join('')).toBe(value);expect(fonts.width(value,12)).toBeGreaterThan(0);expect(runs.every(r=>r.font.layout(r.text).glyphs.every(g=>g.id!==0))).toBe(true);}expect(fonts.runs('👩‍🔬')[0].font.layout('👩‍🔬').glyphs).toHaveLength(1);expect(fonts.runs('é').some(r=>r.raster)).toBe(true);expect(fonts.runs('世界').every(r=>!r.raster)).toBe(true);});
+it('missing glyphs fail instead of painting tofu or dropping unsupported text',()=>{const fonts=createBookFonts(text,emoji);expect(()=>fonts.runs(String.fromCodePoint(0x10ffff))).toThrow(/character|shaped/);});

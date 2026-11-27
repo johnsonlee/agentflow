@@ -439,6 +439,7 @@ export class Game {
     this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen), {
       photos: () => this.portfolio.photos.length ? portfolioExportSnapshot(this.portfolio.photos, () => this.bookEditCurrent()) : [],
       current: () => this.bookEditCurrent(),
+      exportCurrent: () => this.bookExportCurrent(),
       commit: (draft, title) => this.commitBookDraft(draft, title),
     });
     this.registerCleanup("Book editor", () => { this.bookScreen?.hide?.(); this.bookSession = null; });
@@ -2244,6 +2245,15 @@ export class Game {
     try { return !!this.bookSession && !this.stopped && !this.dead && !this.prepared && !this.portalTransfer && !Game.handoffBusy &&
       Game.activeWriter === this && !this.nonInventoryTransferBusy && !this.actionsNeedRecovery && bookSessionCurrent(this.bookSession) && this.bookStorageRead !== null && this.bookStorageRead() === this.bookStorageOriginal;
     } catch { return false; }
+  }
+
+  /** Export is read-only; refuse damaged/in-flight camera ownership without attempting recovery. */
+  private bookExportCurrent(): boolean {
+    try{
+      const ready=()=>this.bookEditCurrent()&&this.bookScreen.open&&!this.paused&&!this.ownershipBusy&&
+        !this.inventoryScreen.open&&!this.chat.open&&!this.portfolioScreen.open&&!this.npcDialog.open&&!this.chalkDialog.open&&!this.codeBuilder.open;
+      return !!nativeBookStorageGet&&ready()&&nativeBookStorageGet.call(localStorage,CAMERA_JOURNAL_KEY)===null&&ready();
+    }catch{return false;}
   }
 
   private commitBookDraft(draft: BookData, title?: string): {ok:true}|{ok:false;error:string} {

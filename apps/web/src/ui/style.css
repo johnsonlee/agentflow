@@ -621,3 +621,8 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .book-status:empty { display: none; }
 .book-status { color: #ffcc99; overflow-wrap: anywhere; }
 @media (max-width: 600px) { .book-panel { width: calc(100vw - 24px); padding: 12px; } .book-panel input, .book-panel textarea { font-size: 16px; } .book-nav { gap: 8px; } }
+
+.book-export-controls { display:flex; flex-wrap:wrap; gap:8px; margin-top:12px; }
+.book-export-controls .mc-button { min-height:44px; min-width:44px; font-size:16px; }
+.book-status { overflow-wrap:anywhere; }
+@media(max-width:480px) { .book-export-controls .mc-button { flex:1 1 100%; } }
