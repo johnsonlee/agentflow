@@ -1648,12 +1648,14 @@ export class Game {
       return;
     }
 
-    // Bone Meal is a distinct finite ingredient; its loaded Cane effect owns the debit.
+    // Bone Meal's loaded Cane/Wheat effects own the original finite source debit.
     if (place && t && this.placeCooldown === 0 && held?.id === BONE_MEAL_ITEM_ID) {
-      const boneWorld = this.world, boneMode = this.mode;
-      const changed = useOwnedBoneMeal(boneWorld, this.inventory, boneMode, t, () =>
-        this.world === boneWorld && this.mode === boneMode && !this.dead && !this.stopped && !this.paused &&
-        !this.actionsNeedRecovery && !this.screenOpen());
+      const boneWorld = this.world, boneMode = this.mode, boneInventory=this.inventory;
+      const changed = useOwnedBoneMeal(boneWorld, boneInventory, boneMode, t, () => {
+        const ready=!this.dead&&!this.stopped&&!this.paused&&!this.actionsNeedRecovery&&!this.screenOpen()&&!this.nonInventoryTransferBusy;
+        // Lifecycle identity checks follow callbacks; the engine then rechecks exact source/cells.
+        return ready&&Game.activeWriter===this&&this.world===boneWorld&&this.mode===boneMode&&this.inventory===boneInventory;
+      });
       this.placeCooldown = 0.25;
       if (changed <= 0) this.hud.message("Bone Meal has nothing to grow here");
       return;
