@@ -9,7 +9,8 @@ export default defineConfig({
   fullyParallel: false,
   workers: 1,
   retries: process.env.CI ? 1 : 0,
-  reporter: [["list"], ["html", { open: "never" }]],
+  // Print completed failures before a cancelled job can lose the final HTML report.
+  reporter: [[process.env.CI ? "line" : "list"], ["html", { open: "never" }]],
   use: {
     baseURL: `http://127.0.0.1:${PORT}`,
     trace: "retain-on-failure",

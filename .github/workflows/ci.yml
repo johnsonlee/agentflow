@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  build-and-test:
+  code-checks:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -21,19 +21,49 @@ jobs:
         run: npm test
       - name: Build
         run: npm run build
+
+  e2e:
+    needs: code-checks
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        shard: [1, 2, 3, 4]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
         working-directory: apps/web
       - name: End-to-end tests (desktop + mobile touch)
-        run: npm run e2e
+        run: npm run e2e --workspace @craft/web -- --shard=${{ matrix.shard }}/4
         env:
           CI: "true"
           SCREENSHOT_DIR: ${{ github.workspace }}/screenshots
       - uses: actions/upload-artifact@v4
         if: always()
         with:
-          name: e2e-evidence
+          name: e2e-evidence-${{ matrix.shard }}
           path: |
             screenshots
             apps/web/playwright-report
+            apps/web/test-results
           if-no-files-found: ignore
+
+  # Keep the existing required check dependent on every code and browser job.
+  build-and-test:
+    if: always()
+    needs: [code-checks, e2e]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Require all checks
+        env:
+          CODE_CHECKS_RESULT: ${{ needs.code-checks.result }}
+          E2E_RESULT: ${{ needs.e2e.result }}
+        run: |
+          test "$CODE_CHECKS_RESULT" = success
+          test "$E2E_RESULT" = success
