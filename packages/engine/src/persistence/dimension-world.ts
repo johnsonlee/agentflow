@@ -1,6 +1,7 @@
+import {diagnoseRawNpcActionOwnership as diagnoseRawNpcActions} from "./npc-action-ownership";
 import { diagnoseRawBookOwnership } from "./book-ownership";
 import {readCameras}from "../education/placed-camera";
-import { diagnoseRawNpcActions } from "../education/npc-actions";
+
 import{readComposterOwners}from './composter-state';
 import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
@@ -57,7 +58,7 @@ function assertNoSourceDiagnostics(save: SaveData): void {
 
 function assertWorldEnvelope(world: DimensionWorldState): void {
   if(diagnoseRawBookOwnership(world).length)throw Error("Invalid dimension book photo ownership");
-  if (diagnoseRawNpcActions(world)) throw new Error("Invalid dimension NPC URL buttons");
+  if (diagnoseRawNpcActions(world)) throw new Error("Invalid dimension NPC URL/command actions");
   if (hasBusyFurnaceOwnership(world)) throw new Error("Cannot partition busy Furnace ownership");
   if (!world || typeof world !== "object" || Array.isArray(world) ||
       ![Object.prototype, null].includes(Object.getPrototypeOf(world))) {

@@ -128,7 +128,7 @@ export interface Mob {
 
 export function createMob(id: number, kind: MobKind, position: Vec3, extra: Partial<Pick<Mob, "name" | "dialogue" | "yaw" | "npcActions">> = {}): Mob {
   const npcActions = copyNpcActions(extra);
-  if (kind !== "npc" && npcActions) throw new Error("Only NPCs can own URL buttons");
+  if (kind !== "npc" && npcActions) throw new Error("Only NPCs can own NPC actions");
   return {
     ...(npcActions ? { npcActions } : {}),
     id,

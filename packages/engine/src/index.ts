@@ -193,3 +193,8 @@ export { hasBookPhotos, cloneBookData, inspectBookOwner, readBookData, validBook
 export type { BookPhotoPage } from "./ownership/book-state";
 
 export { diagnoseRawBookOwnership } from "./persistence/book-ownership";
+
+export * from "./education/npc-command";
+export * from "./education/npc-action-plan";
+export * from "./ownership/npc-give";
+export * from "./persistence/npc-action-ownership";

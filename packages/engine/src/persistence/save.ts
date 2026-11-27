@@ -1,5 +1,6 @@
+import {diagnoseRawNpcActionOwnership as diagnoseRawNpcActions,readRawNpcActionOwnership,sameNpcActionOwners} from "./npc-action-ownership";
 import{diagnoseRawBookOwnership,readRawBookPhotoOwnership,sameBookPhotoOwners,type BookOwnershipIssue}from './book-ownership';
-import { diagnoseRawNpcActions, type NpcActions } from "../education/npc-actions";
+import { type NpcActions } from "../education/npc-actions";
 import{readComposterOwners,type CompostersData}from './composter-state';
 import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
@@ -165,9 +166,10 @@ export interface SaveData {
 
 export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
   const bookBefore=readRawBookPhotoOwnership(data);
+  const npcBefore=readRawNpcActionOwnership(data);
   if(data.bookOwnershipIssues?.length||bookBefore.issues.length)throw new Error('Cannot serialize invalid Book ownership');
   if(data.camerasInvalid||!readCameras(data.cameras))throw Error("Cannot serialize invalid Camera ownership");
-  if (data.npcActionsInvalid || diagnoseRawNpcActions(data)) throw new Error("Cannot serialize invalid NPC URL buttons");
+  if (data.npcActionsInvalid || npcBefore.invalid) throw new Error("Cannot serialize invalid NPC URL/command actions");
   const caneGrowth = readCaneGrowthState(data.caneGrowth);
   if (data.caneGrowthInvalid || caneGrowth.kind === "invalid") throw new Error("Cannot serialize invalid Cane growth state");
   const codeWorkspace = readCodeWorkspace(data.codeWorkspace);
@@ -210,12 +212,15 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   if (_statusInvalid || status.invalid) throw new Error("Cannot serialize invalid player status");
   if (hasPlayerStatus(status.data)) owned.playerStatus = status.data; else delete owned.playerStatus;
   const text=JSON.stringify({version:SAVE_VERSION,...owned});
+  const npcAfter=readRawNpcActionOwnership(data);
+  if(!sameNpcActionOwners(npcBefore,npcAfter))throw Error('Cannot serialize changed NPC action ownership');
   const bookAfter=readRawBookPhotoOwnership(data);
   if(bookAfter.issues.length||!sameBookPhotoOwners(bookBefore.owners,bookAfter.owners))throw new Error('Cannot serialize changed Book photo ownership');
   // Preserve the legacy no-photo behavior even for unusual typed-caller toJSON results.
-  if(typeof text!=='string'){if(bookBefore.owners.length)throw new Error('Cannot serialize lost Book photo ownership');return text;}
+  if(typeof text!=='string'){if(bookBefore.owners.length||npcBefore.owners.length)throw new Error('Cannot serialize lost Book or NPC ownership');return text;}
   const bookOutput=readRawBookPhotoOwnership(JSON.parse(text));
   if(bookOutput.issues.length||!sameBookPhotoOwners(bookBefore.owners,bookOutput.owners))throw new Error('Cannot serialize changed or lost Book photo ownership');
+  if(!sameNpcActionOwners(npcBefore,readRawNpcActionOwnership(JSON.parse(text))))throw Error('Cannot serialize changed or lost NPC actions');
   return text;
 }
 

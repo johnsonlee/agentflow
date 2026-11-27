@@ -1,10 +1,12 @@
+import {NpcActionSession,type NpcCommandOutcome,type NpcActionReceipt} from "./npcActionSession";
+import {giveNpcItemExact,type NpcLocalCommand} from "@craft/engine";
 import { beginBookEdit, bookSessionCurrent, commitBookEdit, type BookEditSession } from "../persistence/bookEdit";
 import { portfolioExportSnapshot } from "../assessment/portfolio-export";
 import { readBookData, diagnoseRawBookOwnership, type BookData } from "@craft/engine";
 const nativeBookStorageSet = typeof Storage === "undefined" ? undefined : Storage.prototype.setItem;
 const nativeBookStorageGet = typeof Storage === "undefined" ? undefined : Storage.prototype.getItem;
 import {cameraUseDecision,reserveHeldCamera,type HeldCameraMode,type InventoryData}from '@craft/engine';
-import { readNpcActionField, diagnoseRawNpcActions } from "@craft/engine";
+import { readNpcActionField, diagnoseRawNpcActionOwnership as diagnoseRawNpcActions, npcActionRows, compileNpcCommand } from "@craft/engine";
 import type { NpcEdit } from "../ui/screens";
 import {commitCameraCapture,CAMERA_JOURNAL_KEY}from "../persistence/cameraCaptureJournal";
 import {CameraStore,raycastCameras,type CamerasData,type PlacedCamera}from "@craft/engine";
@@ -174,7 +176,15 @@ export class Game {
   private stopped = false;
   private readonly handleKey = (e: KeyboardEvent) => this.onKey(e);
   private readonly handleResize = () => { if (!this.stopped) this.resize(); };
-  private readonly handlePageHide = () => { if (Game.activeWriter === this && !this.stopped) this.save(); };
+  private readonly handlePageHide = () => { this.cancelNpcDialog(false); if (Game.activeWriter === this && !this.stopped) this.save(); };
+  private npcVisibilitySuspended = false;
+  private readonly handleNpcVisibility = () => {
+    if (document.hidden) { if (this.npcSession) { this.npcVisibilitySuspended = true; this.cancelNpcDialog(false); } }
+    else if (this.npcVisibilitySuspended) {
+      this.npcVisibilitySuspended = false;
+      if (Game.activeWriter === this && this.running && !this.screenOpen() && !this.paused && !this.dead && !this.prepared && !this.stopped && !Game.handoffBusy) this.resumeInput();
+    }
+  };
   private readonly handlePointerLock = () => {
     if (this.keyboard.pointerLocked) this.hadPointerLock = true;
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
@@ -235,7 +245,10 @@ export class Game {
   private readonly chat: ChatInput;
   private readonly portfolioScreen: PortfolioScreen;
   private readonly npcDialog: NpcDialog;
-  private npcSession: { mob: Mob; id: number; world: World; manager: MobManager } | null = null;
+  private npcSession: { mob: Mob; id: number; world: World; manager: MobManager; mode: GameMode; reading: boolean; fingerprint: string } | null = null;
+  private npcExecution: NpcActionSession | null = null;
+  private lastNpcReceipts: readonly NpcActionReceipt[] = [];
+  get npcActionReceipts(): readonly NpcActionReceipt[] { return structuredClone(this.npcExecution?.receipts ?? this.lastNpcReceipts); }
   private readonly chalkDialog: ChalkboardDialog;
   private readonly bookScreen: BookScreen;
   private bookSession: BookEditSession | null = null;
@@ -434,7 +447,7 @@ export class Game {
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio(),()=>this.canMutatePortfolio(),undefined,()=>this.canExportPortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob, draft) => this.commitNpcEdit(mob, draft));
-    this.registerCleanup("NPC dialog", () => { this.npcSession = null; this.npcDialog.hide(); });
+    this.registerCleanup("NPC dialog", () => this.cancelNpcDialog(false));
     this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
     this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen), {
       photos: () => this.portfolio.photos.length ? portfolioExportSnapshot(this.portfolio.photos, () => this.bookEditCurrent()) : [],
@@ -527,6 +540,7 @@ export class Game {
     this.listen(window, "keydown", this.handleKey);
     this.listen(window, "resize", this.handleResize);
     this.listen(window, "pagehide", this.handlePageHide);
+    this.listen(document, "visibilitychange", this.handleNpcVisibility);
     this.resize();
     if (this.inventoryScreen.restorePending(this.inventory, this.mode, sanitizeInventoryPending(save?.inventoryPending))) this.suspendInput();
     if (this.dead) {
@@ -2380,7 +2394,7 @@ export class Game {
       this.deathState = { phase: "pending", position: { ...this.body.position }, keepInventory: this.keepInventory };
       // Flush the editor while its book still belongs to the player, then freeze every modal.
       this.bookScreen.hide(); this.inventoryScreen.freezeForDeath();
-      this.npcDialog.hide(); this.chalkDialog.hide(); this.portfolioScreen.hide(); this.codeBuilder.hide();
+      this.cancelNpcDialog(false); this.chalkDialog.hide(); this.portfolioScreen.hide(); this.codeBuilder.hide();
       this.chat.hide(); this.suspendInput();
       this.breakProgress = 0; this.eatTimer = 0; this.target = null; this.mobTarget = null; this.balloonTarget = null;
       this.tryDeathTransfer();
@@ -2455,17 +2469,42 @@ export class Game {
   }
 
   private npcSessionCurrent(mob: Mob): boolean {
-    const session = this.npcSession;
-    return !!session && session.mob === mob && session.id === mob.id && session.world === this.world && session.manager === this.mobs &&
-      Game.activeWriter === this && !this.ownershipBusy && !this.dead && !this.paused && !this.recoverySections.length &&
-      mob.kind === "npc" && this.mobs.mobs.includes(mob) && this.npcDialog.open;
+    const session=this.npcSession;
+    if(!session||session.mob!==mob||session.id!==mob.id||session.world!==this.world||session.manager!==this.mobs||session.mode!==this.mode||
+      Game.activeWriter!==this||this.ownershipBusy||this.dead||this.paused||this.prepared||this.stopped||Game.handoffBusy||this.programRunning||this.recoverySections.length||
+      mob.kind!=="npc"||!this.mobs.mobs.includes(mob)||!this.npcDialog.open||document.hidden)return false;
+    if(session.reading){const actions=readNpcActionField(mob);return actions.kind!=="invalid"&&JSON.stringify(actions.kind==="valid"?actions.data:null)===session.fingerprint;}
+    return true;
   }
 
   private openNpcDialog(mob: Mob): void {
-    if (Game.activeWriter !== this || this.ownershipBusy || this.dead || this.paused || this.recoverySections.length || mob.kind !== "npc" || !this.mobs.mobs.includes(mob)) return;
-    this.suspendInput();
-    this.npcSession = { mob, id: mob.id, world: this.world, manager: this.mobs };
-    this.npcDialog.show(mob, this.mode === "creative", () => this.npcSessionCurrent(mob));
+    if(Game.activeWriter!==this||this.ownershipBusy||this.dead||this.paused||this.prepared||this.stopped||this.programRunning||this.recoverySections.length||this.screenOpen()||mob.kind!=="npc"||!this.mobs.mobs.includes(mob))return;
+    const actions=readNpcActionField(mob);this.suspendInput();
+    const session={mob,id:mob.id,world:this.world,manager:this.mobs,mode:this.mode,reading:this.mode!=="creative",fingerprint:JSON.stringify(actions.kind==="valid"?actions.data:null)};
+    this.npcSession=session;this.lastNpcReceipts=[];
+    if(session.reading&&actions.kind!=="invalid")this.npcExecution=new NpcActionSession(actions.kind==="valid"?actions.data:{version:1,buttons:[]},{
+      current:()=>this.npcSession===session&&this.npcSessionCurrent(mob),
+      dispatch:command=>this.dispatchLocalCommand(command,true,()=>this.npcSession===session&&this.npcSessionCurrent(mob)),
+      snapshot:()=>({inventory:this.inventory.toJSON(),agent:structuredClone(this.agent),timeOfDay:this.timeOfDay,daylightCycle:this.daylightCycle,keepInventory:this.keepInventory,status:structuredClone(this.playerStatus)}),
+      changed:()=>this.refreshNpcActions(),
+    });
+    this.npcDialog.show(mob,this.mode==="creative",()=>this.npcSessionCurrent(mob),this.npcExecution??undefined);
+    this.npcExecution?.start("enter");
+  }
+
+  private refreshNpcActions():void {
+    const execution=this.npcExecution;if(!execution)return;
+    this.lastNpcReceipts=execution.receipts.slice();
+    if(execution.state==="closed"||execution.state==="cancelled")this.cancelNpcDialog(true);
+    else this.npcDialog.updateActions();
+  }
+
+  /** Forced teardown never runs on-exit actions. Explicit reader close is a separate request. */
+  private cancelNpcDialog(resume:boolean):void {
+    const execution=this.npcExecution;this.npcExecution=null;this.npcSession=null;
+    if(execution){this.lastNpcReceipts=execution.receipts.slice();if(execution.state!=="cancelled")execution.cancel();}
+    this.npcDialog?.hide();
+    if(resume&&!document.hidden&&Game.activeWriter===this&&this.running&&!this.paused&&!this.dead&&!this.prepared&&!this.stopped&&!Game.handoffBusy)this.resumeInput();
   }
 
   /** Validates the whole draft and current original actor before publishing any field. */
@@ -2478,7 +2517,7 @@ export class Game {
       for (const key of ["name", "dialogue"] as const) if (!ds[key] || !("value" in ds[key]) || !ds[key].enumerable || typeof ds[key].value !== "string") return false;
       const name = ds.name.value as string, dialogue = ds.dialogue.value as string;
       if (!name.trim() || name.trim() !== name || name.length > 64 || dialogue.length > 2000) return false;
-      const actions = readNpcActionField(draft); if (actions.kind === "invalid") return false;
+      const actions = readNpcActionField(draft); if (actions.kind === "invalid" || actions.kind === "valid" && npcActionRows(actions.data).some(a=>a.kind==="command"&&!compileNpcCommand(a.command).ok)) return false;
       const live = Object.getOwnPropertyDescriptors(mob);
       for (const key of ["name", "dialogue"] as const) if (!live[key] || !("value" in live[key]) || !live[key].writable) return false;
       if (live.npcActions ? !("value" in live.npcActions) || !live.npcActions.configurable : actions.kind === "valid" && !Object.isExtensible(mob)) return false;
@@ -2500,9 +2539,8 @@ export class Game {
   }
 
   private closeNpcDialog(): void {
-    this.npcSession = null;
-    this.npcDialog.hide();
-    this.resumeInput();
+    if(this.npcExecution){this.npcExecution.requestClose();this.refreshNpcActions();}
+    else this.cancelNpcDialog(true);
   }
 
   private canMutatePortfolio():boolean{
@@ -2646,6 +2684,31 @@ export class Game {
     if (!this.touch && !this.paused) this.keyboard.requestPointerLock();
   }
 
+  /** Typed synchronous algorithms shared by chat and the bounded NPC adapter. */
+  private dispatchLocalCommand(cmd:NpcLocalCommand,exact:boolean,current:()=>boolean):NpcCommandOutcome {
+    if(!current())return{ok:false,message:"This command owner is no longer active."};
+    switch(cmd.type){
+      case "give":{
+        if(exact){const ok=giveNpcItemExact(this.inventory,cmd.id,cmd.count,current);return{ok,message:ok?`Gave ${cmd.count} [${displayNameOf(cmd.id)}]`:"The complete item allocation was refused. No items were given."};}
+        const left=this.inventory.add(cmd.id,cmd.count);return{ok:left===0,message:`Gave ${cmd.count-left} [${displayNameOf(cmd.id)}]`};
+      }
+      case "time":this.timeOfDay=cmd.timeOfDay;return{ok:true,message:`Set the time to ${Math.round(cmd.timeOfDay*24000)}`};
+      case "gamerule":
+        if(cmd.rule==="doMobSpawning")this.mobs.spawning=cmd.value;
+        else if(cmd.rule==="doDaylightCycle")this.daylightCycle=cmd.value;
+        else this.keepInventory=cmd.value;
+        return{ok:true,message:`Game rule ${cmd.rule} is now set to: ${cmd.value}`};
+      case "effect":{
+        this.cancelDrinking();this.markPlayerStatusRecovery();
+        if(this.actionsNeedRecovery||!current())return{ok:false,message:"Damaged player status. Export a backup before continuing."};
+        if(cmd.action==="clear"){const next=sanitizePlayerStatus(this.playerStatus).data;clearPlayerStatus(next,cmd.effect);const ok=this.statusOwner.replace(next);return{ok,message:ok?"Cleared status effects.":"Status effects are being transferred. Try again afterward."};}
+        const ok=applyTimedStatus(this.playerStatus,cmd.effect,cmd.seconds,cmd.amplifier);return{ok,message:ok?`Applied ${cmd.effect} for ${cmd.seconds}s.`:"This effect cannot be applied to the current player status."};
+      }
+      case "seed":return{ok:true,message:`Seed: [${this.world.seed}]`};
+      case "help":return{ok:true,message:COMMAND_HELP.join("  ·  ")};
+    }
+  }
+
   /** Executes a chat line; returns the feedback shown to the player. */
   runChat(text: string): string {
     if (this.prepared || this.stopped || Game.handoffBusy) return "World is not active.";
@@ -2667,23 +2730,9 @@ export class Game {
         this.setMode(cmd.mode);
         reply = `Set own game mode to ${cmd.mode}`;
         break;
-      case "effect": {
-        this.cancelDrinking();
-        this.markPlayerStatusRecovery();
-        if (this.actionsNeedRecovery) { reply = "Damaged player status. Export a backup before continuing."; break; }
-        if (cmd.action === "clear") {
-          const next = sanitizePlayerStatus(this.playerStatus).data;
-          clearPlayerStatus(next, cmd.effect);
-          reply = this.statusOwner.replace(next) ? "Cleared status effects." : "Status effects are being transferred. Try again afterward.";
-        } else {
-          const ok = applyTimedStatus(this.playerStatus, cmd.effect, cmd.seconds, cmd.amplifier);
-          reply = ok ? `Applied ${cmd.effect} for ${cmd.seconds}s.` : "This effect cannot be applied to the current player status.";
-        }
-        break;
-      }
+      case "effect":
       case "time":
-        this.timeOfDay = cmd.timeOfDay;
-        reply = `Set the time to ${Math.round(cmd.timeOfDay * 24000)}`;
+        reply=this.dispatchLocalCommand(cmd,false,()=>true).message;
         break;
       case "tp": {
         const p = this.body.position;
@@ -2700,11 +2749,9 @@ export class Game {
         reply = `Teleported to ${q.x.toFixed(1)}, ${q.y.toFixed(1)}, ${q.z.toFixed(1)}${clamped ? " (clamped to the world border)" : ""}`;
         break;
       }
-      case "give": {
-        const left = this.inventory.add(cmd.id, cmd.count);
-        reply = `Gave ${cmd.count - left} [${displayNameOf(cmd.id)}]`;
+      case "give":
+        reply=this.dispatchLocalCommand(cmd,false,()=>true).message;
         break;
-      }
       case "summon": {
         const dir = lookDirection(this.body.yaw, 0);
         const x = this.body.position.x + dir.x * 3;
@@ -2739,13 +2786,8 @@ export class Game {
         break;
       }
       case "gamerule":
-        if (cmd.rule === "doMobSpawning") this.mobs.spawning = cmd.value;
-        else if (cmd.rule === "doDaylightCycle") this.daylightCycle = cmd.value;
-        else this.keepInventory = cmd.value;
-        reply = `Game rule ${cmd.rule} is now set to: ${cmd.value}`;
-        break;
       case "seed":
-        reply = `Seed: [${this.world.seed}]`;
+        reply=this.dispatchLocalCommand(cmd,false,()=>true).message;
         break;
       case "agent":
         reply = this.teleportAgent() ? "Teleported the Agent to you" : "No open space nearby for the Agent";
@@ -2758,7 +2800,7 @@ export class Game {
         break;
       }
       case "help":
-        reply = COMMAND_HELP.join("  ·  ");
+        reply = this.dispatchLocalCommand(cmd,false,()=>true).message;
         break;
       case "error":
         reply = cmd.message;

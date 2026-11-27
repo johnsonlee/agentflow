@@ -1,11 +1,11 @@
 import { nativePageWorldTap } from './native-world-tap';
 import fs from 'node:fs/promises';
 import {expect,type Page,type TestInfo,type Locator}from'@playwright/test';
-import{createMob,mobSnapshot,captureDimensionWorld,serializeSave,blockId,type NpcActions,type SaveData,type BlockEdit}from'@craft/engine';
+import{createMob,mobSnapshot,captureDimensionWorld,serializeSave,blockId,type NpcActionsV1,type SaveData,type BlockEdit}from'@craft/engine';
 import{npcUrlFixture}from'./npc-url-buttons';
 import{waitForTerrain,parkMouse,pressMouse,snap}from'./helpers';
 const HOST='npc-links.invalid';
-function actions(realm:'overworld'|'nether'):NpcActions{return{version:1,buttons:Array.from({length:6},(_,i)=>({kind:'url',label:(realm==='nether'?'Nether':'World')+(i+1),url:`https://${HOST}/${realm}/${i+1}?q=A%20B#Owner`}))};}
+function actions(realm:'overworld'|'nether'):NpcActionsV1{return{version:1,buttons:Array.from({length:6},(_,i)=>({kind:'url',label:(realm==='nether'?'Nether':'World')+(i+1),url:`https://${HOST}/${realm}/${i+1}?q=A%20B#Owner`}))};}
 /** Physical gravity/collision can settle a stationary NPC slightly below80 within collision tolerance.
  * Only Y has the source-bounded tolerance; persisted modern/legacy mirrors stay exact. */
 export function assertNpcPortalPose(position:{x:number;y:number;z:number}):void{

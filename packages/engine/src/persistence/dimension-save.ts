@@ -1,5 +1,6 @@
+import {diagnoseRawNpcActionOwnership as diagnoseRawNpcActions} from "./npc-action-ownership";
 import{diagnoseRawBookOwnership}from './book-ownership';
-import { diagnoseRawNpcActions } from "../education/npc-actions";
+
 import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
 import {diagnoseRawBoneMealOwnership} from './bone-meal-ownership';
@@ -188,7 +189,7 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
     }
   }
   const mobs = sanitizeMobState(raw.mobs); const mobsValid = section("mobs", !!mobs.invalid, mobs.data);
-  if (diagnoseRawNpcActions(raw)) add("npcs", "Invalid NPC URL buttons");
+  if (diagnoseRawNpcActions(raw)) add("npcs", "Invalid NPC URL/command actions");
   const legacyNpcs = sanitizeNpcs(raw.npcs);
   // Current saves mirror authoritative modern NPCs into the legacy cache. Its
   // historical height bounds are narrower than the valid modern actor bounds.

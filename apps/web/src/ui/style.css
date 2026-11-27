@@ -626,3 +626,11 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 .book-export-controls .mc-button { min-height:44px; min-width:44px; font-size:16px; }
 .book-status { overflow-wrap:anywhere; }
 @media(max-width:480px) { .book-export-controls .mc-button { flex:1 1 100%; } }
+
+/* NPC action fields remain usable in narrow touch viewports. */
+.npc-action-row { min-width:0; }
+.npc-action-row .mc-input { width:100%;min-width:0;font-size:16px;min-height:44px; }
+.npc-action-controls { display:flex;flex-wrap:wrap;gap:8px; }
+.npc-action-controls button,.npc-pending-action button,.npc-pending-action a { min-height:44px; }
+.npc-pending-action { overflow-wrap:anywhere; }
+.npc-links button { min-height:44px; }

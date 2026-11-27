@@ -1,6 +1,16 @@
-/** Bounded application URL buttons; command/automatic/native permission semantics are unsupported. */
+/** Bounded local NPC actions. Native commands/permissions and automatic URL navigation are not implied. */
 export interface NpcUrlButton { kind: "url"; label: string; url: string }
-export interface NpcActions { version: 1; buttons: NpcUrlButton[] }
+export interface NpcActionsV1 { version: 1; buttons: NpcUrlButton[] }
+export type NpcTrigger = "button" | "enter" | "exit";
+export type NpcAction = { kind: "url"; trigger: NpcTrigger; label: string; url: string }
+  | { kind: "command"; trigger: NpcTrigger; label: string; command: string };
+export interface NpcActionsV2 { version: 2; actions: NpcAction[] }
+export type NpcActions = NpcActionsV1 | NpcActionsV2;
+export const NPC_COMMAND_BYTES = 512;
+/** Runtime view only; copying/saving v1 never silently promotes its stored representation. */
+export function npcActionRows(actions: NpcActions): NpcAction[] {
+ return actions.version === 1 ? actions.buttons.map(b => ({ ...b, trigger: "button" as const })) : actions.actions.map(a => ({...a}));
+}
 export const NPC_MAX_BUTTONS = 6;
 export const NPC_BUTTON_LABEL_CHARS = 12;
 export const NPC_URL_CHARS = 2048;
@@ -27,19 +37,32 @@ export function validNpcUrl(value: unknown): value is string {
 /** Reads without invoking record accessors; malformed present data is never repaired or truncated. */
 export function readNpcActions(raw: unknown): NpcActionRead {
   try {
-    const envelope = data(raw, ["version", "buttons"]);
-    if (!envelope || envelope.version !== 1 || !Array.isArray(envelope.buttons)) return invalid();
-    const buttons = envelope.buttons;
-    if (buttons.length > NPC_MAX_BUTTONS || Reflect.ownKeys(buttons).length !== buttons.length + 1) return invalid();
-    const out: NpcUrlButton[] = [];
+    const version = raw && typeof raw === "object" ? Object.getOwnPropertyDescriptor(raw, "version") : undefined;
+    if (!version || !("value" in version) || (version.value !== 1 && version.value !== 2)) return invalid();
+    const v = version.value, field = v === 1 ? "buttons" : "actions";
+    const envelope = data(raw, ["version", field]);
+    if (!envelope || !Array.isArray(envelope[field])) return invalid();
+    const buttons = envelope[field] as unknown[];
+    if (Object.getPrototypeOf(buttons) !== Array.prototype || buttons.length > NPC_MAX_BUTTONS || Reflect.ownKeys(buttons).length !== buttons.length + 1) return invalid();
+    const out: NpcAction[] = [];
     for (let i = 0; i < buttons.length; i++) {
       const d = Object.getOwnPropertyDescriptor(buttons, String(i));
       if (!d || !("value" in d) || !d.enumerable) return invalid();
-      const b = data(d.value, ["kind", "label", "url"]);
-      if (!b || b.kind !== "url" || typeof b.label !== "string" || !b.label.trim() || b.label.trim() !== b.label || Array.from(b.label).length > NPC_BUTTON_LABEL_CHARS || /\p{Cc}/u.test(b.label) || !validNpcUrl(b.url)) return invalid();
-      out.push({ kind: "url", label: b.label, url: b.url });
+      const kind = d.value && typeof d.value === "object" ? Object.getOwnPropertyDescriptor(d.value, "kind") : undefined;
+      if (!kind || !("value" in kind) || kind.value !== "url" && (v === 1 || kind.value !== "command")) return invalid();
+      const k = kind.value as "url" | "command";
+      const b = data(d.value, ["kind", "label", ...(v === 2 ? ["trigger"] : []), k === "url" ? "url" : "command"]);
+      if (!b || typeof b.label !== "string" || !b.label.trim() || b.label.trim() !== b.label || Array.from(b.label).length > NPC_BUTTON_LABEL_CHARS || /\p{Cc}/u.test(b.label)) return invalid();
+      const trigger = v === 1 ? "button" : b.trigger;
+      if (trigger !== "button" && trigger !== "enter" && trigger !== "exit") return invalid();
+      if (k === "url") { if (!validNpcUrl(b.url)) return invalid(); out.push({kind:k,trigger,label:b.label,url:b.url}); }
+      else {
+        // Unsupported but structurally valid imported commands remain readable; execution preflights them.
+        if (typeof b.command !== "string" || !b.command.trim() || new TextEncoder().encode(b.command).length > NPC_COMMAND_BYTES || /[\p{Cc}]/u.test(b.command)) return invalid();
+        out.push({kind:k,trigger,label:b.label,command:b.command});
+      }
     }
-    return { kind: "valid", data: { version: 1, buttons: out } };
+    return { kind: "valid", data: v === 1 ? { version:1, buttons: out.map(a=>({kind:"url",label:a.label,url:(a as Extract<NpcAction,{kind:"url"}>).url})) } : {version:2,actions:out} };
   } catch { return invalid(); }
 }
 /** A present undefined/getter field is invalid; only an actually absent field is legacy-empty. */
@@ -52,7 +75,7 @@ export function readNpcActionField(owner: object): NpcActionRead {
 }
 export function copyNpcActions(owner: object): NpcActions | undefined {
   const result = readNpcActionField(owner);
-  if (result.kind === "invalid") throw new Error("Invalid NPC URL buttons");
+  if (result.kind === "invalid") throw new Error("Invalid NPC actions");
   return result.kind === "valid" ? result.data : undefined;
 }
 /** Diagnose new action data before legacy sanitizers can discard it. Does not normalize old NPCs. */
