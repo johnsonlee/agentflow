@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs/promises";
 import { aimAtTop, blockAt, command, countStack, createWorld, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
@@ -13,11 +14,7 @@ export async function snowballRoute(page: Page, info: TestInfo, mobile: boolean)
     const vp = page.viewportSize()!;
     return finger!.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: vp.width * .65, y: vp.height * .45, id: 96 }] });
   };
-  const use = async () => {
-    if (!mobile) return pressMouse(page, "right");
-    await touch("touchStart");
-    try { await new Promise(resolve => setTimeout(resolve, 60)); } finally { await touch("touchEnd"); }
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   const inv = page.locator(".inventory-screen");
   const openInventory = async () => {
     if (mobile) await press(page.getByRole("button", { name: "Open inventory" })); else await page.keyboard.press("KeyE");

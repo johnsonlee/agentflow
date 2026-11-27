@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import{expect,type Locator,type Page,type TestInfo,type CDPSession}from '@playwright/test';import fs from 'node:fs/promises';import{serializeSave}from '@craft/engine';import{paperCaneFixture}from './paper-cane-fixture';import{look,lookAtCell,aimAtTop,parkMouse,target,waitForTerrain,snap,collectWorldDrops}from './helpers';
 export async function paperCaneRoute(page:Page,info:TestInfo,mobile:boolean){
  const fixture=paperCaneFixture(),{root,stand,table:scaffold,tableApproach}=fixture,table={...scaffold,y:scaffold.y+1},errors:string[]=[],phases:unknown[]=[],inputWitnesses:unknown[]=[];let stage='initial',failure:string|null=null;const press=(l:Locator)=>mobile?l.tap():l.click();page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
@@ -22,7 +23,7 @@ export async function paperCaneRoute(page:Page,info:TestInfo,mobile:boolean){
  const use=async()=>{
   await page.waitForFunction(()=>((window.__craft.game! as unknown as {placeCooldown:number}).placeCooldown)===0,undefined,{timeout:20000});
   inputWitnesses.push(await page.evaluate(()=>{const g=window.__craft.game!;return{wallTime:performance.now(),placeCooldown:(g as unknown as {placeCooldown:number}).placeCooldown,position:{...g.body.position},target:structuredClone((g as unknown as {target:unknown}).target),selected:g.inventory.selected,held:structuredClone(g.inventory.selectedStack())};}));
-  if(mobile){const v=page.viewportSize()!;await page.touchscreen.tap(v.width*.65,v.height*.42);}else{try{await page.mouse.down({button:'right'});}finally{await page.mouse.up({button:'right'});}}};
+  if(mobile){const v=page.viewportSize()!;await nativePageWorldTap(page, v.width*.65,v.height*.42);}else{try{await page.mouse.down({button:'right'});}finally{await page.mouse.up({button:'right'});}}};
  const mine=async()=>{let finger:CDPSession|undefined;try{if(mobile){const v=page.viewportSize()!,point={x:v.width*.65,y:v.height*.42,id:181};finger=await page.context().newCDPSession(page);await finger.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});await expect.poll(column).toEqual([0,0,0]);}else{await page.mouse.down({button:'left'});await expect.poll(column).toEqual([0,0,0]);}}finally{if(finger){await finger.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await finger.detach();}if(!mobile)await page.mouse.up({button:'left'});}};
  const aimForBookUse=async()=>{
   await look(page,0,1.2);

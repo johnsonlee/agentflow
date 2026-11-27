@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 /** Browser coverage from disclosed preowned reagent kit; no native-equivalence claim.
  * Disclosed initial kit: Stand1, WaterBottle12, Wart4, Powder1, Ag/Co/Ca/Bi1 each,
  * SpiderEye1, clear stone pad/hunger12. No potion products, effect timers, station
@@ -9,7 +10,7 @@ const recipes=[{reagent:'silver',product:'antidote',effect:'poison'},{reagent:'c
 export async function fourMedicineBrewingRoute(page:Page,info:TestInfo,mobile:boolean){
  const errors=await createWorld(page,{mode:'survival'}),press=(l:Locator)=>mobile?l.tap():l.click(),finger=mobile?await page.context().newCDPSession(page):null;
  const vp=page.viewportSize()!,point={x:vp.width*.65,y:vp.height*.42,id:142};
- const use=async()=>{await page.waitForFunction(()=>(window.__craft.game!as unknown as{placeCooldown:number}).placeCooldown===0);if(!finger)return pressMouse(page,'right');const pending=finger.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});await new Promise(r=>setTimeout(r,60));await Promise.all([pending,finger.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})]);};
+ const use=async()=>{ await page.waitForFunction(()=>(window.__craft.game!as unknown as{placeCooldown:number}).placeCooldown===0);if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
  const hold=async(until:()=>Promise<unknown>)=>{try{if(finger)await finger.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[point]});else await page.mouse.down({button:'right'});await until();}finally{if(finger)await finger.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});else await page.mouse.up({button:'right'});}};
  const select=async(index:number)=>{if(mobile)await press(page.locator(`.hotbar [data-slot="${index}"]`));else await page.keyboard.press(`Digit${index+1}`);await expect.poll(()=>page.evaluate(()=>window.__craft.game!.inventory.selected)).toBe(index);};
  const inv=page.locator('.inventory-screen'),slot=(i:number)=>inv.locator(`[data-slot="${i}"]`),cell=(k:string|number)=>inv.locator(`[data-brewing="${k}"]`);

@@ -1,3 +1,4 @@
+import { overlapsOwnedPortal, portalApproachPulse } from './portal-contact-controls';
 import fs from "node:fs/promises";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
@@ -46,7 +47,7 @@ async function sourceManifest() {
     }
   }
   for (const dir of ["apps/web/src", "packages/engine/src", "packages/textures/src", "packages/input/src"]) await walk(dir);
-  for (const file of ["nether-travel.ts", "desktop-nether-travel.spec.ts", "mobile-nether-travel.spec.ts", "helpers.ts"]) {
+  for (const file of ["nether-travel.ts", "desktop-nether-travel.spec.ts", "mobile-nether-travel.spec.ts", "helpers.ts", "portal-contact-controls.ts"]) {
     const name = `apps/web/e2e/${file}`; entries[name] = createHash("sha256").update(await fs.readFile(path.join(root, name))).digest("hex");
   }
   return { root, localBase: execFileSync("git", ["rev-parse", "HEAD"], { cwd: root, encoding: "utf8" }).trim(), entries,
@@ -62,7 +63,7 @@ export async function netherTravelRoute(page: Page, info: TestInfo, mobile: bool
   const read = () => page.evaluate(() => {
     const g = window.__craft.game!;
     return { dimension: g.world.dimension, seed: g.world.seed, generatorVersion: g.world.generatorVersion,
-      inventory: g.inventory.toJSON(), agent: structuredClone(g.agent), position: { ...g.body.position },
+      health: g.health, dead: g.dead, onGround: g.body.onGround, inventory: g.inventory.toJSON(), agent: structuredClone(g.agent), position: { ...g.body.position },
       portals: g.world.portals.exportState(), edits: g.world.exportEdits(), fireballs: g.mobs.exportFireballs(),
       loadErrors: [...g.loadErrors], rawStorage: localStorage.getItem("craft.save.v1") };
   });
@@ -84,19 +85,43 @@ export async function netherTravelRoute(page: Page, info: TestInfo, mobile: bool
     await page.reload(); await resume(); const source = await record("source-frame-and-global-bags"); sameBags(source);
     expect(source.dimension).toBe("overworld"); await snap(page, info, "nether-travel-01-source-frame");
     stage = "actual-forward-input-into-source-portal";
-    if (mobile) {
-      await expect(page.locator(".touch-stick-base")).toBeVisible(); const box = await page.locator(".touch-stick-base").boundingBox(); expect(box).not.toBeNull();
-      const x = box!.x + box!.width / 2, y = box!.y + box!.height / 2; finger = await page.context().newCDPSession(page);
-      try {
-        await finger.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x, y, id: 161 }] });
-        await finger.send("Input.dispatchTouchEvent", { type: "touchMove", touchPoints: [{ x, y: y - 60, id: 161 }] });
-        await expect.poll(() => page.evaluate(() => window.__craft.game!.body.position.z), { timeout: 45_000, intervals: [50] }).toBeLessThan(1.2);
-      } finally { await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); }
-    } else {
-      try { await page.keyboard.down("KeyW"); await expect.poll(() => page.evaluate(() => window.__craft.game!.body.position.z), { timeout: 45_000, intervals: [50] }).toBeLessThan(1.2); }
-      finally { await page.keyboard.up("KeyW"); }
+    const sourceFrame = source.portals.records[0]; expect(source.portals.records).toHaveLength(1);
+    if (mobile) { await expect(page.locator(".touch-stick-base")).toBeVisible(); finger = await page.context().newCDPSession(page); }
+    const approachStarted = Date.now();
+    for (let pulse = 0; pulse < 80; pulse++) {
+      const beforeStep = await read(); sameBags(beforeStep);
+      expect(beforeStep.dimension).toBe('overworld'); expect(beforeStep.portals).toEqual(source.portals);
+      expect(beforeStep.dead).toBe(false); expect(beforeStep.health).toBe(source.health); expect(beforeStep.onGround).toBe(true);
+      const milliseconds = portalApproachPulse(beforeStep.position, sourceFrame);
+      if (milliseconds === 0) break;
+      if (Date.now() - approachStarted > 45_000) throw Error('Finite physical portal approach deadline');
+      const intent = { stage, label: 'physical-source-approach-intent', pulse, milliseconds, before: beforeStep };
+      observations.push(intent);
+      if (finger) {
+        const box = await page.locator('.touch-stick-base').boundingBox(); expect(box).not.toBeNull(); if (!box) throw Error('Missing actual joystick');
+        const x = box.x + box.width / 2, y = box.y + box.height / 2;
+        try {
+          await finger.send('Input.dispatchTouchEvent', { type: 'touchStart', touchPoints: [{ x, y, id: 161 }] });
+          await finger.send('Input.dispatchTouchEvent', { type: 'touchMove', touchPoints: [{ x, y: y - 60, id: 161 }] });
+          await page.waitForTimeout(milliseconds);
+        } finally { await finger.send('Input.dispatchTouchEvent', { type: 'touchEnd', touchPoints: [] }); }
+      } else {
+        try { await page.keyboard.down('KeyW'); await page.waitForTimeout(milliseconds); }
+        finally { await page.keyboard.up('KeyW'); }
+      }
+      const stopped = await read();
+      observations.push({ stage, label: 'physical-source-approach-stopped', pulse, value: stopped, inputReleaseAcknowledged: true });
+      expect(stopped.dead).toBe(false); expect(stopped.health).toBe(source.health);
+      if (stopped.position.z >= beforeStep.position.z) throw Error('Physical approach made no forward progress');
+      if (overlapsOwnedPortal(stopped.position, sourceFrame)) break;
+      // A delayed release can cross the frame. Refuse that actual stance; do not pretend z<1.2 is contact.
+      portalApproachPulse(stopped.position, sourceFrame);
     }
-    const contact = await record("actual-input-stopped-in-source-contact"); expect(contact.position.z).toBeLessThan(source.position.z - 1);
+    const contact = await record('actual-input-stopped-in-source-contact'); sameBags(contact);
+    expect(contact.dimension).toBe('overworld'); expect(contact.dead).toBe(false); expect(contact.health).toBe(source.health);
+    expect(contact.onGround).toBe(true); expect(contact.portals).toEqual(source.portals);
+    expect(overlapsOwnedPortal(contact.position, sourceFrame), 'Actual stopped player AABB must overlap owned source portal').toBe(true);
+    expect(contact.position.z).toBeLessThan(source.position.z - 1);
     expect(contact.position.x).toBeGreaterThan(-.2); expect(contact.position.x).toBeLessThan(1.2);
     stage = "actual-source-dwell-and-Main-Nether-handoff";
     await page.waitForFunction(() => window.__craft.game?.world.dimension === "nether", undefined, { timeout: 120_000 });

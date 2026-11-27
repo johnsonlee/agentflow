@@ -1,10 +1,11 @@
+import { nativePageWorldTap } from './native-world-tap';
 import {expect,type Locator,type Page,type TestInfo} from '@playwright/test';
 import fs from 'node:fs/promises';
 import {aimAtTop,blockAt,countStack,createWorld,lookAtCell,parkMouse,pressMouse,snap,target,waitForTerrain} from './helpers';
 /** Raw ingredients and a table/pad are fixtures. Crafting, placing, station transfers, time and cold restore use real UI. */
 export async function brewingStationRoute(page:Page,info:TestInfo,mobile:boolean){
  const errors=await createWorld(page,{mode:'survival'}),press=(l:Locator)=>mobile?l.tap():l.click(),finger=mobile?await page.context().newCDPSession(page):null;
- const use=async()=>{if(!finger)return pressMouse(page,'right');const v=page.viewportSize()!;const down=finger.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:v.width*.65,y:v.height*.45,id:92}]});await new Promise(resolve=>setTimeout(resolve,60));await Promise.all([down,finger.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})]);};
+ const use=async()=>{ if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
  const fixture=await page.evaluate(()=>{const g=window.__craft.game!,p=g.body.position,x=Math.floor(p.x),z=Math.floor(p.z),floor=Math.floor(p.y+.01)-1;
   for(let dx=-4;dx<=4;dx++)for(let dz=-4;dz<=4;dz++){g.world.setBlock(x+dx,floor,z+dz,window.__craft.blockId('stone'));for(let dy=1;dy<=4;dy++)g.world.setBlock(x+dx,floor+dy,z+dz,0);}
   g.world.setBlock(x,floor+1,z-2,window.__craft.blockId('crafting_table'));g.inventory.slots.fill(null);

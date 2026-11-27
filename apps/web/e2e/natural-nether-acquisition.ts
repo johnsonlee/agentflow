@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 /** Browser Survival acquisition route; raw kit and navigation are disclosed.
  * Scoped Survival acquisition from a disclosed non-Nether kit and pre-owned portal/water substrate.
  * UI /tp is navigation only; no mob/source outcome/timer/RNG/health mutation. */
@@ -20,7 +21,7 @@ export async function naturalNetherAcquisitionRoute(page:Page,info:TestInfo,mobi
  const select=async(index:number)=>{if(mobile)await press(page.locator(`.hotbar [data-slot="${index}"]`));else await page.keyboard.press(`Digit${index+1}`);};
  const view=()=>page.evaluate(()=>{const g=window.__craft.game!;return{dimension:g.world.dimension,seed:g.world.seed,mode:g.mode,position:{...g.body.position},health:g.health,dead:g.dead,inventory:g.inventory.toJSON(),agent:structuredClone(g.agent),mobs:g.mobs.mobs.map(m=>({id:m.id,kind:m.kind,health:m.health,position:{...m.position},blazeState:m.blazeState&&{...m.blazeState}})),drops:g.worldDrops.toJSON(),fireballs:g.mobs.exportFireballs(),portals:g.world.portals.exportState(),loadErrors:[...g.loadErrors]};});
  const record=async(label:string)=>{stage=label;const v=await view();observations.push({stage,...v});return v;};
- const use=async()=>{await page.waitForFunction(()=>(window.__craft.game! as unknown as{placeCooldown:number}).placeCooldown===0);await target(page);if(!session)return pressMouse(page,'right');const v=page.viewportSize()!,down=session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x:v.width*.65,y:v.height*.45,id:31}]});await page.waitForTimeout(60);await Promise.all([down,session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]})]);};
+ const use=async()=>{ await page.waitForFunction(()=>(window.__craft.game! as unknown as{placeCooldown:number}).placeCooldown===0);await target(page);if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
  const holdBreak=async(ms:number,mobId?:number)=>{
   const until=async()=>{if(mobId===undefined){await page.waitForTimeout(ms);return;}try{await page.waitForFunction(id=>!window.__craft.game!.mobs.mobs.some(m=>m.id===id),mobId,{timeout:ms});}catch(error){if(!(error instanceof Error)||error.name!=='TimeoutError')throw error;}};
   if(!session){await page.mouse.down({button:'left'});try{await until();}finally{await page.mouse.up({button:'left'});}return;}

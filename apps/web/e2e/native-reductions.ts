@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { collectWorldDrops, aimAtTop, blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
@@ -10,10 +11,7 @@ export async function nativeReductionRoute(page: Page, info: TestInfo, mobile: b
     const vp = page.viewportSize()!;
     return finger!.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: vp.width * .65, y: vp.height * .45, id: 7 }] });
   };
-  const use = async () => {
-    if (!mobile) return pressMouse(page, "right");
-    const down = touch("touchStart"); await new Promise((r) => setTimeout(r, 60)); await Promise.all([down, touch("touchEnd")]);
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   const slotOf = (name: string) => page.evaluate((n) => window.__craft.game!.inventory.slots.findIndex((s) => s?.id === window.__craft.stackId(n)), name);
   const pad = await page.evaluate(() => {
     const g = window.__craft.game!, p = g.body.position;

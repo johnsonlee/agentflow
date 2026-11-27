@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { createWorld, look, parkMouse, snap, target, waitForTerrain } from "./helpers";
@@ -39,7 +40,7 @@ export async function glowActivationRoute(page: Page, info: TestInfo, mobile: bo
     if (mobile) {
       const vp = page.viewportSize()!;
       // Playwright native tap owns its complete start/end pair; no retained contact or timed hold.
-      await page.touchscreen.tap(vp.width * .65, vp.height * .4);
+      await nativePageWorldTap(page, vp.width * .65, vp.height * .4);
     } else {
       await page.mouse.down({ button: "right" });
       try { ack.downAcknowledged = Date.now(); } finally { await page.mouse.up({ button: "right" }); }

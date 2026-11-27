@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs/promises";
 import { aimAtTop, blockAt, countStack, createWorld, lookAtCell, parkMouse, pressMouse, snap, target } from "./helpers";
@@ -7,13 +8,7 @@ export async function furnaceProgressRoute(page: Page, info: TestInfo, mobile: b
   const errors = await createWorld(page, { mode: "survival" });
   const press = (l: Locator) => mobile ? l.tap() : l.click();
   const cdp = mobile ? await page.context().newCDPSession(page) : null;
-  const use = async () => {
-    if (!cdp) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    const down = cdp.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 91 }] });
-    await new Promise((resolve) => setTimeout(resolve, 60));
-    await Promise.all([down, cdp.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   const fixture = await page.evaluate(() => {
     const g = window.__craft.game!, p = g.body.position, x = Math.floor(p.x), z = Math.floor(p.z), floor = Math.floor(p.y + .01) - 1;
     for (let dx = -3; dx <= 3; dx++) for (let dz = -3; dz <= 3; dz++) {

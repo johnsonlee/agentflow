@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, test } from "@playwright/test";
 import { command, createWorld, lookAtMob, newestMob, settle, snap } from "./helpers";
 
@@ -19,7 +20,7 @@ test.describe("Mobile browser (touch): Education Edition features", () => {
     await lookAtMob(page, id);
     await page.waitForTimeout(150);
     const vp = page.viewportSize()!;
-    await page.touchscreen.tap(vp.width * 0.65, vp.height * 0.45);
+    await nativePageWorldTap(page, vp.width * 0.65, vp.height * 0.45);
     await expect(page.locator(".npc-screen h2")).toHaveText("Guide");
     await snap(page, testInfo, "07-touch-npc");
     await page.getByRole("button", { name: "Close", exact: true }).tap();

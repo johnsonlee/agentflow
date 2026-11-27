@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Page, type Locator, type TestInfo } from '@playwright/test';
 import fs from 'node:fs/promises';
 import { blockId, stackId, type ItemStack, type SaveData } from '@craft/engine';
@@ -33,7 +34,7 @@ export async function chestRoute(page: Page, info: TestInfo, mobile: boolean) {
         placeCooldown: number;
     }).placeCooldown) === 0); if (mobile) {
         const v = page.viewportSize()!;
-        await page.touchscreen.tap(v.width * .65, v.height * .42);
+        await nativePageWorldTap(page, v.width * .65, v.height * .42);
     }
     else
         try {

@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
@@ -59,7 +60,7 @@ export async function fluidHarvestRoute(page: Page, info: TestInfo, mobile: bool
       await expect.poll(() => target(page)).toMatchObject(cell); await holdBreak(cell);
     };
     const use = async () => {
-      if (mobile) { const vp = page.viewportSize()!; await page.touchscreen.tap(vp.width * .65, vp.height * .42); }
+      if (mobile) { const vp = page.viewportSize()!; await nativePageWorldTap(page, vp.width * .65, vp.height * .42); }
       else { try { await page.mouse.down({ button: "right" }); } finally { await page.mouse.up({ button: "right" }); } }
     };
     const initial = await record("exact-real-previous-save-loaded");

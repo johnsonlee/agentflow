@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { command, countStack, createWorld, look, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
@@ -6,13 +7,7 @@ export async function reducerCapacityRoute(page: Page, info: TestInfo, mobile: b
   const errors = await createWorld(page, { mode: "survival" });
   const press = (l: Locator) => mobile ? l.tap() : l.click();
   const finger = mobile ? await page.context().newCDPSession(page) : null;
-  const use = async () => {
-    if (!mobile) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    const down = finger!.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 7 }] });
-    await new Promise((r) => setTimeout(r, 60));
-    await Promise.all([down, finger!.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   const inventory = () => page.evaluate(() => window.__craft.game!.inventory.toJSON());
   const fill = async (free: number) => { await page.evaluate((n) => {
     const inv = window.__craft.game!.inventory;

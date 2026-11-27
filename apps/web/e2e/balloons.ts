@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { balloonColorOf } from "@craft/engine";
 import type { Mesh, MeshBasicMaterial, Line } from "three";
@@ -10,7 +11,7 @@ async function setup(page: Page, mobile: boolean) {
   const errors = await createWorld(page, { mode: "survival" });
   const press = (l: Locator) => mobile ? l.tap() : l.click(), inv = page.locator(".inventory-screen");
   const use = async () => {
-    if (mobile) { const vp = page.viewportSize()!; await page.touchscreen.tap(vp.width * .65, vp.height * .45); }
+    if (mobile) { const vp = page.viewportSize()!; await nativePageWorldTap(page, vp.width * .65, vp.height * .45); }
     else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); }
     await page.waitForTimeout(300);
   };

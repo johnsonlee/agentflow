@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import {expect,type Locator,type Page,type TestInfo} from '@playwright/test';
 import fs from 'node:fs/promises';
 import {Inventory,createAgent,blockId,stackId,serializeSave,type SaveData} from '@craft/engine';
@@ -24,7 +25,7 @@ export async function birchRoute(page:Page,info:TestInfo,mobile:boolean){
  const select=async(name:string)=>{const i=await slot(name);expect(i).toBeGreaterThanOrEqual(0);expect(i).toBeLessThan(9);if(mobile)await press(page.locator(`.hotbar [data-slot="${i}"]`));else{await page.keyboard.press(`Digit${i+1}`);await parkMouse(page);}await expect.poll(()=>page.evaluate(()=>window.__craft.game!.inventory.selected)).toBe(i);};
  const chat=async(text:string)=>{if(mobile)await press(page.getByRole('button',{name:'Chat and commands',exact:true}));else await page.keyboard.press('Slash');const box=page.getByRole('textbox',{name:'Chat',exact:true});await box.fill(text);await box.press('Enter');await expect(box).toBeHidden();};
  const tp=async(x:number,z:number)=>{await chat(`/tp ${x} 80 ${z}`);await waitForTerrain(page);};
- const use=async()=>{if(mobile){const v=page.viewportSize()!;await page.touchscreen.tap(v.width*.65,v.height*.42);}else{try{await page.mouse.down({button:'right'});}finally{await page.mouse.up({button:'right'});}}};
+ const use=async()=>{if(mobile){const v=page.viewportSize()!;await nativePageWorldTap(page, v.width*.65,v.height*.42);}else{try{await page.mouse.down({button:'right'});}finally{await page.mouse.up({button:'right'});}}};
  const station=async(x:number,z:number,title:string)=>{await tp(x+.5,z+2.5);await lookAtCell(page,x,80,z);await expect.poll(()=>target(page)).toMatchObject({x,y:80,z});await use();await expect(page.getByRole('heading',{name:title,exact:true})).toBeVisible();};
  const code=async()=>{if(mobile)await press(page.getByRole('button',{name:'Code Builder',exact:true}));else await page.keyboard.press('KeyK');await expect(page.locator('.code-screen')).toBeVisible();};
  const run=async(op:'place'|'destroy'|'collect',fresh:boolean)=>{await code();if(fresh)await press(page.getByRole('button',{name:'New',exact:true}));if(op==='collect')await press(page.locator('[data-palette="move"]'));await press(page.locator(`[data-palette="${op}"]`));await page.getByRole('textbox',{name:'Program name',exact:true}).fill(`Birch actual ${op}`);await page.getByRole('textbox',{name:'Program name',exact:true}).press('Tab');await press(page.getByRole('button',{name:'▶ Run',exact:true}));await expect(page.locator('.code-screen')).toBeHidden();await expect.poll(()=>page.evaluate(()=>window.__craft.game!.programRunning)).toBe(false);};

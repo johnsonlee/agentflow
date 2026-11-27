@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { collectWorldDrops, command, countStack, createWorld, look, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
@@ -9,15 +10,7 @@ export async function armorRoute(page: Page, info: TestInfo, mobile: boolean) {
   await command(page, "/give crafting_table");
   await command(page, "/give iron_ingot 8");
   const touch = mobile ? await page.context().newCDPSession(page) : null;
-  const use = async () => {
-    if (!touch) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    const down = touch.send("Input.dispatchTouchEvent", {
-      type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 8 }],
-    });
-    await new Promise((r) => setTimeout(r, 60));
-    await Promise.all([down, touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   if (!mobile) await parkMouse(page);
   await look(page, 0, -1.2);
   expect(await target(page)).not.toBeNull();

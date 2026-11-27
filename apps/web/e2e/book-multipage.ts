@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import {expect,type Page,type TestInfo,type Locator} from '@playwright/test';
 import fs from 'node:fs/promises';
 import {Inventory,blockId,stackId,serializeSave,type SaveData} from '@craft/engine';
@@ -28,7 +29,7 @@ export async function bookMultipageRoute(page:Page,info:TestInfo,mobile:boolean)
  };
  const measure=async(label:string)=>{const p=await prev.boundingBox(),n=await next.boundingBox();expect(p).not.toBeNull();expect(n).not.toBeNull();for(const b of[p!,n!]){expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}measurements.push({label,viewport:page.viewportSize(),prev:p,next:n,prevEnabled:await prev.isEnabled(),nextEnabled:await next.isEnabled(),panel:await panel.evaluate(el=>({scrollTop:el.scrollTop,clientHeight:el.clientHeight,scrollHeight:el.scrollHeight}))});};
  const turn=async(dir:'previous'|'next',pageNumber:number,value:string,readonly=false)=>{const button=dir==='next'?next:prev;await expect(button).toBeEnabled();await reach(button);await measure(`${stage}-${dir}-enabled`);await press(button);await expect(book.locator('.book-page-number')).toHaveText(`Page ${pageNumber} of 3`);if(readonly)await expect(book.locator('.book-text')).toHaveText(value);else await expect(text).toHaveValue(value);};
- const open=async()=>{if(mobile){const v=page.viewportSize()!;await page.touchscreen.tap(v.width*.65,v.height*.42);}else await pressMouse(page,'right');await expect(book).toBeVisible();};
+ const open=async()=>{if(mobile){const v=page.viewportSize()!;await nativePageWorldTap(page, v.width*.65,v.height*.42);}else await pressMouse(page,'right');await expect(book).toBeVisible();};
  const done=async()=>{const l=book.getByRole('button',{name:'Done',exact:true});await reach(l);await press(l);await expect(book).toBeHidden();};
  const cold=async(name:string)=>{if(mobile)await press(page.getByRole('button',{name:'Pause',exact:true}));else await page.keyboard.press('Escape');await press(page.getByRole('button',{name:'Save & Quit to Title',exact:true}));const raw=await page.evaluate(()=>localStorage.getItem('craft.save.v1')!);await fs.writeFile(info.outputPath(name),raw);await page.reload();await press(page.getByRole('button',{name:/Continue/}));await waitForTerrain(page);return JSON.parse(raw);};
  try{

@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { aimAtTop, blockAt, collectWorldDrops, command, countStack, createWorld, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
@@ -11,7 +12,7 @@ export async function ignitionRoute(page:Page,info:TestInfo,mobile:boolean){
  try{
   errors=await createWorld(page,{mode:"survival",seed:"12345"});
   const press=(l:Locator)=>mobile?l.tap():l.click(),inv=page.locator(".inventory-screen");
-  const use=async()=>{const v=page.viewportSize()!;if(mobile)await page.touchscreen.tap(v.width*.65,v.height*.42);else await pressMouse(page,"right");};
+  const use=async()=>{const v=page.viewportSize()!;if(mobile)await nativePageWorldTap(page, v.width*.65,v.height*.42);else await pressMouse(page,"right");};
   const holdBreak=async(until:()=>Promise<unknown>)=>{const v=page.viewportSize()!;try{if(mobile)await finger!.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[{x:v.width*.65,y:v.height*.42,id:131}]});else await page.mouse.down({button:"left"});await until();}finally{if(mobile)await finger!.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});else await page.mouse.up({button:"left"});}};
   const teleport=async(p:Cell)=>{await command(page,`/tp ${p.x} ${p.y} ${p.z}`);await waitForTerrain(page);};
   const slotOf=(name:string)=>page.evaluate(n=>window.__craft.game!.inventory.slots.findIndex(s=>s?.id===window.__craft.stackId(n)),name);

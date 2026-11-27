@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import {expect,type Page,type TestInfo,type Locator} from '@playwright/test';
 import fs from 'node:fs/promises';
 import {Inventory,blockId,stackId,serializeSave,type SaveData} from '@craft/engine';
@@ -20,7 +21,7 @@ export async function caneSupportRoute(page:Page,info:TestInfo,mobile:boolean){
  const caneCount=()=>page.evaluate(()=>window.__craft.game!.inventory.slots.reduce((n,s)=>n+(s?.id===850?s.count:0),0));
  const groundCane=()=>page.evaluate(()=>window.__craft.game!.worldDrops.records.reduce((n,r)=>n+(r.stack.id===850?r.stack.count:0),0));
  const phase=async(label:string)=>{stage=label;phases.push({label,state:await read()});};
- const use=async()=>{await page.waitForFunction(()=>((window.__craft.game! as unknown as{placeCooldown:number}).placeCooldown)===0);if(mobile){const v=page.viewportSize()!;await page.touchscreen.tap(v.width*.65,v.height*.42);}else await pressMouse(page,'right');};
+ const use=async()=>{await page.waitForFunction(()=>((window.__craft.game! as unknown as{placeCooldown:number}).placeCooldown)===0);if(mobile){const v=page.viewportSize()!;await nativePageWorldTap(page, v.width*.65,v.height*.42);}else await pressMouse(page,'right');};
  const select=async(i:number)=>{if(mobile)await press(page.locator(`.hotbar [data-slot="${i}"]`));else{await page.keyboard.press(`Digit${i+1}`);await parkMouse(page);}};
  const command=async(text:string)=>{if(mobile)await press(page.getByRole('button',{name:'Chat and commands',exact:true}));else await page.keyboard.press('Slash');const input=page.getByRole('textbox',{name:'Chat',exact:true});await input.fill(text);await input.press('Enter');await expect(input).toBeHidden();await waitForTerrain(page);};
  const cold=async(name:string)=>{if(mobile)await press(page.getByRole('button',{name:'Pause',exact:true}));else await page.keyboard.press('Escape');await press(page.getByRole('button',{name:'Save & Quit to Title',exact:true}));const raw=await page.evaluate(()=>localStorage.getItem('craft.save.v1')!);await fs.writeFile(info.outputPath(name),raw);await page.reload();await press(page.getByRole('button',{name:/Continue/}));await waitForTerrain(page);return JSON.parse(raw);};

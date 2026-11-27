@@ -1,3 +1,4 @@
+import { nativeWorldTap, assertNativeWorldTap, NativeTapFailure, type NativeTapReceipt, type NativeTapEvent } from './native-world-tap';
 import fs from "node:fs/promises";
 import { LEASH_PROFILE } from "@craft/engine";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
@@ -22,6 +23,7 @@ async function leashSetup(page: Page, info: TestInfo, mobile: boolean) {
     const sequence = ++useSequence, vp = page.viewportSize()!;
     // Capture native input phases without changing controls, actor state or the input frame.
     let before: unknown, after: unknown, originalFailure: unknown, failed = false;
+    let nativeTap: NativeTapReceipt | null = null;
     const captureErrors: { stage: string; error: string }[] = [];
     const captureError = (stage: string, error: unknown) => { if (captureErrors.length < 8) captureErrors.push({ stage, error: String(error).slice(0, 2000) }); };
     try {
@@ -37,7 +39,7 @@ async function leashSetup(page: Page, info: TestInfo, mobile: boolean) {
       w.__leashPointerCleanup?.(); w.__leashPointerEvents = []; w.__leashInputState = state;
       const listener = (event: Event) => { const e = event as PointerEvent;
         w.__leashPointerEvents!.push({ phase: e.type, timeStamp: e.timeStamp, observedAt: performance.now(),
-          pointerId: e.pointerId, pointerType: e.pointerType, button: e.button, buttons: e.buttons,
+          pointerId: e.pointerId, pointerType: e.pointerType, isTrusted: e.isTrusted, button: e.button, buttons: e.buttons,
           x: e.clientX, y: e.clientY, target: (e.target as HTMLElement)?.className, state: state() });
       };
       for (const type of ["pointerdown", "pointerup", "pointercancel"]) window.addEventListener(type, listener, true);
@@ -45,13 +47,8 @@ async function leashSetup(page: Page, info: TestInfo, mobile: boolean) {
       return state();
     }, table);
       if (finger) {
-        // Ordered physical quick tap: no page wait or telemetry RPC between native start and end.
-        let contactFailure: unknown, contactFailed = false;
-        try { await finger.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 123 }] }); }
-        catch (error) { contactFailed = true; contactFailure = error; }
-        try { await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); }
-        catch (error) { if (!contactFailed) { contactFailed = true; contactFailure = error; } else captureError("touchEnd", error); }
-        if (contactFailed) throw contactFailure;
+        try { nativeTap = await nativeWorldTap(finger, vp.width * .65, vp.height * .45); }
+        catch (error) { if (error instanceof NativeTapFailure) nativeTap = error.receipt; throw error; }
       } else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); }
       await page.waitForTimeout(300);
     } catch (error) { failed = true; originalFailure = error; }
@@ -61,13 +58,14 @@ async function leashSetup(page: Page, info: TestInfo, mobile: boolean) {
           const w = window as unknown as { __leashPointerEvents?: unknown[]; __leashInputState?: () => unknown };
           return { state: w.__leashInputState?.(), events: w.__leashPointerEvents ?? [] };
         });
+        if (finger) assertNativeWorldTap((after as { events: NativeTapEvent[] }).events, vp.width * .65, vp.height * .45);
       } catch (error) { captureError("sample", error); }
       finally {
         try { await page.evaluate(() => { (window as unknown as { __leashPointerCleanup?: () => void }).__leashPointerCleanup?.(); }); }
         catch (error) { captureError("cleanup", error); }
       }
-      const evidence = () => ({ sequence, before, after, originalFailure: failed ? String(originalFailure).slice(0, 2000) : null, captureErrors,
-        input: mobile ? "Ordered actual CDP touchStart/touchEnd without intentional contact wait" : "Actual right mouse click",
+      const evidence = () => ({ sequence, before, after, nativeTap, originalFailure: failed ? String(originalFailure).slice(0, 2000) : null, captureErrors,
+        input: mobile ? "Single native Input.synthesizeTapGesture touch50ms with actual pointer-phase validation" : "Actual right mouse click",
         qualification: "Read-only capture-phase input samples; target phase precedes target handlers. Native event timestamps expose contact duration; camera meshing readiness is not physics tick evidence. No retry or outcome writes." });
       try { await fs.writeFile(info.outputPath(`leash-use-${sequence}.json`), JSON.stringify(evidence(), null, 2)); }
       catch (error) {

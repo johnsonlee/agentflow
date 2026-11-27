@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { aimAtTop, blockAt, collectWorldDrops, command, countStack, createWorld, lookAtCell, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
@@ -19,7 +20,7 @@ export async function bottleWaterRoute(page: Page, info: TestInfo, mobile: boole
       return finger!.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: vp.width * .65, y: vp.height * .42, id: 117 }] });
     };
     const use = async () => {
-      if (mobile) { const vp = page.viewportSize()!; await page.touchscreen.tap(vp.width * .65, vp.height * .42); }
+      if (mobile) { const vp = page.viewportSize()!; await nativePageWorldTap(page, vp.width * .65, vp.height * .42); }
       else await pressMouse(page, "right");
     };
     const slotOf = (name: string) => page.evaluate(n => window.__craft.game!.inventory.slots.findIndex(s => s?.id === window.__craft.stackId(n)), name);

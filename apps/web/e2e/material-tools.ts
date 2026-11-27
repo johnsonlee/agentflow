@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { command, countStack, createWorld, look, parkMouse, pressMouse, settle, snap, target, waitForTerrain } from "./helpers";
 
@@ -8,16 +9,7 @@ export async function craftMaterialTools(page: Page, testInfo: TestInfo, mobile:
   for (const kit of ["crafting_table", "gold_ingot 3", "diamond 3", "stick 4"]) await command(page, `/give ${kit}`);
   const press = (l: Locator) => mobile ? l.tap() : l.click();
   const touch = mobile ? await page.context().newCDPSession(page) : null;
-  const useTable = async () => {
-    if (!touch) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    // Send release independently of a slow touchStart acknowledgement, as in mobile.spec.ts.
-    const down = touch.send("Input.dispatchTouchEvent", {
-      type: "touchStart", touchPoints: [{ x: vp.width * 0.65, y: vp.height * 0.45, id: 7 }],
-    });
-    await new Promise((resolve) => setTimeout(resolve, 60));
-    await Promise.all([down, touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
-  };
+  const useTable = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   if (mobile) await page.locator('.hotbar [data-slot="0"]').tap();
   else await page.keyboard.press("Digit1");
   if (!mobile) await parkMouse(page);

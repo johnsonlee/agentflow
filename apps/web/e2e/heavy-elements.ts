@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { command, countStack, createWorld, look, parkMouse, pressMouse, settle, snap, target, waitForTerrain } from "./helpers";
 
@@ -7,15 +8,7 @@ export async function constructHeavyElements(page: Page, testInfo: TestInfo, mob
   await command(page, "/give element_constructor");
   const press = (l: Locator) => mobile ? l.tap() : l.click();
   const touch = mobile ? await page.context().newCDPSession(page) : null;
-  const use = async () => {
-    if (!touch) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    const down = touch.send("Input.dispatchTouchEvent", {
-      type: "touchStart", touchPoints: [{ x: vp.width * 0.65, y: vp.height * 0.45, id: 8 }],
-    });
-    await new Promise((r) => setTimeout(r, 60));
-    await Promise.all([down, touch.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   if (!mobile) await parkMouse(page);
   await look(page, 0, -1.2);
   expect(await target(page)).not.toBeNull();

@@ -1,16 +1,9 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, test, type Page } from "@playwright/test";
 import { command, createWorld, firstBoard, look, lookAtCell, settle, snap } from "./helpers";
 
 /** Real touch tap through CDP (the release doesn't wait for the press to be handled). */
-async function tapView(page: Page) {
-  const vp = page.viewportSize()!;
-  const session = await page.context().newCDPSession(page);
-  const send = (type: "touchStart" | "touchEnd") =>
-    session.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: vp.width * 0.65, y: vp.height * 0.45, id: 21 }] });
-  const down = send("touchStart");
-  await new Promise((r) => setTimeout(r, 60));
-  await Promise.all([down, send("touchEnd")]);
-}
+async function tapView(page: Page) { const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); }
 
 test.describe("Mobile browser (touch): chalkboards and Book & Quill", () => {
   test("creative: tap to place a Slate, tap it to write, text is kept", async ({ page }, testInfo) => {

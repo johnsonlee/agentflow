@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { SEA_LEVEL, blockId, bodyBox, boxCollides } from "@craft/engine";
@@ -33,7 +34,7 @@ async function harness(page: Page, info: TestInfo, mobile: boolean, route: strin
     else { await page.keyboard.press(`Digit${slot + 1}`); await parkMouse(page); }
   };
   const use = async () => {
-    if (mobile) { const vp = page.viewportSize()!; await page.touchscreen.tap(vp.width * .65, vp.height * .45); }
+    if (mobile) { const vp = page.viewportSize()!; await nativePageWorldTap(page, vp.width * .65, vp.height * .45); }
     else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); }
   };
   const pause = async () => {

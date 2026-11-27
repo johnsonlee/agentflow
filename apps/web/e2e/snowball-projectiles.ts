@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs/promises";
 import { command, countStack, createWorld, frames, look, lookAtCell, lookAtMob, newestMob, parkMouse, pressMouse, snap, waitForTerrain } from "./helpers";
@@ -7,14 +8,9 @@ export async function snowballProjectileRoute(page: Page, info: TestInfo, mobile
   const errors = await createWorld(page, { mode: "survival" });
   const press = (l: Locator) => mobile ? l.tap() : l.click();
   const finger = mobile ? await page.context().newCDPSession(page) : null;
-  const use = async () => {
+  const use = async () => { 
     await page.waitForFunction(() => (window.__craft.game as unknown as { placeCooldown: number }).placeCooldown === 0); // Read the actual application cooldown; do not inject input acceptance.
-    if (!mobile) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    await finger!.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 97 }] });
-    try { await new Promise(resolve => setTimeout(resolve, 60)); }
-    finally { await finger!.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); }
-  };
+    if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   const pause = async () => {
     if (mobile) await press(page.getByRole("button", { name: "Pause", exact: true })); else await page.keyboard.press("Escape");
     await expect(page.locator(".pause-screen")).toBeVisible();

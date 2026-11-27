@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { createHash } from "node:crypto";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
@@ -26,7 +27,7 @@ export async function portalLifecycleRoute(page:Page,info:TestInfo,mobile:boolea
   await page.goto("/");expect(await page.evaluate(raw=>{localStorage.clear();localStorage.setItem("craft.save.v1",raw);return localStorage.getItem("craft.save.v1");},initialRaw)).toBe(initialRaw);
   await page.reload();await press(page.getByRole("button",{name:/Continue/}));await waitForTerrain(page);finger=mobile?await page.context().newCDPSession(page):null;
   const touch=async(type:"touchStart"|"touchEnd")=>{const vp=page.viewportSize()!;await finger!.send("Input.dispatchTouchEvent",{type,touchPoints:type==="touchEnd"?[]:[{x:vp.width*.65,y:vp.height*.42,id:129}]});touching=type==="touchStart";};
-  const use=async()=>{await page.waitForFunction(()=>((window.__craft.game! as unknown as {placeCooldown:number}).placeCooldown)===0);if(mobile){const vp=page.viewportSize()!;await page.touchscreen.tap(vp.width*.65,vp.height*.42);}else try{await page.mouse.down({button:"right"});}finally{await page.mouse.up({button:"right"});}};
+  const use=async()=>{await page.waitForFunction(()=>((window.__craft.game! as unknown as {placeCooldown:number}).placeCooldown)===0);if(mobile){const vp=page.viewportSize()!;await nativePageWorldTap(page, vp.width*.65,vp.height*.42);}else try{await page.mouse.down({button:"right"});}finally{await page.mouse.up({button:"right"});}};
   const select=async(name:string)=>{const slot=await slotOf(name);expect(slot).toBeGreaterThanOrEqual(0);expect(slot).toBeLessThan(9);if(mobile)await press(page.locator(`.hotbar [data-slot="${slot}"]`));else{await page.keyboard.press(`Digit${slot+1}`);await parkMouse(page);}await expect.poll(()=>page.evaluate(()=>window.__craft.game!.inventory.selected)).toBe(slot);};
   const teleport=async(p:Cell)=>{await command(page,`/tp ${p.x} ${p.y} ${p.z}`);await waitForTerrain(page);};
   const viewFrame=async()=>{await teleport({x:-28.5,y:40,z:13.5});await lookAtCell(page,-29,42,18);};

@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { command, countStack, createWorld, look, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
@@ -5,13 +6,7 @@ export async function educationIsotopeRoute(page: Page, info: TestInfo, mobile: 
   const errors = await createWorld(page, { mode: "survival" });
   const press = (l: Locator) => mobile ? l.tap() : l.click();
   const finger = mobile ? await page.context().newCDPSession(page) : null;
-  const use = async () => {
-    if (!mobile) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    const down = finger!.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 7 }] });
-    await new Promise((r) => setTimeout(r, 60));
-    await Promise.all([down, finger!.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] })]);
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   const inv = page.locator(".inventory-screen");
   const open = async (yaw: number, block: string, title: string, place: boolean) => {
     if (mobile) await press(page.locator('.hotbar [data-slot="0"]'));

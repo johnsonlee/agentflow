@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import {WORLD_HEIGHT} from "@craft/engine";
 import {expect, type Page, type TestInfo, type Locator} from "@playwright/test";
@@ -81,12 +82,7 @@ export async function leatherArmorRoute(page:Page,info:TestInfo,mobile:boolean) 
     }
     throw Error("Trusted camera input did not reach requested aim; no direct-write fallback");
   };
-  const use=async()=>{
-    if(touch){const v=page.viewportSize()!,point={x:v.width*.65,y:v.height*.45,id:8};
-      await touch.send("Input.dispatchTouchEvent",{type:"touchStart",touchPoints:[point]});
-      await page.waitForTimeout(60);await touch.send("Input.dispatchTouchEvent",{type:"touchEnd",touchPoints:[]});
-    }else{await page.mouse.down({button:"right"});await page.waitForTimeout(50);await page.mouse.up({button:"right"});}
-  };
+  const use=async()=>{ if(mobile){const v=page.viewportSize()!;await nativePageWorldTap(page,v.width*.65,v.height*.45);}else{await page.mouse.down({button:"right"});await page.waitForTimeout(50);await page.mouse.up({button:"right"});} };
   // Inspect only already-loaded terrain. Never call getBlock/getChunk/generator in evaluate.
   const flat=async(origin:{x:number;y:number;z:number},r:number)=>page.evaluate(({origin,r,height})=>{
     const g=window.__craft.game!,ground=new Set(["grass","dirt","stone","sand"].map(n=>window.__craft.blockId(n)));

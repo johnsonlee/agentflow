@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { createHash } from "node:crypto";
 import fs from "node:fs/promises";
@@ -158,7 +159,7 @@ export async function stationTexturesRoute(page: Page, info: TestInfo, mobile: b
       else {
         // Native quick tap, with no extra page/RPC wait inflating the contact into a hold.
         const vp = page.viewportSize()!;
-        await page.touchscreen.tap(vp.width * .65, vp.height * .45);
+        await nativePageWorldTap(page, vp.width * .65, vp.height * .45);
       }
       await frames(page);
     } finally {

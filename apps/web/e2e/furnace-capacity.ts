@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { collectWorldDrops, blockAt, command, countStack, createWorld, look, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
 
@@ -9,12 +10,7 @@ export async function furnaceCapacityRoute(page: Page, info: TestInfo, mobile: b
     const vp = page.viewportSize()!;
     return finger!.send("Input.dispatchTouchEvent", { type, touchPoints: type === "touchEnd" ? [] : [{ x: vp.width * .65, y: vp.height * .45, id: 7 }] });
   };
-  const use = async () => {
-    if (!mobile) return pressMouse(page, "right");
-    const down = touch("touchStart");
-    await new Promise((r) => setTimeout(r, 60));
-    await Promise.all([down, touch("touchEnd")]);
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   for (const item of ["furnace", "iron_chestplate", "iron_pickaxe"]) await command(page, `/give ${item}`);
   // Fixture: pre-worn gear. The armor route separately proves wear from actual zombie hits.
   await page.evaluate(() => { window.__craft.game!.inventory.slots[1]!.damage = 17; });

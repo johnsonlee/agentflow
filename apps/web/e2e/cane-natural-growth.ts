@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import { expect, type CDPSession, type Locator, type Page, type TestInfo } from "@playwright/test";
 import fs from "node:fs/promises";
 import { CANE_GROWTH_CHANCE, CANE_GROWTH_SALT, Inventory, blockId, hash3, serializeSave, type BlockEdit, type SaveData } from "@craft/engine";
@@ -81,7 +82,7 @@ export async function caneNaturalGrowthRoute(page: Page, info: TestInfo, mobile:
     await command("/tp 12.5 80 11.5"); await select(0); expect((await read()).bag.slots[0]).toEqual({ id: 850, count: 4 }); await aimAtTop(page, 12, 79, 8); await expect.poll(() => target(page)).toMatchObject({ x: 12, y: 79, z: 8, normal: { x: 0, y: 1, z: 0 } });
     await page.waitForFunction(() => ((window.__craft.game! as unknown as { placeCooldown: number }).placeCooldown) === 0);
     inputs.push({ label: "before-real-one-Cane-replant", target: await target(page), state: await read() });
-    if (mobile) await page.touchscreen.tap(viewport.width * .65, viewport.height * .42); else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); }
+    if (mobile) await nativePageWorldTap(page, viewport.width * .65, viewport.height * .42); else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); }
     await expect.poll(async () => count(await read())).toBe(3); const planted = await read(); expect(planted.replanted[0]).toBe(204); expect(planted.replanted[3]).toBe(0); expect(ground(planted)).toBe(0); await phase("actual-one-held-Cane-replants-second-bed-three-items-left"); await snap(page, info, label + "-finite-replant-new-root-bag-three");
     await cold("finite-three-items-and-replanted-root-final", 3); const final = await read(); expect(final.column[0]).toBe(204); expect(final.column[3]).toBe(0); expect(final.replanted[0]).toBe(204); expect(final.replanted[3]).toBe(0); expect(count(final)).toBe(3); expect(ground(final)).toBe(0); expect(final.loadErrors).toEqual([]); await phase("cold-bag-three-both-real-roots-and-valid-growth-clock"); expect(errors).toEqual([]); stage = "complete";
   } catch (e) { failure = e instanceof Error ? e.stack ?? e.message : String(e); throw e; }

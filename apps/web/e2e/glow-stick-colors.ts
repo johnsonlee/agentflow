@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { collectWorldDrops, countStack, createWorld, look, parkMouse, pressMouse, snap, target, waitForTerrain } from "./helpers";
@@ -10,13 +11,7 @@ export async function glowStickColorsRoute(page: Page, info: TestInfo, mobile: b
   const slotOf = (name: string) => page.evaluate(n => window.__craft.game!.inventory.slots.findIndex(s => s?.id === window.__craft.stackId(n)), name);
   const empty = () => page.evaluate(() => window.__craft.game!.inventory.slots.findIndex(s => s === null));
   const finger = mobile ? await page.context().newCDPSession(page) : null;
-  const use = async () => {
-    if (!mobile) return pressMouse(page, "right");
-    const vp = page.viewportSize()!;
-    await finger!.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .45, id: 7 }] });
-    await page.waitForTimeout(60);
-    await finger!.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] });
-  };
+  const use = async () => { if(!mobile)return pressMouse(page,'right');const vp=page.viewportSize()!;await nativePageWorldTap(page,vp.width*.65,vp.height*.45); };
   const fixture = await page.evaluate(() => {
     const g = window.__craft.game!, p = g.body.position;
     const at = { x: Math.floor(p.x), y: Math.floor(p.y + .01) - 1, z: Math.floor(p.z) };

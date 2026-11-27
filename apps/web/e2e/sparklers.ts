@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { collectWorldDrops, createWorld, lookAtCell, parkMouse, snap, target, waitForTerrain } from "./helpers";
@@ -27,7 +28,7 @@ export async function sparklerRoute(page: Page, info: TestInfo, mobile: boolean)
   };
   const use = async () => {
     await page.waitForFunction(() => (window.__craft.game! as unknown as { placeCooldown: number }).placeCooldown === 0);
-    if (mobile) { const vp = page.viewportSize()!; await page.touchscreen.tap(vp.width * .65, vp.height * .4); }
+    if (mobile) { const vp = page.viewportSize()!; await nativePageWorldTap(page, vp.width * .65, vp.height * .4); }
     else { await page.mouse.down({ button: "right" }); try { /* actual use edge */ } finally { await page.mouse.up({ button: "right" }); } }
   };
   const rows = [

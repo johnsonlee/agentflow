@@ -1,3 +1,4 @@
+import { nativePageWorldTap } from './native-world-tap';
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
 import { blockAt, command, countStack, createWorld, look, lookAtCell, parkMouse, snap, waitForTerrain } from "./helpers";
@@ -19,7 +20,7 @@ export async function waterDrinkingRoute(page: Page, info: TestInfo, mobile: boo
     const down = async () => { if (finger) await finger.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [view] }); else await page.mouse.down({ button: "right" }); };
     const up = async () => { if (finger) await finger.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); else await page.mouse.up({ button: "right" }); };
     const holdUntil = async (until: () => Promise<unknown>) => { try { await down(); await until(); } finally { await up(); } };
-    const use = async () => { if (mobile) await page.touchscreen.tap(view.x, view.y); else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); } };
+    const use = async () => { if (mobile) await nativePageWorldTap(page, view.x, view.y); else { await page.mouse.down({ button: "right" }); await page.mouse.up({ button: "right" }); } };
     const elapsed = () => page.evaluate(() => (window.__craft.game! as unknown as { drinkOwner: { elapsed: number } | null }).drinkOwner?.elapsed ?? null);
     const waitProgress = (minimum: number) => page.waitForFunction(value => ((window.__craft.game! as unknown as { drinkOwner: { elapsed: number } | null }).drinkOwner?.elapsed ?? 0) >= value, minimum, { timeout: 20_000 });
     const select = async (index: number) => { if (mobile) await press(page.locator(`.hotbar [data-slot="${index}"]`)); else { await page.keyboard.press(`Digit${index + 1}`); await parkMouse(page); } await expect.poll(() => page.evaluate(() => window.__craft.game!.inventory.selected)).toBe(index); };
