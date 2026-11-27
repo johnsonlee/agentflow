@@ -18,7 +18,7 @@ export interface ItemStack {
   /** Uses spent on a tool or armor (absent or 0 = new). */
   damage?: number;
   /** Book & Quill / Written Book contents. */
-  book?: { pages: string[]; title?: string; author?: string };
+  book?: import("./book-state").BookData;
   /** Optional application-owned shake activation. Absence preserves legacy saves. */
   glow?: GlowStickState;
   /** Optional untimed application Sparkler activation, distinct from Glow. */

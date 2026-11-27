@@ -1,3 +1,4 @@
+import{diagnoseRawBookOwnership,readRawBookPhotoOwnership,sameBookPhotoOwners,type BookOwnershipIssue}from './book-ownership';
 import { diagnoseRawNpcActions, type NpcActions } from "../education/npc-actions";
 import{readComposterOwners,type CompostersData}from './composter-state';
 import{diagnoseRawComposterOwnership}from './composter-ownership';
@@ -87,6 +88,8 @@ export interface SaveData {
   composterOwnershipIssues?:GlowOwnershipIssue[];
   woodSlabOwnershipIssues?: GlowOwnershipIssue[];
   boneMealOwnershipIssues?: GlowOwnershipIssue[];
+  /** Derived before sanitation; preserve exact original and freeze unsafe writes. */
+  bookOwnershipIssues?:BookOwnershipIssue[];
   blazeFireballs?:BlazeFireballsData;
   blazeOwnershipIssues?:BlazeOwnershipIssue[];
   mode: GameMode;
@@ -161,6 +164,8 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
+  const bookBefore=readRawBookPhotoOwnership(data);
+  if(data.bookOwnershipIssues?.length||bookBefore.issues.length)throw new Error('Cannot serialize invalid Book ownership');
   if(data.camerasInvalid||!readCameras(data.cameras))throw Error("Cannot serialize invalid Camera ownership");
   if (data.npcActionsInvalid || diagnoseRawNpcActions(data)) throw new Error("Cannot serialize invalid NPC URL buttons");
   const caneGrowth = readCaneGrowthState(data.caneGrowth);
@@ -181,7 +186,7 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   const brewing=readBrewingStandOwners(data,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",data.seed,data.generatorVersion??1,x,y,z));
   if(data.brewingOwnershipIssues?.length||brewing.issues.length||diagnoseRawBrewingItemOwnership(data).length)throw new Error("Cannot serialize invalid brewing ownership");
   if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
-  const { camerasInvalid:_camerasInvalid, composterOwnershipIssues:_composterIssues, woodSlabOwnershipIssues:_woodSlabIssues, boneMealOwnershipIssues:_boneMealIssues, caneGrowthInvalid: _caneGrowthInvalid, codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, npcActionsInvalid: _npcInvalid, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { bookOwnershipIssues:_bookIssues, camerasInvalid:_camerasInvalid, composterOwnershipIssues:_composterIssues, woodSlabOwnershipIssues:_woodSlabIssues, boneMealOwnershipIssues:_boneMealIssues, caneGrowthInvalid: _caneGrowthInvalid, codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, npcActionsInvalid: _npcInvalid, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
   if (codeWorkspace.kind === "valid") owned.codeWorkspace = codeWorkspace.data;
   if (caneGrowth.kind === "valid") owned.caneGrowth = caneGrowth.data;
   if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
@@ -204,7 +209,14 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   const status = sanitizePlayerStatus(owned.playerStatus);
   if (_statusInvalid || status.invalid) throw new Error("Cannot serialize invalid player status");
   if (hasPlayerStatus(status.data)) owned.playerStatus = status.data; else delete owned.playerStatus;
-  return JSON.stringify({ version: SAVE_VERSION, ...owned });
+  const text=JSON.stringify({version:SAVE_VERSION,...owned});
+  const bookAfter=readRawBookPhotoOwnership(data);
+  if(bookAfter.issues.length||!sameBookPhotoOwners(bookBefore.owners,bookAfter.owners))throw new Error('Cannot serialize changed Book photo ownership');
+  // Preserve the legacy no-photo behavior even for unusual typed-caller toJSON results.
+  if(typeof text!=='string'){if(bookBefore.owners.length)throw new Error('Cannot serialize lost Book photo ownership');return text;}
+  const bookOutput=readRawBookPhotoOwnership(JSON.parse(text));
+  if(bookOutput.issues.length||!sameBookPhotoOwners(bookBefore.owners,bookOutput.owners))throw new Error('Cannot serialize changed or lost Book photo ownership');
+  return text;
 }
 
 type Obj = Record<string, unknown>;
@@ -393,6 +405,8 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   const seed = own(raw, "seed");
   if (!finite(seed)) throw new Error("Malformed save data: missing seed");
 
+  const bookOwnershipIssues=diagnoseRawBookOwnership(raw);
+
   // Inactive owners must be diagnosed before legacy loaders can repair or omit
   // any part of the active or inactive world. Never return a partial archive.
   const dimensions = readDimensionArchive(own(raw, "dimensions"), raw, generatedBlockProbe);
@@ -480,6 +494,7 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   if(composterOwnershipIssues.length)save.composterOwnershipIssues=composterOwnershipIssues;
   if(woodSlabOwnershipIssues.length)save.woodSlabOwnershipIssues=woodSlabOwnershipIssues;
   if(boneMealOwnershipIssues.length)save.boneMealOwnershipIssues=boneMealOwnershipIssues;
+  if(bookOwnershipIssues.length)save.bookOwnershipIssues=bookOwnershipIssues;
   if(caneOwnershipIssues.length)save.caneOwnershipIssues=caneOwnershipIssues;
   if(portalOwnershipIssues.length)save.portalOwnershipIssues=portalOwnershipIssues;
   if(generator.present)save.generatorVersion=generator.version;

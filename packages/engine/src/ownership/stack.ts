@@ -1,3 +1,4 @@
+import { readBookData, cloneBookData, hasBookPhotos } from "./book-state";
 import { inspectItemState } from "./item-state";
 import { inspectSparklerState, sparklerColor, type SparklerActivationResult } from "./sparkler-state";
 import type { ItemStack } from "./inventory";
@@ -5,17 +6,22 @@ import { baseStackId, isKnownId, maxStackOf } from "../catalog/items";
 import { glowStickColor, inspectGlowState, type GlowActivationResult } from "./glow-stick-state";
 
 /** Detached ownership snapshot; never shares editable book pages or glow state with another owner. */
-interface StackBirth{book:object|undefined;pages:object|undefined;glow:object|undefined;sparkler:object|undefined}
+interface StackBirth{book:object|undefined;pages:object|undefined;glow:object|undefined;sparkler:object|undefined;photoTree?:object[]}
 const stackBirths=new WeakMap<object,StackBirth>();
 const birthGet=Function.prototype.call.bind(WeakMap.prototype.get) as (map:WeakMap<object,StackBirth>,key:object)=>StackBirth|undefined;
 const ownField=Object.getOwnPropertyDescriptor,ownKeys=Reflect.ownKeys,prototype=Object.getPrototypeOf;
 const objectPrototype=Object.prototype,arrayPrototype=Array.prototype;
 export function cloneStack(stack: ItemStack, count = stack.count): ItemStack {
+  const bookField=ownField(stack,'book');
+  // Unsupported accessor input is copied as an untrusted descriptor tree, never evaluated/adopted.
+  // Callers' structural/factory gates refuse it; no photo owner is silently reconstructed.
+  if(bookField&&!('value'in bookField))return Object.defineProperties({},Object.getOwnPropertyDescriptors(stack)) as ItemStack;
   let book:ItemStack['book'],glow:ItemStack['glow'],sparkler:ItemStack['sparkler'];
-  const result={ ...stack, count, ...(stack.book ? { book: (book={ ...stack.book, pages: [...stack.book.pages] }) } : {}), ...(stack.glow ? { glow: (glow={ ...stack.glow }) } : {}), ...(stack.sparkler ? { sparkler: (sparkler={ ...stack.sparkler }) } : {}) };
+  const result={ ...stack, count, ...(bookField?.value ? { book: (book=cloneBookData(bookField.value)) } : {}), ...(stack.glow ? { glow: (glow={ ...stack.glow }) } : {}), ...(stack.sparkler ? { sparkler: (sparkler={ ...stack.sparkler }) } : {}) };
   // Only this freshly allocated result and its freshly allocated nested nodes acquire
   // provenance. No public function can adopt an arbitrary existing node or Proxy.
-  stackBirths.set(result,{book,pages:book?ownField(book,'pages')?.value:undefined,glow,sparkler});
+  stackBirths.set(result,{book,pages:book?ownField(book,'pages')?.value:undefined,glow,sparkler,
+    ...(book?.photoPages?{photoTree:[book.photoPages,book.photoPages.entries,...book.photoPages.entries]}:{})});
   return result;
 }
 export interface FactoryStackSnapshot{readonly root:ItemStack;readonly values:readonly(string|number|boolean)[];readonly data:ItemStack}
@@ -32,7 +38,24 @@ export function snapshotFactoryStack(value:unknown):FactoryStackSnapshot|undefin
   const f=fields(value,['id','count','damage','book','glow','sparkler'],['id','count']);if(!f||!Number.isSafeInteger(f.id.value)||!Number.isSafeInteger(f.count.value)||f.count.value<1)return undefined;
   const data:ItemStack=Object.assign(Object.create(null),{id:f.id.value,count:f.count.value}),values:(string|number|boolean)[]=[f.id.value,f.count.value,!!f.damage,!!f.book,!!f.glow,!!f.sparkler];
   if(f.damage){if(!Number.isSafeInteger(f.damage.value)||f.damage.value<0)return undefined;data.damage=f.damage.value;values.push(f.damage.value);}
-  if(f.book){if(!birth.book||f.book.value!==birth.book)return undefined;const b=fields(birth.book,['pages','title','author'],['pages']);if(!b||!birth.pages||b.pages.value!==birth.pages||prototype(birth.pages)!==arrayPrototype)return undefined;const len=ownField(birth.pages,'length');if(!len||!('value'in len)||!Number.isSafeInteger(len.value)||len.value<0||len.value>50||ownKeys(birth.pages).length!==len.value+1)return undefined;const pages:string[]=[];for(let i=0;i<len.value;i++){const p=ownField(birth.pages,String(i));if(!p?.enumerable||!('value'in p)||typeof p.value!=='string')return undefined;pages.push(p.value);}data.book=Object.assign(Object.create(null),{pages});values.push(!!b.title,!!b.author,pages.length,...pages);for(const name of ['title','author'] as const)if(b[name]){if(typeof b[name].value!=='string')return undefined;data.book![name]=b[name].value;values.push(b[name].value);}}
+  if(f.book){
+   if(!birth.book||f.book.value!==birth.book)return undefined;
+   const b=fields(birth.book,['pages','title','author','photoPages'],['pages']);
+   if(!b||!birth.pages||b.pages.value!==birth.pages||prototype(birth.pages)!==arrayPrototype)return undefined;
+   if(b.photoPages){
+    const tree=birth.photoTree;if(!tree||b.photoPages.value!==tree[0])return undefined;
+    const p=fields(tree[0],['version','entries'],['version','entries']);if(!p||p.entries.value!==tree[1]||prototype(tree[1])!==arrayPrototype)return undefined;
+    const n=ownField(tree[1],'length')?.value;if(n!==tree.length-2)return undefined;
+    for(let i=0;i<n;i++)if(ownField(tree[1],String(i))?.value!==tree[i+2])return undefined;
+   }else if(birth.photoTree)return undefined;
+   if(b.photoPages){const book=readBookData(birth.book);data.book=book;values.push(JSON.stringify(book));}
+   else {
+    const len=ownField(birth.pages,'length');if(!len||!('value'in len)||!Number.isSafeInteger(len.value)||len.value<0||len.value>50||ownKeys(birth.pages).length!==len.value+1)return undefined;
+    const pages:string[]=[];for(let i=0;i<len.value;i++){const p=ownField(birth.pages,String(i));if(!p?.enumerable||!('value'in p)||typeof p.value!=='string')return undefined;pages.push(p.value);}
+    data.book=Object.assign(Object.create(null),{pages});values.push(!!b.title,!!b.author,pages.length,...pages);
+    for(const name of ['title','author']as const)if(b[name]){if(typeof b[name].value!=='string')return undefined;data.book![name]=b[name].value;values.push(b[name].value);}
+   }
+  }
   for(const name of ['glow','sparkler'] as const)if(f[name]){const original=birth[name];if(!original||f[name].value!==original)return undefined;const state=fields(original,['state'],['state']);if(!state||state.state.value!=='active'&&state.state.value!=='inactive')return undefined;data[name]={state:state.state.value};values.push(name,state.state.value);}
   return{root:value as ItemStack,values,data};
  }catch{return undefined;}
@@ -42,17 +65,7 @@ export function snapshotFactoryStack(value:unknown):FactoryStackSnapshot|undefin
  * This neither clamps pages nor changes valid ordinary book/tool behavior. It is not a raw-save
  * recovery policy; serializers and other public ownership boundaries still need integration. */
 export function hasCloneableBookMetadata(stack: ItemStack): boolean {
-  try {
-    const book: unknown = stack.book;
-    if (book === undefined) return true;
-    if (typeof book !== "object" || book === null || Array.isArray(book)
-      || (Object.getPrototypeOf(book) !== Object.prototype && Object.getPrototypeOf(book) !== null)) return false;
-    const raw = book as Record<string, unknown>;
-    return Object.prototype.hasOwnProperty.call(raw, "pages") && Array.isArray(raw.pages)
-      && Array.from(raw.pages).every(page => typeof page === "string")
-      && (raw.title === undefined || typeof raw.title === "string")
-      && (raw.author === undefined || typeof raw.author === "string");
-  } catch { return false; }
+ try { const d=ownField(stack,'book');if(!d)return true;if(!('value'in d))return false;if(d.value===undefined)return true;cloneBookData(d.value);return true; }catch{return false;}
 }
 
 /** Zero wear and absent wear are equivalent; every supported book field participates. */
@@ -62,7 +75,7 @@ export function stacksCompatible(a: ItemStack, b: ItemStack): boolean {
   if (aGlow.kind === "invalid" || bGlow.kind === "invalid" || aGlow.kind !== bGlow.kind) return false;
   return a.id === b.id && (a.damage ?? 0) === (b.damage ?? 0) &&
     (a.book === undefined && b.book === undefined || a.book !== undefined && b.book !== undefined &&
-      a.book.title === b.book.title && a.book.author === b.book.author && JSON.stringify(a.book.pages) === JSON.stringify(b.book.pages));
+      (hasBookPhotos(a.book)||hasBookPhotos(b.book) ? JSON.stringify(cloneBookData(a.book)) === JSON.stringify(cloneBookData(b.book)) : a.book.title===b.book.title&&a.book.author===b.book.author&&JSON.stringify(a.book.pages)===JSON.stringify(b.book.pages)));
 }
 
 /** Metadata-aware capacity; maxStackOf(id) remains the unchanged registry limit. */

@@ -1,3 +1,4 @@
+import{inspectBookOwner}from'../ownership/book-state';
 import{cloneStack}from '../ownership/stack';
 import { readNpcActionField, type NpcActions } from "../education/npc-actions";
 import{inspectComposterItemOwner}from '../ownership/composter-items';
@@ -35,7 +36,8 @@ const num = (v: unknown, lo = -1e7, hi = 1e7): v is number => typeof v === "numb
 
 /** A valid stack, or null (for empty or invalid). */
 export function sanitizeStack(raw: unknown): ItemStack | null {
-  if (!isObj(raw) || inspectComposterItemOwner(raw).kind==='invalid' || inspectWoodSlabItemOwner(raw).kind==='invalid' || inspectBoneMealItemOwner(raw).kind==="invalid" || inspectRecyclingEquipment(raw).kind === "invalid" || inspectCaneItemOwner(raw).kind==="invalid" || inspectBottleOwner(raw).kind === "invalid" || inspectBucketOwner(raw).kind === "invalid") return null;
+  const book=inspectBookOwner(raw);
+  if (!isObj(raw) || book.kind==='invalid' || inspectComposterItemOwner(raw).kind==='invalid' || inspectWoodSlabItemOwner(raw).kind==='invalid' || inspectBoneMealItemOwner(raw).kind==="invalid" || inspectRecyclingEquipment(raw).kind === "invalid" || inspectCaneItemOwner(raw).kind==="invalid" || inspectBottleOwner(raw).kind === "invalid" || inspectBucketOwner(raw).kind === "invalid") return null;
   const id = own(raw, "id");
   const count = own(raw, "count");
   if (!int(id, 0, 100000) || !isKnownId(id)) return null;
@@ -56,12 +58,16 @@ export function sanitizeStack(raw: unknown): ItemStack | null {
   // New armor is strict: invalid wear must not silently repair damaged equipped pieces.
   if (armorOf(id) && damage !== undefined && !int(damage, 0, durability! - 1)) return null;
   if ((durability !== null && int(damage, 1, durability - 1)) || (id === IGNITION_TOOL_ID && damage === 0)) s.damage = damage as number;
-  const book = own(raw, "book");
-  if (isObj(book) && Array.isArray(own(book, "pages"))) {
-    s.book = { pages: (own(book, "pages") as unknown[]).slice(0, 50).map((p) => typeof p === "string" ? p.slice(0, 256) : "") };
-    if (typeof own(book, "title") === "string") s.book.title = (own(book, "title") as string).slice(0, 32);
-    if (typeof own(book, "author") === "string") s.book.author = (own(book, "author") as string).slice(0, 32);
+  if(book.kind==='valid')s.book=book.book;
+  else { // Existing text-only save eligibility/clamping is unchanged by the photo extension.
+    const legacy=own(raw,'book');
+    if(isObj(legacy)&&Array.isArray(own(legacy,'pages'))){
+      s.book={pages:(own(legacy,'pages')as unknown[]).slice(0,50).map(p=>typeof p==='string'?p.slice(0,256):'')};
+      if(typeof own(legacy,'title')==='string')s.book.title=(own(legacy,'title')as string).slice(0,32);
+      if(typeof own(legacy,'author')==='string')s.book.author=(own(legacy,'author')as string).slice(0,32);
+    }
   }
+  if(inspectBookOwner(s).kind==='invalid')return null;
   return cloneStack(s);
 }
 

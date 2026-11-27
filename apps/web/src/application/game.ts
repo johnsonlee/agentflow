@@ -1,3 +1,8 @@
+import { beginBookEdit, bookSessionCurrent, commitBookEdit, type BookEditSession } from "../persistence/bookEdit";
+import { portfolioExportSnapshot } from "../assessment/portfolio-export";
+import { readBookData, diagnoseRawBookOwnership, type BookData } from "@craft/engine";
+const nativeBookStorageSet = typeof Storage === "undefined" ? undefined : Storage.prototype.setItem;
+const nativeBookStorageGet = typeof Storage === "undefined" ? undefined : Storage.prototype.getItem;
 import {cameraUseDecision,reserveHeldCamera,type HeldCameraMode,type InventoryData}from '@craft/engine';
 import { readNpcActionField, diagnoseRawNpcActions } from "@craft/engine";
 import type { NpcEdit } from "../ui/screens";
@@ -163,7 +168,7 @@ export class Game {
   private openChest:string|null=null;
   readonly chests=new Map<string,SingleChest>();
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.heldPhotoRecovery || this.itemsNeedRecovery || this.recoverySections.includes("Camera owners") || this.recoverySections.includes("NPC links") || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
+  private get actionsNeedRecovery(): boolean { return this.heldPhotoRecovery || this.itemsNeedRecovery || this.recoverySections.includes("Camera owners") || this.recoverySections.includes("Book photo owners") || this.recoverySections.includes("NPC links") || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
   private dimensionArchive: DimensionsData | undefined;
   private dimensionIssues: DimensionSaveIssue[] = [];
   private stopped = false;
@@ -233,6 +238,9 @@ export class Game {
   private npcSession: { mob: Mob; id: number; world: World; manager: MobManager } | null = null;
   private readonly chalkDialog: ChalkboardDialog;
   private readonly bookScreen: BookScreen;
+  private bookSession: BookEditSession | null = null;
+  private bookStorageOriginal: string | null = null;
+  private bookStorageRead: (() => string | null) | null = null;
   /** Chalkboards by anchor key, and each occupied cell -> its board's anchor key. */
   readonly chalkboards = new Map<string, Chalkboard>();
   private readonly chalkCells = new Map<string, string>();
@@ -295,6 +303,8 @@ export class Game {
     const save = options.save;
     this.restoreDimensions(save);
     this.restoreBrewingOwners(save);this.restoreChestOwners(save);
+    const bookIssues=[...(save?.bookOwnershipIssues??[]),...diagnoseRawBookOwnership(save)];
+    if(bookIssues.length){this.recoveryOriginal=localStorage.getItem(SAVE_KEY);this.recoverySections.push("Book photo owners");}
     this.markBlazeRecovery(save); this.markWartRecovery(save); this.markCaneRecovery(save); this.markBoneMealRecovery(save); this.markWoodSlabRecovery(save); this.markComposterRecovery(save); this.markRecyclingRecovery(save); this.markPortalRecovery(save); this.markIgnitionRecovery(save); this.markGlowRecovery(save); this.markSparklerRecovery(save); this.markBottleRecovery(save); this.markBucketRecovery(save); this.markCowRecovery(save); this.markNpcRecovery(save); this.restorePlayerStatus(save);
     this.name = save?.name ?? options.name;
     if(options.preparedWorld){
@@ -426,7 +436,12 @@ export class Game {
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob, draft) => this.commitNpcEdit(mob, draft));
     this.registerCleanup("NPC dialog", () => { this.npcSession = null; this.npcDialog.hide(); });
     this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
-    this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen));
+    this.bookScreen = new BookScreen(this.root, () => this.closeDialog(this.bookScreen), {
+      photos: () => this.portfolio.photos.length ? portfolioExportSnapshot(this.portfolio.photos, () => this.bookEditCurrent()) : [],
+      current: () => this.bookEditCurrent(),
+      commit: (draft, title) => this.commitBookDraft(draft, title),
+    });
+    this.registerCleanup("Book editor", () => { this.bookScreen?.hide?.(); this.bookSession = null; });
     this.chalkViews = new ChalkboardViews(this.renderer.scene);
     this.registerCleanup("chalk views", () => this.chalkViews.dispose());
     const boards = sanitizeChalkboards(save?.chalkboards);
@@ -437,6 +452,7 @@ export class Game {
     const loaded = loadPrograms(save?.programs);
     this.programs = loaded.programs;
     this.loadErrors = loaded.errors;
+    for(const issue of bookIssues)this.loadErrors.push(`${issue.path}: ${issue.reason} (original save preserved)`);
     this.savedSourceWorkspace = save?.codeWorkspace && structuredClone(save.codeWorkspace);
     if (save?.caneGrowthInvalid || restoredCaneGrowth.kind === "invalid") {
       this.recoveryOriginal ??= localStorage.getItem(SAVE_KEY);
@@ -757,6 +773,7 @@ export class Game {
   }
 
   stop(): boolean {
+    this.bookScreen?.hide?.(); this.bookSession = null;
     this.cancelDrinking();
     if (this.stopped) return true;
     if (this.prepared || Game.handoffBusy) return false;
@@ -1419,6 +1436,13 @@ export class Game {
       }
     }
     if (place && held && (isWritableBook(held) || isWrittenBook(held)) && !(this.target && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE || this.target.id === BREWING_STAND))) {
+      this.bookSession = beginBookEdit(this.inventory);
+      if (!this.bookSession) { this.hud.message("This book could not be opened safely. Export a backup before continuing."); return; }
+      try {
+        if(!nativeBookStorageGet)throw Error("World storage unavailable");
+        this.bookStorageRead = nativeBookStorageGet.bind(localStorage, SAVE_KEY);
+        this.bookStorageOriginal = this.bookStorageRead();
+      } catch { this.bookSession = null; this.hud.message("World storage is unavailable. Your original book is unchanged."); return; }
       this.suspendInput();
       this.bookScreen.show(held);
       return;
@@ -2216,8 +2240,30 @@ export class Game {
     }
   }
 
+  private bookEditCurrent(): boolean {
+    try { return !!this.bookSession && !this.stopped && !this.dead && !this.prepared && !this.portalTransfer && !Game.handoffBusy &&
+      Game.activeWriter === this && !this.nonInventoryTransferBusy && !this.actionsNeedRecovery && bookSessionCurrent(this.bookSession) && this.bookStorageRead !== null && this.bookStorageRead() === this.bookStorageOriginal;
+    } catch { return false; }
+  }
+
+  private commitBookDraft(draft: BookData, title?: string): {ok:true}|{ok:false;error:string} {
+    const session=this.bookSession;
+    if(!session||!this.bookEditCurrent()||!nativeBookStorageSet)return{ok:false,error:"This book session ended. Your original book is unchanged."};
+    // Resolve native Storage and serialize the complete overlay before reserving the real cell.
+    let storage: Storage;
+    try { storage=localStorage; } catch { return {ok:false,error:"World storage is unavailable. Your original book is unchanged."}; }
+    const persist = nativeBookStorageSet.bind(storage, SAVE_KEY);
+    return commitBookEdit(session,draft,title,()=>this.bookEditCurrent(),replacement=>{
+      const save=this.captureSaveData();
+      save.inventory={...save.inventory,slots:save.inventory.slots.map((stack,index)=>index===session.index?replacement:stack)};
+      return serializeSave(save);
+    },persist);
+  }
+
   private closeDialog(dialog: { hide(): void }): void {
+    if (dialog === this.bookScreen && this.bookScreen.open && !this.bookScreen.userClose()) return;
     dialog.hide();
+    if (dialog === this.bookScreen) this.bookSession = null;
     this.resumeInput();
   }
 

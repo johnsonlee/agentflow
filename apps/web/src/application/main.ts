@@ -1,3 +1,4 @@
+import { hasWorldBookPhotos, validateWorldBookImages } from "../persistence/bookImages";
 import {recoverCameraCapture,CAMERA_JOURNAL_KEY}from "../persistence/cameraCaptureJournal";
 import { tryBlockById, blockId, allAtlasTextureNames, parseSave, seedFromString, stackId, type PortalContactTicket, type GameMode, type SaveData } from "@craft/engine";
 import { buildAtlas, MAX_PACK_BYTES, parseLocalTexturePack, type ParsedLocalTexturePack, type TextureAtlas } from "@craft/textures";
@@ -252,11 +253,18 @@ function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?:
   if (resourceBusy) return;
   leaveImport();
   importNotice = "";
-  resourceGeneration++;
+  const generation = ++resourceGeneration;
+  const original = localStorage.getItem(SAVE_KEY);
   app.replaceChildren();
   const loading = screen("loading-screen", el("h2", "", "Generating world…"));
   app.appendChild(loading);
-  requestAnimationFrame(() => {
+  requestAnimationFrame(() => { void (async () => {
+    const current=()=>generation===resourceGeneration&&localStorage.getItem(SAVE_KEY)===original;
+    if(opts.save&&!opts.save.bookOwnershipIssues?.length&&hasWorldBookPhotos(opts.save)){
+      try { await validateWorldBookImages(opts.save,current); }
+      catch(error){if(!current())return;opts.save={...opts.save,bookOwnershipIssues:[{path:"book photos",reason:error instanceof Error?error.message:"Book photo decode failed"}]};}
+    }
+    if(!current())return;
     game = new Game(app, atlas, {
       name: opts.save?.name ?? opts.name ?? "My World",
       seed: opts.save?.seed ?? opts.seed ?? 0,
@@ -268,7 +276,7 @@ function startGame(opts: { save?: SaveData; name?: string; seed?: number; mode?:
     loading.remove();
     game.start();
     if (game.dead) showDeath();
-  });
+  })(); });
 }
 
 function travelThroughPortal(source:Game,ticket:PortalContactTicket):void {

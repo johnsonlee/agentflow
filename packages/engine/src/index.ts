@@ -169,7 +169,7 @@ export * from "./catalog/wood-slabs";
 export * from "./ownership/wood-slab-items";
 export * from "./ownership/wood-slab-placement";
 export * from "./persistence/wood-slab-ownership";
-export {isInventoryBusy} from "./ownership/inventory-lease";
+export {isInventoryBusy,reserveInventoryMutation} from "./ownership/inventory-lease";
 export * from "./catalog/composter";
 export * from "./persistence/composter-state";
 export * from "./persistence/composter-ownership";
@@ -188,3 +188,8 @@ export * from "./ownership/agent-item-space";
 export * from "./ownership/agent-teleport";
 
 export * from "./ownership/agent-drop-all";
+
+export { hasBookPhotos, cloneBookData, inspectBookOwner, readBookData, validBookData, equalBookData, bookUtf8Bytes, BOOK_MAX_PHOTOS, BOOK_PHOTO_BYTES, BOOK_BYTES, WORLD_BOOK_PHOTO_BYTES } from "./ownership/book-state";
+export type { BookPhotoPage } from "./ownership/book-state";
+
+export { diagnoseRawBookOwnership } from "./persistence/book-ownership";

@@ -1,3 +1,4 @@
+import{equalBookData,hasBookPhotos}from'./book-state';
 import { AIR } from "../catalog/blocks";
 import{labCanonical}from "./lab-inventory-snapshot";
 import type { ItemStack } from "./inventory";
@@ -41,7 +42,7 @@ function validStack(raw: unknown, bulk = false): ItemStack | null {
   if (!clean) return null;
   const book = own(raw, "book");
   // Invalid metadata is diagnosed, never silently repaired into another world-owned object.
-  if (book !== undefined && (!plain(book) || !Array.isArray(own(book, "pages")) || (JSON.stringify(clean.book?.pages) !== JSON.stringify(own(book, "pages")) || clean.book?.title !== own(book, "title") || clean.book?.author !== own(book, "author")))) return null;
+  if(book!==undefined&&(hasBookPhotos(book)?!equalBookData(clean.book,book):!plain(book)||!Array.isArray(own(book,'pages'))||JSON.stringify(clean.book?.pages)!==JSON.stringify(own(book,'pages'))||clean.book?.title!==own(book,'title')||clean.book?.author!==own(book,'author')))return null;
   return cloneStack(clean, count as number);
 }
 

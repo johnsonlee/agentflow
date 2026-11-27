@@ -1,3 +1,4 @@
+import{diagnoseRawBookOwnership}from'./book-ownership';
 import { Inventory, type InventoryData } from "../ownership/inventory";
 import { loadPrograms } from "../automation/codebuilder";
 import { sanitizeAgent, sanitizeHunger, sanitizeInventoryPending } from "./savecheck";
@@ -89,6 +90,7 @@ export function inspectWorldSaveImport(bytes: Uint8Array): WorldSaveImport {
   if (data.version !== SAVE_VERSION || !Number.isInteger(data.seed) || (data.seed as number) < -2147483648 || (data.seed as number) > 2147483647) refuse("version or seed");
   if (typeof data.name !== "string" || !data.name.trim() || data.name.length > 64 || data.mode !== "creative" && data.mode !== "survival") refuse("name or game mode");
   if (typeof data.timeOfDay !== "number" || !Number.isFinite(data.timeOfDay) || data.timeOfDay < 0 || data.timeOfDay >= 1) refuse("world time");
+  if(diagnoseRawBookOwnership(data).length)refuse('Book ownership');
   const probe = createDimensionGeneratedBlockProbe();
   const archive = readDimensionArchive(data.dimensions ?? { version: 1, active: "overworld", inactive: {}, links: [] }, data, probe);
   if (archive.kind !== "valid") refuse("world owners or dimension references");

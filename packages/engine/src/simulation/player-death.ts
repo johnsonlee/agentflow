@@ -1,3 +1,4 @@
+import{equalBookData,hasBookPhotos}from'../ownership/book-state';
 import { isSparklerId } from "../ownership/sparkler-state";
 import { AIR } from "../catalog/blocks";
 import { INVENTORY_SIZE, type Inventory, type ItemStack } from "../ownership/inventory";
@@ -43,7 +44,7 @@ function ownedStack(raw: unknown): ItemStack | null {
     const durability = durabilityOf(clean.id);
     if (!Number.isInteger(damage) || (damage as number) < 0 || durability === null || (damage as number) >= durability) return null;
   }
-  if (book !== undefined && (!plain(book) || Object.keys(book).some(key => !["pages", "title", "author"].includes(key)) || !Array.isArray(own(book, "pages")) || JSON.stringify(clean.book?.pages) !== JSON.stringify(own(book, "pages")) || clean.book?.title !== own(book, "title") || clean.book?.author !== own(book, "author"))) return null;
+  if(book!==undefined&&(hasBookPhotos(book)?!equalBookData(clean.book,book):!plain(book)||Object.keys(book).some(key=>!['pages','title','author'].includes(key))||!Array.isArray(own(book,'pages'))||JSON.stringify(clean.book?.pages)!==JSON.stringify(own(book,'pages'))||clean.book?.title!==own(book,'title')||clean.book?.author!==own(book,'author')))return null;
   return cloneStack(raw as unknown as ItemStack);
 }
 

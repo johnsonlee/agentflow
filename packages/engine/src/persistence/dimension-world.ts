@@ -1,3 +1,4 @@
+import { diagnoseRawBookOwnership } from "./book-ownership";
 import {readCameras}from "../education/placed-camera";
 import { diagnoseRawNpcActions } from "../education/npc-actions";
 import{readComposterOwners}from './composter-state';
@@ -23,7 +24,7 @@ export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[num
 const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
-  "camerasInvalid", "npcActionsInvalid", "codeWorkspaceInvalid", "caneGrowthInvalid",
+  "bookOwnershipIssues", "camerasInvalid", "npcActionsInvalid", "codeWorkspaceInvalid", "caneGrowthInvalid",
   "composterOwnershipIssues", "woodSlabOwnershipIssues", "recyclingOwnershipIssues", "caneOwnershipIssues", "boneMealOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
@@ -31,6 +32,7 @@ const sourceDiagnostics = [
   "fireInvalid", "ignitionOwnershipIssues", "gravelHarvestInvalid",
 ] as const satisfies readonly (keyof SaveData)[];
 function assertNoSourceDiagnostics(save: SaveData): void {
+  if(diagnoseRawBookOwnership(save).length)throw Error("Invalid source book photo ownership");
   if(!readCameras(save.cameras))throw Error("Invalid source Camera ownership");
   if (diagnoseRawNpcActions(save)) throw new Error("Invalid source NPC URL buttons");
   if(diagnoseRawComposterOwnership(save).length)throw new Error("Invalid source Composter ownership");
@@ -54,6 +56,7 @@ function assertNoSourceDiagnostics(save: SaveData): void {
 
 
 function assertWorldEnvelope(world: DimensionWorldState): void {
+  if(diagnoseRawBookOwnership(world).length)throw Error("Invalid dimension book photo ownership");
   if (diagnoseRawNpcActions(world)) throw new Error("Invalid dimension NPC URL buttons");
   if (hasBusyFurnaceOwnership(world)) throw new Error("Cannot partition busy Furnace ownership");
   if (!world || typeof world !== "object" || Array.isArray(world) ||

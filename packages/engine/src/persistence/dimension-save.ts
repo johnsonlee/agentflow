@@ -1,3 +1,4 @@
+import{diagnoseRawBookOwnership}from './book-ownership';
 import { diagnoseRawNpcActions } from "../education/npc-actions";
 import{diagnoseRawComposterOwnership}from './composter-ownership';
 import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
@@ -222,7 +223,8 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
  * It never changes input data, generates terrain itself, or grants item ownership. */
 export function readDimensionArchive(raw: unknown, activeRaw: unknown, probe?: DimensionGeneratedBlockProbe): DimensionReadResult {
   if (raw === undefined) return { kind: "absent" };
-  const issues: DimensionSaveIssue[] = [];
+  const issues: DimensionSaveIssue[] = diagnoseRawBookOwnership(activeRaw,raw);
+  if(issues.length)return{kind:'invalid',issues};
   try {
     const input = copyJSON(raw, "dimensions");
     if (!exact(input, ["version", "active", "inactive", "links"]) || input.version !== 1 || !realm(input.active) || !obj(input.inactive) || !Array.isArray(input.links)) return { kind: "invalid", issues: [{ path: "dimensions", reason: "Malformed dimension archive envelope" }] };

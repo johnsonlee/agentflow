@@ -5,15 +5,9 @@
 import type { ItemStack } from "./inventory";
 import { itemId } from "../catalog/items";
 
-export const BOOK_MAX_PAGES = 50;
-export const BOOK_PAGE_CHARS = 256;
-export const BOOK_TITLE_CHARS = 32;
-
-export interface BookData {
-  pages: string[];
-  title?: string;
-  author?: string;
-}
+import { BOOK_MAX_PAGES, BOOK_PAGE_CHARS, BOOK_TITLE_CHARS, readBookData, cloneBookData, hasBookPhotos } from "./book-state";
+export { BOOK_MAX_PAGES, BOOK_PAGE_CHARS, BOOK_TITLE_CHARS } from "./book-state";
+export type { BookData } from "./book-state";
 
 export function isWritableBook(stack: ItemStack | null | undefined): boolean {
   return !!stack && stack.id === itemId("book_and_quill");
@@ -31,9 +25,15 @@ export function clampPages(pages: readonly string[]): string[] {
 
 /** Saves pages into a Book & Quill stack. Returns false if it isn't one. */
 export function writeBook(stack: ItemStack, pages: readonly string[]): boolean {
-  if (!isWritableBook(stack)) return false;
-  stack.book = { pages: clampPages(pages) };
-  return true;
+  const idField=Object.getOwnPropertyDescriptor(stack,"id"),bookField=Object.getOwnPropertyDescriptor(stack,"book");
+  if(!idField||!("value" in idField)||idField.value!==itemId("book_and_quill")||bookField&&(!("value" in bookField)||bookField.writable!==true)||!bookField&&!Object.isExtensible(stack))return false;
+  try {
+    const field = Object.getOwnPropertyDescriptor(stack, "book");
+    if (field && !("value" in field)) return false;
+    const previous = field ? cloneBookData(field.value) : { pages: [""] };
+    const next = hasBookPhotos(previous) ? readBookData({ ...previous, pages: clampPages(pages) }) : { pages: clampPages(pages) };
+    stack.book = next; return true;
+  } catch { return false; }
 }
 
 /**
@@ -42,8 +42,17 @@ export function writeBook(stack: ItemStack, pages: readonly string[]): boolean {
  */
 export function signBook(stack: ItemStack, title: string, author: string): boolean {
   const t = title.trim().slice(0, BOOK_TITLE_CHARS);
-  if (!isWritableBook(stack) || t === "") return false;
+  const idField=Object.getOwnPropertyDescriptor(stack,"id"),bookField=Object.getOwnPropertyDescriptor(stack,"book");
+  if(t===""||!idField||!("value" in idField)||idField.value!==itemId("book_and_quill")||idField.writable!==true||bookField&&(!("value" in bookField)||bookField.writable!==true)||!bookField&&!Object.isExtensible(stack))return false;
+  let next;
+  try {
+    const field = Object.getOwnPropertyDescriptor(stack, "book");
+    if (field && !("value" in field)) return false;
+    const previous = field ? cloneBookData(field.value) : { pages: [""] };
+    const signed = { ...previous, pages: clampPages(previous.pages), title: t, author: author.trim() || "Player" };
+    next = hasBookPhotos(previous) ? readBookData(signed) : { pages: signed.pages, title: signed.title, author: signed.author };
+  } catch { return false; }
   stack.id = itemId("written_book");
-  stack.book = { pages: clampPages(stack.book?.pages ?? [""]), title: t, author: author.trim() || "Player" };
+  stack.book = next;
   return true;
 }

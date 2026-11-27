@@ -1,3 +1,4 @@
+import{readBookData,hasBookPhotos}from'./book-state';
 import type {ItemStack} from './inventory';
 import {cloneStack,stackLimit} from './stack';
 import {inspectItemState} from './item-state';
@@ -25,7 +26,7 @@ export function readChestStack(raw:unknown):ItemStack|null{
  if(!data||Array.isArray(data)||!isKnownId(data.id)||data.id!==baseStackId(data.id)||!isItem(data.id)&&!blockById(data.id).creative||!Number.isSafeInteger(data.count)||data.count<1||inspectItemState(data).kind==='invalid'||data.count>stackLimit(data)||Reflect.ownKeys(data).some(k=>!['id','count','damage','book','glow','sparkler'].includes(String(k))))throw Error('Invalid Chest stack');
  if(data.damage!==undefined){const durability=durabilityOf(data.id);if(durability===null||!Number.isSafeInteger(data.damage)||data.damage<0||data.damage>=durability)throw Error('Invalid Chest wear');}
  if(data.id>=845&&data.id<=849&&Reflect.ownKeys(data).some(k=>k!=='id'&&k!=='count'))throw Error('Invalid Chest potion');
- if(data.book!==undefined){const b=data.book;if(!b||Array.isArray(b)||!Array.isArray(b.pages)||b.pages.length>50||b.pages.some(p=>typeof p!=='string'||p.length>256)||Reflect.ownKeys(b).some(k=>!['pages','title','author'].includes(String(k)))||b.title!==undefined&&(typeof b.title!=='string'||b.title.length>32)||b.author!==undefined&&(typeof b.author!=='string'||b.author.length>32))throw Error('Invalid Chest book');}
+ if(data.book!==undefined){if(hasBookPhotos(data.book))data.book=readBookData(data.book);else {const b=data.book;if(!b||Array.isArray(b)||!Array.isArray(b.pages)||b.pages.length>50||b.pages.some(p=>typeof p!=='string'||p.length>256)||Reflect.ownKeys(b).some(k=>!['pages','title','author'].includes(String(k)))||b.title!==undefined&&(typeof b.title!=='string'||b.title.length>32)||b.author!==undefined&&(typeof b.author!=='string'||b.author.length>32))throw Error('Invalid Chest book');}}
  return cloneStack(data);
 }
 export function readChestData(raw:unknown):ChestData{

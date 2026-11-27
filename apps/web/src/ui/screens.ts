@@ -1,7 +1,7 @@
 import{portfolioExportSnapshot,buildPortfolioZip,ExportCancelled,type ExportPhoto}from'../assessment/portfolio-export';
 import{downloadBlob}from'../platform/download';
 import { readNpcActionField, readNpcActions, NPC_MAX_BUTTONS, type NpcActions } from "@craft/engine";
-import { sanitizePhotos, BOOK_MAX_PAGES, BOOK_PAGE_CHARS, BOOK_TITLE_CHARS, CHALKBOARD_SIZES, canEditChalkboard, clampChalkText, isWritableBook, signBook, writeBook, type Chalkboard, type ItemStack } from "@craft/engine";
+import { sanitizePhotos, CHALKBOARD_SIZES, canEditChalkboard, clampChalkText, type Chalkboard, type ItemStack } from "@craft/engine";
 import type { Mob } from "@craft/engine";
 
 function el<K extends keyof HTMLElementTagNameMap>(tag: K, className = "", text = ""): HTMLElementTagNameMap[K] {
@@ -355,108 +355,4 @@ export class ChalkboardDialog {
   }
 }
 
-/** Book & Quill writing (pages, Sign) and Written Book reading (page turning). */
-export class BookScreen {
-  readonly root = el("div", "screen book-screen");
-  private readonly panel = el("div", "panel book-panel");
-  private stack: ItemStack | null = null;
-  private pages: string[] = [""];
-  private page = 0;
-  private signing = false;
-
-  constructor(container: HTMLElement, private readonly onClose: () => void) {
-    this.root.hidden = true;
-    this.root.appendChild(this.panel);
-    container.appendChild(this.root);
-  }
-
-  get open(): boolean {
-    return !this.root.hidden;
-  }
-
-  show(stack: ItemStack): void {
-    this.stack = stack;
-    this.pages = [...(stack.book?.pages ?? [""])];
-    this.page = 0;
-    this.signing = false;
-    this.render();
-    this.root.hidden = false;
-  }
-
-  hide(): void {
-    // Unsigned books keep what was written.
-    if (this.stack && isWritableBook(this.stack)) writeBook(this.stack, this.pages);
-    this.stack = null;
-    this.root.hidden = true;
-  }
-
-  private render(): void {
-    const stack = this.stack!;
-    const writable = isWritableBook(stack);
-    const parts: HTMLElement[] = [];
-    if (!writable) parts.push(el("h2", "book-title", stack.book?.title ?? "Book"), el("p", "book-author", `by ${stack.book?.author ?? "?"}`));
-    else parts.push(el("h2", "", "Book and Quill"));
-    if (writable && this.signing) {
-      const title = el("input", "mc-input");
-      title.maxLength = BOOK_TITLE_CHARS;
-      title.setAttribute("aria-label", "Book title");
-      title.addEventListener("keydown", (e) => e.stopPropagation());
-      const sign = el("button", "mc-button primary", "Sign and Close");
-      sign.addEventListener("click", () => {
-        writeBook(stack, this.pages);
-        if (signBook(stack, title.value, "Player")) this.onClose();
-      });
-      const cancel = el("button", "mc-button", "Cancel");
-      cancel.addEventListener("click", () => {
-        this.signing = false;
-        this.render();
-      });
-      parts.push(el("p", "hint", "Signing makes the book read-only."), title, sign, cancel);
-      this.panel.replaceChildren(...parts);
-      return;
-    }
-    if (writable) {
-      const text = el("textarea", "mc-input book-page");
-      text.value = this.pages[this.page];
-      text.maxLength = BOOK_PAGE_CHARS;
-      text.setAttribute("aria-label", "Book page");
-      text.addEventListener("keydown", (e) => e.stopPropagation());
-      text.addEventListener("input", () => (this.pages[this.page] = text.value));
-      parts.push(text);
-    } else {
-      parts.push(el("p", "book-text", this.pages[this.page]));
-    }
-    const nav = el("div", "book-nav");
-    const prev = el("button", "mc-button", "◀");
-    prev.setAttribute("aria-label", "Previous page");
-    prev.disabled = this.page === 0;
-    prev.addEventListener("click", () => {
-      this.page--;
-      this.render();
-    });
-    const label = el("span", "book-page-number", `Page ${this.page + 1} of ${this.pages.length}`);
-    const next = el("button", "mc-button", "▶");
-    next.setAttribute("aria-label", "Next page");
-    // Writing: the next arrow on the last page adds a page (as in Minecraft).
-    next.disabled = writable ? this.pages.length >= BOOK_MAX_PAGES && this.page === this.pages.length - 1 : this.page >= this.pages.length - 1;
-    next.addEventListener("click", () => {
-      if (this.page === this.pages.length - 1) this.pages.push("");
-      this.page++;
-      this.render();
-    });
-    nav.append(prev, label, next);
-    parts.push(nav);
-    if (writable) {
-      const sign = el("button", "mc-button", "Sign");
-      sign.addEventListener("click", () => {
-        this.signing = true;
-        this.render();
-      });
-      parts.push(sign);
-    }
-    const done = el("button", "mc-button primary", "Done");
-    done.addEventListener("click", () => this.onClose());
-    parts.push(done);
-    this.panel.replaceChildren(...parts);
-  }
-}
+export { BookScreen } from "./bookScreen";

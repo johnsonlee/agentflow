@@ -1,3 +1,4 @@
+import { hasWorldBookPhotos, validateWorldBookImages } from "../persistence/bookImages";
 import { inspectWorldSaveImport, MAX_WORLD_SAVE_BYTES, type WorldSaveImport } from "@craft/engine";
 import { commitWorldSaveImport, type WorldImportStorage } from "../persistence/worldSaveImport";
 
@@ -66,6 +67,8 @@ export function createWorldImportScreen(options: WorldImportScreenOptions): { el
         const bytes = new Uint8Array(await selected.arrayBuffer());
         if (!visible() || token !== attempt) return;
         const parsed = inspectWorldSaveImport(bytes);
+        const bookDto = JSON.parse(parsed.raw);
+        if (hasWorldBookPhotos(bookDto)) await validateWorldBookImages(bookDto, () => visible() && token === attempt);
         if (!visible() || token !== attempt) return;
         if (options.storage.getItem(options.saveKey) !== current) { stale(); return; }
         candidate = parsed; preview.replaceChildren(make("h3", "Selected world"), make("p", `Name: ${parsed.name}`), make("p", `Mode: ${parsed.mode === "survival" ? "Survival" : "Creative"}`), make("p", `Seed: ${parsed.seed}`)); preview.hidden = false;
