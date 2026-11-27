@@ -1,3 +1,4 @@
+import {CameraStore}from "../src/education/placed-camera";
 import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Inventory, createAgent, freshStack, parseSave, stackId } from "../src";
@@ -25,10 +26,10 @@ function screen() {
   return value;
 }
 function game() {
-  const value = Object.assign(Object.create(Game.prototype), { markComposterStoreRecovery:vi.fn(), statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] });
+  const value = Object.assign(Object.create(Game.prototype), { cameras:new CameraStore(), markComposterStoreRecovery:vi.fn(), statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] });
   const ownership = () => ({ busy: false, reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(value, { inventory: new Inventory(), leashes: ownership(), balloons: ownership(), recoverySections: [], recoveryOriginal: null,
-    stopped: false, dead: false, paused: false, screenOpen: () => false, hud: { message: vi.fn() }, glowStickView: { update: vi.fn(), shake: vi.fn() },
+    stopped: false, dead: false, paused: false, screenOpen: () => false, hud: {setCameraAction:vi.fn(), message: vi.fn() }, glowStickView: { update: vi.fn(), shake: vi.fn() },
     leashContext: () => ({}), markLeashRecovery: vi.fn(), markBalloonRecovery: vi.fn(), keyboard: { reset: vi.fn() }, name: "Recovery", savePayload: vi.fn(() => '{"version":1}') });
   return value;
 }

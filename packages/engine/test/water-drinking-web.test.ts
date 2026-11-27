@@ -1,14 +1,15 @@
+import {CameraStore}from "../src/education/placed-camera";
 import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, expect, it, vi } from "vitest";
 import { Inventory, blockId, createHunger, freshStack, stackId } from "../src";
 import { KeyboardMouseInput } from "../../input/src/devices/keyboard-mouse";
 import { Game } from "../../../apps/web/src/application/game";
 function game(cells: Record<string, number> = {}) {
-  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
+  const g = Object.assign(Object.create(Game.prototype), { cameras:new CameraStore(), statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: {}, recoverySections: [], recoveryOriginal: null, drinkOwner: null,
     leashes: ownership(), balloons: ownership(), paused: false, dead: false, stopped: false, running: true, touch: true, mode: "survival", health: 20,
     world: { composters: {busy:false,loadIssues:[],isDisposed:false}, getBlock: (x: number, y: number, z: number) => cells[`${x},${y},${z}`] ?? 0, setBlock: vi.fn() }, body: { position: { x: .5, y: 32, z: .5 }, yaw: 0, pitch: 0, velocity: { x: 0, y: 0, z: 0 } },
-    mobs: { raycast: () => null }, hud: { message: vi.fn(), flashDamage: vi.fn() }, keyboard: { reset: vi.fn(), enabled: true, requestPointerLock: vi.fn() }, screenOpen: () => false,
+    mobs: { raycast: () => null }, hud: {setCameraAction:vi.fn(), message: vi.fn(), flashDamage: vi.fn() }, keyboard: { reset: vi.fn(), enabled: true, requestPointerLock: vi.fn() }, screenOpen: () => false,
     placeCooldown: 0, creativeCooldown: 0, attackCooldown: 0, eatTimer: 0, redstone: { interact: () => false }, openInventory: vi.fn(), openNpcDialog: vi.fn(),
     save: vi.fn(() => true), events: { onPause: vi.fn(), onDeath: vi.fn() }, spawn: { x: 2, y: 32, z: 2 }, lastPos: { x: .5, z: .5 } });
   for (const field of ["chat", "chalkDialog", "bookScreen", "codeBuilder", "npcDialog", "portfolioScreen"]) g[field] = { open: false, hide: vi.fn() };

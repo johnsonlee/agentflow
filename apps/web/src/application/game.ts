@@ -1,5 +1,8 @@
 import { readNpcActionField, diagnoseRawNpcActions } from "@craft/engine";
 import type { NpcEdit } from "../ui/screens";
+import {commitCameraCapture,CAMERA_JOURNAL_KEY}from "../persistence/cameraCaptureJournal";
+import {CameraStore,raycastCameras,type CamerasData,type PlacedCamera}from "@craft/engine";
+import {PlacedCameraView}from "../rendering/placedCameraView";
 import { plantOwnedWheat } from "@craft/engine";
 import { BONE_MEAL_ITEM_ID, useOwnedBoneMeal, diagnoseRawBoneMealOwnership, type BoneMealOwnershipIssue } from "@craft/engine";
 import { woodSlabState, useOwnedWoodSlab, diagnoseRawWoodSlabOwnership, isInventoryBusy, type WoodSlabOwnershipIssue } from "@craft/engine";
@@ -117,6 +120,12 @@ export class Game {
   private snowballImpacts: SnowballImpact[] = [];
   /** Bounded actual simulation outcomes for read-only diagnostics; detached from store/view ownership. */
   get recentSnowballImpacts(): readonly SnowballImpact[] { return structuredClone(this.snowballImpacts); }
+  readonly cameras:CameraStore;
+  private readonly placedCameraView:PlacedCameraView;
+  private cameraCommitCheckpoint:CamerasData|null=null;
+  private cameraCountdownText="";
+  private cameraCaptureReceipt:{key:number;position:{x:number;y:number;z:number};subject:{x:number;y:number;z:number};photoID:string;at:number}|null=null;
+  get lastCameraCapture(){return this.cameraCaptureReceipt&&structuredClone(this.cameraCaptureReceipt);}
   readonly balloons: BalloonStore;
   private readonly balloonView: BalloonView;
   private readonly glowStickView: GlowStickView;
@@ -148,7 +157,7 @@ export class Game {
   private openChest:string|null=null;
   readonly chests=new Map<string,SingleChest>();
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("NPC links") || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
+  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("Camera owners") || this.recoverySections.includes("NPC links") || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
   private dimensionArchive: DimensionsData | undefined;
   private dimensionIssues: DimensionSaveIssue[] = [];
   private stopped = false;
@@ -161,7 +170,7 @@ export class Game {
   };
   private readonly mobLoot = new MobLootResolver();
   private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || !!this.agent && isInventoryBusy(this.agent) || [...this.chests.values()].some(chest=>chest.busy) || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (this.world.composters.busy || isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
-  private get ownershipBusy(): boolean { return this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy || (!!this.furnaces && [...this.furnaces.values()].some(furnaceMutationBusy)); }
+  private get ownershipBusy(): boolean { return !!this.cameras?.busy || this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy || (!!this.furnaces && [...this.furnaces.values()].some(furnaceMutationBusy)); }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
   readonly world: World;
@@ -308,6 +317,9 @@ export class Game {
     this.registerCleanup("drop simulation", () => this.worldDrops.dispose());
     this.leashes = new LeashStore(save?.leashes);
     this.registerCleanup("leash store", () => this.leashes.dispose());
+    this.cameras=new CameraStore(save?.cameras);
+    this.registerCleanup("Camera owners",()=>this.cameras.dispose());
+    if(this.cameras.loadIssues||save?.camerasInvalid){this.recoveryOriginal=localStorage.getItem(SAVE_KEY);this.recoverySections.push("Camera owners");}
     this.balloons = new BalloonStore(save?.balloons);
     this.registerCleanup("balloon store", () => this.balloons.dispose());
     this.balloonOriginalRaw = save?.balloons === undefined ? null : localStorage.getItem(SAVE_KEY);
@@ -320,6 +332,8 @@ export class Game {
     this.timeOfDay = save?.timeOfDay ?? 0.05;
     this.renderer = new WorldRenderer(canvas, this.world, atlas);
     this.registerCleanup("renderer", () => this.renderer.dispose());
+    this.placedCameraView=new PlacedCameraView(this.renderer.scene);
+    this.registerCleanup("placed Camera view",()=>this.placedCameraView.dispose());
     this.worldDropsView = new WorldDropsView(this.renderer.scene, atlas, this.worldDrops);
     this.registerCleanup("drop view", () => this.worldDropsView.dispose());
     this.snowballProjectilesView = new SnowballProjectilesView(this.renderer.scene, atlas, this.snowballProjectiles);
@@ -388,6 +402,7 @@ export class Game {
       onPause: () => this.pause(),
       onChat: () => this.openChat(),
       onCamera: () => this.takePhoto(),
+      onPlacedCamera:()=>this.interact(false,true,false,false,0),
       onPortfolio: () => this.togglePortfolio(),
       onCodeBuilder: () => this.openCodeBuilder(),
       onShakeGlow: () => { this.tryShakeSelectedGlow(); },
@@ -1047,6 +1062,7 @@ export class Game {
         snowballProjectiles: this.snowballProjectiles.toJSON(),
         ...(!(recoveryBackup&&this.recoverySections.includes("Blaze owners"))&&(blazeFireballs.nextKey>1||blazeFireballs.records.length)?{blazeFireballs}:{}),
         worldDrops: this.worldDrops.toJSON(),
+        ...(!(recoveryBackup&&this.recoverySections.includes("Camera owners"))?{cameras:this.cameraCommitCheckpoint??this.cameras.toJSON()}:{}),
         ...(recoveryBackup && this.leashes.loadIssues ? {} : { leashes: this.leashes.toJSON() }),
         ...(recoveryBackup && this.balloons.loadIssues ? {} : { balloons: this.balloons.toJSON() }),
         edits: portalBackup ? this.world.exportEdits().filter(edit => edit[3] !== 192 && edit[3] !== 193) : this.world.exportEdits(),
@@ -1196,6 +1212,12 @@ export class Game {
       if (!this.dead && target) this.takeMobHits(dt, (light - 0.2) / 0.8);
       // Pending stations receive this elapsed active interval before new input can start a timer.
       if (!this.dead) this.world.composters.update(dt);
+      if(!this.dead){
+        this.cameras.update(dt,r=>this.capturePlacedCamera(r));
+        const countdown=this.cameras.records.filter(r=>r.remaining!==null).map(r=>Math.ceil(r.remaining!)).join(", ");
+        if(countdown&&countdown!==this.cameraCountdownText)this.hud.message(`Camera: ${countdown} — move into the picture`);
+        this.cameraCountdownText=countdown;
+      }
       if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt);
       if (!this.dead) this.updateSnowballs(dt);
     } else {
@@ -1234,6 +1256,7 @@ export class Game {
     this.worldDropsView.update(this.clock, cam.position, this.renderer.renderDistance * 16);
     this.leashView.update(this.leashes.records, this.mobs.mobs, this.body.position);
     this.balloonView.update(this.balloons.records);
+    this.placedCameraView.update(this.cameras.records,this.body.position);
     this.snowballProjectilesView.update(active && !this.dead && !this.screenOpen() ? dt : 0, cam, this.renderer.renderDistance * 16);
 
     const underwater = blockAtEyes((x, y, z) => this.world.getBlock(x, y, z), this.body) === "water";
@@ -1316,6 +1339,18 @@ export class Game {
     this.balloonTarget = balloonHit && (!this.target || balloonHit.distance < this.target.distance) &&
       (!mobHit || balloonHit.distance < mobHit.distance) ? balloonHit : null;
     const held = this.inventory.selectedStack();
+    const cameraHit=raycastCameras(eye,dir,this.cameras.records,REACH);
+    const cameraInFront=cameraHit&&cameraHit.distance<(this.target?.distance??Infinity)&&cameraHit.distance<(mobHit?.distance??Infinity)&&cameraHit.distance<(balloonHit?.distance??Infinity);
+    this.hud.setCameraAction(cameraInFront?"Activate Camera":held?.id===stackId("camera")?"Place Camera":null);
+    if(cameraHit&&cameraHit.distance<(this.target?.distance??Infinity)&&cameraHit.distance<(mobHit?.distance??Infinity)&&cameraHit.distance<(balloonHit?.distance??Infinity)){
+      this.target=null;this.mobTarget=null;this.balloonTarget=null;this.breakProgress=0;
+      if(place&&this.placeCooldown===0){this.placeCooldown=.3;const r=this.cameras.records.find(r=>r.key===cameraHit.key)!;const allowed=canBuildAt(this.world,this.mode,r.x,r.y,r.z);this.hud.message(allowed&&this.cameras.activate(r.key)?"Camera started: five active-play seconds. Step into the picture.":"Camera is already counting down or cannot be used here.");}return;
+    }
+    if(place&&this.placeCooldown===0&&held?.id===stackId("camera")){
+      const t=this.target;this.placeCooldown=.3;const p=t&&t.normal.y===1?{x:t.x,y:t.y+1,z:t.z}:null;
+      const ok=p&&this.cameras.place(this.world,this.inventory,this.mode,p,this.body.position);
+      this.hud.message(ok?"Camera placed. Aim at it and use to start the timer.":"Place Camera on a clear solid top face away from your feet.");return;
+    }
     const stationTarget = this.target !== null && (this.target.id === CRAFTING_TABLE || this.target.id === FURNACE || this.target.id === BREWING_STAND || CHEMISTRY_STATIONS.has(this.target.id) || chalkboardSizeOf(this.target.id) !== null);
     const drinking = using && (held?.id === WATER_BOTTLE || held?.id === MILK_BUCKET || isDrinkablePotionId(held?.id)) && !this.mobTarget && !this.balloonTarget && !stationTarget;
     if (!drinking) this.cancelDrinking();
@@ -2408,6 +2443,31 @@ export class Game {
       this.suspendInput();
       this.portfolioScreen.show();
     }
+  }
+
+  private capturePlacedCamera(camera:PlacedCamera):boolean{
+    if(this.stopped||this.dead||this.paused||this.screenOpen()||Game.activeWriter!==this||this.actionsNeedRecovery)return false;
+    let photo:string;
+    try{photo=this.placedCameraView.withSubject(camera.key,this.body.position,this.body.yaw,()=>this.renderer.captureCamera(this.placedCameraView.camera(camera,this.body.position)));}
+    catch{this.hud.message("Photo could not be captured. Camera retained; activate it to retry.");return false;}
+    if(this.stopped||Game.activeWriter!==this)return false;
+    let commit:{committed:boolean;complete:boolean},plan:ReturnType<Portfolio["prepareCaptured"]>;
+    try{
+      plan=this.portfolio.prepareCaptured(photo);this.cameraCommitCheckpoint=this.cameras.captureCheckpoint(camera.key);
+      commit=commitCameraCapture(this.savePayload(false,true),plan.raw);
+    }catch{this.hud.message("Photo could not be saved. Camera retained; activate it to retry.");return false;}
+    finally{this.cameraCommitCheckpoint=null;}
+    if(!commit.committed){this.hud.message("Photo could not be saved. Camera retained; activate it to retry.");return false;}
+    // Durable commit cannot be retried even if a receiver/UI finalizer fails.
+    try{
+      this.portfolio.adoptCaptured(plan.photos);
+      if(!commit.complete){this.recoverySections.push("Camera owners");this.recoveryOriginal=localStorage.getItem(SAVE_KEY);}
+      this.cameraCaptureReceipt={key:camera.key,position:{x:camera.x,y:camera.y,z:camera.z},subject:{...this.body.position},photoID:plan.photo.id,at:this.clock};
+    }catch{
+      this.recoverySections.push("Camera owners");this.paused=true;
+    }
+    try{this.hud.flashCamera();this.hud.message(commit.complete&&!this.recoverySections.includes("Camera owners")?"Camera photo saved to Portfolio. Camera used once.":"Camera photo committed; storage recovery required. Reload to retry; do not clear storage.");}catch{/* The durable photo commit remains successful. */}
+    return true;
   }
 
   /** Education Edition camera: captures the current view (without the HUD) into the portfolio. */

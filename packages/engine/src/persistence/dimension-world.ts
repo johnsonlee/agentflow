@@ -1,3 +1,4 @@
+import {readCameras}from "../education/placed-camera";
 import { diagnoseRawNpcActions } from "../education/npc-actions";
 import{readComposterOwners}from './composter-state';
 import{diagnoseRawComposterOwnership}from './composter-ownership';
@@ -16,13 +17,13 @@ export const DIMENSION_WORLD_KEYS = [
   "seed", "generatorVersion", "player", "edits", "npcs", "chalkboards",
   "furnaces", "composters", "redstone", "farming", "caneGrowth", "fire", "fluids", "portals",
   "gravelHarvests", "worldDrops", "mobs", "leashes", "balloons",
-  "snowballProjectiles", "blazeFireballs", "brewingStands", "chests",
+  "snowballProjectiles", "blazeFireballs", "brewingStands", "chests", "cameras",
 ] as const satisfies readonly (keyof SaveData)[];
 export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[number]>;
 const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
 const required = ["seed", "player", "edits"] as const;
 const sourceDiagnostics = [
-  "npcActionsInvalid", "codeWorkspaceInvalid", "caneGrowthInvalid",
+  "camerasInvalid", "npcActionsInvalid", "codeWorkspaceInvalid", "caneGrowthInvalid",
   "composterOwnershipIssues", "woodSlabOwnershipIssues", "recyclingOwnershipIssues", "caneOwnershipIssues", "boneMealOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
   "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
   "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
@@ -30,6 +31,7 @@ const sourceDiagnostics = [
   "fireInvalid", "ignitionOwnershipIssues", "gravelHarvestInvalid",
 ] as const satisfies readonly (keyof SaveData)[];
 function assertNoSourceDiagnostics(save: SaveData): void {
+  if(!readCameras(save.cameras))throw Error("Invalid source Camera ownership");
   if (diagnoseRawNpcActions(save)) throw new Error("Invalid source NPC URL buttons");
   if(diagnoseRawComposterOwnership(save).length)throw new Error("Invalid source Composter ownership");
   if(diagnoseRawWoodSlabOwnership(save).length)throw new Error("Invalid source Slab ownership");

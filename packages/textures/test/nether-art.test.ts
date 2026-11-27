@@ -5,7 +5,7 @@ import {allAtlasTextureNames} from "../../engine/src/catalog/atlas-texture-names
 import {hasItemTile} from "../src/atlas/tiles";
 import baseline from "../../engine/test/fixtures/nether-7c-baseline.json";
 it("preserves all875 clean7c original pixel hashes and UVs, appending only10 original Nether tiles",()=>{
- const names=allAtlasTextureNames(),a=buildAtlas(names);expect(names.length).toBe(918);expect(names.slice(0,875)).toEqual(baseline.tiles.map(t=>t.name));
+ const names=allAtlasTextureNames(),a=buildAtlas(names);expect(names.length).toBe(919);expect(names.slice(0,875)).toEqual(baseline.tiles.map(t=>t.name));
   expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
   expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
  for(const t of baseline.tiles){expect(createHash("sha256").update(a.tilePixels(t.name)).digest("hex")).toBe(t.rgbaSHA256);expect(a.uv(t.name)).toEqual(t.uv);}

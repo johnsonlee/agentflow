@@ -23,6 +23,7 @@ import { sanitizeFurnaces, sanitizeChalkboards, sanitizeNpcs } from "./savecheck
 import { sanitizeMobState, restoreMobSnapshot } from "./mob-save";
 import { sanitizeWorldDrops } from "../ownership/world-drops";
 import { LeashStore } from "../ownership/leashes";
+import {readCameras}from "../education/placed-camera";
 import { BalloonStore } from "../ownership/balloons";
 import { SnowballProjectiles } from "../simulation/snowball-projectiles";
 import { smeltResult } from "../crafting/smelting";
@@ -207,6 +208,7 @@ function readWorld(raw: unknown, dimension: DimensionId, prefix: string, issues:
     if (leashes.loadIssues || leashes.validateCrossReferences(context)) add("leashes", "Invalid archived Leash owners or references");
     else { try { section("leashes", false, leashes.toJSON()); } catch { add("leashes", "Unresolved archived Leash owners"); } }
   }
+  if(has(raw,"cameras"))section("cameras",!readCameras(raw.cameras),readCameras(raw.cameras));
   const balloons = new BalloonStore(raw.balloons);
   if (has(raw, "balloons")) {
     for (const r of balloons.records) if (r.phase === "active" && r.target.kind === "fence" && block(r.target.x, r.target.y, r.target.z) === undefined) add("balloons", "Unverified fence target");

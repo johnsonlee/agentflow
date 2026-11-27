@@ -12,7 +12,7 @@ it("appends ten sparkler states without changing any of the 849 published tile p
   expect(names.slice(849, 859)).toEqual(SPARKLER_COLORS.flatMap(color => [color.iconInactive, color.iconActive]));
   expect(names.slice(885, 890)).toEqual(["item_awkward_potion", "item_antidote", "item_elixir", "item_eye_drops", "item_tonic"]);
   expect(names.slice(890, 892)).toEqual(["brewing_stand_base", "brewing_stand_rod"]);
-  expect(names).toHaveLength(918);
+  expect(names).toHaveLength(919);
   const atlas = buildAtlas(names);
   expect([atlas.width, atlas.height, atlas.tileSize]).toEqual([baseline.atlas.width, baseline.atlas.height, baseline.atlas.tileSize]);
   for (const name of baseline.names) {

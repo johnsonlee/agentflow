@@ -46,6 +46,12 @@ export class Portfolio {
     return photo;
   }
 
+  prepareCaptured(dataUrl:string){
+    if(!dataUrl.startsWith("data:image/jpeg;base64,"))throw Error("Invalid Camera photo");
+    const photo={id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,dataUrl,caption:"",takenAt:new Date().toISOString()};
+    const photos=[photo,...this.photos].slice(0,MAX_PHOTOS);return{photo,photos,raw:JSON.stringify(photos)};
+  }
+  adoptCaptured(photos:Photo[]):void{this.photos=photos;}
   remove(id: string): void {
     this.photos = this.photos.filter((p) => p.id !== id);
     this.persist();

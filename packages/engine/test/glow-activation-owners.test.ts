@@ -105,7 +105,7 @@ describe("untimed glow state across actual engine owners", () => {
   });
 
   it("retains existing Glow identities with the append-only Spider Eye catalog sizes", () => {
-    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([604,345,205,918]);
+    expect([ITEMS.length, BLOCKS.length, RECIPES.length, allAtlasTextureNames().length]).toEqual([605,345,205,919]);
     expect(stackId("glow_stick")).toBe(426); expect(stackId("red_glow_stick")).toBe(793);
   });
 

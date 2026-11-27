@@ -1,3 +1,4 @@
+import {CameraStore}from "../src/education/placed-camera";
 import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Inventory, blockId, createHunger, freshStack, parseSave, stackId } from "../src";
@@ -8,9 +9,9 @@ class Cell {
   setAttribute() {} addEventListener() {} click() {} remove() {}
 }
 function game(cells: Record<string, number> = { "0,33,-2": blockId("water") }) {
-  const g = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), own = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
+  const g = Object.assign(Object.create(Game.prototype), { cameras:new CameraStore(), statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), own = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(g, { inventory: new Inventory(), hunger: createHunger(), playerStatus: {}, leashes: own(), balloons: own(), recoverySections: [], recoveryOriginal: null,
-    dead: false, paused: false, stopped: false, mode: "survival", screenOpen: () => false, hud: { message: vi.fn() }, keyboard: { reset: vi.fn() },
+    dead: false, paused: false, stopped: false, mode: "survival", screenOpen: () => false, hud: {setCameraAction:vi.fn(), message: vi.fn() }, keyboard: { reset: vi.fn() },
     world: { composters: {busy:false,loadIssues:[],isDisposed:false}, getBlock: (x: number, y: number, z: number) => cells[`${x},${y},${z}`] ?? 0, setBlock: vi.fn() },
     body: { position: { x: .5, y: 32, z: .5 }, yaw: 0, pitch: 0 }, mobs: { raycast: () => null }, creativeCooldown: 0, placeCooldown: 0, attackCooldown: 0, eatTimer: 0,
     redstone: { interact: () => false }, openInventory: vi.fn(), openNpcDialog: vi.fn(), markLeashRecovery: vi.fn(), markBalloonRecovery: vi.fn(), leashContext: () => ({}),

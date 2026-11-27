@@ -21,6 +21,12 @@ export class WorldRenderer {
   get lastStatusView(): PlayerStatusView { return { ...this.statusView }; }
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
+  /** Separate offscreen view, preserving the live player camera and render target. */
+  captureCamera(camera:THREE.PerspectiveCamera):string{
+    const target=new THREE.WebGLRenderTarget(480,360),previous=this.renderer.getRenderTarget();
+    try{this.renderer.setRenderTarget(target);this.renderer.clear();this.renderer.render(this.scene,camera);const pixels=new Uint8Array(480*360*4);this.renderer.readRenderTargetPixels(target,0,0,480,360,pixels);const canvas=document.createElement("canvas");canvas.width=480;canvas.height=360;const context=canvas.getContext("2d");if(!context)throw Error("Photo canvas unavailable");const img=context.createImageData(480,360);for(let y=0;y<360;y++)img.data.set(pixels.subarray((359-y)*480*4,(360-y)*480*4),y*480*4);context.putImageData(img,0,0);return canvas.toDataURL("image/jpeg",.8);}
+    finally{this.renderer.setRenderTarget(previous);target.dispose();}
+  }
   readonly camera = new THREE.PerspectiveCamera(70, 1, 0.05, 1000);
   renderDistance = 6;
 

@@ -22,6 +22,7 @@ export interface HudCallbacks {
   onPause(): void;
   onChat(): void;
   onCamera(): void;
+  onPlacedCamera?():void;
   onPortfolio(): void;
   onCodeBuilder(): void;
   onShakeGlow(): void;
@@ -50,6 +51,8 @@ export class Hud {
   private itemNameTimer = 0;
   private lastSignature = "";
   private selectedSignature = "";
+  private readonly placedCameraAction=el("button","mc-button sparkler-action","Place Camera");
+  setCameraAction(label:string|null):void{this.placedCameraAction.hidden=label===null;this.placedCameraAction.textContent=label??"Place Camera";}
   private readonly shakeGlow = el("button", "mc-button glow-shake-button", "Shake");
 
   private readonly lightSparkler = el("button", "mc-button sparkler-action", "Light");
@@ -167,7 +170,11 @@ export class Hud {
       button.addEventListener("click", e => { e.stopPropagation(); action(); });
       sparklerActions.appendChild(button);
     }
-    sparklerActions.appendChild(this.offhandName);
+    this.placedCameraAction.hidden=true;
+    this.placedCameraAction.addEventListener("pointerdown",e=>e.stopPropagation());
+    this.placedCameraAction.addEventListener("keydown",e=>{if(e.code==="Space"||e.code==="Enter")e.stopPropagation();});
+    this.placedCameraAction.addEventListener("click",e=>{e.stopPropagation();callbacks.onPlacedCamera?.();});
+    sparklerActions.append(this.placedCameraAction,this.offhandName);
     bottom.prepend(this.shakeGlow, sparklerActions);
     this.root.appendChild(bottom);
     this.debug.hidden = true;

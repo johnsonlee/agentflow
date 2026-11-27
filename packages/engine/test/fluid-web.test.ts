@@ -1,10 +1,11 @@
+import {CameraStore}from "../src/education/placed-camera";
 import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { Inventory, World, createHunger, stackId, blockId, freshStack } from "../src";
 import { Game } from "../../../apps/web/src/application/game";
 function game(support="water"){
- const g=Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), own=()=>({busy:false,records:[],reconcileLoadedReferences:vi.fn(),validateCrossReferences:vi.fn()});
- Object.assign(g,{world:new World(12345),inventory:new Inventory(),hunger:createHunger(),playerStatus:{},recoverySections:[],recoveryOriginal:null,drinkOwner:null,leashes:own(),balloons:own(),paused:false,dead:false,stopped:false,mode:"survival",health:20,body:{position:{x:.5,y:33,z:.5},yaw:0,pitch:-1.45},hud:{message:vi.fn(),flashDamage:vi.fn()},keyboard:{reset:vi.fn()},screenOpen:()=>false,mobs:{raycast:()=>null},attackCooldown:0,placeCooldown:0,creativeCooldown:0,redstone:{interact:()=>false},breakProgress:0,eatTimer:0});
+ const g=Object.assign(Object.create(Game.prototype), { cameras:new CameraStore(), statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] }), own=()=>({busy:false,records:[],reconcileLoadedReferences:vi.fn(),validateCrossReferences:vi.fn()});
+ Object.assign(g,{world:new World(12345),inventory:new Inventory(),hunger:createHunger(),playerStatus:{},recoverySections:[],recoveryOriginal:null,drinkOwner:null,leashes:own(),balloons:own(),paused:false,dead:false,stopped:false,mode:"survival",health:20,body:{position:{x:.5,y:33,z:.5},yaw:0,pitch:-1.45},hud:{setCameraAction:vi.fn(),message:vi.fn(),flashDamage:vi.fn()},keyboard:{reset:vi.fn()},screenOpen:()=>false,mobs:{raycast:()=>null},attackCooldown:0,placeCooldown:0,creativeCooldown:0,redstone:{interact:()=>false},breakProgress:0,eatTimer:0});
  for(let y=33;y<=38;y++)g.world.setBlock(0,y,0,0);g.world.setBlock(0,32,0,blockId(support));return g;
 }
 beforeEach(()=>vi.stubGlobal("document",{createElement:()=>({}),pointerLockElement:null}));

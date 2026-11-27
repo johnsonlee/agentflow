@@ -81,7 +81,7 @@ describe("procedural textures", () => {
         "sugar_cane_plant", "item_sugar_cane", "item_paper",
         "item_leather_helmet", "item_leather_chestplate", "item_leather_leggings", "item_leather_boots",
         "item_iron_nugget", "item_gold_nugget",
-        "item_bone", "item_bone_meal",
+        "item_bone", "item_bone_meal", "item_camera",
         "blue_torch", "red_torch", "purple_torch", "green_torch",
         "birch_leaves", "dandelion", "fire", "glass", "glow_stick_block", "nether_portal", "oak_leaves", "poppy", "tall_grass", "torch", "underwater_torch_block", "water",
         "lever_off", "lever_on", "redstone_torch_on", "redstone_torch_off", ...Array.from({ length: 16 }, (_, p) => `redstone_dust_${p}`),

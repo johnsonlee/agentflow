@@ -1,3 +1,4 @@
+import {CameraStore}from "../src/education/placed-camera";
 import { PlayerStatusOwner } from "../src/simulation/status-effects";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import * as THREE from "three";
@@ -35,10 +36,10 @@ function screen() {
   return value;
 }
 function game() {
-  const value = Object.assign(Object.create(Game.prototype), { statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] });
+  const value = Object.assign(Object.create(Game.prototype), { cameras:new CameraStore(), statusOwner: new PlayerStatusOwner(), statusVisualSeconds: 0, brewingStands: new Map(), brewingIssues: [], chests:new Map(),chestIssues:[] });
   const ownership = () => ({ busy: false, records: [], reconcileLoadedReferences: vi.fn(), validateCrossReferences: vi.fn() });
   Object.assign(value, { inventory: new Inventory(), leashes: ownership(), balloons: ownership(), recoverySections: [], recoveryOriginal: null,
-    stopped: false, dead: false, paused: false, screenOpen: () => false, hud: { message: vi.fn() }, sparklerView: { update: vi.fn() },
+    stopped: false, dead: false, paused: false, screenOpen: () => false, hud: {setCameraAction:vi.fn(), message: vi.fn() }, sparklerView: { update: vi.fn() },
     leashContext: () => ({}), markLeashRecovery: vi.fn(), markBalloonRecovery: vi.fn(), keyboard: { reset: vi.fn() }, name: "Sparkler recovery", savePayload: vi.fn(() => '{"version":1}'),
     world: { composters: {busy:false,loadIssues:[],isDisposed:false}, getBlock: () => 0 }, body: { position: { x: 0, y: 32, z: 0 }, yaw: 0, pitch: 0 }, mobs: { raycast: () => null },
     creativeCooldown: 0, placeCooldown: 0, attackCooldown: 0, mode: "survival", hunger: { food: 20 }, redstone: { interact: () => false },

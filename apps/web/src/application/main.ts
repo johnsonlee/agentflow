@@ -1,3 +1,4 @@
+import {recoverCameraCapture,CAMERA_JOURNAL_KEY}from "../persistence/cameraCaptureJournal";
 import { tryBlockById, blockId, allAtlasTextureNames, parseSave, seedFromString, stackId, type PortalContactTicket, type GameMode, type SaveData } from "@craft/engine";
 import { buildAtlas, MAX_PACK_BYTES, parseLocalTexturePack, type ParsedLocalTexturePack, type TextureAtlas } from "@craft/textures";
 import { readLocalTexturePack, writeLocalTexturePack } from "../persistence/resourcePackStore";
@@ -63,6 +64,10 @@ function screen(className: string, ...children: HTMLElement[]): HTMLElement {
 }
 
 function showTitle(): void {
+  try{recoverCameraCapture();}catch(error){
+    app.replaceChildren();const panel=el("div","panel");panel.append(el("h2","","Camera save recovery"),el("p","", "A committed Camera photo needs storage recovery. Free browser storage space without clearing this site's data, then retry. Existing world and journal are preserved."),button("Retry Camera recovery",showTitle),button("Download Camera recovery data",()=>{const raw=JSON.stringify({cameraJournal:localStorage.getItem(CAMERA_JOURNAL_KEY),world:localStorage.getItem(SAVE_KEY),photos:localStorage.getItem("craft.portfolio.v1")});downloadWorldBackup(raw);}));app.append(panel);return;
+  }
+
   leaveImport();
   resourceGeneration++;
   app.replaceChildren();
@@ -233,7 +238,7 @@ function showHelp(): void {
     <p><b>⤒</b> jump · <b>✈</b> fly (Creative) · <b>⤓</b> sneak / fly down · <b>•••</b> inventory · <b>📷</b> camera · <b>🖼</b> portfolio</p>
     <h3>Education Edition features</h3>
     <p><b>Allow</b> / <b>Deny</b>: in Survival you can only build above Allow blocks, never above Deny blocks. <b>Border</b> blocks are unbreakable.</p>
-    <p><b>Camera &amp; Portfolio</b>: <b>C</b> (📷) takes a photo, <b>P</b> (🖼) opens the portfolio, where you can caption, save or delete photos.</p>
+    <p><b>Camera &amp; Portfolio</b>: <b>C</b> (📷) takes a photo, <b>P</b> (🖼) opens the portfolio, where you can caption, save or delete photos. Place a Camera from Creative inventory on a solid top face, then Activate Camera for a five-second tracking photo. Pausing or opening a screen freezes the timer; a cold load restores it idle.</p>
     <p><b>NPCs</b>: <code>/summon npc Name</code>; right click (tap) an NPC to talk. In Creative you can edit its name, dialogue and up to six URL buttons. Links open only when clicked. Creative editing is a local app policy; native World Builder permissions, command actions and automatic actions are not supported.</p>
     <h3>Crafting &amp; mobs</h3>
     <p>Survival inventory has a 2×2 crafting grid; right click a <b>Crafting Table</b> for 3×3. Pigs, sheep, chickens and adult cows roam grassland; left click to attack (sheep drop wool). Buckets collect and place one Water or Lava source at a time. Liquids stay in place. Water above or beside Lava turns it into Obsidian; use a Diamond Pickaxe to harvest it. Lava hurts on contact. Use an empty Bucket on an adult cow for milk. Hold use to drink milk and remove active effects.</p>

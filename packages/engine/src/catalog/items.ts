@@ -258,6 +258,8 @@ const specs: Omit<ItemDef, "id">[] = [
   // Append after all602 existing items ending at GoldNugget857; no dye or Lab product alias.
   material("bone", "Bone"),
   material("bone_meal", "Bone Meal"),
+  // Append-only original Camera; stack1 is an application bound, no Survival recipe.
+  { name: "camera", displayName: "Camera", maxStack: 1, icon: "item_camera" },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

@@ -250,3 +250,6 @@ ITEM_TILE_GENERATORS.item_flint = flintTile;
 ITEM_TILE_GENERATORS.item_flint_and_steel = flintAndSteelTile;
 
 Object.assign(ITEM_TILE_GENERATORS, FLUID_ITEM_GENERATORS);
+
+// Original teal lens and tripod silhouette; no imported game pixels.
+ITEM_TILE_GENERATORS.item_camera=(t)=>{t.fill(()=>null);paint(t,(x,y)=>x>=2&&x<=13&&y>=3&&y<=10,["#414b55","#626e79"].map(hex));paint(t,(x,y)=>(x-8)**2+(y-7)**2<=9,["#277e94","#74d5e3"].map(hex));paint(t,(x,y)=>y>=11&&(x===7||x===8||y===14&&x>=4&&x<=11),["#9aa7ae"].map(hex));return t;};

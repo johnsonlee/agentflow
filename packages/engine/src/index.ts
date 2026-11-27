@@ -1,3 +1,4 @@
+export * from "./education/placed-camera";
 export * from "./catalog/metal-nuggets";
 export * from "./catalog/blocks";
 export * from "./catalog/metal-storage";

@@ -5,7 +5,7 @@ const atom=(p:number,n:number,count:number):ItemStack=>{const r=constructElement
 it('Cane craft and existing Compound Creator resolve one Sugar identity, with existing formula and contiguous catalog unchanged',()=>{
  const chemical=createCompound([atom(6,6,6),atom(1,0,12),atom(8,8,6)]);expect(chemical).toEqual({id:stackId('sugar')});
  const g:[ItemStack|null,ItemStack|null,ItemStack|null,ItemStack|null]=[{id:stackId('sugar_cane'),count:1},null,null,null];expect(craftOnce(g,2)).toEqual(sugar());expect(g).toEqual([null,null,null,null]);
- expect(itemById(stackId('sugar')).chem).toEqual({kind:'compound',formula:'C₆H₁₂O₆'});expect(ITEMS).toHaveLength(604);expect(ITEMS.filter(x=>x.name==='sugar')).toHaveLength(1);expect(RECIPES).toHaveLength(205);
+ expect(itemById(stackId('sugar')).chem).toEqual({kind:'compound',formula:'C₆H₁₂O₆'});expect(ITEMS).toHaveLength(605);expect(ITEMS.filter(x=>x.name==='sugar')).toHaveLength(1);expect(RECIPES).toHaveLength(205);
 });
 it('finite raw Cane converts one at a time in either grid without promising invalid, extra or physical-source output',()=>{
  for(const size of[2,3])for(let index=0;index<size*size;index++){

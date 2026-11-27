@@ -48,9 +48,13 @@ import type { Chalkboard } from "../education/chalkboard";
 import type { AgentState } from "../automation/agent";
 import type { CodeProgram } from "../automation/codebuilder";
 
+import { readCameras, type CamerasData } from "../education/placed-camera";
+
 export const SAVE_VERSION = 1;
 
 export interface SaveData {
+  cameras?: CamerasData;
+  camerasInvalid?: boolean;
   /** Derived before sanitation; never trusted from JSON or serialized as a schema field. */
   recyclingOwnershipIssues?: RecyclingOwnershipIssue[];
   version: number;
@@ -157,6 +161,7 @@ export interface SaveData {
 }
 
 export function serializeSave(data: Omit<SaveData, "version">, generatedBlockProbe: DimensionGeneratedBlockProbe = createDimensionGeneratedBlockProbe()): string {
+  if(data.camerasInvalid||!readCameras(data.cameras))throw Error("Cannot serialize invalid Camera ownership");
   if (data.npcActionsInvalid || diagnoseRawNpcActions(data)) throw new Error("Cannot serialize invalid NPC URL buttons");
   const caneGrowth = readCaneGrowthState(data.caneGrowth);
   if (data.caneGrowthInvalid || caneGrowth.kind === "invalid") throw new Error("Cannot serialize invalid Cane growth state");
@@ -176,7 +181,7 @@ export function serializeSave(data: Omit<SaveData, "version">, generatedBlockPro
   const brewing=readBrewingStandOwners(data,(x,y,z)=>generatedBlockProbe(dimensions.kind==="valid"?dimensions.data.active:"overworld",data.seed,data.generatorVersion??1,x,y,z));
   if(data.brewingOwnershipIssues?.length||brewing.issues.length||diagnoseRawBrewingItemOwnership(data).length)throw new Error("Cannot serialize invalid brewing ownership");
   if (data.dimensionsInvalid || data.dimensionOwnershipIssues?.length || dimensions.kind === "invalid") throw new Error("Cannot serialize invalid dimension ownership");
-  const { composterOwnershipIssues:_composterIssues, woodSlabOwnershipIssues:_woodSlabIssues, boneMealOwnershipIssues:_boneMealIssues, caneGrowthInvalid: _caneGrowthInvalid, codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, npcActionsInvalid: _npcInvalid, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
+  const { camerasInvalid:_camerasInvalid, composterOwnershipIssues:_composterIssues, woodSlabOwnershipIssues:_woodSlabIssues, boneMealOwnershipIssues:_boneMealIssues, caneGrowthInvalid: _caneGrowthInvalid, codeWorkspaceInvalid: _codeWorkspaceInvalid, recyclingOwnershipIssues:_recyclingIssues, caneOwnershipIssues:_caneIssues, chestOwnershipIssues:_chestIssues, brewingOwnershipIssues:_brewingIssues, blazeOwnershipIssues:_blazeIssues, wartOwnershipIssues:_wartIssues, dimensionsInvalid: _dimensionsInvalid, dimensionOwnershipIssues: _dimensionIssues, portalsInvalid:_portalsInvalid, portalOwnershipIssues:_portalIssues, fluidsInvalid:_fluidsInvalid, generatorVersionInvalid:_generatorVersionInvalid, fireInvalid: _fireInvalid, ignitionOwnershipIssues: _ignitionIssues, glowOwnershipIssues: _derivedIssues, sparklerOwnershipIssues: _sparklerIssues, bottleOwnershipIssues: _bottleIssues, bucketOwnershipIssues: _bucketIssues, npcActionsInvalid: _npcInvalid, cowStateInvalid: _cowInvalid, gravelHarvestInvalid: _gravelInvalid, playerStatusInvalid: _statusInvalid, ...owned } = data;
   if (codeWorkspace.kind === "valid") owned.codeWorkspace = codeWorkspace.data;
   if (caneGrowth.kind === "valid") owned.caneGrowth = caneGrowth.data;
   if (dimensions.kind === "valid") owned.dimensions = dimensions.data;
@@ -495,6 +500,8 @@ export function parseSave(text: string, generatedBlockProbe: DimensionGeneratedB
   const status = sanitizePlayerStatus(own(raw, "playerStatus"));
   if (status.invalid) save.playerStatusInvalid = true;
   else if (hasPlayerStatus(status.data)) save.playerStatus = status.data;
+  const cameras=readCameras(own(raw,"cameras"));
+  if(!cameras)save.camerasInvalid=true;else if(own(raw,"cameras")!==undefined)save.cameras=cameras;
   // Optional sections: passed through for their own sanitizers.
   for (const key of ["npcs", "hunger", "agent", "programs", "chalkboards", "furnaces", "redstone", "worldDrops", "mobs", "leashes", "playerState", "snowballProjectiles", "balloons"] as const) {
     const v = own(raw, key);
