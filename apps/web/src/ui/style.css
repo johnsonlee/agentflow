@@ -600,3 +600,11 @@ body.touch .chat-log { top: max(8px, env(safe-area-inset-top)); bottom: auto; ma
 /* Drop-all uses the existing direction control and a reachable touch/keyboard palette action. */
 .cb-palette-block[data-palette="drop-all"] { min-height:44px; min-width:44px; font-size:16px; }
 .cb-block[data-type="drop-all"] .cb-select { min-height:44px; min-width:44px; font-size:16px; }
+
+/* Core assessment export stays visible and reachable in portrait and landscape. */
+.portfolio-export-controls { display:flex; flex-wrap:wrap; align-items:center; gap:10px; margin:10px 0 14px; }
+.portfolio-export-controls .mc-button, .portfolio-panel .close-button, .portfolio-panel .photo-actions .mc-button { min-height:44px; min-width:44px; }
+.portfolio-export-controls .mc-button { font-size:16px; }
+.portfolio-export-status { flex:1 1 240px; margin:0; overflow-wrap:anywhere; }
+.portfolio-panel .photo-caption { min-height:44px; font-size:16px; box-sizing:border-box; max-width:100%; }
+@media(max-width:480px) { .portfolio-export-controls .mc-button { width:100%; } .portfolio-export-status { flex-basis:100%; } .photo-grid { grid-template-columns:minmax(0,1fr); } }

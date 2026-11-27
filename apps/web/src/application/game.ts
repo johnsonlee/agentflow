@@ -422,7 +422,7 @@ export class Game {
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
       ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
-    this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio(),()=>this.canMutatePortfolio());
+    this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio(),()=>this.canMutatePortfolio(),undefined,()=>this.canExportPortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob, draft) => this.commitNpcEdit(mob, draft));
     this.registerCleanup("NPC dialog", () => { this.npcSession = null; this.npcDialog.hide(); });
     this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
@@ -2451,6 +2451,10 @@ export class Game {
 
   private canMutatePortfolio():boolean{
     return !this.dead&&!this.stopped&&!this.prepared&&!Game.handoffBusy&&Game.activeWriter===this&&!this.ownershipBusy&&!this.actionsNeedRecovery;
+  }
+  private canExportPortfolio():boolean{
+    if(!this.canMutatePortfolio())return false;
+    try{return localStorage.getItem(CAMERA_JOURNAL_KEY)===null&&this.canMutatePortfolio();}catch{return false;}
   }
   private togglePortfolio(): void {
     if(this.portfolioScreen.open){

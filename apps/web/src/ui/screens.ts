@@ -1,3 +1,5 @@
+import{portfolioExportSnapshot,buildPortfolioZip,ExportCancelled,type ExportPhoto}from'../assessment/portfolio-export';
+import{downloadBlob}from'../platform/download';
 import { readNpcActionField, readNpcActions, NPC_MAX_BUTTONS, type NpcActions } from "@craft/engine";
 import { sanitizePhotos, BOOK_MAX_PAGES, BOOK_PAGE_CHARS, BOOK_TITLE_CHARS, CHALKBOARD_SIZES, canEditChalkboard, clampChalkText, isWritableBook, signBook, writeBook, type Chalkboard, type ItemStack } from "@craft/engine";
 import type { Mob } from "@craft/engine";
@@ -47,6 +49,8 @@ export class Portfolio {
     return photo;
   }
 
+  exportSnapshot(current:()=>boolean,drafts?:ReadonlyMap<string,string>):readonly ExportPhoto[]{return portfolioExportSnapshot(this.photos,()=>this.canWrite()&&current(),drafts);}
+
   prepareCaptured(dataUrl:string){
     if(!dataUrl.startsWith("data:image/jpeg;base64,"))throw Error("Invalid Camera photo");
     const photo={id:`${Date.now()}-${Math.random().toString(36).slice(2,7)}`,dataUrl,caption:"",takenAt:new Date().toISOString()};
@@ -82,12 +86,17 @@ export class Portfolio {
   }
 }
 
+export interface PortfolioExportServices{build:typeof buildPortfolioZip;download:typeof downloadBlob}
+const portfolioExportServices:PortfolioExportServices={build:buildPortfolioZip,download:downloadBlob};
 export class PortfolioScreen {
   readonly root = el("div", "screen portfolio-screen");
   private readonly panel = el("div", "panel portfolio-panel");
 
   private generation=0;
-  constructor(container: HTMLElement, private readonly portfolio: Portfolio, private readonly onClose: () => void,private readonly canMutate:()=>boolean=()=>true) {
+  private exportOperation:symbol|null=null;
+  private readonly downloadCleanups=new Set<()=>void>();
+  private disposeDownloads():void{for(const cleanup of this.downloadCleanups)cleanup();this.downloadCleanups.clear();}
+  constructor(container: HTMLElement, private readonly portfolio: Portfolio, private readonly onClose: () => void,private readonly canMutate:()=>boolean=()=>true,private readonly exportServices:PortfolioExportServices=portfolioExportServices,private readonly canExport:()=>boolean=canMutate) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
     container.appendChild(this.root);
@@ -104,11 +113,12 @@ export class PortfolioScreen {
   }
 
   hide(): void {
-    this.generation++;
+    this.generation++;this.exportOperation=null;this.disposeDownloads();
     this.root.hidden = true;
   }
 
   private render(): void {
+    this.exportOperation=null;this.disposeDownloads();
     const generation=++this.generation,current=()=>this.open&&generation===this.generation&&this.canMutate();
     const header = el("div", "panel-header");
     header.append(el("h2", "", `Portfolio (${this.portfolio.photos.length})`));
@@ -116,6 +126,22 @@ export class PortfolioScreen {
     close.setAttribute("aria-label", "Close portfolio");
     close.addEventListener("click", () => {if(this.open&&generation===this.generation)this.onClose();});
     header.append(close);
+    const controls=el("div","portfolio-export-controls"),exportButton=el("button","mc-button primary","Export Portfolio"),status=el("p","hint portfolio-export-status"),drafts=new Map<string,HTMLInputElement>();
+    exportButton.disabled=this.portfolio.photos.length===0;status.setAttribute("role","status");status.setAttribute("aria-live","polite");
+    const exportAll=async()=>{
+      if(!current()||!this.canExport()||this.exportOperation!==null||exportButton.disabled)return;
+      const token=Symbol('portfolio-export');this.exportOperation=token;exportButton.disabled=true;status.textContent="Preparing ZIP…";
+      const alive=()=>this.exportOperation===token&&current()&&this.canExport();
+      try{
+        const snapshot=this.portfolio.exportSnapshot(alive,new Map([...drafts].map(([id,input])=>[id,input.value])));
+        const result=await this.exportServices.build(snapshot,alive);if(!alive())return;
+        let cleanup:(()=>void)|undefined;cleanup=this.exportServices.download(result.blob,"portfolio.zip",alive,()=>{if(cleanup)this.downloadCleanups.delete(cleanup);});
+        if(!alive()){cleanup();return;}this.downloadCleanups.add(cleanup);status.textContent=`Exported ${result.photos} photo${result.photos===1?'':'s'}. ZIP includes JPGs and app-specific captions.json.`;
+      }catch(error){if(alive())status.textContent=error instanceof ExportCancelled?error.message:"Could not export all photos. "+(error instanceof Error?error.message:"Please try again.");}
+      finally{if(this.exportOperation===token){this.exportOperation=null;if(current())exportButton.disabled=this.portfolio.photos.length===0;}}
+    };
+    exportButton.addEventListener("click",()=>{void exportAll();});
+    controls.append(exportButton,status);
     const grid = el("div", "photo-grid");
     if (this.portfolio.photos.length === 0) grid.append(el("p", "hint", "No photos yet. Press C (or 📷) to take one."));
     for (const photo of this.portfolio.photos) {
@@ -124,7 +150,7 @@ export class PortfolioScreen {
       img.src = photo.dataUrl;
       img.alt = photo.caption || "World photo";
       const caption = el("input", "mc-input photo-caption");
-      caption.value = photo.caption;
+      caption.value = photo.caption;drafts.set(photo.id,caption);
       caption.placeholder = "Add a caption…";
       caption.setAttribute("aria-label", "Photo caption");
       caption.addEventListener("keydown", (e) => e.stopPropagation());
@@ -143,7 +169,7 @@ export class PortfolioScreen {
       card.append(img, caption, actions);
       grid.appendChild(card);
     }
-    this.panel.replaceChildren(header, grid);
+    this.panel.replaceChildren(header, controls, grid);
   }
 }
 
