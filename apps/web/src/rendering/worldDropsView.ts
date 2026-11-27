@@ -1,5 +1,7 @@
 import * as THREE from "three";
 import { blockById, isItem, itemById, inspectSparklerState, isSparklerId, SPARKLER_COLORS, sparklerColor, type ItemStack, type WorldDrops } from "@craft/engine";
+import {groundPhotoCamera,supportedGroundPhoto} from './groundCamera';
+import type {DroppedItemRecord,Vec3,World} from '@craft/engine';
 import type { TextureAtlas } from "@craft/textures";
 
 /** Original atlas art for world-owned items. View lifetime never controls store ownership. */
@@ -34,6 +36,21 @@ export class WorldDropsView {
       mesh.rotation.y = time + drop.key;
     }
     for (const [key, mesh] of this.meshes) if (!wanted.has(key)) { this.scene.remove(mesh); this.meshes.delete(key); }
+  }
+  /** Detached owner/view observation; photography never publishes or transforms a ground owner. */
+  groundSubject(world:World,time:number,eye:Vec3,direction:Vec3,reach:number,occlusion:number):{record:DroppedItemRecord;camera:THREE.PerspectiveCamera;distance:number;center:Vec3}|null{
+    if(this.disposed)return null;
+    this.update(time,new THREE.Vector3(eye.x,eye.y,eye.z),reach+1);this.scene.updateMatrixWorld(true);
+    const ray=new THREE.Raycaster(new THREE.Vector3(eye.x,eye.y,eye.z),new THREE.Vector3(direction.x,direction.y,direction.z).normalize(),0,reach);
+    const hits=ray.intersectObjects([...this.meshes.values()],false);
+    for(const hit of hits){
+      if(hit.distance>=occlusion-1e-8)return null;
+      const key=hit.object.userData.worldDropKey as number,record=this.store.records.find(r=>r.key===key);
+      if(!record||!supportedGroundPhoto(world,record))return null;
+      const bounds=new THREE.Box3().setFromObject(hit.object);
+      try{return{record,camera:groundPhotoCamera(eye,bounds),distance:hit.distance,center:bounds.getCenter(new THREE.Vector3())};}catch{return null;}
+    }
+    return null;
   }
   private shape(stack: ItemStack): THREE.BufferGeometry {
     const id = stack.id;

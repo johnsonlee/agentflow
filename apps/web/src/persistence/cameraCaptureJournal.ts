@@ -15,9 +15,14 @@ export function recoverCameraCapture(storage:Store=localStorage):void{
  storage.setItem(WORLD,q.afterWorld);storage.setItem(PHOTOS,q.afterPhotos);
  if(storage.getItem(WORLD)!==q.afterWorld||storage.getItem(PHOTOS)!==q.afterPhotos)throw Error("Camera capture could not be persisted");storage.removeItem(CAMERA_JOURNAL_KEY);
 }
-export function commitCameraCapture(afterWorld:string,afterPhotos:string,storage:Store=localStorage):{committed:boolean;complete:boolean}{
+export function commitCameraCapture(afterWorld:string,afterPhotos:string,storage:Store=localStorage,valid:()=>boolean=()=>true):{committed:boolean;complete:boolean;uncertain?:boolean}{
  if(storage.getItem(CAMERA_JOURNAL_KEY)!==null)return{committed:false,complete:false};
  const q:Journal={version:1,beforeWorld:storage.getItem(WORLD),beforePhotos:storage.getItem(PHOTOS),afterWorld,afterPhotos};const raw=JSON.stringify(q);read(raw);
- try{storage.setItem(CAMERA_JOURNAL_KEY,raw);}catch{return{committed:false,complete:false};}
+ if(!valid())return{committed:false,complete:false};
+ try{storage.setItem(CAMERA_JOURNAL_KEY,raw);}catch{
+  // A host can throw after writing. Confirm the exact durable intent before deciding to retry.
+  try{if(storage.getItem(CAMERA_JOURNAL_KEY)!==raw)return{committed:false,complete:false};}catch{return{committed:false,complete:false,uncertain:true};}
+ }
+ try{if(storage.getItem(CAMERA_JOURNAL_KEY)!==raw)return{committed:false,complete:false,uncertain:true};}catch{return{committed:false,complete:false,uncertain:true};}
  try{recoverCameraCapture(storage);return{committed:true,complete:true};}catch{return{committed:true,complete:false};}
 }

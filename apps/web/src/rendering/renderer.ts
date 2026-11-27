@@ -22,10 +22,13 @@ export class WorldRenderer {
   readonly renderer: THREE.WebGLRenderer;
   readonly scene = new THREE.Scene();
   /** Separate offscreen view, preserving the live player camera and render target. */
-  captureCamera(camera:THREE.PerspectiveCamera):string{
-    const target=new THREE.WebGLRenderTarget(480,360),previous=this.renderer.getRenderTarget();
-    try{this.renderer.setRenderTarget(target);this.renderer.clear();this.renderer.render(this.scene,camera);const pixels=new Uint8Array(480*360*4);this.renderer.readRenderTargetPixels(target,0,0,480,360,pixels);const canvas=document.createElement("canvas");canvas.width=480;canvas.height=360;const context=canvas.getContext("2d");if(!context)throw Error("Photo canvas unavailable");const img=context.createImageData(480,360);for(let y=0;y<360;y++)img.data.set(pixels.subarray((359-y)*480*4,(360-y)*480*4),y*480*4);context.putImageData(img,0,0);return canvas.toDataURL("image/jpeg",.8);}
-    finally{this.renderer.setRenderTarget(previous);target.dispose();}
+  captureCamera(camera:THREE.PerspectiveCamera,options?:{width:number;height:number;hideSelection?:boolean}):string{
+    const width=options?.width??480,height=options?.height??360;
+    if(![width,height].every(n=>Number.isSafeInteger(n)&&n>0&&n<=2048))throw Error('Invalid photo dimensions');
+    const target=new THREE.WebGLRenderTarget(width,height),previous=this.renderer.getRenderTarget();
+    const selection=options?.hideSelection?this.selection.visible:null,crack=options?.hideSelection?this.crack.visible:null;
+    try{if(selection!==null)this.selection.visible=false;if(crack!==null)this.crack.visible=false;this.renderer.setRenderTarget(target);this.renderer.clear();this.renderer.render(this.scene,camera);const pixels=new Uint8Array(width*height*4);this.renderer.readRenderTargetPixels(target,0,0,width,height,pixels);const canvas=document.createElement("canvas");canvas.width=width;canvas.height=height;const context=canvas.getContext("2d");if(!context)throw Error("Photo canvas unavailable");const img=context.createImageData(width,height);for(let y=0;y<height;y++)img.data.set(pixels.subarray((height-1-y)*width*4,(height-y)*width*4),y*width*4);context.putImageData(img,0,0);return canvas.toDataURL("image/jpeg",.8);}
+    finally{try{this.renderer.setRenderTarget(previous);}finally{if(selection!==null)this.selection.visible=selection;if(crack!==null)this.crack.visible=crack;target.dispose();}}
   }
   readonly camera = new THREE.PerspectiveCamera(70, 1, 0.05, 1000);
   renderDistance = 6;

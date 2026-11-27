@@ -1,3 +1,4 @@
+import {cameraUseDecision,reserveHeldCamera,type HeldCameraMode,type InventoryData}from '@craft/engine';
 import { readNpcActionField, diagnoseRawNpcActions } from "@craft/engine";
 import type { NpcEdit } from "../ui/screens";
 import {commitCameraCapture,CAMERA_JOURNAL_KEY}from "../persistence/cameraCaptureJournal";
@@ -123,6 +124,11 @@ export class Game {
   readonly cameras:CameraStore;
   private readonly placedCameraView:PlacedCameraView;
   private cameraCommitCheckpoint:CamerasData|null=null;
+  private heldCameraCommitCheckpoint:InventoryData|null=null;
+  private heldPhotoBusy=false;
+  private heldPhotoRecovery=false;
+  private heldCameraReceipt:{mode:HeldCameraMode;photoID:string;groundKey:number|null;at:number}|null=null;
+  get lastHeldCameraCapture(){return this.heldCameraReceipt&&structuredClone(this.heldCameraReceipt);}
   private cameraCountdownText="";
   private cameraCaptureReceipt:{key:number;position:{x:number;y:number;z:number};subject:{x:number;y:number;z:number};photoID:string;at:number}|null=null;
   get lastCameraCapture(){return this.cameraCaptureReceipt&&structuredClone(this.cameraCaptureReceipt);}
@@ -157,7 +163,7 @@ export class Game {
   private openChest:string|null=null;
   readonly chests=new Map<string,SingleChest>();
   private get itemsNeedRecovery(): boolean { return this.recoverySections.includes("saved items"); }
-  private get actionsNeedRecovery(): boolean { return this.itemsNeedRecovery || this.recoverySections.includes("Camera owners") || this.recoverySections.includes("NPC links") || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
+  private get actionsNeedRecovery(): boolean { return this.heldPhotoRecovery || this.itemsNeedRecovery || this.recoverySections.includes("Camera owners") || this.recoverySections.includes("NPC links") || this.recoverySections.includes("Composter owners") || this.recoverySections.includes("code workspace") || this.recoverySections.includes("Cane growth") || this.recoverySections.includes("chest owners") || this.recoverySections.includes("brewing owners") || this.recoverySections.includes("Blaze owners") || this.recoverySections.includes("dimensions") || this.recoverySections.includes("player status") || this.recoverySections.includes("adult cows") || this.recoverySections.includes("gravel harvest decisions") || this.recoverySections.includes("fire") || this.recoverySections.includes("fluids") || this.recoverySections.includes("portals"); }
   private dimensionArchive: DimensionsData | undefined;
   private dimensionIssues: DimensionSaveIssue[] = [];
   private stopped = false;
@@ -169,8 +175,9 @@ export class Game {
     else if (this.hadPointerLock && this.running && !this.screenOpen() && !this.dead) this.pause();
   };
   private readonly mobLoot = new MobLootResolver();
-  private get transferBusy(): boolean { return this.statusOwner.busy || !!this.inventory?.busy || !!this.agent && isInventoryBusy(this.agent) || [...this.chests.values()].some(chest=>chest.busy) || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (this.world.composters.busy || isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
-  private get ownershipBusy(): boolean { return !!this.cameras?.busy || this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy || (!!this.furnaces && [...this.furnaces.values()].some(furnaceMutationBusy)); }
+  private get nonInventoryTransferBusy(): boolean { return this.statusOwner.busy || !!this.agent && isInventoryBusy(this.agent) || [...this.chests.values()].some(chest=>chest.busy) || [...this.brewingStands.values()].some(stand=>stand.busy) || this.leashes.busy || this.balloons.busy || !!this.mobs?.fireballBusy || !!this.world && (this.world.composters.busy || isFluidActionBusy(this.world) || isPortalActionBusy(this.world)); }
+  private get transferBusy():boolean{return !!this.inventory?.busy||this.nonInventoryTransferBusy;}
+  private get ownershipBusy(): boolean { return this.heldPhotoBusy || this.heldPhotoRecovery || !!this.cameras?.busy || this.prepared || this.portalTransfer || this.stopped || Game.handoffBusy || this.transferBusy || (!!this.furnaces && [...this.furnaces.values()].some(furnaceMutationBusy)); }
   private readonly dropSink: DropSink = (stacks, at, velocity) => this.worldDrops.planSpawnBatch(stacks, at, velocity);
 
   readonly world: World;
@@ -179,7 +186,7 @@ export class Game {
   readonly renderer: WorldRenderer;
   readonly hud: Hud;
   readonly mobs: MobManager;
-  readonly portfolio = new Portfolio();
+  readonly portfolio = new Portfolio(()=>this.canMutatePortfolio());
   inventory: Inventory;
   mode: GameMode;
   timeOfDay: number;
@@ -403,6 +410,7 @@ export class Game {
       onChat: () => this.openChat(),
       onCamera: () => this.takePhoto(),
       onPlacedCamera:()=>this.interact(false,true,false,false,0),
+      onHeldCamera:mode=>{this.captureHeldCamera(mode);},
       onPortfolio: () => this.togglePortfolio(),
       onCodeBuilder: () => this.openCodeBuilder(),
       onShakeGlow: () => { this.tryShakeSelectedGlow(); },
@@ -414,7 +422,7 @@ export class Game {
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
       ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
-    this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio());
+    this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio(),()=>this.canMutatePortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob, draft) => this.commitNpcEdit(mob, draft));
     this.registerCleanup("NPC dialog", () => { this.npcSession = null; this.npcDialog.hide(); });
     this.chalkDialog = new ChalkboardDialog(this.root, () => this.closeDialog(this.chalkDialog), (board) => this.chalkViews.update(board));
@@ -1025,7 +1033,7 @@ export class Game {
   private pendingProgramIssue(): string | null { return this.codeBuilder?.uncommittedProgramIssue?.() ?? null; }
 
   private captureSaveData(recoveryBackup = false, internalSnapshot=false, programOverride?: CodeProgram[], textOverride?: { workspace?: CodeWorkspaceData }): SaveData {
-    if (this.ownershipBusy && !(internalSnapshot&&!this.stopped&&!this.transferBusy)) throw new Error("An ownership transfer is in progress");
+    if (this.ownershipBusy && !(internalSnapshot&&!this.stopped&&!this.heldPhotoRecovery&&!this.nonInventoryTransferBusy&&(!this.inventory.busy||this.heldCameraCommitCheckpoint!==null))) throw new Error("An ownership transfer is in progress");
     const stage = programOverride ? null : this.programSnapshot();
     if (stage && !stage.ok) throw new Error(stage.error);
     const checkpointPrograms = programOverride ?? (stage && stage.ok ? stage.programs : this.programs);
@@ -1056,7 +1064,7 @@ export class Game {
         mode: this.mode,
         timeOfDay: this.timeOfDay,
         player: { position: { ...this.body.position }, yaw: this.body.yaw, pitch: this.body.pitch, flying: this.body.flying },
-        inventory: this.inventory.toJSON(),
+        inventory: this.heldCameraCommitCheckpoint??this.inventory.toJSON(),
         inventoryPending: this.inventoryScreen.pendingItems(),
         playerState: { health: this.health, ...(this.deathState ? { death: this.deathState } : {}) },
         snowballProjectiles: this.snowballProjectiles.toJSON(),
@@ -1218,7 +1226,7 @@ export class Game {
         if(countdown&&countdown!==this.cameraCountdownText)this.hud.message(`Camera: ${countdown} — move into the picture`);
         this.cameraCountdownText=countdown;
       }
-      if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt);
+      if (!this.dead) this.interact(input.breaking, input.place, input.using, input.pick, dt, input.alternateUse);
       if (!this.dead) this.updateSnowballs(dt);
     } else {
       this.target = null;
@@ -1320,7 +1328,7 @@ export class Game {
       !this.dead && !this.stopped && !this.paused && !this.actionsNeedRecovery && !this.screenOpen()};
   }
 
-  private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number): void {
+  private interact(breaking: boolean, place: boolean, using: boolean, pick: boolean, dt: number, alternateUse=false): void {
     if (this.ownershipBusy || this.actionsNeedRecovery || this.dead || this.paused || this.stopped || this.screenOpen()) { this.cancelDrinking(); return; }
     if (!using) this.cancelDrinking();
     const eye = { x: this.body.position.x, y: this.body.position.y + EYE_HEIGHT, z: this.body.position.z };
@@ -1342,10 +1350,15 @@ export class Game {
     const cameraHit=raycastCameras(eye,dir,this.cameras.records,REACH);
     const cameraInFront=cameraHit&&cameraHit.distance<(this.target?.distance??Infinity)&&cameraHit.distance<(mobHit?.distance??Infinity)&&cameraHit.distance<(balloonHit?.distance??Infinity);
     this.hud.setCameraAction(cameraInFront?"Activate Camera":held?.id===stackId("camera")?"Place Camera":null);
-    if(cameraHit&&cameraHit.distance<(this.target?.distance??Infinity)&&cameraHit.distance<(mobHit?.distance??Infinity)&&cameraHit.distance<(balloonHit?.distance??Infinity)){
+    this.hud.setHeldCameraActions?.(held?.id===stackId("camera"));
+    if(place&&this.placeCooldown===0&&held?.id===stackId("camera")&&alternateUse){this.captureHeldCamera("ground-closeup");return;}
+
+    const cameraDecision=cameraUseDecision(held?.id===stackId("camera"),false,!!cameraInFront,!!this.target,false);
+    if(cameraDecision==="activate"&&cameraHit){
       this.target=null;this.mobTarget=null;this.balloonTarget=null;this.breakProgress=0;
       if(place&&this.placeCooldown===0){this.placeCooldown=.3;const r=this.cameras.records.find(r=>r.key===cameraHit.key)!;const allowed=canBuildAt(this.world,this.mode,r.x,r.y,r.z);this.hud.message(allowed&&this.cameras.activate(r.key)?"Camera started: five active-play seconds. Step into the picture.":"Camera is already counting down or cannot be used here.");}return;
     }
+    if(place&&this.placeCooldown===0&&cameraDecision==="first-person"){this.captureHeldCamera("first-person");return;}
     if(place&&this.placeCooldown===0&&held?.id===stackId("camera")){
       const t=this.target;this.placeCooldown=.3;const p=t&&t.normal.y===1?{x:t.x,y:t.y+1,z:t.z}:null;
       const ok=p&&this.cameras.place(this.world,this.inventory,this.mode,p,this.body.position);
@@ -2434,14 +2447,78 @@ export class Game {
     this.resumeInput();
   }
 
+  private canMutatePortfolio():boolean{
+    return !this.dead&&!this.stopped&&!this.prepared&&!Game.handoffBusy&&Game.activeWriter===this&&!this.ownershipBusy&&!this.actionsNeedRecovery;
+  }
   private togglePortfolio(): void {
-    if (this.dead) return;
-    if (this.portfolioScreen.open) {
+    if(this.portfolioScreen.open){
       this.portfolioScreen.hide();
-      this.resumeInput();
-    } else {
-      this.suspendInput();
-      this.portfolioScreen.show();
+      if(this.canMutatePortfolio()&&!this.paused)this.resumeInput();
+      return;
+    }
+    if(!this.canMutatePortfolio()||this.paused||this.screenOpen())return;
+    this.suspendInput();this.portfolioScreen.show();
+  }
+
+  private groundCameraSubject():ReturnType<WorldDropsView["groundSubject"]>{
+    const eye={x:this.body.position.x,y:this.body.position.y+EYE_HEIGHT,z:this.body.position.z},dir=lookDirection(this.body.yaw,this.body.pitch);
+    const obstacle=(direction:typeof dir,reach:number)=>{
+      let unknown=false;
+      const block=raycast((x,y,z)=>{const id=this.world.getLoadedBlock(x,y,z);if(id===undefined){unknown=true;return 1;}return id;},eye,direction,reach,id=>id!==AIR&&blockById(id).shape!=="liquid");
+      const distance=Math.min(block?.distance??Infinity,this.mobs.raycast(eye,direction,reach)?.distance??Infinity,raycastBalloons(eye,direction,this.balloons.records,reach)?.distance??Infinity,raycastCameras(eye,direction,this.cameras.records,reach)?.distance??Infinity);
+      return unknown?0:distance;
+    };
+    const subject=this.worldDropsView.groundSubject(this.world,this.clock,eye,dir,REACH,obstacle(dir,REACH));if(!subject)return null;
+    const d={x:subject.center.x-eye.x,y:subject.center.y-eye.y,z:subject.center.z-eye.z},length=Math.hypot(d.x,d.y,d.z);
+    if(!Number.isFinite(length)||length<=0)return null;
+    const toward={x:d.x/length,y:d.y/length,z:d.z/length};
+    return obstacle(toward,length)<length-1e-6?null:subject;
+  }
+
+  private captureHeldCamera(mode:HeldCameraMode):boolean{
+    if(mode!=="first-person"&&mode!=="ground-closeup"||this.dead||this.paused||this.ownershipBusy||this.actionsNeedRecovery||this.screenOpen()||Game.activeWriter!==this||this.placeCooldown>0)return false;
+    const world=this.world,inventory=this.inventory,gameMode=this.mode,dimension=world.dimension,worldVersion=world.blockMutationVersion,pose={...this.body.position,yaw:this.body.yaw,pitch:this.body.pitch};
+    let subject:ReturnType<WorldDropsView["groundSubject"]>=null;
+    try{if(mode==="ground-closeup")subject=this.groundCameraSubject();}catch{/* Bad/unknown owner or geometry refuses without touching a source. */}
+    if(mode==="ground-closeup"&&!subject){this.hud.message("Point at a visible item resting on the ground for a close-up photo.");return false;}
+    const originalSubject=subject?JSON.stringify(subject.record):null;
+    // Ground queries traverse view/world callbacks. Check raw lifecycle identities AFTER all of them.
+    const identity=()=>!this.stopped&&!this.dead&&!this.paused&&Game.activeWriter===this&&!Game.handoffBusy&&!this.prepared&&!this.portalTransfer&&!this.heldPhotoRecovery&&this.world===world&&world.dimension===dimension&&world.blockMutationVersion===worldVersion&&this.inventory===inventory&&this.mode===gameMode&&this.body.position.x===pose.x&&this.body.position.y===pose.y&&this.body.position.z===pose.z&&this.body.yaw===pose.yaw&&this.body.pitch===pose.pitch;
+    const available=()=>!this.screenOpen()&&!this.actionsNeedRecovery&&!this.nonInventoryTransferBusy&&!this.cameras.busy;
+    const valid=()=>{
+      if(!identity()||!available())return false;
+      const now=subject?this.groundCameraSubject():null;
+      const sameSubject=!subject||!!now&&now.record.key===subject.record.key&&JSON.stringify(now.record)===originalSubject;
+      return sameSubject&&available()&&identity();
+    };
+    const source=reserveHeldCamera(inventory,gameMode,valid);if(!source){this.hud.message("Hold an owned Camera with valid item data to take this photo.");return false;}
+    this.heldPhotoBusy=true;this.placeCooldown=.3;
+    let committed=false,finalized=false,uncertain=false;
+    try{
+      if(!source.valid())return false;
+      const camera=subject?.camera??this.renderer.camera.clone();
+      if(!subject){camera.position.set(pose.x,pose.y+EYE_HEIGHT,pose.z);camera.rotation.set(pose.pitch,pose.yaw,0);camera.updateMatrixWorld();}
+      const aspect=camera.aspect,width=subject?480:Math.max(1,Math.round(480*Math.min(1,aspect))),height=subject?360:Math.max(1,Math.round(480*Math.min(1,1/aspect)));
+      const photo=this.renderer.captureCamera(camera,{width,height,hideSelection:true});if(!source.valid())return false;
+      const plan=this.portfolio.prepareCaptured(photo);if(!source.valid())return false;
+      let afterWorld:string;
+      try{this.heldCameraCommitCheckpoint=source.afterInventory();afterWorld=this.savePayload(false,true);}finally{this.heldCameraCommitCheckpoint=null;}
+      const result=commitCameraCapture(afterWorld,plan.raw,localStorage,source.valid);uncertain=result.uncertain===true;
+      if(uncertain){this.heldPhotoRecovery=true;this.paused=true;this.hud.message("Photo storage outcome is uncertain. Reload to recover; do not clear storage.");return false;}
+      if(!result.committed)return false;committed=true;
+      // The durable receipt is authoritative. A failed live finalizer must never become retryable.
+      finalized=source.finalize();
+      if(!finalized||!result.complete){this.heldPhotoRecovery=true;this.paused=true;this.recoverySections.push("Camera owners");}
+      try{this.portfolio.adoptCaptured(plan.photos);this.heldCameraReceipt={mode,photoID:plan.photo.id,groundKey:subject?.record.key??null,at:this.clock};}catch{this.heldPhotoRecovery=true;this.paused=true;this.recoverySections.push("Camera owners");}
+      try{this.hud.flashCamera();this.hud.message(this.heldPhotoRecovery?"Photo committed. Reload to recover saved owners; do not retry or clear storage.":"Camera photo saved to Portfolio.");}catch{/* A cosmetic failure cannot reverse a durable photo. */}
+      return true;
+    }catch{
+      if(committed){this.heldPhotoRecovery=true;this.paused=true;return true;}
+      try{this.hud.message("Photo could not be captured or saved. Camera retained.");}catch{/* Source still belongs to its original owner. */}
+      return false;
+    }finally{
+      this.heldCameraCommitCheckpoint=null;this.heldPhotoBusy=false;
+      if(!uncertain&&(!committed||finalized))source.cancel();
     }
   }
 
@@ -2451,20 +2528,21 @@ export class Game {
     try{photo=this.placedCameraView.withSubject(camera.key,this.body.position,this.body.yaw,()=>this.renderer.captureCamera(this.placedCameraView.camera(camera,this.body.position)));}
     catch{this.hud.message("Photo could not be captured. Camera retained; activate it to retry.");return false;}
     if(this.stopped||Game.activeWriter!==this)return false;
-    let commit:{committed:boolean;complete:boolean},plan:ReturnType<Portfolio["prepareCaptured"]>;
+    let commit:ReturnType<typeof commitCameraCapture>,plan:ReturnType<Portfolio["prepareCaptured"]>;
     try{
       plan=this.portfolio.prepareCaptured(photo);this.cameraCommitCheckpoint=this.cameras.captureCheckpoint(camera.key);
       commit=commitCameraCapture(this.savePayload(false,true),plan.raw);
     }catch{this.hud.message("Photo could not be saved. Camera retained; activate it to retry.");return false;}
     finally{this.cameraCommitCheckpoint=null;}
+    if(commit.uncertain){this.heldPhotoRecovery=true;this.paused=true;this.hud.message("Photo storage outcome is uncertain. Reload to recover; do not clear storage.");return false;}
     if(!commit.committed){this.hud.message("Photo could not be saved. Camera retained; activate it to retry.");return false;}
     // Durable commit cannot be retried even if a receiver/UI finalizer fails.
     try{
       this.portfolio.adoptCaptured(plan.photos);
-      if(!commit.complete){this.recoverySections.push("Camera owners");this.recoveryOriginal=localStorage.getItem(SAVE_KEY);}
+      if(!commit.complete){this.heldPhotoRecovery=true;this.paused=true;this.recoverySections.push("Camera owners");this.recoveryOriginal=localStorage.getItem(SAVE_KEY);}
       this.cameraCaptureReceipt={key:camera.key,position:{x:camera.x,y:camera.y,z:camera.z},subject:{...this.body.position},photoID:plan.photo.id,at:this.clock};
     }catch{
-      this.recoverySections.push("Camera owners");this.paused=true;
+      this.heldPhotoRecovery=true;this.recoverySections.push("Camera owners");this.paused=true;
     }
     try{this.hud.flashCamera();this.hud.message(commit.complete&&!this.recoverySections.includes("Camera owners")?"Camera photo saved to Portfolio. Camera used once.":"Camera photo committed; storage recovery required. Reload to retry; do not clear storage.");}catch{/* The durable photo commit remains successful. */}
     return true;
@@ -2472,7 +2550,7 @@ export class Game {
 
   /** Education Edition camera: captures the current view (without the HUD) into the portfolio. */
   takePhoto(): void {
-    if (this.dead || this.ownershipBusy) return;
+    if(this.paused||this.screenOpen()||!this.canMutatePortfolio())return;
     const r = this.renderer;
     r.render(skyAt(this.timeOfDay,this.world.dimension), false, 0);
     const src = r.canvas;
@@ -2482,6 +2560,7 @@ export class Game {
     c.width = width;
     c.height = height;
     c.getContext("2d")!.drawImage(src, 0, 0, width, height);
+    if(!this.canMutatePortfolio()||this.paused||this.screenOpen())return;
     this.portfolio.add(c.toDataURL("image/jpeg", 0.8));
     this.hud.flashCamera();
     this.hud.message(`Photo saved to portfolio (${this.portfolio.photos.length}). Press P to view.`);

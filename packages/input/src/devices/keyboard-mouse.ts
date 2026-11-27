@@ -96,6 +96,7 @@ export class KeyboardMouseInput {
     f.strafe = (k.has("KeyD") || k.has("ArrowRight") ? 1 : 0) - (k.has("KeyA") || k.has("ArrowLeft") ? 1 : 0);
     f.jump = k.has("Space");
     f.descend = k.has("ShiftLeft") || k.has("ShiftRight");
+    f.alternateUse = k.has("ShiftLeft") || k.has("ShiftRight");
     f.sprint = k.has("ControlLeft") || k.has("ControlRight") || k.has("KeyR");
     f.lookYaw = -this.lookX * this.sensitivity;
     f.lookPitch = -this.lookY * this.sensitivity;

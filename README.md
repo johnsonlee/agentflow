@@ -153,6 +153,7 @@ Import `my-textures.json` in the browser. The separate report records source-fil
 | Hotbar | 1–9, wheel | Tap a slot |
 | Inventory | E | ••• |
 | Camera / portfolio | C / P | 📷 / 🖼 |
+| Held Camera | Right-click without a block target; Shift+right-click a ground item | Take held photo / Close-up photo |
 | Commands | / or T | 💬 |
 | Pause | Esc | ❚❚ |
 
@@ -263,3 +264,6 @@ Agent programs can bring the Agent to the player with Blocks “teleport to play
 Agent item-space conditions are available in Blocks (“if Agent item space”), JavaScript `if (agent.getItemSpace(1) === 64) { ... }` and the app Python alias `if agent.get_item_space(1) == 64:`. Slots are numbered 1–27. This app reports 64 for an empty slot and the existing metadata-aware stack limit minus count for an occupied slot; malformed, busy or stale ownership stops the program rather than returning zero. These capacity/invalid-slot rules and the Python alias are application policy, not calibrated native Education behavior. Source conversion, saved programs and JSON import remain inert until explicit Run. General value expressions and the full native MakeCode/Python API remain unsupported.
 
 Agent programs support Blocks “drop all items”, JavaScript `agent.dropAll(FORWARD)` and the app Python alias `agent.drop_all(FORWARD)`. A single atomic operation transfers all 27 canonical carried slots into this world's physical item owners while retaining the Agent, its slot-array identity and selected slot. Empty cargo is a validated unchanged no-op. Busy, malformed, stale, out-of-bounds or unloaded ownership refuses without a partial transfer; it never sends items directly to the player bag. This reuses the app's directional drop offset and physical item model; native offsets, return/error/empty behavior, physics and Python spelling are uncalibrated. Saved programs, conversion and JSON import stay inert until explicit Run.
+
+
+Held Camera photos and ground-item close-ups use a selected, owned Camera. Ordinary use on a supported block still places it; Shift-use never silently places it. Close-ups frame the actual visible ground item offscreen without moving or consuming that item or changing the player view. The current application consumes one Camera per successful Survival held photo and retains it in Creative. That held consumption policy and close-up framing are not native-calibrated. Photo/world storage recovery pauses writes until reload; do not clear a pending recovery journal. The C/top-camera shortcut remains a separate immediate app screenshot. Native Camera textures, exact framing/permissions, multiplayer and full Education parity remain uncovered.

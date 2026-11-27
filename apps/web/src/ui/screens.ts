@@ -26,7 +26,7 @@ export class Portfolio {
   /** Malformed stored entries dropped on load. */
   dropped = 0;
 
-  constructor() {
+  constructor(private readonly canWrite:()=>boolean=()=>true) {
     try {
       // Stored separately from the world save; every entry is checked strictly (sanitizePhotos).
       const result = sanitizePhotos(JSON.parse(localStorage.getItem(PORTFOLIO_KEY) ?? "[]"), MAX_PHOTOS);
@@ -39,6 +39,7 @@ export class Portfolio {
   }
 
   add(dataUrl: string): Photo {
+    if(!this.canWrite())throw Error("Portfolio is awaiting Camera recovery");
     const photo = { id: `${Date.now()}-${Math.random().toString(36).slice(2, 7)}`, dataUrl, caption: "", takenAt: new Date().toISOString() };
     this.photos.unshift(photo);
     this.photos = this.photos.slice(0, MAX_PHOTOS);
@@ -53,17 +54,20 @@ export class Portfolio {
   }
   adoptCaptured(photos:Photo[]):void{this.photos=photos;}
   remove(id: string): void {
+    if(!this.canWrite())return;
     this.photos = this.photos.filter((p) => p.id !== id);
     this.persist();
   }
 
   setCaption(id: string, caption: string): void {
+    if(!this.canWrite())return;
     const p = this.photos.find((x) => x.id === id);
     if (p) p.caption = caption;
     this.persist();
   }
 
   private persist(): void {
+    if(!this.canWrite())return;
     try {
       localStorage.setItem(PORTFOLIO_KEY, JSON.stringify(this.photos));
     } catch {
@@ -82,7 +86,8 @@ export class PortfolioScreen {
   readonly root = el("div", "screen portfolio-screen");
   private readonly panel = el("div", "panel portfolio-panel");
 
-  constructor(container: HTMLElement, private readonly portfolio: Portfolio, private readonly onClose: () => void) {
+  private generation=0;
+  constructor(container: HTMLElement, private readonly portfolio: Portfolio, private readonly onClose: () => void,private readonly canMutate:()=>boolean=()=>true) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
     container.appendChild(this.root);
@@ -93,20 +98,23 @@ export class PortfolioScreen {
   }
 
   show(): void {
+    if(!this.canMutate())return;
     this.render();
     this.root.hidden = false;
   }
 
   hide(): void {
+    this.generation++;
     this.root.hidden = true;
   }
 
   private render(): void {
+    const generation=++this.generation,current=()=>this.open&&generation===this.generation&&this.canMutate();
     const header = el("div", "panel-header");
     header.append(el("h2", "", `Portfolio (${this.portfolio.photos.length})`));
     const close = el("button", "close-button", "✕");
     close.setAttribute("aria-label", "Close portfolio");
-    close.addEventListener("click", () => this.onClose());
+    close.addEventListener("click", () => {if(this.open&&generation===this.generation)this.onClose();});
     header.append(close);
     const grid = el("div", "photo-grid");
     if (this.portfolio.photos.length === 0) grid.append(el("p", "hint", "No photos yet. Press C (or 📷) to take one."));
@@ -120,13 +128,14 @@ export class PortfolioScreen {
       caption.placeholder = "Add a caption…";
       caption.setAttribute("aria-label", "Photo caption");
       caption.addEventListener("keydown", (e) => e.stopPropagation());
-      caption.addEventListener("change", () => this.portfolio.setCaption(photo.id, caption.value));
+      caption.addEventListener("change", () => {if(current())this.portfolio.setCaption(photo.id, caption.value);});
       const actions = el("div", "photo-actions");
       const download = el("a", "mc-button small", "Save");
       download.href = photo.dataUrl;
       download.download = `photo-${photo.id}.jpg`;
       const del = el("button", "mc-button small", "Delete");
       del.addEventListener("click", () => {
+        if(!current())return;
         this.portfolio.remove(photo.id);
         this.render();
       });
