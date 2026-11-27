@@ -1,6 +1,6 @@
 import{PDFDocument,rgb,type PDFPage}from'pdf-lib';
-import fontkit,{type Font}from'@pdf-lib/fontkit';
-import{loadBookFonts,type BookFonts}from'./book-fonts';
+import type{Font}from'@pdf-lib/fontkit';
+import{loadBookFonts,bookFullFontEmbedding,type BookFonts}from'./book-fonts';
 import{decodeBookPhoto}from'./book-image';
 import{layoutBookPdf,BOOK_PDF_WIDTH,BOOK_PDF_HEIGHT,BOOK_PDF_MARGIN}from'./book-layout';
 import{BOOK_EXPORT_OUTPUT_LIMIT,requireBookExportCurrent,type BookExportSnapshot,type BookPdfResult}from'./book-export';
@@ -20,7 +20,7 @@ async function drawBookLine(document:PDFDocument,page:PDFPage,fonts:BookFonts,em
 }
 /** All inputs are detached. No Game, inventory, Portfolio, storage or journal access. */
 export async function buildBookPdf(snapshot:BookExportSnapshot,current:()=>boolean):Promise<BookPdfResult>{
- const started=Date.now(),alive=()=>current()&&Date.now()-started<60000;requireBookExportCurrent(alive);const fonts=await loadBookFonts(alive);requireBookExportCurrent(alive);const layout=layoutBookPdf(snapshot,fonts),document=await PDFDocument.create();requireBookExportCurrent(alive);document.registerFontkit(fontkit);const embedded=await document.embedFont(fonts.textBytes,{subset:true});requireBookExportCurrent(alive);
+ const started=Date.now(),alive=()=>current()&&Date.now()-started<60000;requireBookExportCurrent(alive);const fonts=await loadBookFonts(alive);requireBookExportCurrent(alive);const layout=layoutBookPdf(snapshot,fonts),document=await PDFDocument.create();requireBookExportCurrent(alive);const full=bookFullFontEmbedding(fonts);document.registerFontkit(full.adapter);const embedded=await document.embedFont(full.program,{subset:full.subset});requireBookExportCurrent(alive);
  document.setTitle(snapshot.title);document.setAuthor(snapshot.author);document.setSubject(snapshot.mode==='draft'?'Unsaved Book draft snapshot':'Read-only Written Book snapshot');document.setCreator('Agentflow Craft Book export');document.setProducer('pdf-lib1.17.1; app layout, not native Minecraft output');
  const images=new Map<number,Awaited<ReturnType<PDFDocument['embedJpg']>>>(),budget={used:fonts.textBytes.length+new TextEncoder().encode(snapshot.textAttachment+fonts.notices).length};let imageBytes=0,convertedPhotos=0;
  for(const photo of snapshot.photos){const decoded=await decodeBookPhoto(photo,alive);requireBookExportCurrent(alive);imageBytes+=decoded.bytes.length;budget.used+=decoded.bytes.length;if(imageBytes>BOOK_EXPORT_OUTPUT_LIMIT||budget.used>BOOK_EXPORT_OUTPUT_LIMIT)throw Error('Book photos exceed the PDF export budget');images.set(photo.page,await document.embedJpg(decoded.bytes));requireBookExportCurrent(alive);if(decoded.converted)convertedPhotos++;}
