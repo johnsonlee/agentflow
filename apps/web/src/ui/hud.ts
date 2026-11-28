@@ -4,7 +4,7 @@ import {furnaceMutationBusy,setFurnaceFuel,takeFurnaceOutput} from "@craft/engin
 import {SingleChest} from '@craft/engine';
 import {
   sanitizePlayerStatus, BREWING_PROFILE, type BrewingStand, type BrewingSlot, HOTBAR_SIZE, INVENTORY_SIZE, Inventory, ITEMS, MAX_PARTICLES, ARMOR_SLOTS, armorOf, armorPoints, durabilityOf, constructElement, craftOnce, createCompound, creativeBlocks, displayNameOf, elementByZ, elementParticlesOf, fuelSeconds,
-  cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, stacksCompatible, isItem, itemById, labReaction, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
+  cloneStack, freshStack, inspectGlowState, isGlowStickId, inspectSparklerState, isSparklerId, stackLimit, stacksCompatible, isItem, itemById, planLabExperiment, reserveInventoryMutation, matchRecipe, maxStackOf, reduceMaterial, setFurnaceInput,
   type PlayerStatus, type ArmorSlot, type CraftingGrid, type FurnaceState, type GameMode, type ItemStack,
 } from "@craft/engine";
 import type { TextureAtlas } from "@craft/textures";
@@ -376,6 +376,10 @@ export class InventoryScreen {
   private progressFill: HTMLElement | null = null;
   private flameFill: HTMLElement | null = null;
   private chem: ChemistryKind | null = null;
+  private labSession: object = {};
+  private labRenderEpoch = 0;
+  private labCombining = false;
+  private labOutcome = "";
   private tab: PaletteTab = "blocks";
   private closeHint = "";
   private recovery: ItemStack[] = [];
@@ -390,6 +394,7 @@ export class InventoryScreen {
     private readonly onDropHeld?: (stack: ItemStack) => boolean,
     private readonly canMoveItems: () => boolean = () => true,
     private readonly recoveryNotice: () => string = () => "Saved items need repair. Export a backup before moving items.",
+    private readonly canCombineLab: () => boolean = () => true,
   ) {
     this.root.hidden = true;
     this.root.appendChild(this.panel);
@@ -409,9 +414,10 @@ export class InventoryScreen {
     return !this.root.hidden;
   }
 
-  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null, brewing:BrewingStand|null=null,chest:SingleChest|null=null): void {
+  show(inventory: Inventory, mode: GameMode, kind: InventoryKind = "inventory", furnace: FurnaceState | null = null, brewing:BrewingStand|null=null,chest:SingleChest|null=null, accepted?: () => void): boolean {
+    if (mode !== "survival" && mode !== "creative" || accepted !== undefined && typeof accepted !== "function") return false;
     // A station switch must return every owned pending item before replacing its screen state.
-    if (this.open && !this.hide()) return;
+    if (this.open && !this.hide()) return false;
     this.inventory = inventory;
     this.mode = mode;
     this.kind = kind;
@@ -420,6 +426,7 @@ export class InventoryScreen {
     this.chest=kind==="chest"?chest:null;
     // The furnace screen has no crafting grid (as in Minecraft).
     this.chem = isChemistry(kind) ? kind : null;
+    this.labSession = {}; this.labOutcome = "";
     this.width =
       kind === "crafting_table" || kind === "compound_creator" || kind === "lab_table" ? 3
         : kind === "material_reducer" ? 1
@@ -432,9 +439,13 @@ export class InventoryScreen {
     this.closeHint = "";
     this.recovery = [];
     this.recovering = false;
+    // Trusted Game binding is published only on accepted switches, before the first
+    // new render. A failed old Close never changes its still-open physical source.
+    accepted?.();
     this.render();
     this.root.hidden = false;
     this.panel.scrollTop = 0;
+    return true;
   }
 
   /** Saved grid/cursor contents are recovered without recreating a potentially missing station. */
@@ -457,6 +468,7 @@ export class InventoryScreen {
 
   /** Nonthrowing ownership finalization after the entire death batch has committed. */
   clearTransferredPending(): void {
+    this.labSession = {}; this.labOutcome = "";
     this.grid = []; this.cursor = null; this.lookup = null; this.recovery = [];
     this.furnace = null; this.brewing=null;this.chest=null; this.chem = null; this.recovering = false;
   }
@@ -476,6 +488,7 @@ export class InventoryScreen {
 
   /** Closes the screen, returning crafting-grid and cursor items to the inventory. */
   hide(): boolean {
+    this.labSession = {}; this.labOutcome = "";
     if (!this.canMoveItems()) { this.root.hidden = true; return true; }
     if (this.inventory) {
       const returning = this.pendingItems();
@@ -519,6 +532,7 @@ export class InventoryScreen {
   }
 
   private render(): void {
+    this.labRenderEpoch++;
     const inventory = this.inventory!;
     const mode = this.mode;
     const header = el("div", "panel-header");
@@ -748,7 +762,7 @@ export class InventoryScreen {
     cell.addEventListener("click", () => {
       const current = this.grid[i];
       const transfer = exchangeOneWithCell(this.cursor, current);
-      if (transfer.ok) { this.cursor = transfer.cursor; this.grid[i] = transfer.cell; }
+      if (transfer.ok) { this.cursor = transfer.cursor; this.grid[i] = transfer.cell; if (this.chem === "lab_table") this.labOutcome = ""; }
       this.render();
     });
     return cell;
@@ -914,10 +928,60 @@ export class InventoryScreen {
     }
     const grid = el("div", "item-grid craft-grid craft-3");
     for (let i = 0; i < 9; i++) grid.appendChild(this.inputCell(i, this.chem === "lab_table" ? "Ingredient" : "Element"));
-    const result = this.chem === "lab_table" ? labReaction(this.grid) : createCompound(this.grid);
+    if (this.chem === "lab_table") {
+      const session = this.labSession, epoch = this.labRenderEpoch;
+      const button = el("button", "mc-button chem-action", "Combine");
+      button.dataset.chemAction = "combine";
+      const plan = planLabExperiment(this.grid, this.cursor);
+      button.disabled = !plan.ok;
+      button.addEventListener("click", () => this.combineLab(session, epoch));
+      const status = el("p", "chem-status", this.labOutcome || (plan.ok ? "Ready. Combine the selected batch; output goes to the cursor." : plan.reason));
+      status.dataset.labOutcome = this.labOutcome ? "complete" : "ready";
+      status.setAttribute("role", "status");
+      // No owned output or debit exists before the explicit action.
+      row.append(grid, button); section.append(row, status); return section;
+    }
+    const result = createCompound(this.grid);
     row.append(grid, el("span", "craft-arrow", "➜"), ...this.resultCell(result, () => this.grid.fill(null)));
     section.append(row);
     return section;
+  }
+
+  /** The real screen owns these ordinary data fields. All foreign callbacks run before
+   * the final descriptor/source proof; final publication contains no callback or await. */
+  private combineLab(session: object, epoch: number): void {
+    if (this.labCombining || Object.getOwnPropertyDescriptor(this, "labCombining")?.writable !== true) return;
+    this.labCombining = true;
+    let changed = false;
+    const inventory = this.inventory, grid = this.grid, cursor = this.cursor, mode = this.mode;
+    const current = () => this.open && this.chem === "lab_table" && this.kind === "lab_table" && !this.recovering &&
+      this.labSession === session && this.labRenderEpoch === epoch && this.inventory === inventory &&
+      this.grid === grid && this.cursor === cursor && this.mode === mode && (mode === "survival" || mode === "creative");
+    let lease: ReturnType<typeof reserveInventoryMutation> = null;
+    try {
+      // The general Game gate includes inventory busy; consult it before our own lease.
+      if (!current() || !this.canMoveItems()) return;
+      lease = inventory ? reserveInventoryMutation(inventory) : null;
+      if (!lease || !current()) return;
+      const before = planLabExperiment(grid, cursor);
+      if (!before.ok || !this.canCombineLab()) return;
+      const after = planLabExperiment(grid, cursor);
+      if (!after.ok) return;
+      const outcome = `Combined: ${displayNameOf(after.id)}. Selected batch consumed; one output added to cursor.`, nextSession = {};
+      const gridCell = Object.getOwnPropertyDescriptor(this, "grid"), cursorCell = Object.getOwnPropertyDescriptor(this, "cursor");
+      const writableState = ["labOutcome", "labSession", "labCombining"].every(key => {
+        const d = Object.getOwnPropertyDescriptor(this, key); return !!d && "value" in d && d.writable === true;
+      });
+      if (!current() || !lease.valid() || after.fingerprint !== before.fingerprint || !writableState ||
+        !gridCell || !("value" in gridCell) || !gridCell.writable || gridCell.value !== grid ||
+        !cursorCell || !("value" in cursorCell) || !cursorCell.writable || cursorCell.value !== cursor) return;
+      this.grid = after.grid; this.cursor = after.cursor;
+      this.labOutcome = outcome; this.labSession = nextSession;
+      changed = true;
+    } catch { /* Failed preparation retains the selected batch and cursor. */ } finally {
+      lease?.cancel(); this.labCombining = false;
+      if (changed) this.render();
+    }
   }
 
   private chestSection():HTMLElement{
@@ -1064,7 +1128,7 @@ const CHEMISTRY_HINTS = new Map<ChemistryKind, string>([
   ["element_constructor", "Set protons, neutrons and electrons with − and +, then tap the result to take the element or isotope."],
   ["compound_creator", "Put elements in (one per tap; e.g. 2 hydrogen and 1 oxygen), then tap the result to take the compound."],
   ["material_reducer", "Put a block or item in the input slot, then tap Reduce: its elements go to your inventory."],
-  ["lab_table", "Put ingredients in (one per tap), then tap the result to take the product."],
+  ["lab_table", "Put ingredients in (one per tap), then Combine. The selected batch is consumed; one product goes to the cursor."],
 ]);
 
 /** Wear bar shared by damaged tools and armor (none for undamaged or non-durable items). */

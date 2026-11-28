@@ -34,6 +34,7 @@ export * from "./automation/block-condition";
 export * from "./persistence/savecheck";
 export * from "./crafting/chemistry-data";
 export * from "./crafting/chemistry";
+export * from "./crafting/lab-experiment";
 export * from "./crafting/labeffects";
 export * from "./simulation/redstone";
 

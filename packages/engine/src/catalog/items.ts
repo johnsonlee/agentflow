@@ -260,6 +260,8 @@ const specs: Omit<ItemDef, "id">[] = [
   material("bone_meal", "Bone Meal"),
   // Append-only original Camera; stack1 is an application bound, no Survival recipe.
   { name: "camera", displayName: "Camera", maxStack: 1, icon: "item_camera" },
+  // Append after Camera860; never extend the positional legacy LAB_PRODUCTS array.
+  { name: "garbage", displayName: "Garbage", maxStack: MAX_STACK, icon: "item_product_garbage", chem: { kind: "product" } },
 ];
 
 if (specs.length > ITEM_ID_LIMIT - ITEM_ID_BASE + 1) throw new Error("Item namespace exhausted");

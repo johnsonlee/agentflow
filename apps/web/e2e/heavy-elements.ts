@@ -59,8 +59,9 @@ export async function constructHeavyElements(page: Page, testInfo: TestInfo, mob
   await expect(page.getByRole("heading", { name: "Lab Table" })).toBeVisible();
   await press(inv.locator('[data-slot="3"]'));
   for (let i = 0; i < 4; i++) await press(inv.locator('[data-chem-input="0"]'));
-  await expect(inv.locator("[data-chem-result] img")).toHaveAttribute("alt", "Ice Bomb");
-  await press(inv.locator("[data-chem-result]"));
+  await expect(inv.locator('[data-chem-result] img')).toHaveCount(0);
+  await press(inv.getByRole("button", { name: "Combine", exact: true }));
+  await expect(inv.locator('[data-lab-outcome="complete"]')).toContainText("Ice Bomb");
   await press(inv.locator('[data-slot="2"]'));
   expect(await countStack(page, "ice_bomb")).toBe(1);
   expect(await countStack(page, "sodium_acetate")).toBe(0);

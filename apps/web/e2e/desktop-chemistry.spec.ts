@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  blockAt, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, giveLabProducts, labProductEffects, look, mixSuperFertilizer, parkMouse, pressMouse, reduceSand,
+  blockAt, combineOxygenGarbage, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, giveLabProducts, labProductEffects, look, mixSuperFertilizer, parkMouse, pressMouse, reduceSand,
   settle, snap, target,
 } from "./helpers";
 
@@ -48,6 +48,8 @@ test.describe("PC browser: Education Edition chemistry", () => {
     await placeAndOpen(page, "Digit4", -Math.PI / 2, "lab_table");
     await mixSuperFertilizer(page, (l) => l.click());
     await snap(page, testInfo, "63-lab-table-fertilizer");
+    await combineOxygenGarbage(page, (l) => l.click());
+    await snap(page, testInfo, "63-desktop-explicit-nonviable-garbage");
     await close(page);
 
     // Chemistry items survive Save & Quit and Continue.
@@ -57,10 +59,10 @@ test.describe("PC browser: Education Edition chemistry", () => {
     await page.getByRole("button", { name: /Continue/ }).click();
     await expect.poll(() => page.evaluate(() => window.__craft.game?.inventory.slots.some((s) => s?.id === window.__craft.stackId("water_compound")))).toBe(true);
     const counts = await page.evaluate(() =>
-      ["water_compound", "super_fertilizer", "silicon", "oxygen"].map((n) =>
+      ["water_compound", "super_fertilizer", "silicon", "oxygen", "garbage"].map((n) =>
         window.__craft.game!.inventory.slots.reduce((sum, s) => sum + (s?.id === window.__craft.stackId(n) ? s.count : 0), 0)),
     );
-    expect(counts).toEqual([1, 1, 33, 67]);
+    expect(counts).toEqual([1, 1, 33, 66, 1]);
     expect(await page.evaluate(() => window.__craft.game!.loadErrors)).toEqual([]);
   });
 

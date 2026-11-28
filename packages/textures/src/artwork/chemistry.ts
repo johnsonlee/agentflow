@@ -150,6 +150,16 @@ function flask(name: string): (t: Tile) => Tile {
 }
 
 const PRODUCTS = new Map<string, (t: Tile) => Tile>([
+  // Original app residue sprite; no native asset or exact-pixel equivalence claim.
+  ["garbage", (t) => {
+    t.fill(() => null);
+    for (let y = 7; y <= 13; y++) for (let x = 3; x <= 12; x++) {
+      if ((y === 7 && (x < 5 || x > 10)) || (y === 13 && (x === 3 || x === 12))) continue;
+      t.set(x, y, hex((x + 2 * y) % 5 === 0 ? "#817d54" : x === 12 || y === 13 ? "#423d39" : "#645e52"));
+    }
+    for (const [x, y] of [[5, 5], [6, 6], [9, 4], [9, 5], [10, 6]]) t.set(x, y, hex("#aaa991"));
+    return t;
+  }],
   // Manufactured bleach: a white handled jug with a blue cap and cleaning label.
   ["bleach", (t) => {
     t.fill(() => null);

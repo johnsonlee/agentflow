@@ -444,7 +444,7 @@ export class Game {
     this.registerCleanup("hud", () => this.hud.dispose());
     this.inventoryScreen = new InventoryScreen(this.root, atlas, () => this.toggleInventory(), (stack) => this.dropStack(stack), () => !this.ownershipBusy && !this.actionsNeedRecovery, () => this.ownershipBusy ? "Items are being transferred. Try again afterward." : this.recoverySections.includes("NPC links") ? "Damaged NPC links. Export a backup before continuing." : this.recoverySections.includes("Composter owners") ? "Damaged Composter state. Export a backup before continuing." : this.recoverySections.includes("Cane growth") ? "Damaged Cane growth state. Export a backup before continuing." : this.recoverySections.includes("code workspace") ? "Damaged source workspace. Export a backup before continuing." : this.recoverySections.includes("chest owners") ? "Damaged Chest storage. Export a backup before continuing." : this.recoverySections.includes("brewing owners") ? "Damaged brewing stations. Export a backup before continuing." : this.recoverySections.includes("Blaze owners") ? "Damaged Blaze owners. Export a backup before continuing." : this.recoverySections.includes("dimensions") ? "Damaged dimensions. Export a backup before continuing." : this.recoverySections.includes("portals") ? "Damaged portals. Export a backup before continuing." : this.recoverySections.includes("fluids") && !this.itemsNeedRecovery ? "Damaged liquids or terrain version. Export a backup before moving items." : this.recoverySections.includes("fire") && !this.itemsNeedRecovery ? "Damaged fire. Export a backup before moving items." : this.recoverySections.includes("gravel harvest decisions") && !this.itemsNeedRecovery
       ? "Damaged gravel harvest decisions. Export a backup before moving items." : this.recoverySections.includes("adult cows") && !this.itemsNeedRecovery && !this.recoverySections.includes("player status")
-      ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.");
+      ? "Damaged adult cows. Export a backup before moving items." : "Saved items need repair. Export a backup before moving items.", () => this.canCombineLabExperiment());
     this.chat = new ChatInput(this.root, (text) => this.runChat(text), () => this.resumeInput());
     this.portfolioScreen = new PortfolioScreen(this.root, this.portfolio, () => this.togglePortfolio(),()=>this.canMutatePortfolio(),undefined,()=>this.canExportPortfolio());
     this.npcDialog = new NpcDialog(this.root, () => this.closeNpcDialog(), (mob, draft) => this.commitNpcEdit(mob, draft));
@@ -1598,7 +1598,7 @@ export class Game {
     }
     const station = t ? CHEMISTRY_STATIONS.get(t.id) : undefined;
     if (place && t && this.placeCooldown === 0 && station) {
-      this.openInventory(station);
+      this.openInventory(station, station === "lab_table" ? { x: t.x, y: t.y, z: t.z } : undefined);
       return;
     }
     if(place&&t&&this.placeCooldown===0&&t.id===203){const key=furnaceKey(t.x,t.y,t.z);if(!this.chests.has(key)){this.freezeChestOwnership("Physical Chest lacks an owner");return;}this.openChest=key;this.openInventory("chest");return;}
@@ -2456,7 +2456,18 @@ export class Game {
     }
   }
 
-  private openInventory(kind: InventoryKind): void {
+  private labStationCurrent: (() => boolean) | null = null;
+
+  /** Called under the Lab UI's own inventory lease. Other owners/recovery still block it. */
+  private canCombineLabExperiment(): boolean {
+    return Game.activeWriter === this && !this.stopped && !this.dead && !this.paused &&
+      !this.heldPhotoBusy && !this.heldPhotoRecovery && !this.cameras?.busy && !this.prepared &&
+      !this.portalTransfer && !Game.handoffBusy && !this.nonInventoryTransferBusy &&
+      ![...this.furnaces.values()].some(furnaceMutationBusy) && !this.actionsNeedRecovery &&
+      !this.world.blockSourceLeaseBusy && this.labStationCurrent?.() === true;
+  }
+
+  private openInventory(kind: InventoryKind, labPosition?: { x: number; y: number; z: number }): void {
     if (this.dead || this.ownershipBusy) return;
     this.suspendInput();
     const furnace = kind === "furnace" && this.openFurnace ? (this.furnaces.get(this.openFurnace) ?? null) : null;
@@ -2464,7 +2475,17 @@ export class Game {
     const brewing=kind==="brewing_stand"&&this.openBrewing?this.brewingStands.get(this.openBrewing)??null:null;
     if(kind==="brewing_stand"&&!brewing)return;
     const chest=kind==="chest"&&this.openChest?this.chests.get(this.openChest)??null:null;if(kind==="chest"&&!chest)return;
-    this.inventoryScreen.show(this.inventory, this.mode, kind, furnace,brewing,chest);
+    let labStationCurrent: (() => boolean) | null = null;
+    if (kind === "lab_table") {
+      if (!labPosition) return;
+      const world = this.world, mode = this.mode, inventory = this.inventory;
+      const cell = world.captureCell(labPosition.x, labPosition.y, labPosition.z);
+      if (!cell || cell.id !== blockId("lab_table")) return;
+      labStationCurrent = () => this.world === world && this.inventory === inventory && this.mode === mode && world.cellUnchanged(cell);
+    }
+    this.inventoryScreen.show(this.inventory, this.mode, kind, furnace,brewing,chest, () => {
+      this.labStationCurrent = labStationCurrent;
+    });
   }
 
   private suspendInput(): void {

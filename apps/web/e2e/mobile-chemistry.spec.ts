@@ -1,6 +1,6 @@
 import { expect, test, type Page } from "@playwright/test";
 import {
-  blockAt, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, giveLabProducts, labProductEffects, look, mixSuperFertilizer, reduceSand, settle, snap, target,
+  blockAt, combineOxygenGarbage, buildHydrogenAndOxygen, createWater, createWorld, giveChemistryKit, giveLabProducts, labProductEffects, look, mixSuperFertilizer, reduceSand, settle, snap, target,
 } from "./helpers";
 
 /** Real touch through CDP; the release is sent without waiting for the press to be handled. */
@@ -62,6 +62,8 @@ test.describe("Mobile browser (touch): Education Edition chemistry", () => {
     await placeAndOpen(3, -Math.PI / 2, "lab_table");
     await mixSuperFertilizer(page, (l) => l.tap());
     await snap(page, testInfo, "63-touch-lab-table-fertilizer");
+    await combineOxygenGarbage(page, (l) => l.tap());
+    await snap(page, testInfo, "63-touch-explicit-nonviable-garbage");
     await close();
   });
 

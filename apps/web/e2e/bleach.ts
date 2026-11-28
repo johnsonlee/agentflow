@@ -52,8 +52,9 @@ export async function bleachRoute(page: Page, info: TestInfo, mobile: boolean) {
   await press(inv.locator('[data-slot="1"]')); // Keep one unused NaClO compound for a distinction/save check.
   await press(inv.locator('[data-slot="2"]'));
   for (let i = 0; i < 3; i++) await press(inv.locator('[data-chem-input="1"]'));
-  await expect(inv.locator('[data-chem-result] img')).toHaveAttribute("alt", "Bleach");
-  await press(inv.locator('[data-chem-result]'));
+  await expect(inv.locator('[data-chem-result] img')).toHaveCount(0);
+  await press(inv.getByRole("button", { name: "Combine", exact: true }));
+  await expect(inv.locator('[data-lab-outcome="complete"]')).toContainText("Bleach");
   await press(inv.locator('[data-slot="2"]'));
   expect(await countStack(page, "sodium_hypochlorite")).toBe(1);
   expect(await countStack(page, "water_compound")).toBe(0);

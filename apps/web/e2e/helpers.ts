@@ -633,6 +633,25 @@ export async function reduceSand(page: Page, press: (l: Locator) => Promise<void
   expect(await countStack(page, "oxygen")).toBe(67);
 }
 
+/** In an open Lab Table, consume one actual reduced Oxygen in a nonviable experiment.
+ * This extends the original owned route; it grants no additional items or hidden mutation. */
+export async function combineOxygenGarbage(page: Page, press: (l: Locator) => Promise<void>) {
+  const inv = page.locator(".inventory-screen"), before = await countStack(page, "oxygen");
+  expect(before).toBe(67);
+  const slot = await slotHolding(page, "oxygen");
+  await press(inv.locator(`[data-slot="${slot}"]`));
+  await press(inv.locator('[data-chem-input="0"]'));
+  await press(inv.locator(`[data-slot="${slot}"]`));
+  expect(await countStack(page, "oxygen")).toBe(before - 1);
+  expect(await countStack(page, "garbage")).toBe(0);
+  await expect(inv.locator('[data-chem-result]')).toHaveCount(0);
+  await press(inv.getByRole("button", { name: "Combine", exact: true }));
+  await expect(inv.locator('[data-lab-outcome="complete"]')).toContainText("Garbage");
+  await press(inv.locator(`[data-slot="${await emptySlot(page)}"]`));
+  expect(await countStack(page, "garbage")).toBe(1);
+  expect(await countStack(page, "oxygen")).toBe(before - 1);
+}
+
 /** In an open Lab Table: ammonia + phosphorus -> Super Fertilizer. */
 export async function mixSuperFertilizer(page: Page, press: (l: Locator) => Promise<void>) {
   const inv = page.locator(".inventory-screen");
@@ -641,8 +660,9 @@ export async function mixSuperFertilizer(page: Page, press: (l: Locator) => Prom
   await press(inv.locator('[data-chem-input="0"]'));
   await press(inv.locator(`[data-slot="${await slotHolding(page, "phosphorus")}"]`));
   await press(inv.locator('[data-chem-input="1"]'));
-  await expect(inv.locator("[data-chem-result] img")).toHaveAttribute("alt", "Super Fertilizer");
-  await press(inv.locator("[data-chem-result]"));
+  await expect(inv.locator('[data-chem-result] img')).toHaveCount(0);
+  await press(inv.getByRole("button", { name: "Combine", exact: true }));
+  await expect(inv.locator('[data-lab-outcome="complete"]')).toContainText("Super Fertilizer");
   await press(inv.locator(`[data-slot="${await emptySlot(page)}"]`));
   expect(await countStack(page, "super_fertilizer")).toBe(1);
   expect(await countStack(page, "ammonia")).toBe(0);

@@ -127,7 +127,7 @@ describe("Lab Table", () => {
     for (const r of LAB_REACTIONS) expect(ok(labReaction(r.ingredients.map(([n, c]) => ({ id: id(n), count: c }))))).toBe(r.product);
   });
 
-  it("makes a heat block and refuses wrong mixtures", () => {
+  it("pure viable-recipe lookup makes heat and rejects nonrecipes (explicit Lab execution uses planLabExperiment)", () => {
     // Education Edition: iron, water, salt and charcoal (review 0ee9512d).
     expect(ok(labReaction(stacks(["charcoal", 1], ["iron", 1], ["salt", 1], ["water_compound", 1])))).toBe("heat_block");
     expect(ok(labReaction(stacks(["calcium_chloride", 1], ["iron", 1], ["salt", 1], ["water_compound", 1])))).toMatch(/Nothing happens/);
