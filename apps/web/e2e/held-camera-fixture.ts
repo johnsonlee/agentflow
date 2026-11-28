@@ -1,0 +1,4 @@
+import{Inventory,blockId,stackId,type SaveData}from'@craft/engine';
+import{agentDropAllFixture}from'./agent-drop-all-fixture';
+/** Controlled preowned clear pad via UI file import; never natural acquisition or native calibration. */
+export function heldCameraFixture(refusal:boolean):SaveData{const s=agentDropAllFixture(),b=new Inventory();for(const n of[0,2,3])b.slots[n]={id:stackId('camera'),count:1};b.slots[1]={id:blockId('gold_block'),count:3};s.inventory=b.toJSON();s.name='Held Camera controlled assessment';s.agent={...s.agent!,x:18,z:18};if(refusal){s.edits=s.edits.map(edit=>edit[0]===8&&edit[1]>=80&&edit[1]<=82&&edit[2]===11?[edit[0],edit[1],edit[2],blockId('stone')]:edit);s.worldDrops={nextKey:2,records:[{key:1,stack:{id:blockId('gold_block'),count:3},position:{x:8.5,y:80,z:9.5},velocity:{x:0,y:0,z:0},ageSeconds:1,pickupDelaySeconds:0}]};}return s;}

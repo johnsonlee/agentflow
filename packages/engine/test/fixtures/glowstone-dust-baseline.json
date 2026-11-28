@@ -1,0 +1,28 @@
+{
+  "revision": "6395be01f100a60a22e6aec097da1a64d4f16298",
+  "blocks": 307,
+  "items": 535,
+  "recipes": 128,
+  "nativeReductions": 22,
+  "blockDefsSHA256": "6199397ee22747fc952677aec636e6fd37b67ca56b8ad0321eaf8068e78c2566",
+  "itemDefsSHA256": "23336a752d8807296061fef04359bb8c92ea5eed87c52fe23ab069b21215b9ce",
+  "recipesSHA256": "cdd12eb2d352f473a635b9832f4591aa48bc5a3adea789a91b70e96fbf9a196f",
+  "other127RecipesSHA256": "6e05032374ea2562d2dc13b8f6c66cd293706030bbe9e355c56996cdc5736ae3",
+  "previousGlowstoneRecipe": {
+    "id": "glowstone",
+    "pattern": [
+      "##",
+      "##"
+    ],
+    "key": {
+      "#": "gold_ore"
+    },
+    "result": [
+      "glowstone",
+      1
+    ],
+    "note": "Minecraft uses glowstone dust"
+  },
+  "nativeReductionsSHA256": "978ad7f6580ea931894243d4e52240c34ea2e938e68374ac09d952fe5b0444f0",
+  "previousGlowstoneRecipeSHA256": "08af5f59cc6cf9858f310face5f660f87163db97d9f03c746f2a83c5b76bd06a"
+}

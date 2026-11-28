@@ -1,0 +1,1 @@
+import{test}from'@playwright/test';import{npcUrlPortalRoute}from'./npc-url-portals';test('mobile: real joystick portal roundtrip retains distinct NPC URL owners and browser links',async({page},info)=>{await npcUrlPortalRoute(page,info,true);});

@@ -1,0 +1,70 @@
+{
+  "revision": "96b60a4",
+  "seed": 13,
+  "inputs": [
+    [
+      "glass",
+      5,
+      70,
+      5
+    ],
+    [
+      "glass",
+      6,
+      70,
+      5
+    ],
+    [
+      "stone",
+      7,
+      70,
+      5
+    ],
+    [
+      "water",
+      8,
+      70,
+      5
+    ],
+    [
+      "torch",
+      9,
+      70,
+      5
+    ],
+    [
+      "poppy",
+      10,
+      70,
+      5
+    ],
+    [
+      "element_118",
+      11,
+      70,
+      5
+    ],
+    [
+      "farmland_7",
+      12,
+      70,
+      5
+    ],
+    [
+      "wheat_7",
+      12,
+      71,
+      5
+    ],
+    [
+      "door_wooden_lower_0_0",
+      13,
+      70,
+      5
+    ]
+  ],
+  "hashes": {
+    "solid": "1bd875467144e681ff8862668f2d4bbf2462c75d7b27f2e7a79271d53f2ca17b",
+    "liquid": "2260dbcd640b8dfac23d46ba9222ba19eab3dc9c34ba566505914f4dcc5df4ea"
+  }
+}

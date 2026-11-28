@@ -1,0 +1,4 @@
+import{COMPOSTER_ID,composterLevel}from'../catalog/composter';
+export function inspectComposterItemOwner(raw:unknown):{kind:'none'|'valid'}|{kind:'invalid';reason:string}{
+ if(!raw||typeof raw!=='object')return{kind:'none'};try{const id=Object.getOwnPropertyDescriptor(raw,'id');if(!id||!('value'in id)||composterLevel(id.value)===null)return{kind:'none'};if(id.value!==COMPOSTER_ID)return{kind:'invalid',reason:'Hidden Composter progress cannot own an inventory stack'};const count=Object.getOwnPropertyDescriptor(raw,'count');if(![Object.prototype,null].includes(Object.getPrototypeOf(raw))||Reflect.ownKeys(raw).length!==2||!id.enumerable||!count?.enumerable||!('value'in count)||!Number.isSafeInteger(count.value)||count.value<1||count.value>64)return{kind:'invalid',reason:'Composter item needs exact plain finite id/count'};return{kind:'valid'};}catch{return{kind:'invalid',reason:'Unreadable Composter item owner'};}
+}

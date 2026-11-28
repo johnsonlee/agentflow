@@ -1,0 +1,18 @@
+{
+  "base": "49e6079021317aec332a5b1ce0ee480a68a1f65b",
+  "counts": [
+    324,
+    596,
+    174,
+    899,
+    309
+  ],
+  "blocks": "9fbd00588d6e7d14c6bc81970b03eeb568c02f5087a7824dcc8cf39ffb5a4034",
+  "items": "06c55e4be8907abd1c7524e3cf901a3e5dca0748281f64c4e12e330eb0371c1d",
+  "recipes": "2892034df5ed15c8c662dac871821341e648dbfc07c07b74f15a52d7140fcd53",
+  "names": "73ec67a7e19ff84a521e993a8a828cd72d487113266fb24f02e5e6ae9213ec02",
+  "tileNames": "d730eb709df53980f5837129c6a7b5e7d44c44a1533179ed588a685502173254",
+  "atlasRows": "c126e9bc2f999e5ca6f0dec5bc02239d7156f75057a8110b94f1e32322f0d077",
+  "nativeRecipeFile": "Education1.26.33 behavior_packs/{vanilla,vanilla_1.20.10}/recipes/leather_*.json",
+  "numericPolicy": "Application1/3/2/1points and5*11/16/15/13durability, not Education calibrated"
+}

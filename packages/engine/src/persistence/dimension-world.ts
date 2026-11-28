@@ -1,0 +1,180 @@
+import {diagnoseRawNpcActionOwnership as diagnoseRawNpcActions} from "./npc-action-ownership";
+import { diagnoseRawBookOwnership } from "./book-ownership";
+import {readCameras}from "../education/placed-camera";
+
+import{readComposterOwners}from './composter-state';
+import{diagnoseRawComposterOwnership}from './composter-ownership';
+import{diagnoseRawWoodSlabOwnership}from './wood-slab-ownership';
+import {diagnoseRawBoneMealOwnership} from './bone-meal-ownership';
+import { readCaneGrowthState } from "./cane-growth-state";
+import { hasBusyFurnaceOwnership } from "../ownership/furnace-contents";
+import type { SaveData } from "./save";
+import type { DimensionId } from "../core/dimensions";
+export type { DimensionId } from "../core/dimensions";
+
+/** World-local owners only. Player health/status/bags and Agent remain global.
+ * Callers must validate the complete save before partitioning it. This is not a
+ * parser for untrusted inactive-world archives and does not initiate travel. */
+export const DIMENSION_WORLD_KEYS = [
+  "seed", "generatorVersion", "player", "edits", "npcs", "chalkboards",
+  "furnaces", "composters", "redstone", "farming", "caneGrowth", "fire", "fluids", "portals",
+  "gravelHarvests", "worldDrops", "mobs", "leashes", "balloons",
+  "snowballProjectiles", "blazeFireballs", "brewingStands", "chests", "cameras",
+] as const satisfies readonly (keyof SaveData)[];
+export type DimensionWorldState = Pick<SaveData, typeof DIMENSION_WORLD_KEYS[number]>;
+const allowed = new Set<string>(DIMENSION_WORLD_KEYS);
+const required = ["seed", "player", "edits"] as const;
+const sourceDiagnostics = [
+  "bookOwnershipIssues", "camerasInvalid", "npcActionsInvalid", "codeWorkspaceInvalid", "caneGrowthInvalid",
+  "composterOwnershipIssues", "woodSlabOwnershipIssues", "recyclingOwnershipIssues", "caneOwnershipIssues", "boneMealOwnershipIssues", "chestOwnershipIssues", "brewingOwnershipIssues", "blazeOwnershipIssues", "wartOwnershipIssues", "dimensionsInvalid", "dimensionOwnershipIssues",
+  "generatorVersionInvalid", "fluidsInvalid", "portalsInvalid", "portalOwnershipIssues",
+  "playerStateOwnershipInvalid", "glowOwnershipIssues", "sparklerOwnershipIssues",
+  "bottleOwnershipIssues", "bucketOwnershipIssues", "cowStateInvalid", "playerStatusInvalid",
+  "fireInvalid", "ignitionOwnershipIssues", "gravelHarvestInvalid",
+] as const satisfies readonly (keyof SaveData)[];
+function assertNoSourceDiagnostics(save: SaveData): void {
+  if(diagnoseRawBookOwnership(save).length)throw Error("Invalid source book photo ownership");
+  if(!readCameras(save.cameras))throw Error("Invalid source Camera ownership");
+  if (diagnoseRawNpcActions(save)) throw new Error("Invalid source NPC URL buttons");
+  if(diagnoseRawComposterOwnership(save).length)throw new Error("Invalid source Composter ownership");
+  if(diagnoseRawWoodSlabOwnership(save).length)throw new Error("Invalid source Slab ownership");
+  if(diagnoseRawBoneMealOwnership(save).length)throw new Error("Invalid source Bone/Bone Meal ownership");
+  const growth = Object.getOwnPropertyDescriptor(save, "caneGrowth");
+  if (growth && (!("value" in growth) || readCaneGrowthState(growth.value).kind === "invalid")) {
+    throw new Error("Invalid source Cane growth state");
+  }
+  if (hasBusyFurnaceOwnership(save)) throw new Error("Cannot partition busy Furnace ownership");
+  for (const key of sourceDiagnostics) {
+    const descriptor = Object.getOwnPropertyDescriptor(save, key);
+    if (!descriptor) continue;
+    if (!("value" in descriptor)) throw new Error("Accessor in dimension source diagnostic");
+    const value: unknown = descriptor.value;
+    if (Array.isArray(value) ? value.length > 0 : value !== undefined && value !== false) {
+      throw new Error(`Unresolved source diagnostic ${key}`);
+    }
+  }
+}
+
+
+function assertWorldEnvelope(world: DimensionWorldState): void {
+  if(diagnoseRawBookOwnership(world).length)throw Error("Invalid dimension book photo ownership");
+  if (diagnoseRawNpcActions(world)) throw new Error("Invalid dimension NPC URL/command actions");
+  if (hasBusyFurnaceOwnership(world)) throw new Error("Cannot partition busy Furnace ownership");
+  if (!world || typeof world !== "object" || Array.isArray(world) ||
+      ![Object.prototype, null].includes(Object.getPrototypeOf(world))) {
+    throw new Error("Invalid dimension world envelope");
+  }
+  for (const key of Reflect.ownKeys(world)) {
+    const descriptor = Object.getOwnPropertyDescriptor(world, key)!;
+    if (typeof key !== "string" || !allowed.has(key) || !descriptor.enumerable ||
+        !("value" in descriptor)) {
+      throw new Error("Foreign owner, accessor or non-enumerable field in dimension world");
+    }
+  }
+  if(diagnoseRawComposterOwnership(world).length)throw new Error("Invalid dimension Composter ownership");
+  if(diagnoseRawWoodSlabOwnership(world).length)throw new Error("Invalid dimension Slab ownership");
+  if(diagnoseRawBoneMealOwnership(world).length)throw new Error("Invalid dimension Bone/Bone Meal ownership");
+  if (readCaneGrowthState(world.caneGrowth).kind === "invalid") throw new Error("Invalid dimension Cane growth state");
+  for (const key of required) {
+    if (!Object.hasOwn(world, key) || world[key] === undefined) {
+      throw new Error(`Missing dimension world ${key}`);
+    }
+  }
+}
+
+/** Detached world snapshot contains no player/Agent bag or player status owner. */
+export function captureDimensionWorld(save: SaveData): DimensionWorldState {
+  assertNoSourceDiagnostics(save);
+  const world: Record<string, unknown> = {};
+  for (const key of DIMENSION_WORLD_KEYS) {
+    const descriptor = Object.getOwnPropertyDescriptor(save, key);
+    if (!descriptor) continue;
+    if (!("value" in descriptor)) throw new Error("Accessor in dimension source");
+    if (descriptor.value !== undefined) world[key] = descriptor.value;
+  }
+  const compost=readComposterOwners(save);if(compost.kind==='invalid')throw new Error('Invalid Composter co-state');if(compost.data.records.length)world.composters=compost.data;else delete world.composters;
+  assertWorldEnvelope(world as DimensionWorldState);
+  return structuredClone(world) as DimensionWorldState;
+}
+
+/** Replaces the entire world partition. Absence in the target must never retain
+ * an old realm's furnace/drop/portal owner. Inputs and output share no aliases. */
+export function replaceDimensionWorld(globalSave: SaveData, target: DimensionWorldState): SaveData {
+  assertNoSourceDiagnostics(globalSave);
+  assertWorldEnvelope(target);
+  const next = structuredClone(globalSave);
+  for (const key of DIMENSION_WORLD_KEYS) Reflect.deleteProperty(next, key);
+  Object.assign(next, structuredClone(target));
+  return next;
+}
+
+export interface DimensionArchiveState {
+  version: 1;
+  active: DimensionId;
+  inactive: Partial<Record<DimensionId, DimensionWorldState>>;
+}
+export interface DimensionTransition {
+  /** Detached destination for preparation; changing it never changes archive data. */
+  destination: DimensionWorldState;
+  /** Call only after a destination context is ready, using a fresh current-world
+   * snapshot. This data transaction does not activate a Game or move global bags. */
+  commit(currentWorld: DimensionWorldState): { world: DimensionWorldState; archive: DimensionArchiveState } | null;
+  cancel(): void;
+}
+const dimensionId = (id: unknown): id is DimensionId => id === "overworld" || id === "nether";
+
+/** Ownership partition transaction over already validated world states. No live
+ * Game callbacks, raw archive sanitation, linking, generation or travel here. */
+export class DimensionWorldArchive {
+  private current: DimensionId;
+  private inactive: Partial<Record<DimensionId, DimensionWorldState>>;
+  private pending: symbol | null = null;
+  constructor(active: DimensionId, inactive: Partial<Record<DimensionId, DimensionWorldState>> = {}) {
+    if (!dimensionId(active) || !inactive || typeof inactive !== "object" || Array.isArray(inactive) ||
+        ![Object.prototype, null].includes(Object.getPrototypeOf(inactive))) throw new Error("Invalid dimension archive");
+    for (const key of Reflect.ownKeys(inactive)) {
+      const descriptor = Object.getOwnPropertyDescriptor(inactive, key)!;
+      if (!dimensionId(key) || key === active || !descriptor.enumerable || !("value" in descriptor)) {
+        throw new Error("Duplicate active world, non-enumerable or invalid inactive dimension");
+      }
+      assertWorldEnvelope(inactive[key]!);
+    }
+    this.current = active;
+    this.inactive = structuredClone(inactive);
+  }
+  get active(): DimensionId { return this.current; }
+  exportState(): DimensionArchiveState {
+    return { version: 1, active: this.current, inactive: structuredClone(this.inactive) };
+  }
+  begin(target: DimensionId, created?: DimensionWorldState): DimensionTransition | null {
+    if (!dimensionId(target) || target === this.current || this.pending) return null;
+    const existing = this.inactive[target];
+    // Never overwrite an already owned inactive world with generated data.
+    if (existing && created !== undefined || !existing && created === undefined) return null;
+    const selected = existing ?? created!;
+    assertWorldEnvelope(selected);
+    const destination = structuredClone(selected), token = Symbol("dimension-transition"), source = this.current;
+    this.pending = token;
+    let done = false;
+    const cancel = () => { if (done) return; done = true; if (this.pending === token) this.pending = null; };
+    return {
+      destination: structuredClone(destination),
+      cancel,
+      commit: currentWorld => {
+        if (done || this.pending !== token || this.current !== source) return null;
+        try {
+          assertWorldEnvelope(currentWorld);
+          // Complete all copies before changing any archive owner. A failed clone
+          // or invalid source leaves both realms unchanged and releases the lease.
+          const sourceCopy = structuredClone(currentWorld), world = structuredClone(destination);
+          const next = structuredClone(this.inactive);
+          delete next[target];
+          next[source] = sourceCopy;
+          this.inactive = next;
+          this.current = target;
+          return { world, archive: this.exportState() };
+        } finally { cancel(); }
+      },
+    };
+  }
+}

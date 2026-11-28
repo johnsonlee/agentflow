@@ -1,0 +1,47 @@
+import { nativePageWorldTap } from './native-world-tap';
+import {expect,type Page,type TestInfo,type Locator} from '@playwright/test';
+import fs from 'node:fs/promises';
+import {Inventory,blockId,stackId,serializeSave,type SaveData} from '@craft/engine';
+import {waitForTerrain,snap,pressMouse} from './helpers';
+
+/** One disclosed pre-owned Book and Quill, safe platform, upward initial saved camera.
+ * After initial raw load all writing/navigation/sign/save actions use browser inputs. */
+export async function bookMultipageRoute(page:Page,info:TestInfo,mobile:boolean){
+ const bag=new Inventory();bag.slots[0]={id:stackId('book_and_quill'),count:1};const edits:SaveData['edits']=[];
+ for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++){edits.push([x,79,z,blockId('stone')]);for(let y=80;y<=84;y++)edits.push([x,y,z,0]);}
+ const save:SaveData={version:1,name:'Three-page field notebook',seed:7,generatorVersion:3,mode:'survival',timeOfDay:.25,player:{position:{x:.5,y:80,z:.5},yaw:0,pitch:1.2,flying:false},playerState:{health:20},inventory:bag.toJSON(),edits,gamerules:{doMobSpawning:false,doDaylightCycle:false}};
+ const initial=['Alpha: soil observation.','Beta: water observation.','Gamma: plant observation.'],pages=[initial[0],initial[1]+' Revised after navigation.',initial[2]],title='Three field pages';
+ const errors:string[]=[],phases:unknown[]=[],touchWitnesses:unknown[]=[],measurements:unknown[]=[];let stage='initial',failure:string|null=null;
+ const press=(l:Locator)=>mobile?l.tap():l.click(),book=page.locator('.book-screen'),panel=book.locator('.book-panel'),prev=book.getByRole('button',{name:'Previous page',exact:true}),next=book.getByRole('button',{name:'Next page',exact:true}),text=book.getByRole('textbox',{name:'Book page',exact:true});
+ page.on('pageerror',e=>errors.push(e.message));page.on('console',m=>{if(m.type()==='error')errors.push(m.text());});
+ const owners=()=>page.evaluate(()=>{const g=window.__craft.game!;return{inventory:g.inventory.toJSON(),agent:structuredClone(g.agent),drops:g.worldDrops.toJSON(),loadErrors:g.loadErrors,position:{...g.body.position},yaw:g.body.yaw,pitch:g.body.pitch};});
+ const phase=async(label:string)=>{stage=label;phases.push({label,owners:await owners()});};
+ const reach=async(l:Locator)=>{
+  if(!mobile)return;
+  const before=await panel.evaluate(el=>({scrollTop:el.scrollTop,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight})),box=await l.boundingBox(),vp=page.viewportSize()!,pb=await panel.boundingBox();
+  if(box&&pb&&(box.y<0||box.y+box.height>vp.height)&&before.scrollHeight>before.clientHeight){
+   const session=await page.context().newCDPSession(page),x=Math.min(vp.width-24,pb.x+pb.width-24),start=Math.min(vp.height-40,pb.y+pb.height-25),end=Math.max(45,pb.y+45);
+   await session.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[{x,y:start,id:77}]});
+   try{for(let i=1;i<=12;i++){await session.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[{x,y:start+(end-start)*i/12,id:77}]});await page.waitForTimeout(16);}}
+   finally{await session.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});await session.detach();}
+   const after=await panel.evaluate(el=>({scrollTop:el.scrollTop,scrollHeight:el.scrollHeight,clientHeight:el.clientHeight}));expect(after.scrollTop).toBeGreaterThan(before.scrollTop);touchWitnesses.push({stage,viewport:vp,before,after,target:await l.getAttribute('aria-label')??await l.textContent()});
+  }
+ };
+ const measure=async(label:string)=>{const p=await prev.boundingBox(),n=await next.boundingBox();expect(p).not.toBeNull();expect(n).not.toBeNull();for(const b of[p!,n!]){expect(b.width).toBeGreaterThanOrEqual(44);expect(b.height).toBeGreaterThanOrEqual(44);}measurements.push({label,viewport:page.viewportSize(),prev:p,next:n,prevEnabled:await prev.isEnabled(),nextEnabled:await next.isEnabled(),panel:await panel.evaluate(el=>({scrollTop:el.scrollTop,clientHeight:el.clientHeight,scrollHeight:el.scrollHeight}))});};
+ const turn=async(dir:'previous'|'next',pageNumber:number,value:string,readonly=false)=>{const button=dir==='next'?next:prev;await expect(button).toBeEnabled();await reach(button);await measure(`${stage}-${dir}-enabled`);await press(button);await expect(book.locator('.book-page-number')).toHaveText(`Page ${pageNumber} of 3`);if(readonly)await expect(book.locator('.book-text')).toHaveText(value);else await expect(text).toHaveValue(value);};
+ const open=async()=>{if(mobile){const v=page.viewportSize()!;await nativePageWorldTap(page, v.width*.65,v.height*.42);}else await pressMouse(page,'right');await expect(book).toBeVisible();};
+ const done=async()=>{const l=book.getByRole('button',{name:'Done',exact:true});await reach(l);await press(l);await expect(book).toBeHidden();};
+ const cold=async(name:string)=>{if(mobile)await press(page.getByRole('button',{name:'Pause',exact:true}));else await page.keyboard.press('Escape');await press(page.getByRole('button',{name:'Save & Quit to Title',exact:true}));const raw=await page.evaluate(()=>localStorage.getItem('craft.save.v1')!);await fs.writeFile(info.outputPath(name),raw);await page.reload();await press(page.getByRole('button',{name:/Continue/}));await waitForTerrain(page);return JSON.parse(raw);};
+ try{
+  const raw=serializeSave(save);await fs.writeFile(info.outputPath('initial-disclosed-book-quill-platform.json'),raw);await page.goto('/');await page.evaluate(s=>{localStorage.clear();localStorage.setItem('craft.save.v1',s);},raw);await page.reload();await press(page.getByRole('button',{name:/Continue/}));await waitForTerrain(page);await phase('initial-one-preowned-blank-book');await open();
+  await text.fill(initial[0]);await reach(next);await measure('writable-first-next-enabled');await press(next);await expect(book.locator('.book-page-number')).toHaveText('Page 2 of 2');await text.fill(initial[1]);await reach(next);await press(next);await expect(book.locator('.book-page-number')).toHaveText('Page 3 of 3');await text.fill(initial[2]);await snap(page,info,'three-writable-pages-landscape');
+  await turn('previous',2,initial[1]);await text.fill(pages[1]);await turn('previous',1,pages[0]);await expect(prev).toBeDisabled();await turn('next',2,pages[1]);await turn('next',3,pages[2]);await done();await phase('actual-three-pages-and-middle-page-revision');
+  const unsigned=await cold('actual-unsigned-three-page-save.json');expect(unsigned.inventory.slots[0].id).toBe(stackId('book_and_quill'));expect(unsigned.inventory.slots[0].book.pages).toEqual(pages);await phase('unsigned-three-page-cold-save');await open();await expect(text).toHaveValue(pages[0]);await turn('next',2,pages[1]);await turn('next',3,pages[2]);
+  if(mobile){await page.setViewportSize({width:390,height:844});await reach(prev);await measure('portrait-enabled-navigation');await turn('previous',2,pages[1]);await turn('previous',1,pages[0]);await turn('next',2,pages[1]);await turn('next',3,pages[2]);await snap(page,info,'portrait-three-pages-edited-after-cold');}
+  const sign=book.getByRole('button',{name:'Sign',exact:true});await reach(sign);await press(sign);await book.getByRole('textbox',{name:'Book title',exact:true}).fill(title);await press(book.getByRole('button',{name:'Sign and Close',exact:true}));await expect(book).toBeHidden();await phase('actual-title-and-signing');
+  await open();await expect(book.locator('.book-title')).toHaveText(title);await expect(book.locator('.book-author')).toHaveText('by Player');await expect(text).toHaveCount(0);await expect(prev).toBeDisabled();await expect(book.locator('.book-text')).toHaveText(pages[0]);await turn('next',2,pages[1],true);await turn('next',3,pages[2],true);await expect(next).toBeDisabled();await turn('previous',2,pages[1],true);await turn('previous',1,pages[0],true);await snap(page,info,'signed-readonly-three-page-book');await done();
+  const signed=await cold('actual-signed-three-page-save.json');expect(signed.inventory.slots[0]).toMatchObject({id:stackId('written_book'),count:1,book:{title,author:'Player',pages}});await phase('signed-three-page-cold-save');
+  if(mobile)await page.setViewportSize({width:915,height:412});await open();await expect(book.locator('.book-title')).toHaveText(title);await expect(book.locator('.book-author')).toHaveText('by Player');await expect(book.locator('.book-text')).toHaveText(pages[0]);await turn('next',2,pages[1],true);await turn('next',3,pages[2],true);await expect(next).toBeDisabled();await snap(page,info,'cold-signed-last-page-landscape');await done();await phase('cold-signed-three-pages-final-owner');expect(errors).toEqual([]);expect((await owners()).loadErrors).toEqual([]);if(mobile)expect(touchWitnesses.length).toBeGreaterThan(0);
+ }catch(e){failure=e instanceof Error?e.stack??e.message:String(e);throw e;}
+ finally{const final=await owners().catch(e=>({readFailure:String(e)}));await fs.writeFile(info.outputPath('book-multipage-proof.json'),JSON.stringify({stage,failure,mobile,errors,pages,title,phases,touchWitnesses,measurements,final,fixture:'Initial raw saved oneBookQuill/platform/upwardcamera only. Actual UIfill/pagebuttons/edit/sign/Done/PauseSaveQuit/reloadContinue. Mobile viewportresize is emulation. CDPtrustedtouchpan when nav/Done outsideviewport; no runtimecamera/world/bag/savewrites afterstartup.',uncovered:['natural Book acquisition/crafting','native Education pagination/font/layout/author calibration','full50page/256character limits','external export/import/classroom collaboration','physicalphone/native/fullEducation/performance']},null,2));}
+}

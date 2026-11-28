@@ -1,0 +1,23 @@
+{
+  "name": "agentflow-craft",
+  "private": true,
+  "version": "0.1.0",
+  "description": "A Minecraft-style voxel sandbox for the web, written in TypeScript",
+  "type": "module",
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "typecheck": "tsc -b",
+    "test": "vitest run",
+    "build": "npm run build -w @craft/web",
+    "dev": "npm run dev -w @craft/web",
+    "preview": "npm run preview -w @craft/web",
+    "e2e": "npm run e2e -w @craft/web"
+  },
+  "devDependencies": {
+    "typescript": "^5.9.0",
+    "vitest": "^2.1.0"
+  }
+}

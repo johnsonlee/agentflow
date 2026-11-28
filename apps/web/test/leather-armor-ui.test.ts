@@ -1,0 +1,16 @@
+import {afterEach,beforeEach,expect,it,vi}from 'vitest';
+vi.mock('../src/ui/icons',()=>({blockIcon:()=> 'synthetic-icon'}));
+import {InventoryScreen}from '../src/ui/hud';
+import {Inventory,SingleChest,stackId,blockId,applyArmorDamage,ARMOR_SLOTS}from '@craft/engine';
+import type {TextureAtlas}from '@craft/textures';
+class Cell extends EventTarget{
+ children:Cell[]=[];className='';textContent='';hidden=false;dataset:Record<string,string>={};attributes:Record<string,string>={};style={};scrollTop=0;classList={add(..._x:string[]){},remove(..._x:string[]){},toggle(_x:string,_on?:boolean){}};
+ append(...cells:Cell[]){this.children.push(...cells);}appendChild(c:Cell){this.children.push(c);return c;}replaceChildren(...cells:Cell[]){this.children=cells;}setAttribute(k:string,v:string){this.attributes[k]=v;}querySelector(){return null;}
+}
+const all=(r:Cell):Cell[]=>[r,...r.children.flatMap(all)];
+beforeEach(()=>vi.stubGlobal('document',{createElement:()=>new Cell()}));afterEach(()=>vi.unstubAllGlobals());
+function fixture(){const parent=new Cell(),bag=new Inventory(),chest=new SingleChest(),ui=new InventoryScreen(parent as unknown as HTMLElement,{} as TextureAtlas,()=>{});ui.show(bag,'survival','chest',null,null,chest);const tap=(kind:'slot'|'chest',i:number)=>{const el=all(parent).find(c=>c.dataset[kind]===String(i));expect(el).toBeDefined();el!.dispatchEvent(new Event('click'));};return{parent,bag,chest,ui,tap};}
+it.each(['survival','creative']as const)('actual %s finite table crafts full Leather set; Survival equipment and worn Chest transfers conserve the same pieces',mode=>{
+ const f=fixture();f.ui.hide();f.bag.slots[0]={id:stackId('leather'),count:24};f.ui.show(f.bag,mode,'crafting_table');const tap=(kind:string,i='')=>{const c=all(f.parent).find(x=>x.dataset[kind]===i);expect(c).toBeDefined();c!.dispatchEvent(new Event('click'));};const shapes=[[0,1,2,3,5],[0,2,3,4,5,6,7,8],[0,1,2,3,5,6,8],[0,2,3,5]];let left=24;
+ shapes.forEach((cells,i)=>{tap('slot','0');cells.forEach(n=>tap('craft',String(n)));left-=cells.length;if(left)tap('slot','0');tap('craftResult');tap('slot',String(i+1));expect(f.bag.slots[i+1]).toEqual({id:852+i,count:1});});expect(left).toBe(0);expect(f.ui.hide()).toBe(true);f.ui.show(f.bag,'survival','inventory');ARMOR_SLOTS.forEach((slot,i)=>{tap('slot',String(i+1));tap('equipment',slot);expect(f.bag.equipment[slot]).toEqual({id:852+i,count:1});});expect(f.bag.slots.every(x=>x===null)).toBe(true);expect(f.ui.pendingItems()).toEqual([]);expect(applyArmorDamage(f.bag,8,'melee')).toBeCloseTo(5.76);for(let i=0;i<36;i++)f.bag.slots[i]={id:blockId('stone'),count:64};f.ui.refresh();tap('equipment','chest');const worn={id:853,count:1,damage:2};expect(f.ui.pendingItems()).toEqual([worn]);const feet=structuredClone(f.bag.equipment.feet);tap('equipment','feet');expect(f.bag.equipment.feet).toEqual(feet);expect(f.ui.pendingItems()).toEqual([worn]);expect(f.ui.hide()).toBe(false);f.bag.slots[35]=null;expect(f.ui.hide()).toBe(true);expect(f.bag.slots[35]).toEqual(worn);f.ui.show(f.bag,mode,'chest',null,null,f.chest);tap('slot','35');tap('chest','26');expect(f.chest.snapshot().slots[26]).toEqual(worn);expect(f.ui.pendingItems()).toEqual([]);expect(f.ui.hide()).toBe(true);expect(f.bag.equipment.chest).toBeNull();
+});

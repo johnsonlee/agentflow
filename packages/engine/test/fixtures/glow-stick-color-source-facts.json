@@ -1,0 +1,201 @@
+{
+  "workingReference": "Education1.26.33.0 official-current assumption; active runtime binding unverified",
+  "sources": [
+    {
+      "path": "behavior_packs/chemistry/item_catalog/crafting_item_catalog.json",
+      "bytes": 12891,
+      "sha256": "5aa219340a95531f9517ff7713ca1075b1f9524c342fa577f6ac7916416308fc",
+      "matchesRetainedInstallerSourceManifest": true
+    },
+    {
+      "path": "resource_packs/chemistry/textures/terrain_texture.json",
+      "bytes": 14251,
+      "sha256": "3b05a3686d10da21033888a54aac8b378778d270bd533777eb09217155f0afde",
+      "matchesRetainedInstallerSourceManifest": true
+    },
+    {
+      "path": "resource_packs/chemistry/textures/textures_list.json",
+      "bytes": 9949,
+      "sha256": "99791e9cf7b37756d3fefeebf6744279eb853bea9be7b9e10cea25d2c658f93d",
+      "matchesRetainedInstallerSourceManifest": true
+    },
+    {
+      "path": "resource_packs/chemistry/sounds.json",
+      "bytes": 2021,
+      "sha256": "c1c9ea59ecaf1dcfb48d35d42511f8e756f9f4a5e6b184e608305d73beadaaa8",
+      "matchesRetainedInstallerSourceManifest": true
+    },
+    {
+      "path": "resource_packs/chemistry/blocks.json",
+      "bytes": 8298,
+      "sha256": "35f544af9bd169fd92889d299108f26da878b56d728e5a0afabc5c4013a5513a",
+      "matchesRetainedInstallerSourceManifest": true
+    }
+  ],
+  "variants": [
+    {
+      "nativeLegacyData": 0,
+      "color": "red",
+      "catalogSelectable": false,
+      "placeholder": true,
+      "proposedApplicationItemName": null,
+      "canonicalDye": null
+    },
+    {
+      "nativeLegacyData": 1,
+      "color": "red",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "red_glow_stick",
+      "canonicalDye": "red_dye"
+    },
+    {
+      "nativeLegacyData": 2,
+      "color": "green",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "glow_stick",
+      "canonicalDye": "green_dye"
+    },
+    {
+      "nativeLegacyData": 3,
+      "color": "brown",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "brown_glow_stick",
+      "canonicalDye": "brown_dye"
+    },
+    {
+      "nativeLegacyData": 4,
+      "color": "blue",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "blue_glow_stick",
+      "canonicalDye": "blue_dye"
+    },
+    {
+      "nativeLegacyData": 5,
+      "color": "purple",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "purple_glow_stick",
+      "canonicalDye": "purple_dye"
+    },
+    {
+      "nativeLegacyData": 6,
+      "color": "cyan",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "cyan_glow_stick",
+      "canonicalDye": "cyan_dye"
+    },
+    {
+      "nativeLegacyData": 7,
+      "color": "red",
+      "catalogSelectable": false,
+      "placeholder": true,
+      "proposedApplicationItemName": null,
+      "canonicalDye": null
+    },
+    {
+      "nativeLegacyData": 8,
+      "color": "gray",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "gray_glow_stick",
+      "canonicalDye": "gray_dye"
+    },
+    {
+      "nativeLegacyData": 9,
+      "color": "pink",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "pink_glow_stick",
+      "canonicalDye": "pink_dye"
+    },
+    {
+      "nativeLegacyData": 10,
+      "color": "lime",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "lime_glow_stick",
+      "canonicalDye": "lime_dye"
+    },
+    {
+      "nativeLegacyData": 11,
+      "color": "yellow",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "yellow_glow_stick",
+      "canonicalDye": "yellow_dye"
+    },
+    {
+      "nativeLegacyData": 12,
+      "color": "light_blue",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "light_blue_glow_stick",
+      "canonicalDye": "light_blue_dye"
+    },
+    {
+      "nativeLegacyData": 13,
+      "color": "magenta",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "magenta_glow_stick",
+      "canonicalDye": "magenta_dye"
+    },
+    {
+      "nativeLegacyData": 14,
+      "color": "orange",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "orange_glow_stick",
+      "canonicalDye": "orange_dye"
+    },
+    {
+      "nativeLegacyData": 15,
+      "color": "white",
+      "catalogSelectable": true,
+      "placeholder": false,
+      "proposedApplicationItemName": "white_glow_stick",
+      "canonicalDye": "white_dye"
+    }
+  ],
+  "totalSupportedColors": 14,
+  "additionalColors": 13,
+  "excludedUnsupportedProducts": [
+    "black",
+    "light_gray"
+  ],
+  "nativeActivationMetadata": null,
+  "nativeDurationSeconds": null,
+  "nativeDurability": null,
+  "nativeLightStrength": null,
+  "nativePlacementRule": null,
+  "journal": {
+    "url": "https://education.minecraft.net/content/dam/education-edition/learning-experiences/chemistry/Chemistry-Lab-Journal.pdf",
+    "sha256": "6c8c8fc22057306da14583d3a265a4f4708b79c2b2b4f471f243bcb5ca4d7d28",
+    "printedPage": 9,
+    "imageSHA256": "4f2f3cefa288617c0d808cee7069779f5727af14c0f81eafc3bf7ee066b06db8",
+    "pattern": [
+      "PHP",
+      "PDP",
+      "PLP"
+    ],
+    "key": {
+      "P": "polyethylene",
+      "H": "hydrogen_peroxide",
+      "D": "matching canonical dye (green illustrated)",
+      "L": "luminol"
+    },
+    "inputCounts": {
+      "polyethylene": 6,
+      "hydrogen_peroxide": 1,
+      "matchingDye": 1,
+      "luminol": 1
+    },
+    "outputCountProven": null,
+    "activationConcept": "Shaking activates glow; exact gesture and metadata unspecified"
+  }
+}

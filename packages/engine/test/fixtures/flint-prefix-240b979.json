@@ -1,0 +1,13 @@
+{
+  "base": "240b979807100768482de2f61653f47fdfaf06a5",
+  "counts": {
+    "items": 581,
+    "blocks": 308,
+    "recipes": 167,
+    "tiles": 867
+  },
+  "itemsSHA256": "60ee6b3f3d35ba5924699cf84aa4f98f82a8eb4df60d646e57ee85c7c0c9a0bd",
+  "blocksSHA256": "5b911340311a4dd9b076a72242846682aa7cb16d4763b8e51908d1a103ae5e8d",
+  "recipesSHA256": "592bd0d3f9bd84a2c0a4e6b01af7a21e9b5461e892e2c95a111a41676c5f7c15",
+  "namesSHA256": "f5851d9d879c9725b40232492d705c5c4ad977456a9429807cd0a7d2169abe58"
+}

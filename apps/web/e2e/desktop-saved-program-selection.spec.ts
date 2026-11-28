@@ -1,0 +1,1 @@
+import{test}from'@playwright/test';import{savedProgramSelectionRoute}from'./saved-program-selection';test('desktop: select and edit older saved programs, explicit finite Run and implicit world-save cold persistence',async({page},info)=>{test.setTimeout(360000);await savedProgramSelectionRoute(page,info,false,{width:1280,height:720});});

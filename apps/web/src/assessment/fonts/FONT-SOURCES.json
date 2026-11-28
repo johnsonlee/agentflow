@@ -1,0 +1,55 @@
+{
+  "observedAt": "2026-11-27T21:13:57.335436+00:00",
+  "cjk": {
+    "repository": "notofonts/noto-cjk",
+    "revision": "f8d157532fbfaeda587e826d4cd5b21a49186f7c",
+    "path": "Sans/OTF/TraditionalChineseHK/NotoSansCJKhk-Regular.otf",
+    "bytes": 16427604,
+    "gitBlobSHA": "e28d5f1e78db9039ee432a78d31b566dc3a00d27",
+    "metadataURL": "https://api.github.com/repos/notofonts/noto-cjk/contents/Sans/OTF/TraditionalChineseHK/NotoSansCJKhk-Regular.otf?ref=f8d157532fbfaeda587e826d4cd5b21a49186f7c",
+    "rawURL": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/OTF/TraditionalChineseHK/NotoSansCJKhk-Regular.otf",
+    "licenseURL": "https://raw.githubusercontent.com/notofonts/noto-cjk/f8d157532fbfaeda587e826d4cd5b21a49186f7c/Sans/LICENSE",
+    "selection": "Smallest bytecount among pinned five staticRegular PanCJK regionalOTF variants. One weight only; native/regionaltypography uncalibrated."
+  },
+  "emoji": {
+    "repository": "google/fonts",
+    "revision": "5026800714d07231937d92eb4cceabf06e05d74e",
+    "sourcePath": "ofl/notoemoji/NotoEmoji[wght].ttf",
+    "rawURL": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/notoemoji/NotoEmoji[wght].ttf",
+    "gitBlobSHA": "c2c26ab612a88a8610ff9cfbb89299bf2aea6c7a",
+    "licenseURL": "https://raw.githubusercontent.com/google/fonts/5026800714d07231937d92eb4cceabf06e05d74e/ofl/notoemoji/OFL.txt"
+  },
+  "files": [
+    {
+      "file": "NotoEmoji-OFL.txt",
+      "sha256": "500bb1ccf43df7bbb522112f9133a52b16e1c35e809632f5d8609b179152de5b",
+      "bytes": 4330
+    },
+    {
+      "file": "NotoEmoji.ttf",
+      "sha256": "de6c18832938afc99caf132b39d6a30a19bac7f2e812e28db2535b4608d27551",
+      "bytes": 1982596
+    },
+    {
+      "file": "NotoSansCJK-OFL.txt",
+      "sha256": "6a73f9541c2de74158c0e7cf6b0a58ef774f5a780bf191f2d7ec9cc53efe2bf2",
+      "bytes": 4301
+    },
+    {
+      "file": "NotoSansCJKhk-Regular.otf",
+      "sha256": "97c937514d645eae90415d30ba025e08a94d5bdffdc627404864f90aa0c7d83b",
+      "bytes": 16427604
+    },
+    {
+      "file": "fontkit-upstream-MIT.txt",
+      "sha256": "cf22b8198f0886a8d4626121579114f23141070e1fceab02ab3c1c361e163440",
+      "bytes": 1077
+    },
+    {
+      "file": "pdf-lib-MIT.txt",
+      "sha256": "f2c9fc00fdb66eb99ac156ba52d734af66d8d309f65753ae809ad34ee2883bcb",
+      "bytes": 1070
+    }
+  ],
+  "earlierLookupFailure": "Pinned noto-emoji main/fontspath absent404; officialREADME points monochrome variable font toGoogleFonts; no app/browser/PDF attempted."
+}

@@ -1,0 +1,27 @@
+import{COMPOSTER_APP_PROFILE,composterLevel}from'../catalog/composter';import{WORLD_BORDER}from'../core/math';import{WORLD_HEIGHT}from'../world/chunk';
+export interface ComposterRecord{x:number;y:number;z:number;level:number;attempts:number;remaining:number}
+export interface CompostersData{version:1;records:ComposterRecord[]}
+export interface ComposterIssue{path:string;reason:string}
+export type ComposterRead={kind:'absent'|'valid';data:CompostersData;issues:ComposterIssue[]}|{kind:'invalid';issues:ComposterIssue[]};
+const plain=(v:unknown):v is Record<string,unknown>=>!!v&&typeof v==='object'&&!Array.isArray(v)&&[Object.prototype,null].includes(Object.getPrototypeOf(v));
+const own=(v:object,k:string)=>{const d=Object.getOwnPropertyDescriptor(v,k);if(!d||!d.enumerable||!('value'in d))throw Error('Expected own data field');return d.value;};
+const integer=(v:unknown,min:number,max:number):v is number=>typeof v==='number'&&Number.isSafeInteger(v)&&v>=min&&v<=max;
+const coord=(x:unknown,y:unknown,z:unknown)=>integer(x,-WORLD_BORDER,WORLD_BORDER)&&integer(y,0,WORLD_HEIGHT-1)&&integer(z,-WORLD_BORDER,WORLD_BORDER);
+const exact=(o:object,fields:readonly string[])=>Reflect.ownKeys(o).length===fields.length&&fields.every(k=>Object.hasOwn(o,k));
+function list(raw:unknown,max=Infinity):unknown[]{if(!Array.isArray(raw)||raw.length>max||Object.getPrototypeOf(raw)!==Array.prototype||Reflect.ownKeys(raw).length!==raw.length+1)throw Error('Expected complete data array');return Array.from({length:raw.length},(_,i)=>own(raw,String(i)));}
+/** Strict co-state read before sanitization. Current generators never generate Composters;
+ * every physical station must therefore have an explicit known cell. Only absent empty217
+ * may acquire zero defaults; nonempty stations require exact data and counter/timer bounds. */
+export function readComposterOwners(raw:unknown):ComposterRead{
+ const issues:ComposterIssue[]=[],add=(path:string,reason:string)=>issues.push({path,reason}),physical=new Map<string,{x:number;y:number;z:number;level:number}>();let section:unknown,has=false;
+ try{if(!plain(raw))return{kind:'absent',data:{version:1,records:[]},issues};const descriptor=Object.getOwnPropertyDescriptor(raw,'composters');if(descriptor){has=descriptor.value!==undefined;if(!descriptor.enumerable||!('value'in descriptor)){add('composters','Unreadable Composter state');return{kind:'invalid',issues};}section=descriptor.value;}
+ const edits=Object.getOwnPropertyDescriptor(raw,'edits'),allCells=new Map<string,{composter:boolean;index:number}>();if(edits&&'value'in edits&&Array.isArray(edits.value))for(const[eIndex,e]of list(edits.value).entries()){if(!Array.isArray(e))continue;const id=Object.getOwnPropertyDescriptor(e,'3');if(!id||!('value'in id))continue;const level=composterLevel(id.value);let values:unknown[];try{values=list(e,4);}catch{if(level!==null)add(`edits[${eIndex}]`,'Invalid physical Composter cell');continue;}if(values.length!==4||!coord(values[0],values[1],values[2])){if(level!==null)add(`edits[${eIndex}]`,'Invalid physical Composter cell');continue;}const[x,y,z]=values as[number,number,number,number],key=`${x},${y},${z}`,prior=allCells.get(key);if(prior&&(prior.composter||level!==null))add(`edits[${eIndex}]`,'Duplicate physical Composter cell');allCells.set(key,{composter:level!==null||!!prior?.composter,index:eIndex});if(level!==null&&!physical.has(key))physical.set(key,{x,y,z,level});}
+
+ if(physical.size>COMPOSTER_APP_PROFILE.maximumStations)add('composters','Too many Composter stations');
+ if(!has){const records:ComposterRecord[]=[];for(const cell of physical.values()){if(cell.level!==0)add('composters','Nonempty physical Composter has no saved owner');else records.push({...cell,attempts:0,remaining:0});}return issues.length?{kind:'invalid',issues}:{kind:'absent',data:{version:1,records},issues};}
+ if(!plain(section)||!exact(section,['version','records'])||own(section,'version')!==1){add('composters','Invalid Composter envelope');return{kind:'invalid',issues};}
+ const rows=list(own(section,'records'),COMPOSTER_APP_PROFILE.maximumStations),records:ComposterRecord[]=[],seen=new Set<string>();if(rows.length>COMPOSTER_APP_PROFILE.maximumStations)add('composters.records','Too many Composter owners');
+ for(const[i,row]of rows.entries()){const path=`composters.records[${i}]`;if(!plain(row)||!exact(row,['x','y','z','level','attempts','remaining'])){add(path,'Invalid Composter record fields');continue;}const x=own(row,'x'),y=own(row,'y'),z=own(row,'z'),level=own(row,'level'),attempts=own(row,'attempts'),remaining=own(row,'remaining');if(!coord(x,y,z)||!integer(level,0,8)||!integer(attempts,0,COMPOSTER_APP_PROFILE.maximumAttempts)||typeof remaining!=='number'||!Number.isFinite(remaining)||(level===7?remaining<=0||remaining>COMPOSTER_APP_PROFILE.matureSeconds:remaining!==0)||attempts<Math.min(level,7)){add(path,'Invalid Composter level, attempt counter or loaded timer');continue;}const key=`${x},${y},${z}`,cell=physical.get(key);if(seen.has(key))add(path,'Duplicate Composter owner');seen.add(key);if(!cell||cell.level!==level)add(path,'Composter owner does not match its physical cell');else records.push({x:x as number,y:y as number,z:z as number,level,attempts,remaining});}
+ for(const key of physical.keys())if(!seen.has(key))add('composters.records','Physical Composter is missing its saved owner');return issues.length?{kind:'invalid',issues}:{kind:'valid',data:{version:1,records},issues};
+ }catch{add('composters','Unreadable Composter ownership');return{kind:'invalid',issues};}
+}

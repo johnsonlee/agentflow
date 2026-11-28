@@ -1,0 +1,20 @@
+{
+  "revision": "dc9e51a61a71a662f8cb37cf4eff39ed65754587",
+  "items": 602,
+  "recipes": 191,
+  "blocks": 330,
+  "atlasNames": 910,
+  "tileNames": 320,
+  "hashes": {
+    "items": "7ab103f8f83b7eac1b69af2bf2790283477c0eda299b7bb4d71d44a98f305bd3",
+    "recipes": "9cc0fed5779c2ef71f3b8b12a08334636f4931bae157622c6d3c334e01888011",
+    "blocks": "cb6037f52ffe3a1d792a9c00218fc4ee595149ed07432775e8f863df89ad0f3e",
+    "atlasNames": "5f8dca66879c5bf07256a9d7f09d343cc4c975a3753d1272c2082a3a0a737683",
+    "tileNames": "53c3822a90970864e9cd3d4af09d6e32869351b545b0683c25b037242a5e804a",
+    "atlasRows": "6dd57dfd5492fdfdc04c579cccfdab3e4ecc1f03ad94cfdac8e6238108cb13ad"
+  },
+  "atlasSize": [
+    512,
+    512
+  ]
+}

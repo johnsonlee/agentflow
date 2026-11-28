@@ -1,0 +1,86 @@
+import{bookExportSnapshot,bookPdfFilename,bookPdfServices,BookExportCancelled,type BookPdfServices}from'../assessment/book-export';
+import {cloneBookData,readBookData,isWritableBook,BOOK_MAX_PAGES,BOOK_PAGE_CHARS,BOOK_TITLE_CHARS,BOOK_MAX_PHOTOS,type BookData,type ItemStack} from '@craft/engine';
+import type {ExportPhoto} from '../assessment/portfolio-export';
+import {prepareBookPhoto} from './bookPhotoPicker';
+function el<K extends keyof HTMLElementTagNameMap>(tag:K,cls='',text=''):HTMLElementTagNameMap[K]{const node=document.createElement(tag);node.className=cls;node.textContent=text;return node;}
+export interface BookScreenServices {photos():readonly ExportPhoto[];current():boolean;exportCurrent?():boolean;commit(book:BookData,title?:string):{ok:true}|{ok:false;error:string}}
+/** Detached draft only. Lifecycle hide cancels; explicit user close commits healthy edits. */
+export class BookScreen{
+ readonly root=el('div','screen book-screen');private panel=el('div','panel book-panel');private stack:ItemStack|null=null;private draft:BookData={pages:['']};private page=0;private signing=false;private signingTitle='';private generation=0;private busy=false;private error='';private draftRevision=0;private exportOperation:symbol|null=null;private exportStatus='';private readonly downloadCleanups=new Set<()=>void>();
+ constructor(container:HTMLElement,private onClose:()=>void,private services:BookScreenServices,private readonly pdfServices:BookPdfServices=bookPdfServices){this.root.hidden=true;this.root.append(this.panel);container.append(this.root);}
+ get open():boolean{return !this.root.hidden;}
+ show(stack:ItemStack):void{this.hide();this.stack=stack;this.draft=cloneBookData(stack.book??{pages:['']});if(!this.draft.pages.length)this.draft.pages=[''];this.page=0;this.signing=false;this.signingTitle='';this.error='';this.exportStatus='';this.draftRevision++;this.root.hidden=false;this.render(true);}
+ hide():void{this.generation++;this.exportOperation=null;this.disposeDownloads();this.busy=false;this.stack=null;this.root.hidden=true;}
+ userClose(title?:string):boolean{
+  if(this.busy){this.generation++;this.exportOperation=null;this.busy=false;} // Explicit close cancels only the unfinished selection.
+  if(this.stack&&isWritableBook(this.stack)){
+   const result=this.services.commit(this.draft,title);if(!result.ok){this.error=result.error;this.render();return false;}
+  }
+  this.hide();return true;
+ }
+ private button(label:string,click:()=>void):HTMLButtonElement{const b=el('button','mc-button',label);b.type='button';b.addEventListener('click',click);return b;}
+ /** Only opening a book or turning a page changes the reader's place. */
+ private replaceContent(parts:HTMLElement[],startAtTop:boolean):boolean{
+  const top=this.panel.scrollTop,left=this.panel.scrollLeft;
+  const editors=Array.from(this.panel.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input,textarea')).map(node=>({
+   label:node.getAttribute('aria-label'),start:node.selectionStart,end:node.selectionEnd,direction:node.selectionDirection,
+   top:node.scrollTop,left:node.scrollLeft,focused:document.activeElement===node,
+  }));
+  this.panel.replaceChildren(...parts);
+  if(startAtTop){this.panel.scrollTop=0;this.panel.scrollLeft=0;return false;}
+  let focused=false;
+  for(const node of this.panel.querySelectorAll<HTMLInputElement|HTMLTextAreaElement>('input,textarea')){
+   const previous=editors.find(editor=>editor.label!==null&&editor.label===node.getAttribute('aria-label'));
+   if(!previous)continue;
+   if(previous.start!==null&&previous.end!==null)node.setSelectionRange(previous.start,previous.end,previous.direction??'none');
+   if(previous.focused&&!node.disabled){node.focus({preventScroll:true});focused=true;}
+   node.scrollTop=previous.top;node.scrollLeft=previous.left;
+  }
+  this.panel.scrollTop=top;this.panel.scrollLeft=left;return focused;
+ }
+ private render(startAtTop=false):void{
+  if(!this.stack)return;const writable=isWritableBook(this.stack),parts:HTMLElement[]=[];
+  parts.push(el('h2','book-title',writable?'Book and Quill':this.draft.title??'Book'));
+  if(!writable)parts.push(el('p','book-author',`by ${this.draft.author??'?'}`));
+  const status=el('p','book-status',this.error||this.exportStatus);status.setAttribute('role',this.error?'alert':'status');status.setAttribute('aria-live','polite');parts.push(status);
+  if(writable&&this.signing){const titleWasShown=this.panel.querySelector('[aria-label="Book title"]')!==null;const title=el('input','mc-input');title.maxLength=BOOK_TITLE_CHARS;title.value=this.signingTitle;title.addEventListener('input',()=>{this.signingTitle=title.value;});title.setAttribute('aria-label','Book title');title.addEventListener('keydown',e=>e.stopPropagation());parts.push(el('p','hint','Signing makes text and photos read-only.'),title,this.button('Sign and Close',()=>{this.signingTitle=title.value;if(this.userClose(title.value))this.onClose();}),this.button('Cancel',()=>{this.signing=false;this.render();}));if(!this.replaceContent(parts,startAtTop))title.focus({preventScroll:titleWasShown});return;}
+  const image=this.draft.photoPages?.entries.find(p=>p.page===this.page);
+  if(image){const figure=el('figure','book-photo'),img=el('img');img.src=image.dataUrl;img.alt=image.caption||`Photo on page ${this.page+1}`;figure.append(img,el('figcaption','',image.caption));parts.push(figure);}
+  if(writable){const text=el('textarea','mc-input book-page');text.value=this.draft.pages[this.page];text.maxLength=BOOK_PAGE_CHARS;text.disabled=this.exportOperation!==null;text.setAttribute('aria-label','Book page');text.addEventListener('keydown',e=>e.stopPropagation());text.addEventListener('input',()=>{if(this.exportOperation)return;this.draft.pages[this.page]=text.value;this.draftRevision++;});parts.push(text);
+   const picture=this.button(image?'Replace photo':'Insert photo',()=>this.picker());picture.disabled=this.busy;parts.push(picture);
+   if(image){const caption=el('input','mc-input');caption.value=image.caption;caption.maxLength=200;caption.disabled=this.exportOperation!==null;caption.setAttribute('aria-label','Photo caption');caption.addEventListener('keydown',e=>e.stopPropagation());caption.addEventListener('input',()=>{if(this.exportOperation)return;image.caption=caption.value;this.draftRevision++;});parts.push(caption,this.button('Remove photo',()=>{if(this.busy)return;this.draftRevision++;this.draft.photoPages!.entries=this.draft.photoPages!.entries.filter(p=>p.page!==this.page);this.render();}));}
+  }else parts.push(el('p','book-text',this.draft.pages[this.page]));
+  const nav=el('div','book-nav'),prev=this.button('◀',()=>{if(this.busy)return;this.page--;this.render(true);}),next=this.button('▶',()=>{if(this.busy)return;if(this.page===this.draft.pages.length-1){this.draft.pages.push('');this.draftRevision++;}this.page++;this.render(true);});prev.setAttribute('aria-label','Previous page');next.setAttribute('aria-label','Next page');prev.disabled=this.busy||this.page===0;next.disabled=this.busy||(this.page===this.draft.pages.length-1&&(!writable||this.draft.pages.length>=BOOK_MAX_PAGES));nav.append(prev,el('span','book-page-number',`Page ${this.page+1} of ${this.draft.pages.length}`),next);parts.push(nav);
+  if(writable){const sign=this.button('Sign',()=>{if(this.busy)return;this.signing=true;this.render();});sign.disabled=this.busy;parts.push(sign);if(this.draft.pages.length>1)parts.push(this.button('Delete page',()=>{if(this.busy)return;this.draftRevision++;const page=this.page;this.draft.pages.splice(page,1);if(this.draft.photoPages)this.draft.photoPages.entries=this.draft.photoPages.entries.filter(p=>p.page!==page).map(p=>({...p,page:p.page>page?p.page-1:p.page}));this.page=Math.min(page,this.draft.pages.length-1);this.render(true);}));}
+  if(writable)parts.push(this.button('Discard changes',()=>{this.hide();this.onClose();}));
+  const exportControls=el('div','book-export-controls'),exportButton=this.button(writable?'Download draft PDF':'Export PDF',()=>{void this.exportPdf();});exportButton.disabled=this.busy;exportControls.append(exportButton);if(this.exportOperation)exportControls.append(this.button('Cancel PDF export',()=>{this.exportOperation=null;this.busy=false;this.exportStatus='PDF export cancelled. Your book is unchanged.';this.render();}));parts.push(exportControls);
+  parts.push(this.button('Done',()=>this.onClose()));this.replaceContent(parts,startAtTop);
+ }
+ private disposeDownloads():void{for(const cleanup of this.downloadCleanups)cleanup();this.downloadCleanups.clear();}
+ private exportAllowed():boolean{try{return this.services.current()&&this.services.exportCurrent?.()===true;}catch{return false;}}
+ private async exportPdf():Promise<void>{
+  if(this.busy||!this.open||!this.stack)return;
+  const generation=this.generation,revision=this.draftRevision,source=this.stack,token=Symbol('book-pdf');const original=()=>this.open&&this.generation===generation&&this.stack===source&&this.draftRevision===revision;
+  if(!this.exportAllowed()||!original()){if(original()){this.error='This book session is unavailable for export. Close and reopen it.';this.render();}return;}
+  this.exportOperation=token;this.busy=true;this.error='';this.exportStatus='Preparing PDF…';
+  const screenCurrent=()=>this.open&&this.generation===generation&&this.stack===source;
+  const alive=()=>screenCurrent()&&this.exportOperation===token&&this.draftRevision===revision&&this.exportAllowed()&&screenCurrent()&&this.exportOperation===token&&this.draftRevision===revision;
+  try{
+   if(!alive())throw new BookExportCancelled();const snapshot=bookExportSnapshot(this.draft,isWritableBook(source)?'draft':'signed',alive);this.render();const result=await this.pdfServices.build(snapshot,alive);if(!alive())return;
+   let cleanup:(()=>void)|undefined;cleanup=this.pdfServices.download(result.blob,bookPdfFilename(snapshot),alive,()=>{if(cleanup)this.downloadCleanups.delete(cleanup);});if(!alive()){cleanup();return;}this.downloadCleanups.add(cleanup);this.exportStatus=`PDF export started (${result.pages} page${result.pages===1?'':'s'}). Exact writing is attached as UTF-8 text; some shaped text or emoji may not be searchable.`;
+  }catch(error){if(screenCurrent()&&this.exportOperation===token)this.error=error instanceof BookExportCancelled?error.message:'PDF could not be exported. '+(error instanceof Error?error.message:'Your book is unchanged.');}
+  finally{if(this.exportOperation===token){const stillValid=alive();this.exportOperation=null;this.busy=false;if(screenCurrent()){if(!stillValid&&!this.error)this.error='This book session changed. Close and reopen it before exporting.';this.render();}}}
+ }
+ private picker():void{
+  if(!this.services.current()){this.error='This book owner changed. Close and reopen it.';this.render();return;}
+  const generation=++this.generation,page=this.page;let photos:readonly ExportPhoto[];
+  try{photos=this.services.photos();}catch{this.error='Portfolio could not be read. Your book is unchanged.';this.render();return;}
+  const heading=el('h3','','Choose Portfolio photo'),status=el('p','hint',photos.length?'Photos are copied into this book. Removing a Portfolio original will not remove the copy.':'No Portfolio photos. Take a photo with a Camera first.'),list=el('div','book-photo-picker');
+  for(const photo of photos){const b=this.button(photo.caption||'Choose photo',()=>{
+   if(this.busy)return;if(!this.draft.photoPages?.entries.some(p=>p.page===page)&&(this.draft.photoPages?.entries.length??0)>=BOOK_MAX_PHOTOS){this.error='This book has reached the 8-photo application limit.';this.render();return;}
+   this.busy=true;status.textContent='Loading photo…';const current=()=>this.open&&this.generation===generation&&this.services.current();
+   void prepareBookPhoto(photo,page,current).then(result=>{if(!current())return;const entries=(this.draft.photoPages?.entries??[]).filter(p=>p.page!==page);const candidate=readBookData({...this.draft,photoPages:{version:1,entries:[...entries,result].sort((a,b)=>a.page-b.page)}});this.draft=candidate;this.draftRevision++;this.error='';}).catch(error=>{if(current())this.error=error instanceof Error?error.message:'Photo could not be inserted.';}).finally(()=>{if(this.open&&this.generation===generation){this.busy=false;this.render();}});
+  });const img=el('img');img.src=photo.dataUrl;img.alt=photo.caption||'Portfolio photo';b.prepend(img);list.append(b);}
+  const cancel=this.button('Cancel photo selection',()=>{this.generation++;this.busy=false;this.render();});this.panel.replaceChildren(heading,status,list,cancel);cancel.focus();
+ }
+}

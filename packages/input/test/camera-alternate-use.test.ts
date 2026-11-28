@@ -1,0 +1,8 @@
+import{it,expect,vi,afterEach}from'vitest';
+import{KeyboardMouseInput}from'../src/devices/keyboard-mouse';
+import{emptyFrame,mergeFrames}from'../src/contracts/actions';
+afterEach(()=>vi.unstubAllGlobals());
+function setup(){const win=new EventTarget(),doc=new EventTarget(),canvas=new EventTarget();vi.stubGlobal('window',win);vi.stubGlobal('document',doc);const input=new KeyboardMouseInput(canvas as unknown as HTMLElement);const send=(type:string,code:string)=>{const e=new Event(type);Object.defineProperty(e,'code',{value:code});win.dispatchEvent(e);};return{win,input,send};}
+it.each(['ShiftLeft','ShiftRight'])('%s is a distinct alternate-use intent and also preserves existing descend',code=>{const{input,send}=setup();try{send('keydown',code);expect(input.poll()).toMatchObject({alternateUse:true,descend:true,place:false});send('keyup',code);expect(input.poll()).toMatchObject({alternateUse:false,descend:false});}finally{input.dispose();}});
+it('a touch descend frame does not invent Shift/photo mode during merged joystick input',()=>{const touch=emptyFrame();touch.forward=1;touch.descend=true;expect(mergeFrames([touch])).toMatchObject({forward:1,descend:true,alternateUse:false});const keys=emptyFrame();keys.alternateUse=true;expect(mergeFrames([touch,keys])).toMatchObject({forward:1,alternateUse:true});});
+it('blur, disabled input and disposal clear alternate intent instead of latching it',()=>{const{win,input,send}=setup();send('keydown','ShiftLeft');win.dispatchEvent(new Event('blur'));expect(input.poll().alternateUse).toBe(false);send('keydown','ShiftLeft');input.enabled=false;expect(input.poll().alternateUse).toBe(false);input.dispose();expect(input.poll().alternateUse).toBe(false);});

@@ -1,0 +1,12 @@
+import{it,expect,vi,beforeAll,afterAll,afterEach}from'vitest';
+const values=new Map<string,string>();let reads=0,hook:(()=>void)|null=null;
+class FixtureStorage{getItem(key:string){reads++;hook?.();return values.get(key)??null;}setItem(){throw Error('Read-only export must not persist');}}
+let Game:any;
+beforeAll(async()=>{vi.stubGlobal('Storage',FixtureStorage);vi.stubGlobal('localStorage',new FixtureStorage());Game=(await import('../src/application/game')).Game;});
+afterEach(()=>{reads=0;hook=null;values.clear();vi.restoreAllMocks();});afterAll(()=>vi.unstubAllGlobals());
+// Actual Game method; fake preexisting editor-current/lifecycle policy, no renderer/WebGL or fullowner proof.
+function setup(){let allowed=true;const game:any={bookEditCurrent:vi.fn(()=>allowed),bookScreen:{open:true},inventoryScreen:{open:false},chat:{open:false},portfolioScreen:{open:false},npcDialog:{open:false},chalkDialog:{open:false},codeBuilder:{open:false},paused:false,ownershipBusy:false,save:()=>{throw Error('No save');},commitBookDraft:()=>{throw Error('No commit');}};return{game,setAllowed:(v:boolean)=>allowed=v,guard:()=>Game.prototype.bookExportCurrent.call(game)};}
+it('actual Game read-only export guard accepts healthy captured native storage read without saves',()=>{const s=setup();expect(s.guard()).toBe(true);expect(reads).toBe(1);expect(s.game.bookEditCurrent).toHaveBeenCalledTimes(2);});
+for(const field of['not-current','hidden','paused','busy','journal','other-modal']as const)it('actual guard refuses '+field,()=>{const s=setup();if(field==='not-current')s.setAllowed(false);if(field==='hidden')s.game.bookScreen.open=false;if(field==='paused')s.game.paused=true;if(field==='busy')s.game.ownershipBusy=true;if(field==='other-modal')s.game.portfolioScreen.open=true;if(field==='journal')values.set('craft.camera.capture.v1','pending');expect(s.guard()).toBe(false);if(field!=='journal')expect(reads).toBe(0);});
+it('a writer/lifecycle swap during journal read is checked after the callback',()=>{const s=setup();hook=()=>s.setAllowed(false);expect(s.guard()).toBe(false);expect(reads).toBe(1);});
+it('journal getter failure is read-only refusal and a replaced prototype cannot bypass the captured read',()=>{const s=setup();hook=()=>{throw Error('unavailable');};expect(s.guard()).toBe(false);hook=null;values.set('craft.camera.capture.v1','pending');vi.spyOn(FixtureStorage.prototype,'getItem').mockReturnValue(null);expect(s.guard()).toBe(false);});

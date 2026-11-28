@@ -1,0 +1,1 @@
+import{test}from'@playwright/test';import{blockPredicateRoute}from'./block-predicate';test('mobile: exact block if/until live world, cold programs, quota Stop and raw backup refusal',async({page},info)=>{test.setTimeout(240000);await blockPredicateRoute(page,info,true);});

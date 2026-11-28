@@ -1,0 +1,1 @@
+import{test}from'@playwright/test';import{textCodeImportRoute}from'./text-code-import';test('desktop: create JS and Python block programs from text with atomic refusal and explicit finite Run',async({page},info)=>{test.setTimeout(360000);await textCodeImportRoute(page,info,false,{width:1280,height:720});});

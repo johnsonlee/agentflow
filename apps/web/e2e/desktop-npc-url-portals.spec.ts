@@ -1,0 +1,1 @@
+import{test}from'@playwright/test';import{npcUrlPortalRoute}from'./npc-url-portals';test('desktop: distinct NPC six URL owners survive actual portal roundtrip and both cold realms',async({page},info)=>{await npcUrlPortalRoute(page,info,false);});

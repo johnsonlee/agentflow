@@ -1,0 +1,3 @@
+import{test}from'@playwright/test';import{boneMealOwnedUseRoute,boneMealCorruptBackupRoute}from'./bone-meal-owned-use';
+test('desktop: preowned Bone crafts three Meal, grows Cane and converts White and direct Pink Dye with exact cold finite owners',async({page},info)=>{test.setTimeout(240000);await boneMealOwnedUseRoute(page,info,false,{width:1280,height:720});});
+test('desktop: malformed Bone Meal owner freezes valid sibling use and preserves exact original downloaded backup',async({page},info)=>{test.setTimeout(120000);await boneMealCorruptBackupRoute(page,info,false,{width:1280,height:720});});

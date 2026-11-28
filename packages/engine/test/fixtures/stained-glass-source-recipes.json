@@ -1,0 +1,634 @@
+{
+  "revision": "15701fa9c13923f12662984c32c124327e40e3d3",
+  "records": [
+    {
+      "recipe": "black_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "black_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "black_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "black_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/black_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/black_stained_glass.json",
+        "status": 200,
+        "bytes": 571,
+        "gitBlobSha": "8502bd6311b652fb06b92839819e54ef161260cf",
+        "sha256": "3ef909a154eac278dcf069bd8c56c0c8128e204143f0a963dc93fba1d07b48db"
+      }
+    },
+    {
+      "recipe": "black_stained_glass_from_ink_sac",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "ink_sac"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "ink_sac",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "black_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/black_stained_glass_from_ink_sac.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/black_stained_glass_from_ink_sac.json",
+        "status": 200,
+        "bytes": 601,
+        "gitBlobSha": "2ed49dffd00f18b8a3c5171c048c02325df0f299",
+        "sha256": "d3439f1d2d0812d58dc37a47ca0cfb3cb690859556b690e46ff7eb04462dbbbb"
+      }
+    },
+    {
+      "recipe": "blue_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "blue_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "blue_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "blue_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/blue_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/blue_stained_glass.json",
+        "status": 200,
+        "bytes": 568,
+        "gitBlobSha": "8f7a24a6208d6e8adf6d68f3a27585445fa0c071",
+        "sha256": "9f4630eb6b2e96dacccb9bf4b8151924671058f3bdc6f8b3c2ed25d837b648b2"
+      }
+    },
+    {
+      "recipe": "brown_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "brown_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "brown_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "brown_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/brown_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/brown_stained_glass.json",
+        "status": 200,
+        "bytes": 571,
+        "gitBlobSha": "cae7eedd1148730f14468d66b4f6291b73ca0d4d",
+        "sha256": "2d5ef19b298290baa4e9eca3572057872974d081f5303bd6967fbcc77c8f4eef"
+      }
+    },
+    {
+      "recipe": "cyan_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "cyan_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "cyan_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "cyan_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/cyan_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/cyan_stained_glass.json",
+        "status": 200,
+        "bytes": 568,
+        "gitBlobSha": "b05f969277869264a5b2701782a31f74f0734675",
+        "sha256": "f9a72059ba1d4d0e81f72865ef5e3c61a49aead8498b48bad5742c22bbaea124"
+      }
+    },
+    {
+      "recipe": "gray_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "gray_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "gray_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "gray_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/gray_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/gray_stained_glass.json",
+        "status": 200,
+        "bytes": 568,
+        "gitBlobSha": "8f02aedbe64a9262f5805078365548849d21a052",
+        "sha256": "ebb7a323a68bee53a9244afa2620f3390ef5de3bb6d68fc7f140c32f90d04765"
+      }
+    },
+    {
+      "recipe": "green_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "green_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "green_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "green_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/green_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/green_stained_glass.json",
+        "status": 200,
+        "bytes": 571,
+        "gitBlobSha": "4e60ce57e960c8db9e1711439481cc92783553b7",
+        "sha256": "1e0bc90ba020905556cfc54ddda060c1a0b0efa31f9d0ccf4aeefda1fdd50084"
+      }
+    },
+    {
+      "recipe": "light_blue_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "light_blue_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "light_blue_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "light_blue_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/light_blue_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_blue_stained_glass.json",
+        "status": 200,
+        "bytes": 586,
+        "gitBlobSha": "48b7841a2c7c7cf38a0ba052fda0dabed58c5622",
+        "sha256": "31610140132382581b1f95ed7e85ac0383341ccebb06ceb00f884452206fa814"
+      }
+    },
+    {
+      "recipe": "light_gray_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "light_gray_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "light_gray_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "light_gray_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/light_gray_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/light_gray_stained_glass.json",
+        "status": 200,
+        "bytes": 586,
+        "gitBlobSha": "9fddcd8b8dc2bb46ce472b914b70f19a94c5be8e",
+        "sha256": "98937e8edc65a179b6cf6b7941c53e5c96f881469dc7a37bc0ad67248b6b21c9"
+      }
+    },
+    {
+      "recipe": "lime_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "lime_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "lime_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "lime_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/lime_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/lime_stained_glass.json",
+        "status": 200,
+        "bytes": 568,
+        "gitBlobSha": "d800253f6642eb2f709656ac3a2bec8261fb759d",
+        "sha256": "6856460dab4741af89b1b34f1d87ab9a1e54e4c5cd41957f1718d86153ede52f"
+      }
+    },
+    {
+      "recipe": "magenta_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "magenta_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "magenta_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "magenta_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/magenta_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/magenta_stained_glass.json",
+        "status": 200,
+        "bytes": 574,
+        "gitBlobSha": "a5d53fd2f22b90e65dc066c2a074f9360480283b",
+        "sha256": "77487a860880fd3a1197adb6db56bdc6d2d5b7fc510046411c7e0be3c65c68a7"
+      }
+    },
+    {
+      "recipe": "orange_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "orange_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "orange_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "orange_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/orange_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/orange_stained_glass.json",
+        "status": 200,
+        "bytes": 574,
+        "gitBlobSha": "c90bcbec36b3f16fc1a1333fbb74bda9501b386d",
+        "sha256": "d794f0c3748c5890bf26b9fe732d834caed4dce8371e9c1d1a89255cdbb11798"
+      }
+    },
+    {
+      "recipe": "pink_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "pink_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "pink_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "pink_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/pink_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/pink_stained_glass.json",
+        "status": 200,
+        "bytes": 568,
+        "gitBlobSha": "927e793a2036fac1a31f18545912b8295ac5bd7f",
+        "sha256": "9165bb1e9a4da696a2888533fe1edf84807a94bdb61c394fbeea1e2d744b5481"
+      }
+    },
+    {
+      "recipe": "purple_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "purple_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "purple_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "purple_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/purple_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/purple_stained_glass.json",
+        "status": 200,
+        "bytes": 574,
+        "gitBlobSha": "5ab2a069177cc87e5da3e75832caf00f80c07cdf",
+        "sha256": "ced439ab72edaac865eb9be48978cb4d8939280fc0f1966e11a22d3e198ae075"
+      }
+    },
+    {
+      "recipe": "red_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "red_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "red_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "red_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/red_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/red_stained_glass.json",
+        "status": 200,
+        "bytes": 565,
+        "gitBlobSha": "4d692bb57b6d2494e49b57a1a784a180862141ce",
+        "sha256": "f0fc07790a0542c186f465931075c882d789cf55d7a76d66bc76c9e675ee08a8"
+      }
+    },
+    {
+      "recipe": "white_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "white_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "white_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "white_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/white_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/white_stained_glass.json",
+        "status": 200,
+        "bytes": 571,
+        "gitBlobSha": "3a1e23a1a02da4eaf5fcf2676b3950a04f52c239",
+        "sha256": "6a64696f7a7d09184897b4e4e84f6f9ba0812547e492e1a3198ef5002bb93df9"
+      }
+    },
+    {
+      "recipe": "yellow_stained_glass",
+      "pattern": [
+        "###",
+        "#X#",
+        "###"
+      ],
+      "keys": {
+        "#": "glass",
+        "X": "yellow_dye"
+      },
+      "inputs": [
+        {
+          "name": "glass",
+          "count": 8
+        },
+        {
+          "name": "yellow_dye",
+          "count": 1
+        }
+      ],
+      "output": {
+        "name": "yellow_stained_glass",
+        "count": 8
+      },
+      "stationTags": [
+        "crafting_table"
+      ],
+      "source": {
+        "path": "behavior_pack/recipes/yellow_stained_glass.json",
+        "url": "https://raw.githubusercontent.com/Mojang/bedrock-samples/15701fa9c13923f12662984c32c124327e40e3d3/behavior_pack/recipes/yellow_stained_glass.json",
+        "status": 200,
+        "bytes": 574,
+        "gitBlobSha": "3da2b8cc0c50e6ea5ed34863b6ea8f07a5c786af",
+        "sha256": "b6cab45222f702028e08016af7143a74316ff090a487736a4a2a227546e5696a"
+      }
+    }
+  ]
+}
