@@ -1,7 +1,8 @@
 import fs from "node:fs/promises";
 import { expect, type Locator, type Page, type TestInfo } from "@playwright/test";
-import { blockAt, collectWorldDrops, command, countStack, createWorld, lookAtCell, parkMouse, snap, target, waitForTerrain } from "./helpers";
-type Cell = { x: number; y: number; z: number };
+import { blockAt, collectWorldDrops, command, countStack, createWorld, parkMouse, snap, target, waitForTerrain } from "./helpers";
+import { blockId, lookDirection, stackId } from '@craft/engine';
+import { admitSingleSource, findSingleSourcePose, harvestCellChanges, readHarvestCells, SINGLE_SOURCE_LIMITS, type HarvestCell as Cell } from './single-source-harvest';
 /** Actual source acquisition, with disclosed shovel/navigation, receiver-fault and Agent-pose fixtures.
  * No terrain Gravel, Flint, random roll or loot outcome is injected. */
 export async function flintRoute(page: Page, info: TestInfo, mobile: boolean) {
@@ -11,7 +12,7 @@ export async function flintRoute(page: Page, info: TestInfo, mobile: boolean) {
   try {
     errors = await createWorld(page, { mode: "survival", seed: "12345" });
     const press = (l: Locator) => mobile ? l.tap() : l.click(), inv = page.locator(".inventory-screen");
-    const hold = async (until: () => Promise<unknown>) => { const vp = page.viewportSize()!; try { if (mobile) await finger!.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .42, id: 127 }] }); else await page.mouse.down({ button: "left" }); await until(); } finally { if (mobile) await finger!.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); else await page.mouse.up({ button: "left" }); } };
+    const hold = async (until: () => Promise<unknown>, input: Array<{event:string;time:number}> = []) => { const vp = page.viewportSize()!; try { input.push({event:'down-dispatch',time:performance.now()}); if (mobile) await finger!.send("Input.dispatchTouchEvent", { type: "touchStart", touchPoints: [{ x: vp.width * .65, y: vp.height * .42, id: 127 }] }); else await page.mouse.down({ button: "left" }); input.push({event:'down-return',time:performance.now()}); await until(); input.push({event:'source-wait-return',time:performance.now()}); } finally { input.push({event:'up-dispatch',time:performance.now()}); if (mobile) await finger!.send("Input.dispatchTouchEvent", { type: "touchEnd", touchPoints: [] }); else await page.mouse.up({ button: "left" }); input.push({event:'up-return',time:performance.now()}); } };
     const teleport = async (p: Cell) => { await command(page, `/tp ${p.x} ${p.y} ${p.z}`); await waitForTerrain(page); };
     const read = () => page.evaluate(() => { const g = window.__craft.game!, ids = [window.__craft.blockId("gravel"), window.__craft.stackId("flint")], inventory = g.inventory.toJSON(), ground = g.worldDrops.records, agent = structuredClone(g.agent); const owners = [...inventory.slots.filter(s => s !== null), ...agent.slots.filter(s => s !== null), ...ground.map(r => r.stack), ...(g as unknown as { inventoryScreen: { pendingItems(): { id: number; count: number }[] } }).inventoryScreen.pendingItems()]; const pending = structuredClone((g as unknown as { inventoryScreen: { pendingItems(): { id: number; count: number }[] } }).inventoryScreen.pendingItems()); return { inventory, ground, agent, pending, counts: ids.map(id => owners.filter(s => s.id === id).reduce((n, s) => n + s.count, 0)), decisions: g.world.gravelHarvests.exportState(), position: { ...g.body.position }, errors: [...g.loadErrors], rawStorage: localStorage.getItem("craft.save.v1") }; });
     const record = async (label: string) => { const value = await read(); observations.push({ stage, label, value }); return value; };
@@ -24,18 +25,70 @@ export async function flintRoute(page: Page, info: TestInfo, mobile: boolean) {
     const pad = await page.evaluate(() => { const g = window.__craft.game!, p = g.body.position, x = Math.floor(p.x), y = Math.floor(p.y) - 1, z = Math.floor(p.z); for (let dx = -5; dx <= 5; dx++) for (let dz = -5; dz <= 5; dz++) { g.world.setBlock(x + dx, y, z + dz, window.__craft.blockId("bedrock")); for (let dy = 1; dy <= 5; dy++) g.world.setBlock(x + dx, y + dy, z + dz, 0); } return { x: x + .5, y: y + 1, z: z + .5 }; });
     const candidates = await page.evaluate(() => { const g = window.__craft.game!, out: { x: number; y: number; z: number }[] = []; for (let x = 7; x <= 19; x++) for (let z = -30; z <= -18; z++) { const y = g.world.generator.heightAt(x, z); if (y < 24 && g.world.getBlock(x, y, z) === window.__craft.blockId("gravel")) out.push({ x, y, z }); } return out.slice(0, 96); });
     expect(candidates.length).toBe(96); expect((await read()).counts).toEqual([0, 0]); await select("iron_shovel");
-    const approach = async (cell: Cell) => { const stand = await page.evaluate(p => { const g = window.__craft.game!; for (const [dx, dz] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { const x = p.x + dx, z = p.z + dz; let y = 30; while (y > 3 && [0, window.__craft.blockId("water")].includes(g.world.getBlock(x, y, z))) y--; if (Math.abs(y - p.y) <= 1 && [0, window.__craft.blockId("water")].includes(g.world.getBlock(x, y + 1, z)) && [0, window.__craft.blockId("water")].includes(g.world.getBlock(x, y + 2, z))) return { x: x + .5, y: y + 1, z: z + .5 }; } throw Error("No supported clear-body natural ocean pose"); }, cell); await teleport(stand); await lookAtCell(page, cell.x, cell.y, cell.z); const hit = await target(page); expect(hit).toMatchObject({ ...cell, id: await page.evaluate(() => window.__craft.blockId("gravel")) }); return stand; };
-    const mine = async (cell: Cell) => { expect(await blockAt(page, cell.x, cell.y, cell.z)).toBe(await page.evaluate(() => window.__craft.blockId("gravel"))); const stand = await approach(cell), before = await read(); await hold(() => page.waitForFunction(p => window.__craft.game!.world.getBlock(p.x, p.y, p.z) === 0, cell, { timeout: 15_000 })); const after = await read(), delta = after.counts.map((n, i) => n - before.counts[i]); expect([[1, 0], [0, 1]]).toContainEqual(delta); attempts.push({ cell, stand, before, after, actualAlternative: delta[1] ? "flint" : "gravel" }); return after; };
-    stage = "finite-genuine-natural-harvest"; let used = 0;
-    for (; used < 96 && (await read()).counts[1] === 0; used++) { await mine(candidates[used]); await collectWorldDrops(page); }
-    expect((await read()).counts[1], "No genuine Flint in finite96 unmodified random harvests; preserve failure").toBeGreaterThan(0); expect(await countStack(page, "flint")).toBeGreaterThan(0); await record("genuine-natural-gravel-flint-owned"); await snap(page, info, "genuine-natural-ocean-gravel-yields-flint-without-injected-roll");
+    // These queries return detached loaded cells and owners only. They never alter Game methods,
+    // terrain, harvest outcomes, input owners or simulation time.
+    const cells = (cell: Cell) => page.evaluate(p => {
+      const g = window.__craft.game!, min = {x:p.x-9,y:0,z:p.z-9}, max = {x:p.x+9,y:Math.min(95,p.y+8),z:p.z+9}, blocks:Array<number|null>=[];
+      for(let y=min.y;y<=max.y;y++)for(let z=min.z;z<=max.z;z++)for(let x=min.x;x<=max.x;x++)blocks.push(g.world.getLoadedBlock(x,y,z)??null);
+      return {min,max,blocks,portalCanChange:g.world.portals.canChange(p.x,p.y,p.z),pose:{...g.body.position},yaw:g.body.yaw,pitch:g.body.pitch,version:g.world.blockMutationVersion,edits:g.world.exportEdits(),browserTime:performance.now()};
+    }, cell);
+    const lookAtPoint = (point:Cell) => page.evaluate(p => {
+      const b=window.__craft.game!.body,dx=p.x-b.position.x,dz=p.z-b.position.z,dy=p.y-(b.position.y+1.62);
+      b.yaw=Math.atan2(-dx,-dz);b.pitch=Math.atan2(dy,Math.hypot(dx,dz));
+    },point);
+    const approach = async (cell: Cell) => {
+      const sample=await cells(cell), planned=findSingleSourcePose(readHarvestCells(sample),cell,sample.portalCanChange);
+      if(!planned.proof){observations.push({stage,label:'natural-source-not-admitted',cell,sample,queries:planned.queries,reasons:planned.reasons});return null;}
+      await teleport(planned.proof.feet);if(!mobile)await parkMouse(page);await lookAtPoint(planned.proof.aim);
+      const hit=await target(page),current=await cells(cell),proof=admitSingleSource(readHarvestCells(current),cell,current.pose,planned.proof.aim,current.portalCanChange,lookDirection(current.yaw,current.pitch));
+      observations.push({stage,label:'natural-pose-actual-revalidation',cell,planned,current,proof,hit});
+      if(!proof.ok)return null;
+      expect(hit).toMatchObject({...cell,id:blockId('gravel')});
+      return {planned,proof,current};
+    };
+    const materialTotals = (state:Awaited<ReturnType<typeof read>>) => {
+      const totals:Record<string,number>={};const bag=state.inventory;
+      for(const stack of [...bag.slots,...Object.values(bag.equipment??{}),...('offhand'in bag?[bag.offhand]:[]),...state.agent.slots,...state.pending,...state.ground.map(r=>r.stack)])if(stack){const item=stack as {id:number;count:number};totals[item.id]=(totals[item.id]??0)+item.count;}
+      return totals;
+    };
+    let actualHarvests=0, examined=0;
+    const mine = async (cell: Cell) => {
+      const pose=await approach(cell);if(!pose)return false;
+      const before=await read(),beforeCells=await cells(cell),input:Array<{event:string;time:number}>=[];
+      const finalProof=admitSingleSource(readHarvestCells(beforeCells),cell,beforeCells.pose,pose.proof.aim,beforeCells.portalCanChange,lookDirection(beforeCells.yaw,beforeCells.pitch));
+      const attempt={cell,pose,before,beforeCells,finalProof,input,after:null as Awaited<ReturnType<typeof read>>|null,afterCells:null as Awaited<ReturnType<typeof cells>>|null,cellChanges:null as ReturnType<typeof harvestCellChanges>|null,actualAlternative:null as string|null};attempts.push(attempt);
+      expect(finalProof.ok,'Actual loaded pose/ray changed before physical input').toBe(true);
+      try{await hold(()=>page.waitForFunction(p=>window.__craft.game!.world.getBlock(p.x,p.y,p.z)!==window.__craft.blockId('gravel'),cell,{timeout:15_000}),input);}
+      finally{attempt.after=await read();attempt.afterCells=await cells(cell);attempt.cellChanges=harvestCellChanges(beforeCells,attempt.afterCells);}
+      const after=attempt.after!,afterCells=attempt.afterCells!,delta=after.counts.map((n,i)=>n-before.counts[i]);
+      // Store both states before every assertion, including the unsuccessful single-source attempt.
+      expect([[1,0],[0,1]]).toContainEqual(delta);
+      expect(attempt.cellChanges!.becameUnknown).toEqual([]);
+      expect(attempt.cellChanges!.positiveHardnessRemovals.map(c=>({x:c.x,y:c.y,z:c.z,before:c.before}))).toEqual([{...cell,before:blockId('gravel')}]);
+      expect([0,blockId('water')]).toContain(readHarvestCells(afterCells)(cell.x,cell.y,cell.z));
+      const beforeTool=before.inventory.slots[before.inventory.selected]!,afterTool=after.inventory.slots[before.inventory.selected]!;
+      expect(afterTool).toEqual({...beforeTool,damage:(beforeTool.damage??0)+1});
+      expect(after.agent).toEqual(before.agent);expect(after.pending).toEqual(before.pending);expect(after.inventory.equipment).toEqual(before.inventory.equipment);
+      const totalsBefore=materialTotals(before),totalsAfter=materialTotals(after);
+      for(const id of new Set([...Object.keys(totalsBefore),...Object.keys(totalsAfter)]))if(Number(id)!==blockId('gravel')&&Number(id)!==stackId('flint'))expect(totalsAfter[id]??0).toBe(totalsBefore[id]??0);
+      expect(after.decisions.records).toEqual(before.decisions.records);attempt.actualAlternative=delta[1]?'flint':'gravel';actualHarvests++;return true;
+    };
+    stage='finite-genuine-natural-harvest';
+    for(;examined<Math.min(candidates.length,SINGLE_SOURCE_LIMITS.sources)&&(await read()).counts[1]===0;examined++)if(await mine(candidates[examined]))await collectWorldDrops(page);
+    observations.push({stage,label:'finite-natural-source-accounting',candidateCap:96,examined,actualHarvests,skipped:examined-actualHarvests});
+    expect((await read()).counts[1],`No genuine Flint in ${actualHarvests} actual harvests from ${examined} examined natural candidates; preserve failure`).toBeGreaterThan(0); expect(await countStack(page,'flint')).toBeGreaterThan(0); await record('genuine-natural-gravel-flint-owned'); await snap(page,info,'genuine-natural-ocean-gravel-yields-flint-without-injected-roll');
     // Refuse only delivery for a separate natural source. No outcome/RNG/source state is changed.
-    stage = "receiver-refusal-first-decision"; const refusedCell = { ...candidates[0], y: candidates[0].y - 1 }; await approach(refusedCell); const beforeRefusal = await record("before-receiver-fault");
+    stage = "receiver-refusal-first-decision";
+    // A separate still-natural source, not an assumed block below the first harvested candidate.
+    let refusedCell:Cell|null=null;
+    for(const cell of candidates){if(await blockAt(page,cell.x,cell.y,cell.z)!==blockId('gravel'))continue;if(await approach(cell)){refusedCell=cell;break;}}
+    if(!refusedCell)throw Error('No separate admitted natural source for receiver-refusal proof');
+    const beforeRefusal = await record("before-receiver-fault");
     await page.evaluate(() => { const store = window.__craft.game!.worldDrops, original = store.planSpawnBatch.bind(store); store.planSpawnBatch = (stacks, at, velocity) => stacks.some(s => s.id === window.__craft.stackId("flint") || s.id === window.__craft.blockId("gravel")) ? null : original(stacks, at, velocity); });
     await hold(() => page.waitForFunction(p => window.__craft.game!.world.gravelHarvests.exportState().records.some(r => r.x === p.x && r.y === p.y && r.z === p.z), refusedCell));
     const refused = await record("actual-refused-source-and-first-decision"); expect(refused.inventory).toEqual(beforeRefusal.inventory); expect(refused.counts).toEqual(beforeRefusal.counts); expect(await blockAt(page, refusedCell.x, refusedCell.y, refusedCell.z)).toBe(await page.evaluate(() => window.__craft.blockId("gravel"))); const decision = refused.decisions.records.find(r => r.x === refusedCell.x && r.y === refusedCell.y && r.z === refusedCell.z)!; expect(typeof decision.flint).toBe("boolean");
     await pause(); const pendingRaw = await quit(); expect(JSON.parse(pendingRaw).gravelHarvests.records).toContainEqual(decision); await page.reload(); await press(page.getByRole("button", { name: /Continue/ })); await waitForTerrain(page); expect((await read()).decisions.records).toContainEqual(decision);
-    stage = "actual-agent-cached-decision-retry"; await approach(refusedCell); const beforeAgent = await record("cold-first-decision-before-agent");
+    stage = "actual-agent-cached-decision-retry"; expect(await approach(refusedCell!),'Cold natural refusal source must remain targetable').not.toBeNull(); const beforeAgent = await record("cold-first-decision-before-agent");
     // Agent pose is navigation setup only; natural source and action run through the real Code Builder.
     await page.evaluate(p => Object.assign(window.__craft.game!.agent, { x: p.x, y: p.y + 1, z: p.z }), refusedCell);
     if (mobile) await press(page.getByRole("button", { name: "Code Builder", exact: true })); else await page.keyboard.press("KeyK"); await expect(page.getByRole("heading", { name: "Code Builder", exact: true })).toBeVisible(); await press(page.locator('[data-palette="destroy"]')); await page.locator('.cb-block[data-type="destroy"] select[aria-label="Direction"]').selectOption("down"); await press(page.getByRole("button", { name: "▶ Run" })); await expect.poll(() => page.evaluate(() => window.__craft.game!.programRunning)).toBe(false); expect(await blockAt(page, refusedCell.x, refusedCell.y, refusedCell.z)).toBe(0);
@@ -83,7 +136,7 @@ export async function flintRoute(page: Page, info: TestInfo, mobile: boolean) {
     await snap(page, info, "actual-dropped-flint-cold-restores-and-is-picked-up-once");
     stage = "malformed-decision-original-recovery"; await pause(); await quit(); const corrupt = await page.evaluate(raw => { const d = JSON.parse(raw); d.gravelHarvests.records[0].flint = "yes"; const bad = `\n${JSON.stringify(d, null, 2)}\n`; localStorage.setItem("craft.save.v1", bad); return bad; }, pendingRaw); await page.reload(); await press(page.getByRole("button", { name: /Continue/ })); await expect(page.locator(".chat-log")).toContainText("Damaged gravel harvest decisions"); await page.waitForFunction(() => window.__craft.game!.renderer.isAreaReady(2)); const frozen = await record("raw-malformed-decision-frozen"); await command(page, "/give flint"); await expect(page.locator(".chat-log")).toContainText("Damaged gravel harvest decisions. Export a backup before using commands"); await page.waitForTimeout(31_000); const still = await read(); expect(still.position).toEqual(frozen.position); expect(still.inventory).toEqual(frozen.inventory); expect(still.rawStorage).toBe(corrupt);
     await pause(); await press(page.getByRole("button", { name: "Save & Quit to Title" })); await expect(page.locator(".pause-screen")).toBeVisible(); await expect(page.locator(".save-status")).toContainText("gravel harvest decisions"); const download = page.waitForEvent("download"); await press(page.getByRole("button", { name: "Export world backup" })); const backup = info.outputPath("invalid-gravel-decision-original.json"); await (await download).saveAs(backup); expect(JSON.parse(await fs.readFile(backup, "utf8")).recoveryOriginalSave).toBe(corrupt); await snap(page, info, "malformed-gravel-decision-freezes-and-preserves-exact-original");
-    await fs.writeFile(info.outputPath("flint-coverage.json"), JSON.stringify({ observations, attempts, candidates, pendingRaw, finalRaw, decision, flintOwnership, errors, fixtures: "PreownedIronShovel; initialBedrockworkpad; sourcequery/chatteleport/camera/Agentpose navigation; separateworldreceiverfault; separatecorruptstoredpendingdata fromactualrefusalsave. No Gravel/Flint/RNG/outcome injection.", actual: ["finite96naturalGravelactualbreaks untilgenuineFlint", "oneFlintORoneGravelwholecounts", "actualpickup", "receiverrefusal/source+toolunchanged/firstdecisioncold", "CodeBuilderAgentactualretry samecachedresultonce", "actualFlintUIdrop/groundcold/pickup", "rawpendingguard/31sautosave/command/quit/exactoriginalbackup"], notCovered: ["primitive shovel acquisition/fullSurvival", "naturalcapacityexhaustion (receiverfaultfixture only)", "FlintAndSteel/Fire/Nether/brewing/Antidote", "nativechance/Fortune/SilkTouch/gravelgravity/breath calibration", "Educationexactgraphics/performance/physicalphone"] }, null, 2)); expect(errors).toEqual([]); stage = "complete";
+    await fs.writeFile(info.outputPath("flint-coverage.json"), JSON.stringify({ observations, attempts, candidates, pendingRaw, finalRaw, decision, flintOwnership, errors, fixtures: "PreownedIronShovel; initialBedrockworkpad; sourcequery/chatteleport/camera/Agentpose navigation; separateworldreceiverfault; separatecorruptstoredpendingdata fromactualrefusalsave. No Gravel/Flint/RNG/outcome injection.", actual: ["finite96naturalcandidates; actualharvests/skipsrecorded; genuineFlintrequired", "oneFlintORoneGravelwholecounts", "actualpickup", "receiverrefusal/source+toolunchanged/firstdecisioncold", "CodeBuilderAgentactualretry samecachedresultonce", "actualFlintUIdrop/groundcold/pickup", "rawpendingguard/31sautosave/command/quit/exactoriginalbackup"], notCovered: ["primitive shovel acquisition/fullSurvival", "naturalcapacityexhaustion (receiverfaultfixture only)", "FlintAndSteel/Fire/Nether/brewing/Antidote", "nativechance/Fortune/SilkTouch/gravelgravity/breath calibration", "Educationexactgraphics/performance/physicalphone"] }, null, 2)); expect(errors).toEqual([]); stage = "complete";
   } catch (error) { failure = error instanceof Error ? `${error.name}: ${error.message}` : String(error); throw error; }
   finally { await finger?.detach().catch(() => undefined); const state = await page.evaluate(() => { const g = window.__craft?.game; return { inventory: g?.inventory.toJSON(), decisions: g?.world.gravelHarvests.exportState(), drops: g?.worldDrops.records, position: g?.body.position, errors: g?.loadErrors, saveError: g?.saveError, rawStorage: localStorage.getItem("craft.save.v1") }; }).catch(error => ({ readbackFailure: String(error) })); await fs.writeFile(info.outputPath("flint-final.json"), JSON.stringify({ stage, failure, observations, attempts, state, errors }, null, 2)); }
 }
