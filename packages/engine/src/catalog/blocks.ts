@@ -276,6 +276,16 @@ for(const state of WOOD_SLAB_STATES)specs.push({id:state.id,name:state.name,disp
 
 for(const state of COMPOSTER_STATES)specs.push({id:state.id,name:state.name,displayName:'Composter',faces:faces('composter_top','composter_side','composter_bottom'),shape:'composter',transparent:true,creative:state.creative,hardness:3,tool:'axe',...(state.creative?{}:{drop:'composter'})});
 
+// Original application hardening model. Journal p9 supplies the ingredients and qualitative
+// resistance only; two times the ordinary .45 hand seconds and generic self-drop are app choices.
+// These unused extended IDs append without shifting old block/item IDs or element identities.
+for (const [i, color] of DYE_COLORS.entries()) specs.push({
+  id: 32887 + i, name: `hardened_${color.name}_stained_glass`,
+  displayName: `Hardened ${color.displayName} Stained Glass`,
+  faces: faces(`hardened_${color.name}_stained_glass`),
+  transparent: true, translucent: true, hardness: .9,
+});
+
 const idsByName = new Map(specs.map((s, index) => [s.name, s.id ?? index]));
 if (idsByName.size !== specs.length) throw new Error("Duplicate block name");
 export const BLOCKS: readonly BlockDef[] = specs.map(({ drop, id: explicitId, ...s }, index) => ({

@@ -888,4 +888,22 @@ export const ATLAS_TEXTURE_CATALOG: readonly string[] = Object.freeze([
   "item_iron_nugget", "item_gold_nugget",
   "hay_block_top", "hay_block_side",
   "item_bone", "item_bone_meal"
-,"composter_inside","composter_side","composter_bottom","composter_top","composter_compost","composter_ready", "item_camera", "item_product_garbage"]);
+,"composter_inside","composter_side","composter_bottom","composter_top","composter_compost","composter_ready", "item_camera", "item_product_garbage",
+  // Original procedural hardening variants append; every old atlas index remains fixed.
+  "hardened_white_stained_glass",
+  "hardened_orange_stained_glass",
+  "hardened_magenta_stained_glass",
+  "hardened_light_blue_stained_glass",
+  "hardened_yellow_stained_glass",
+  "hardened_lime_stained_glass",
+  "hardened_pink_stained_glass",
+  "hardened_gray_stained_glass",
+  "hardened_light_gray_stained_glass",
+  "hardened_cyan_stained_glass",
+  "hardened_purple_stained_glass",
+  "hardened_blue_stained_glass",
+  "hardened_brown_stained_glass",
+  "hardened_green_stained_glass",
+  "hardened_red_stained_glass",
+  "hardened_black_stained_glass",
+]);

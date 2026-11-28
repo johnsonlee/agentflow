@@ -48,8 +48,12 @@ it("separates registered membership from numeric namespaces and rejects unknown 
   expect(isItem(256)).toBe(true); expect(isKnownItemId(256)).toBe(true); expect(isKnownBlockId(256)).toBe(false);
   expect(isItem(32767)).toBe(true); expect(isKnownId(32767)).toBe(false);
   expect(isBlockNamespace(65535)).toBe(true); expect(isKnownBlockId(65535)).toBe(false); expect(isBlockNamespace(65536)).toBe(false);
+  // New registered non-element extended block; do not mistake namespace for an atomic number.
+  expect(isKnownBlockId(32887)).toBe(true); expect(isItem(32887)).toBe(false);
+  expect(tryBlockById(32887)).toMatchObject({ id: 32887, name: "hardened_white_stained_glass" });
+  expect(elementZOfBlock(32887)).toBeNull(); expect(elementParticlesOf(32887)).toBeNull();
   const world = new World(13), chunk = new Chunk(0, 0);
-  for (const bad of [-1, .5, NaN, Infinity, 240, 255, 256, 774, 32767, 32887, 65535, 65536]) {
+  for (const bad of [-1, .5, NaN, Infinity, 240, 255, 256, 774, 32767, 32903, 65535, 65536]) {
     expect(isKnownBlockId(bad)).toBe(false); expect(tryBlockById(bad)).toBeUndefined(); expect(placedBlockOf(bad)).toBeNull();
     world.setBlock(8, 90, 8, bad); chunk.set(1, 90, 1, bad);
     expect(chunk.get(1, 90, 1)).toBe(AIR);

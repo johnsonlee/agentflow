@@ -20,6 +20,8 @@ export interface Recipe {
   keyTags?: Readonly<Record<string, "planks"|"wooden_slabs">>;
   /** Shapeless ingredients (block or item names). */
   ingredients?: string[];
+  /** Optional exact grid size for application recipes restricted to the crafting table. */
+  gridWidth?: 2 | 3;
   result: [block: string, count: number];
   /** Short note when the recipe simplifies Minecraft or its exact rules remain unverified. */
   note?: string;
@@ -213,6 +215,16 @@ export const RECIPES: readonly Recipe[] = [
   {id:"oak_wooden_slab",pattern:["###"],key:{"#":"oak_planks"},result:["oak_slab",6]},
   {id:"birch_wooden_slab",pattern:["###"],key:{"#":"birch_planks"},result:["birch_slab",6]},
   {id:"composter",pattern:["# #","# #","###"],key:{"#":"oak_slab"},keyTags:{"#":"wooden_slabs"},result:["composter",1]},
+  // Journal p9: 3 aluminium oxide +3 matching glass +3 boron trioxide.
+  // Nine shapeless cells and output3 are explicit application choices, not native calibration.
+  ...DYE_COLORS.map(({ name }) => ({
+    id: `hardened_${name}_stained_glass`, gridWidth: 3 as const,
+    ingredients: ["aluminium_oxide", "aluminium_oxide", "aluminium_oxide",
+      `${name}_stained_glass`, `${name}_stained_glass`, `${name}_stained_glass`,
+      "boron_trioxide", "boron_trioxide", "boron_trioxide"],
+    result: [`hardened_${name}_stained_glass`, 3] as [string, number],
+    note: "Original application: nine shapeless table cells yield three; native layout/count unverified",
+  })),
 ];
 
 export type CraftingGrid = (ItemStack | null)[];
@@ -258,6 +270,7 @@ export function matchRecipe(grid: CraftingGrid, width: number): { recipe: Recipe
   const cells = trim(grid, width);
   if (cells.length === 0) return null;
   for (const recipe of RECIPES) {
+    if (recipe.gridWidth !== undefined && (width !== recipe.gridWidth || grid.length !== width * width)) continue;
     const ok = recipe.pattern ? shapedMatches(recipe, cells) : shapelessMatches(recipe, grid);
     if (ok) return { recipe, result: freshStack(stackId(recipe.result[0]), recipe.result[1]) };
   }

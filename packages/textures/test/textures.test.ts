@@ -78,6 +78,7 @@ describe("procedural textures", () => {
     expect(alphaTiles.sort()).toEqual(
       [
         ...DYE_COLORS.map((c) => `${c.name}_stained_glass`),
+        ...DYE_COLORS.map((c) => `hardened_${c.name}_stained_glass`),
         "sugar_cane_plant", "item_sugar_cane", "item_paper",
         "item_leather_helmet", "item_leather_chestplate", "item_leather_leggings", "item_leather_boots",
         "item_iron_nugget", "item_gold_nugget",
@@ -96,7 +97,7 @@ describe("procedural textures", () => {
   it("covers all generic element faces with distinct fully opaque periodic-table art", () => {
     const names = ["element_block_0_unknown", ...ELEMENTS.map((e) => `element_block_${e.z}_${e.symbol}`)];
     expect(Object.keys(ELEMENT_BLOCK_TILE_GENERATORS).sort()).toEqual([...names].sort());
-    const worldFaces = new Set(BLOCKS.filter((b) => b.id >= 32768).flatMap((b) => Object.values(b.faces)));
+    const worldFaces = new Set(BLOCKS.filter((b) => b.id >= 32768 && b.id <= 32886).flatMap((b) => Object.values(b.faces)));
     expect([...worldFaces].sort()).toEqual([...names].sort());
     const atlas = buildAtlas(allAtlasTextureNames());
     const hashes = new Set<string>();

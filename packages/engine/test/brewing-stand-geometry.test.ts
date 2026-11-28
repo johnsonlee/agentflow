@@ -18,8 +18,8 @@ function emptyWorld(): World {
 }
 it("appends only explicit201 without aliasing or changing the prior320 block definitions",()=>{
   expect(createHash("sha256").update(JSON.stringify(BLOCKS.slice(0,320))).digest("hex")).toBe("c8634e7cff98572cecacebd838c8478e85b60217f0c59efd7e46a30bc5107c6b");
-  expect(BLOCKS).toHaveLength(345);expect(BLOCKS[320]).toMatchObject({id:201,name:"brewing_stand",shape:"brewing_stand",solid:true,transparent:true,needsSupport:true,tool:"pickaxe",harvestTier:1});
-  expect(new Set(BLOCKS.map(b=>b.id)).size).toBe(345);expect(blockId("brewing_stand")).toBe(STAND);expect(placedBlockOf(STAND)).toBe(STAND);expect(isOpaque(STAND)).toBe(false);
+  expect(BLOCKS).toHaveLength(361);expect(BLOCKS[320]).toMatchObject({id:201,name:"brewing_stand",shape:"brewing_stand",solid:true,transparent:true,needsSupport:true,tool:"pickaxe",harvestTier:1});
+  expect(new Set(BLOCKS.map(b=>b.id)).size).toBe(361);expect(blockId("brewing_stand")).toBe(STAND);expect(placedBlockOf(STAND)).toBe(STAND);expect(isOpaque(STAND)).toBe(false);
 });
 it("shares immutable eight-part render, collision and selection bounds without neighbor reads",()=>{
   let reads=0;const get=()=>{reads++;throw Error("Stand geometry must not inspect neighbors with explicitid");};

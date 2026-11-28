@@ -240,7 +240,10 @@ html, body {
 
 /* ---------- Inventory ---------- */
 
-.inventory-panel { display: flex; flex-direction: column; gap: 8px; }
+/* Inventory sections retain their intrinsic height in short viewports. Native panning
+ * reaches offscreen rows; this is not a promise that every row fits at the same time. */
+.inventory-panel { display: flex; flex-direction: column; gap: 8px; touch-action: pan-x pan-y; overscroll-behavior: contain; }
+.inventory-panel > * { flex-shrink: 0; }
 .panel-header { display: flex; align-items: center; justify-content: space-between; }
 .panel-header h2 { margin: 0; text-align: left; }
 .close-button { font: inherit; background: none; border: 0; font-size: 20px; cursor: pointer; color: #3f3f3f; min-width: 44px; min-height: 44px; }

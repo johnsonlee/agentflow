@@ -29,7 +29,8 @@ it("preserves all prior registry/atom IDs and adds only sixteen explicit translu
     .toBe("54ba81669824eb6b526e76e1fff7f979ed42b273faed2f99b71012c5d34be270");
   expect(BLOCKS.slice(0, 307)).toHaveLength(307); expect(ITEMS.slice(0, 535)).toHaveLength(535);
   expect(BLOCKS.slice(291, 307).map((b) => [b.id, b.name])).toEqual(names.map((name, i) => [172 + i, name]));
-  expect(BLOCKS.filter((b) => b.translucent).map((b) => b.name)).toEqual(names);
+  expect(BLOCKS.filter((b) => b.translucent && !b.name.startsWith("hardened_")).map((b) => b.name)).toEqual(names);
+  expect(BLOCKS.filter((b) => b.translucent && b.name.startsWith("hardened_")).map((b) => b.name)).toEqual(names.map((name) => `hardened_${name}`));
   for (const name of names) {
     const id = blockId(name), def = blockById(id);
     expect(def).toMatchObject({ transparent: true, translucent: true, solid: true, shape: "cube", creative: true, hardness: .45 });

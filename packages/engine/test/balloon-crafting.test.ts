@@ -8,7 +8,7 @@ const digest = (value: unknown) => createHash("sha256").update(JSON.stringify(va
 const grid = (dye: string, count = 2): CraftingGrid => ["latex", dye, "latex", "latex", "helium", "latex", "latex", "lead_rope", "latex"].map(name => ({ id: stackId(name), count }));
 it("appends sixteen immutable flat color products without changing any old definition or recipe", () => {
   const oldMobSpecs = Object.fromEntries(Object.entries(MOB_SPECS).filter(([kind]) => ["pig", "sheep", "chicken", "npc", "zombie", "spider"].includes(kind)));
-  expect([ITEMS.length, BLOCKS.length, RECIPES.length, Object.keys(oldMobSpecs).length]).toEqual([606,345,205,6]);
+  expect([ITEMS.length, BLOCKS.length, RECIPES.length, Object.keys(oldMobSpecs).length]).toEqual([606,361,221,6]);
   expect(RECIPES.slice(170, 171)).toMatchObject([{ id: "brewing_stand", pattern: [" R ", "CCC"], key: { R: "blaze_rod", C: "cobblestone" }, result: ["brewing_stand", 1] }]);
   expect(digest(ITEMS.slice(0, 552))).toBe(baseline.itemDefsSHA256);
   expect(digest(BLOCKS.slice(0,308))).toBe(baseline.blockDefsSHA256); expect(digest(withLegacyBirchRecipes(RECIPES.slice(0, 144)))).toBe(baseline.recipesSHA256);
