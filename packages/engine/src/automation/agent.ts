@@ -1,3 +1,4 @@
+import { interactOwnedAgentDoor } from '../ownership/agent-interact';
 import{transferOwnedAgentItems}from '../ownership/agent-transfer';
 import{ownedCargoFingerprint}from '../ownership/owned-placement-cargo';
 import{plantOwnedWheat,tillOwnedAgentSoil}from '../ownership/agent-farming';
@@ -46,6 +47,7 @@ export type AgentCommand =
   | { op: "turn"; side: "left" | "right" }
   | { op: "place"; dir: AgentDirection }
   | { op: "till"; dir: AgentDirection }
+  | { op: "interact"; dir: AgentDirection }
   | { op: "destroy"; dir: AgentDirection }
   | { op: "detect"; dir: AgentDirection }
   | { op: "inspect"; dir: AgentDirection }
@@ -182,6 +184,10 @@ function readableAgentActionOwner(agent:AgentState):boolean{const proof=reserveI
 
 /** Executes one Agent command against the world. */
 export function runAgentCommand(world: World, agent: AgentState, cmd: AgentCommand, env: AgentEnv = {}): AgentResult {
+  const op = Object.getOwnPropertyDescriptor(cmd, 'op');
+  if (!op || !('value' in op)) return {ok:false,message:"Invalid Agent command"};
+  // The new action validates all command fields and the original owner before pose reads.
+  if (op.value === 'interact') return {ok:interactOwnedAgentDoor(world, agent, cmd, env.lifecycleValid),message:"Interaction requires a loaded matching wooden door and permission"};
   if(isInventoryBusy(agent))return{ok:false,message:"Agent inventory is reserved"};
   if(world.blockSourceLeaseBusy&&cmd.op!=="detect"&&cmd.op!=="inspect")return {ok:false,message:"World source is reserved"};
   const target = (dir: AgentDirection) => {

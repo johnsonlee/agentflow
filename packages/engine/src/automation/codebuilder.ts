@@ -1,3 +1,4 @@
+import { isAgentInteractCommand } from '../ownership/agent-interact';
 import { readProgramCondition, type BlockCondition } from "./block-condition";
 import { isKnownId } from "../catalog/items";
 /**
@@ -171,6 +172,7 @@ const OPS = new Map<string, (c: Record<string, unknown>) => boolean>([
   ["move", (c) => isDir(own(c, "dir"))],
   ["place", (c) => isDir(own(c, "dir"))],
   ["till", (c) => isDir(own(c, "dir"))],
+  ["interact", isAgentInteractCommand],
   ["destroy", (c) => isDir(own(c, "dir"))],
   ["detect", (c) => isDir(own(c, "dir"))],
   ["inspect", (c) => isDir(own(c, "dir"))],
@@ -247,7 +249,7 @@ function checkProgram(p: unknown): string[] {
         const op = isPlainObject(c) ? own(c, "op") : undefined;
         const check = typeof op === "string" ? OPS.get(op) : undefined;
         if (!isPlainObject(c) || !check) problems.push(`Unknown command ${typeof op === "string" ? op : String(typeof op)}`);
-        else if (op==='drop-all'&&(Reflect.ownKeys(b).length!==2||Object.getOwnPropertyDescriptor(b,'type')?.enumerable!==true||Object.getOwnPropertyDescriptor(b,'cmd')?.enumerable!==true))problems.push('Invalid drop-all block fields');
+        else if ((op==='drop-all'||op==='interact')&&(Reflect.ownKeys(b).length!==2||Object.getOwnPropertyDescriptor(b,'type')?.enumerable!==true||Object.getOwnPropertyDescriptor(b,'cmd')?.enumerable!==true))problems.push(`Invalid ${op} block fields`);
         else if (!check(c)) {
           const dir = own(c, "dir");
           problems.push(dir !== undefined && !isDir(dir) ? `Unknown direction ${String(dir)}` : `Invalid ${op} parameters`);
