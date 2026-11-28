@@ -18,7 +18,7 @@ export interface CoverSnapshot {
 /** After-Game RAF observations; private identity/birth is deliberately unavailable.
  * Physics is checked against the real PUBLIC WorldDrops model on detached copies only. */
 export interface CoverPublicFrame {
-  sequence: number; clock: number; lastTime: number; frameCount: number; fpsTimer: number; rafTime: number;
+  sequence: number; deltaSeconds: number; clock: number; lastTime: number; frameCount: number; fpsTimer: number; rafTime: number;
   position: Vec3; inventory: InventoryData; ground: WorldDropsData; version: number;
   planned: Array<{ key: string; id: number | null; revision: number | null }>;
   regionLoaded: boolean; dropsActive: boolean; pickupActive: boolean;
@@ -51,6 +51,7 @@ function valid(s: CoverSnapshot) {
   const clean = sanitizeWorldDrops(s.ground);
   requireThat(clean.invalid === 0, 'invalid public ground metadata/stack');
   equal(clean.data,s.ground,'incomplete/noncanonical public ground metadata');
+  requireThat(typeof s.frame?.deltaSeconds==='number'&&Number.isFinite(s.frame.deltaSeconds)&&s.frame.deltaSeconds>=0&&s.frame.deltaSeconds<=.1,'invalid frame delta telemetry');
   requireThat(Number.isFinite(s.browserTime)&&s.browserTime>=s.frame.rafTime, 'invalid observation time');
   equal((s.body as {position?:Vec3}|null)?.position,s.frame.position,'body/frame position mismatch');
   requireThat(s.frame && Array.isArray(s.frames), 'missing public frame observations');
@@ -92,16 +93,15 @@ function publicTransitions(before:CoverSnapshot,after:CoverSnapshot,allowed:Read
   for(const frame of after.frames){
     requireThat(Number.isSafeInteger(frame.sequence)&&frame.sequence===previous.sequence+1,'missing observer sequence/frame');
     requireThat(frame.regionLoaded&&frame.rafTime===frame.lastTime,'missing loaded/after-Game RAF evidence');
-    requireThat([frame.clock,frame.lastTime,frame.fpsTimer,frame.rafTime,...Object.values(frame.position)].every(Number.isFinite),'invalid public frame numbers');
-    // resumeInput can reset lastTime BETWEEN observed RAFs. Only clock += dt
-    // exposes the actual simulated interval; the RAF gap is an upper bound.
-    const dt=frame.clock-previous.clock,rafGap=(frame.rafTime-previous.rafTime)/1000;
+    requireThat([frame.deltaSeconds,frame.clock,frame.lastTime,frame.fpsTimer,frame.rafTime,...Object.values(frame.position)].every(Number.isFinite),'invalid public frame numbers');
+    // Use the exact Number supplied to tick. Differencing cumulative clock values
+    // loses bits and can change a strict pickup-delay branch after repeated steps.
+    const dt=frame.deltaSeconds,clockDelta=frame.clock-previous.clock,rafGap=(frame.rafTime-previous.rafTime)/1000;
     // A real RAF may clamp an ahead-of-RAF resume timestamp to zero. It still
     // has a new observer sequence/frame counter and may perform eligible pickup.
-    requireThat(dt>=0&&dt<=.1+1e-8&&rafGap>0&&dt<=rafGap+1e-8,'missing/duplicate/out-of-order Game frame or invalid simulation clock');
-    // Subtracting cumulative clock values can round an exact .1 below .1.
-    // Bind the observed reset branch, with the existing numerical tolerance,
-    // instead of inventing a branch from that rounded subtraction.
+    requireThat(dt>=0&&dt<=.1&&clockDelta>=0&&near(clockDelta,dt)&&rafGap>0&&dt<=rafGap+1e-8,'missing/duplicate/out-of-order Game frame or invalid simulation clock');
+    // Bind the observed FPS reset/increment branch to the exact supplied dt,
+    // retaining the existing numerical consistency tolerance.
     const elapsed=previous.fpsTimer+dt,reset=frame.frameCount===0&&frame.fpsTimer===0;
     requireThat(reset?elapsed>=1-1e-8:frame.frameCount===previous.frameCount+1&&elapsed<1+1e-8&&near(frame.fpsTimer,elapsed),'missing Game frame counter evidence');
     requireThat(frame.planned.length===15&&new Set(frame.planned.map(p=>p.key)).size===15,'incomplete per-frame planned cells');

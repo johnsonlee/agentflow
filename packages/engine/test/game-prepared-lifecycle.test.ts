@@ -51,10 +51,10 @@ function scheduledGame() {
  const callbacks:FrameRequestCallback[]=[];
  vi.stubGlobal("requestAnimationFrame",vi.fn((callback:FrameRequestCallback)=>{callbacks.push(callback);return ++h.frames;}));
  const now=vi.spyOn(performance,"now");
- const g=game(),intervals:number[]=[];
- vi.spyOn(g as unknown as {tick(dt:number):void},"tick").mockImplementation(dt=>{intervals.push(dt);});
+ const g=game(),intervals:number[]=[],deltaEvidence:(number|null)[]=[];
+ vi.spyOn(g as unknown as {tick(dt:number):void},"tick").mockImplementation(dt=>{intervals.push(dt);deltaEvidence.push(g.lastFrameDeltaSeconds);expect(g.lastFrameDeltaSeconds).toBe(dt);});
  const fire=(time:number)=>{const callback=callbacks.shift();expect(callback).toBeDefined();callback!(time);};
- return{g,now,intervals,callbacks,fire};
+ return{g,now,intervals,deltaEvidence,callbacks,fire};
 }
 it("actual Game RAF clamps the retained negative chat-resume interval to zero and continues the next frame",()=>{
  const s=scheduledGame();s.now.mockReturnValue(11986.7);s.g.start();s.fire(12003.4);
@@ -75,4 +75,17 @@ it("actual Game start and public resume bound early, equal and long-gap RAF time
  s.now.mockReturnValue(1521);s.g.resume();s.fire(1520);
  expect(s.intervals[3]).toBe(0);expect(s.callbacks).toHaveLength(1);
  s.fire(1540);expect(s.intervals[4]).toBeCloseTo(.020,12);
+});
+
+it("actual Game exposes no delta before a RAF and its read-only getter is assigned before tick receives the same Number",()=>{
+ const s=scheduledGame(),property=Object.getOwnPropertyDescriptor(Game.prototype,"lastFrameDeltaSeconds");
+ expect(property?.get).toBeTypeOf("function");expect(property?.set).toBeUndefined();expect(s.g.lastFrameDeltaSeconds).toBeNull();
+ s.now.mockReturnValue(1010);s.g.start();expect(s.g.lastFrameDeltaSeconds).toBeNull();
+ s.fire(1000);expect(s.g.lastFrameDeltaSeconds).toBe(0);
+ s.fire(1016.6);s.fire(1216.6);expect(s.deltaEvidence).toEqual(s.intervals);expect(s.intervals[2]).toBe(.1);
+});
+it("prepared and stopped Game instances cannot fabricate a fresh RAF delta",()=>{
+ const s=scheduledGame(),p=prepare();expect(p.lastFrameDeltaSeconds).toBeNull();p.start();expect(s.callbacks).toEqual([]);expect(p.lastFrameDeltaSeconds).toBeNull();
+ s.now.mockReturnValue(1000);s.g.start();saveProbe(s.g);expect(s.g.stop()).toBe(true);s.fire(1020);
+ expect(s.intervals).toEqual([]);expect(s.g.lastFrameDeltaSeconds).toBeNull();expect(s.callbacks).toEqual([]);
 });

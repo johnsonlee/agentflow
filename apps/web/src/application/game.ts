@@ -281,6 +281,7 @@ export class Game {
   private placeCooldown = 0;
   private fallStart: number | null = null;
   private lastTime = 0;
+  private frameDeltaSeconds: number | null = null;
   private frameCount = 0;
   private fpsTimer = 0;
   private autosaveTimer = 0;
@@ -772,13 +773,16 @@ export class Game {
     } finally { Game.handoffBusy = false; }
   }
 
+  /** Exact interval passed to the most recent RAF tick; unavailable before any RAF. */
+  get lastFrameDeltaSeconds(): number | null { return this.frameDeltaSeconds; }
+
   private requestFrame(): number {
     const frame = (now: number) => {
       if (!this.running) return;
       // Input resume can sample performance.now() after this RAF's timestamp.
       // Keep the frame/input/render path, but never run simulation time backward.
       const dt = Math.max(0, Math.min(0.1, (now - this.lastTime) / 1000));
-      this.lastTime = now; this.tick(dt);
+      this.lastTime = now; this.frameDeltaSeconds = dt; this.tick(dt);
       if (this.running) this.frameRequest = requestAnimationFrame(frame);
     };
     return requestAnimationFrame(frame);

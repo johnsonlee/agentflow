@@ -58,8 +58,9 @@ export async function fluidAcquisitionRoute(page: Page, info: TestInfo, mobile: 
         if(!running)return;
         try{
           const g=window.__craft.game!, internal=g as unknown as {clock:number;lastTime:number;frameCount:number;fpsTimer:number;paused:boolean;actionsNeedRecovery:boolean;dead:boolean;screenOpen():boolean;target:CoverSnapshot['target'];inventoryScreen:{cursor:ItemStack|null;pendingItems():ItemStack[]}};
+          const deltaSeconds=g.lastFrameDeltaSeconds;if(typeof deltaSeconds!=='number'||!Number.isFinite(deltaSeconds))throw Error('Actual Game RAF delta unavailable');
           let regionLoaded=true;for(let cx=Math.floor(region.min.x/16);cx<=Math.floor(region.max.x/16);cx++)for(let cz=Math.floor(region.min.z/16);cz<=Math.floor(region.max.z/16);cz++)if(g.world.getLoadedBlock(cx*16,0,cz*16)===undefined)regionLoaded=false;
-          const observation:CoverPublicFrame={sequence:++sequence,clock:internal.clock,lastTime:internal.lastTime,frameCount:internal.frameCount,fpsTimer:internal.fpsTimer,rafTime,
+          const observation:CoverPublicFrame={sequence:++sequence,deltaSeconds,clock:internal.clock,lastTime:internal.lastTime,frameCount:internal.frameCount,fpsTimer:internal.fpsTimer,rafTime,
             position:{...g.body.position},inventory:g.inventory.toJSON(),ground:g.worldDrops.toJSON(),version:g.world.blockMutationVersion,
             planned:plan.map(p=>{const c=g.world.captureCell(p.x,p.y,p.z);return{key:`${p.x},${p.y},${p.z}`,id:c?.id??null,revision:c?.revision??null};}),regionLoaded,
             dropsActive:!internal.paused&&!internal.actionsNeedRecovery,pickupActive:!internal.dead&&!internal.screenOpen()};

@@ -10,7 +10,7 @@ function baseline(): CoverSnapshot {
   const value:Omit<CoverSnapshot,'frame'|'frames'> = { cells, edits: [], version: 0, generatorVersion: 3, seed: 12345, inventory: { slots, selected: 0, offhand: null, equipment: { head: null, chest: null, legs: null, feet: null } }, agent: { slots: Array(27).fill(null), x: 0, y: 0, z: 0 }, agentSlots: Array(27).fill(null), pending: [], cursor: null, ground: { nextKey: 1, records: [] }, decisions: { records: [] }, target: { ...COVER_PLAN[0] }, body: { position: { x: -59.5, y: 33, z: -59.5 } }, permissions: COVER_PLAN.map(p => ({ key: coverKey(p), allowed: true, loaded: true })), browserTime: 1 };
   value.inventory=Inventory.fromJSON(value.inventory).toJSON();return{...value,frame:frameFor(value,0),frames:[]};
 }
-function frameFor(s:Omit<CoverSnapshot,'frame'|'frames'>,time:number):CoverPublicFrame{return{sequence:Math.round(time/20),clock:time/1000,lastTime:time,frameCount:Math.round(time/20),fpsTimer:time/1000,rafTime:time,position:{x:-59.5,y:33,z:-59.5},inventory:structuredClone(s.inventory),ground:structuredClone(s.ground),version:s.version,planned:COVER_PLAN.map(p=>{const c=s.cells.find(c=>coverKey(c)===coverKey(p))!;return{key:coverKey(p),id:c.id,revision:c.revision};}),regionLoaded:true,dropsActive:true,pickupActive:true};}
+function frameFor(s:Omit<CoverSnapshot,'frame'|'frames'>,time:number,deltaSeconds=0):CoverPublicFrame{return{deltaSeconds,sequence:Math.round(time/20),clock:time/1000,lastTime:time,frameCount:Math.round(time/20),fpsTimer:time/1000,rafTime:time,position:{x:-59.5,y:33,z:-59.5},inventory:structuredClone(s.inventory),ground:structuredClone(s.ground),version:s.version,planned:COVER_PLAN.map(p=>{const c=s.cells.find(c=>coverKey(c)===coverKey(p))!;return{key:coverKey(p),id:c.id,revision:c.revision};}),regionLoaded:true,dropsActive:true,pickupActive:true};}
 function sync(s:CoverSnapshot){s.frame.version=s.version;s.frame.planned=COVER_PLAN.map(p=>{const c=s.cells.find(c=>coverKey(c)===coverKey(p))!;return{key:coverKey(p),id:c.id,revision:c.revision};});s.frame.inventory=structuredClone(s.inventory);s.frame.ground=structuredClone(s.ground);if(s.frames.length)s.frames[s.frames.length-1]=structuredClone(s.frame);}
 
 function batch(before: CoverSnapshot, indices = [0, 1, 2]) {
@@ -22,7 +22,7 @@ function batch(before: CoverSnapshot, indices = [0, 1, 2]) {
     model.spawnBatch(blockDrops(p.id,()=>{throw Error('unexpected RNG');}),{x:p.x+.5,y:p.y+.5,z:p.z+.5});
     inventory.slots[before.inventory.selected]!.damage=(inventory.slots[before.inventory.selected]!.damage??0)+1;
     model.update(.02);model.tryPickup(before.frame.position,stack=>inventory.addStack(stack));
-    after.inventory=inventory.toJSON();after.ground=model.toJSON();after.frame=frameFor(after,before.frame.lastTime+(i+1)*20);after.frame.position={...before.frame.position};after.frames.push(structuredClone(after.frame));
+    after.inventory=inventory.toJSON();after.ground=model.toJSON();after.frame=frameFor(after,before.frame.lastTime+(i+1)*20,.02);after.frame.position={...before.frame.position};after.frames.push(structuredClone(after.frame));
   }
   after.browserTime=before.browserTime+indices.length*20;return after;
 }
@@ -78,7 +78,7 @@ it('rejects Agent, cursor/pending, offhand and equipment changes', () => {
 });
 function transferFrame(before:CoverSnapshot,position=before.frame.position,dt=.02):CoverSnapshot{
  const after=structuredClone(before),model=new WorldDrops({getLoadedBlock:(x,y,z)=>after.cells.find(c=>c.x===x&&c.y===y&&c.z===z)?.id??undefined},before.ground),inventory=Inventory.fromJSON(before.inventory);
- model.update(dt);model.tryPickup(position,stack=>inventory.addStack(stack));after.inventory=inventory.toJSON();after.ground=model.toJSON();after.frame=frameFor(after,before.frame.lastTime+dt*1000);after.frame.position={...position};after.body={...(before.body as object),position:{...position}};after.frames=[structuredClone(after.frame)];after.browserTime+=dt*1000;return after;
+ model.update(dt);model.tryPickup(position,stack=>inventory.addStack(stack));after.inventory=inventory.toJSON();after.ground=model.toJSON();after.frame=frameFor(after,before.frame.lastTime+dt*1000,dt);after.frame.position={...position};after.body={...(before.body as object),position:{...position}};after.frames=[structuredClone(after.frame)];after.browserTime+=dt*1000;return after;
 }
 const record=(key:number,position={x:-59.5,y:33,z:-59.5},delay=0)=>({key,stack:{id:blockId('dirt'),count:1},position,velocity:{x:0,y:0,z:0},ageSeconds:1,pickupDelaySeconds:delay});
 function withGround(records:WorldDropsData['records']):CoverSnapshot{const s=baseline();s.ground={nextKey:Math.max(...records.map(r=>r.key))+1,records};sync(s);return s;}
@@ -135,7 +135,7 @@ it('requires proper Pickaxe and previously proven four covers for an exact one-O
 /** Recorded schedule controls, not writes to any Game clock or requestFrame method. */
 function observedStep(before:CoverSnapshot,rafTime:number,dt:number,position=before.frame.position):CoverSnapshot{
  const after=transferFrame(before,position,dt),reset=before.frame.fpsTimer+dt>=1;
- after.frame={...after.frame,sequence:before.frame.sequence+1,clock:before.frame.clock+dt,lastTime:rafTime,rafTime,
+ after.frame={...after.frame,deltaSeconds:dt,sequence:before.frame.sequence+1,clock:before.frame.clock+dt,lastTime:rafTime,rafTime,
   frameCount:reset?0:before.frame.frameCount+1,fpsTimer:reset?0:before.frame.fpsTimer+dt};
  after.frames=[structuredClone(after.frame)];after.browserTime=rafTime+1;return after;
 }
@@ -195,4 +195,52 @@ it('zero simulated time still refuses duplicate/missing frames, counter/timer ch
  const timer=observedStep(before,1020,0);timer.frame.fpsTimer+=.01;sync(timer);fail(()=>assertCoverTransfer(before,timer,new Set()),'counter evidence');
  const source=observedStep(before,1020,0);source.frame.planned[0].id=0;source.frames=[structuredClone(source.frame)];fail(()=>assertCoverTransfer(before,source,new Set()),'per-frame mutation');
  const moved=observedStep(before,1020,0);moved.ground.records[0].position.x+=1;sync(moved);fail(()=>assertCoverTransfer(before,moved,new Set()),'public ground motion');
+});
+
+it('uses exact observed dt across controlled fractional steps without cumulative-clock cancellation changing pickup eligibility',()=>{
+ // Controlled25×.020 timeline, not a reconstruction of the failed run's hidden dt.
+ const before=withGround([record(1,undefined,.5)]);
+ before.cells.find(c=>c.x===-60&&c.y===32&&c.z===-60)!.id=blockId('stone');
+ before.frame={...before.frame,sequence:50,deltaSeconds:.02,clock:7.5,lastTime:1000,rafTime:1000,frameCount:10,fpsTimer:.25};before.browserTime=1001;
+ const get=(x:number,y:number,z:number)=>before.cells.find(c=>c.x===x&&c.y===y&&c.z===z)?.id??undefined;
+ const exact=new WorldDrops({getLoadedBlock:get},before.ground),oldClockModel=new WorldDrops({getLoadedBlock:get},before.ground);
+ const inventory=Inventory.fromJSON(before.inventory),oldInventory=Inventory.fromJSON(before.inventory),after=structuredClone(before);after.frames=[];
+ let previous=before.frame;
+ for(let i=0;i<25;i++){
+  const dt=.02,clock=previous.clock+dt;
+  exact.update(dt);exact.tryPickup(previous.position,stack=>inventory.addStack(stack));
+  oldClockModel.update(clock-previous.clock);oldClockModel.tryPickup(previous.position,stack=>oldInventory.addStack(stack));
+  after.inventory=inventory.toJSON();after.ground=exact.toJSON();
+  after.frame={...previous,sequence:previous.sequence+1,deltaSeconds:dt,clock,lastTime:previous.lastTime+20,rafTime:previous.rafTime+20,frameCount:previous.frameCount+1,fpsTimer:previous.fpsTimer+dt,inventory:structuredClone(after.inventory),ground:structuredClone(after.ground)};
+  after.frames.push(structuredClone(after.frame));previous=after.frame;
+ }
+ after.browserTime=after.frame.rafTime+1;
+ expect(after.ground.records).toEqual([]);expect(after.inventory.slots.some(s=>s?.id===blockId('dirt')&&s.count===1)).toBe(true);
+ expect(oldClockModel.records).toHaveLength(1);expect(oldClockModel.records[0].pickupDelaySeconds).toBeGreaterThan(0);
+ expect(oldInventory.slots.some(s=>s?.id===blockId('dirt'))).toBe(false);
+ assertCoverTransfer(before,after,new Set());
+});
+it('retains strict public pickup boundaries for tiny positive recorded delays and explicit controlled last-step intervals',()=>{
+ // These retained raw delay/derivedinterval numbers are starting/control data only;
+ // neither candidate code nor this test recovers the failed run's unobserved dt/reset.
+ const tiny=withGround([record(1,undefined,5.995204332975845e-15)]),zero=observedStep(tiny,20,0);
+ expect(zero.ground.records).toHaveLength(1);expect(zero.ground.records[0].pickupDelaySeconds).toBe(5.995204332975845e-15);
+ assertCoverTransfer(tiny,zero,new Set());
+ const forced=structuredClone(zero);forced.ground.records=[];forced.inventory.slots[5]={id:blockId('dirt'),count:1};sync(forced);
+ fail(()=>assertCoverTransfer(tiny,forced,new Set()),'public ground');
+ for(const dt of [.016600000000000364,.016600000000000392]){
+  const before=withGround([record(1,undefined,.016599999999998324)]),after=observedStep(before,20,dt);
+  expect(after.ground.records).toEqual([]);assertCoverTransfer(before,after,new Set());
+ }
+});
+it('refuses missing, forged, nonfinite, negative, excessive or clock-inconsistent exact-delta telemetry',()=>{
+ const before=atPriorRaf();
+ for(const value of [undefined,null,NaN,Infinity,-.0014,.1000000001,.03]){
+  const after=observedStep(before,1020,.02);(after.frame as unknown as Record<string,unknown>).deltaSeconds=value;after.frames=[structuredClone(after.frame)];
+  fail(()=>assertCoverTransfer(before,after,new Set()),value===.03?'simulation clock':'frame delta telemetry');
+ }
+ const missing=observedStep(before,1020,.02);delete(missing.frames[0]as unknown as Record<string,unknown>).deltaSeconds;
+ fail(()=>assertCoverTransfer(before,missing,new Set()),'public frame numbers');
+ const busy=observedStep(before,1020,.02);busy.frame.clock=before.frame.clock;busy.frame.frameCount=before.frame.frameCount;busy.frame.fpsTimer=before.frame.fpsTimer;busy.frames=[structuredClone(busy.frame)];
+ fail(()=>assertCoverTransfer(before,busy,new Set()),'simulation clock');
 });
