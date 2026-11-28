@@ -35,6 +35,59 @@ jobs:
         with:
           node-version: 20
           cache: npm
+      - name: Bind E2E to the actual checkout
+        shell: bash
+        env:
+          CI: "true"
+          E2E_SHARD: ${{ matrix.shard }}/4
+        run: |
+          set -euo pipefail
+          : "${GITHUB_ENV:?}" "${RUNNER_TEMP:?}" "${GITHUB_WORKSPACE:?}"
+          tested_sha="$(git rev-parse --verify HEAD)"
+          tested_tree="$(git rev-parse --verify 'HEAD^{tree}')"
+          [[ "$tested_sha" =~ ^[0-9a-f]{40}$ && "$tested_tree" =~ ^[0-9a-f]{40}$ ]]
+          test "$(git cat-file -t "$tested_sha")" = commit
+          checkout_status="$(git status --porcelain --untracked-files=normal)"
+          test -z "$checkout_status"
+          TESTED_SOURCE_SHA="$tested_sha" TESTED_RUNTIME_REVISION="$tested_sha" TESTED_SOURCE_TREE="$tested_tree" node <<'NODE'
+          const fs = require('node:fs');
+          const path = require('node:path');
+          const crypto = require('node:crypto');
+          const { execFileSync } = require('node:child_process');
+          const sha = process.env.TESTED_SOURCE_SHA;
+          const tree = process.env.TESTED_SOURCE_TREE;
+          const git = (...args) => execFileSync('git', args, { encoding: 'utf8' }).trim();
+          if (!/^[0-9a-f]{40}$/.test(sha || '') || !/^[0-9a-f]{40}$/.test(tree || '') ||
+              process.env.TESTED_RUNTIME_REVISION !== sha || process.env.CI !== 'true' ||
+              git('rev-parse', '--verify', 'HEAD') !== sha || git('rev-parse', '--verify', 'HEAD^{tree}') !== tree ||
+              fs.realpathSync(git('rev-parse', '--show-toplevel')) !== fs.realpathSync(process.env.GITHUB_WORKSPACE)) {
+            throw new Error('E2E binding requires this fresh actual checkout');
+          }
+          const config = fs.readFileSync('apps/web/playwright.config.ts', 'utf8');
+          const command = 'npx vite build && npx vite preview --port ${PORT} --strictPort --host 127.0.0.1';
+          if (!config.includes('command: `' + command + '`') || !config.includes('reuseExistingServer: !process.env.CI')) {
+            throw new Error('Review the same-checkout CI build/preview contract before binding runtime');
+          }
+          const evidence = {
+            actualCheckoutSHA: sha,
+            actualCheckoutTree: tree,
+            actualCheckoutParents: git('show', '-s', '--format=%P', sha).split(' ').filter(Boolean),
+            testedSourceSHA: sha,
+            expectedRuntimeSourceRevision: sha,
+            githubSHAInformationalOnly: process.env.GITHUB_SHA || null,
+            shard: process.env.E2E_SHARD,
+            nodeVersion: process.version,
+            playwrightConfigSHA256: crypto.createHash('sha256').update(config).digest('hex'),
+            runtimeBindingBasis: 'CI Playwright builds and previews from this checkout; CI disables existing-server reuse. This records the source contract, not independently observed HTTP bytes or native parity.',
+          };
+          const destination = path.join(process.env.RUNNER_TEMP, 'e2e-source-binding.json');
+          fs.writeFileSync(destination, JSON.stringify(evidence, null, 2) + '\n', { flag: 'wx' });
+          console.log(JSON.stringify(evidence));
+          NODE
+          test "$(git rev-parse --verify HEAD)" = "$tested_sha"
+          checkout_status="$(git status --porcelain --untracked-files=normal)"
+          test -z "$checkout_status"
+          printf 'TESTED_SOURCE_SHA=%s\nTESTED_RUNTIME_REVISION=%s\n' "$tested_sha" "$tested_sha" >> "$GITHUB_ENV"
       - run: npm ci
       - name: Install Playwright Chromium
         run: npx playwright install --with-deps chromium
@@ -52,6 +105,7 @@ jobs:
             screenshots
             apps/web/playwright-report
             apps/web/test-results
+            ${{ runner.temp }}/e2e-source-binding.json
           if-no-files-found: ignore
 
   # Keep the existing required check dependent on every code and browser job.
