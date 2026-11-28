@@ -775,7 +775,9 @@ export class Game {
   private requestFrame(): number {
     const frame = (now: number) => {
       if (!this.running) return;
-      const dt = Math.min(0.1, (now - this.lastTime) / 1000);
+      // Input resume can sample performance.now() after this RAF's timestamp.
+      // Keep the frame/input/render path, but never run simulation time backward.
+      const dt = Math.max(0, Math.min(0.1, (now - this.lastTime) / 1000));
       this.lastTime = now; this.tick(dt);
       if (this.running) this.frameRequest = requestAnimationFrame(frame);
     };

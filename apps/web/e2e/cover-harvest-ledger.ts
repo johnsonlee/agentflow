@@ -96,7 +96,9 @@ function publicTransitions(before:CoverSnapshot,after:CoverSnapshot,allowed:Read
     // resumeInput can reset lastTime BETWEEN observed RAFs. Only clock += dt
     // exposes the actual simulated interval; the RAF gap is an upper bound.
     const dt=frame.clock-previous.clock,rafGap=(frame.rafTime-previous.rafTime)/1000;
-    requireThat(dt>0&&dt<=.1+1e-8&&rafGap>0&&dt<=rafGap+1e-8,'missing/duplicate/out-of-order Game frame or invalid simulation clock');
+    // A real RAF may clamp an ahead-of-RAF resume timestamp to zero. It still
+    // has a new observer sequence/frame counter and may perform eligible pickup.
+    requireThat(dt>=0&&dt<=.1+1e-8&&rafGap>0&&dt<=rafGap+1e-8,'missing/duplicate/out-of-order Game frame or invalid simulation clock');
     // Subtracting cumulative clock values can round an exact .1 below .1.
     // Bind the observed reset branch, with the existing numerical tolerance,
     // instead of inventing a branch from that rounded subtraction.

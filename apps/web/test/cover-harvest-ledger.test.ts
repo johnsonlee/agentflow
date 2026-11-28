@@ -157,12 +157,42 @@ it('accepts ordinary, FPS-counter-reset and .1-clamped observed simulation inter
  const clamped=atPriorRaf();assertCoverTransfer(clamped,observedStep(clamped,1200,.100),new Set());
  const exactReset=atPriorRaf();exactReset.frame.fpsTimer=.9;assertCoverTransfer(exactReset,observedStep(exactReset,1200,.100),new Set());
 });
-it('rejects zero, decreasing, nonfinite, excessive or RAF-exceeding simulation-clock evidence without weakening frame guards',()=>{
- for(const value of [0,-.01,NaN,.101,.021]){
+it('rejects decreasing, nonfinite, excessive or RAF-exceeding simulation-clock evidence without weakening frame guards',()=>{
+ for(const value of [-.01,NaN,.101,.021]){
   const before=atPriorRaf(),after=observedStep(before,1020,.010);after.frame.clock=before.frame.clock+value;after.frames=[structuredClone(after.frame)];
   fail(()=>assertCoverTransfer(before,after,new Set()),value!==value?'invalid public frame numbers':'simulation clock');
  }
  const before=atPriorRaf(),counter=observedStep(before,1020,.010);counter.frame.frameCount++;counter.frames=[structuredClone(counter.frame)];fail(()=>assertCoverTransfer(before,counter,new Set()),'counter evidence');
  const timer=observedStep(before,1020,.010);timer.frame.fpsTimer+=.01;timer.frames=[structuredClone(timer.frame)];fail(()=>assertCoverTransfer(before,timer,new Set()),'counter evidence');
  const stale=observedStep(before,1020,.010,{x:-61.5,y:32,z:-59.5});stale.body=structuredClone(before.body);fail(()=>assertCoverTransfer(before,stale,new Set()),'body/frame');
+});
+
+it('accepts a genuinely zero-time RAF without advancing public drop motion, age or delay',()=>{
+ const before=atPriorRaf(),after=observedStep(before,1020,0);
+ expect(after.frame.clock).toBe(before.frame.clock);
+ expect(after.frame.frameCount).toBe(before.frame.frameCount+1);
+ expect(after.frame.fpsTimer).toBe(before.frame.fpsTimer);
+ expect(after.ground).toEqual(before.ground);
+ assertCoverTransfer(before,after,new Set());assertCoverInput(after,new Set(),COVER_PLAN[0]);
+});
+it('allows an already eligible public pickup on a zero-time frame, but not a delayed pickup or unearned material',()=>{
+ const before=withGround([record(1)]),after=observedStep(before,20,0);
+ expect(after.ground.records).toEqual([]);
+ expect(after.inventory.slots.some(s=>s?.id===blockId('dirt')&&s.count===1)).toBe(true);
+ assertCoverTransfer(before,after,new Set());
+ const delayed=withGround([record(1,undefined,10)]),stolen=observedStep(delayed,20,0);
+ stolen.ground.records=[];stolen.inventory.slots[5]={id:blockId('dirt'),count:1};sync(stolen);
+ fail(()=>assertCoverTransfer(delayed,stolen,new Set()),'public ground');
+ const surplus=observedStep(before,20,0);surplus.inventory.slots[5]={id:blockId('dirt'),count:2};sync(surplus);
+ fail(()=>assertCoverTransfer(before,surplus,new Set()),'pickup/bag');
+});
+it('zero simulated time still refuses duplicate/missing frames, counter/timer changes, source changes and owner motion',()=>{
+ const before=atPriorRaf();
+ const duplicate=observedStep(before,1000,0);fail(()=>assertCoverTransfer(before,duplicate,new Set()),'simulation clock');
+ const missing=observedStep(before,1020,0);missing.frames=[];fail(()=>assertCoverTransfer(before,missing,new Set()),'final public frame');
+ const gap=observedStep(before,1020,0);gap.frame.sequence++;sync(gap);fail(()=>assertCoverTransfer(before,gap,new Set()),'observer sequence');
+ const counter=observedStep(before,1020,0);counter.frame.frameCount=before.frame.frameCount;sync(counter);fail(()=>assertCoverTransfer(before,counter,new Set()),'counter evidence');
+ const timer=observedStep(before,1020,0);timer.frame.fpsTimer+=.01;sync(timer);fail(()=>assertCoverTransfer(before,timer,new Set()),'counter evidence');
+ const source=observedStep(before,1020,0);source.frame.planned[0].id=0;source.frames=[structuredClone(source.frame)];fail(()=>assertCoverTransfer(before,source,new Set()),'per-frame mutation');
+ const moved=observedStep(before,1020,0);moved.ground.records[0].position.x+=1;sync(moved);fail(()=>assertCoverTransfer(before,moved,new Set()),'public ground motion');
 });

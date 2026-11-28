@@ -44,3 +44,35 @@ it("a post-attachment render failure refuses before writer publication and clean
 
 it("commit tests destination readiness at its current body rather than an earlier prepared camera",()=>{const old=game();saveProbe(old);old.paused=true;const p=prepare();saveProbe(p);expect(p.prepareFrame()).toBe(true);h.readyCameraX=p.body.position.x;p.body.position.x+=160;expect(p.commitPrepared(old)).toBe(false);expect(old.save()).toBe(true);expect(p.save()).toBe(false);h.readyCameraX=null;expect(p.prepareFrame()).toBe(true);expect(p.commitPrepared(old)).toBe(true);});
 it("callback movement of a prepared body invalidates handoff before writer publication",()=>{const old=game();saveProbe(old);old.paused=true;const p=prepare();saveProbe(p);expect(p.prepareFrame()).toBe(true);h.readyCameraX=p.body.position.x;const append=host.appendChild;host.appendChild=function(e){p.body.position.x+=160;return append.call(this,e);};expect(p.commitPrepared(old)).toBe(false);expect(old.save()).toBe(true);expect(p.save()).toBe(false);expect(host.children).toHaveLength(1);});
+
+// Exercise the actual Game start/resume/requestFrame methods. Only tick is observed:
+// rendering/world simulation are outside this scheduling regression's proof boundary.
+function scheduledGame() {
+ const callbacks:FrameRequestCallback[]=[];
+ vi.stubGlobal("requestAnimationFrame",vi.fn((callback:FrameRequestCallback)=>{callbacks.push(callback);return ++h.frames;}));
+ const now=vi.spyOn(performance,"now");
+ const g=game(),intervals:number[]=[];
+ vi.spyOn(g as unknown as {tick(dt:number):void},"tick").mockImplementation(dt=>{intervals.push(dt);});
+ const fire=(time:number)=>{const callback=callbacks.shift();expect(callback).toBeDefined();callback!(time);};
+ return{g,now,intervals,callbacks,fire};
+}
+it("actual Game RAF clamps the retained negative chat-resume interval to zero and continues the next frame",()=>{
+ const s=scheduledGame();s.now.mockReturnValue(11986.7);s.g.start();s.fire(12003.4);
+ expect(s.intervals[0]).toBeCloseTo(.0167,12);
+ s.now.mockReturnValue(12021.5);
+ (s.g as unknown as {resumeInput():void}).resumeInput();
+ expect((12020.1-12021.5)/1000).toBeCloseTo(-.0014,12);
+ s.fire(12020.1);expect(s.intervals[1]).toBe(0);
+ expect(s.callbacks).toHaveLength(1);
+ s.fire(12036.8);expect(s.intervals[2]).toBeCloseTo(.0167,12);
+ expect(s.intervals.every(dt=>dt>=0&&dt<=.1)).toBe(true);
+});
+it("actual Game start and public resume bound early, equal and long-gap RAF timestamps without duplicating scheduling",()=>{
+ const s=scheduledGame();s.now.mockReturnValue(1010);s.g.start();s.g.start();
+ expect(s.callbacks).toHaveLength(1);
+ s.fire(1000);s.fire(1000);s.fire(1500);
+ expect(s.intervals).toEqual([0,0,.1]);
+ s.now.mockReturnValue(1521);s.g.resume();s.fire(1520);
+ expect(s.intervals[3]).toBe(0);expect(s.callbacks).toHaveLength(1);
+ s.fire(1540);expect(s.intervals[4]).toBeCloseTo(.020,12);
+});
